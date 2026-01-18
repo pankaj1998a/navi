@@ -1,6 +1,6 @@
-# OpenCode Desktop
+# Navi Desktop
 
-Native OpenCode desktop app, built with Tauri v2.
+Native Navi desktop app, built with Tauri v2.
 
 ## Development
 

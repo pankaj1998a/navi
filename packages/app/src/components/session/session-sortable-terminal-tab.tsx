@@ -1,7 +1,7 @@
 import type { JSX } from "solid-js"
 import { createSortable } from "@thisbeyond/solid-dnd"
-import { IconButton } from "@opencode-ai/ui/icon-button"
-import { Tabs } from "@opencode-ai/ui/tabs"
+import { IconButton } from "@navi-ai/ui/icon-button"
+import { Tabs } from "@navi-ai/ui/tabs"
 import { useTerminal, type LocalPTY } from "@/context/terminal"
 
 export function SortableTerminalTab(props: { terminal: LocalPTY }): JSX.Element {

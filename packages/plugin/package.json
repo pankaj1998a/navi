@@ -1,6 +1,6 @@
 {
   "$schema": "https://json.schemastore.org/package.json",
-  "name": "@opencode-ai/plugin",
+  "name": "@navi-ai/plugin",
   "version": "1.1.17",
   "type": "module",
   "license": "MIT",
@@ -16,7 +16,7 @@
     "dist"
   ],
   "dependencies": {
-    "@opencode-ai/sdk": "workspace:*",
+    "@navi-ai/sdk": "workspace:*",
     "zod": "catalog:"
   },
   "devDependencies": {

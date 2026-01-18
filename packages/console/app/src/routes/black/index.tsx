@@ -61,7 +61,7 @@ export default function Black() {
 
   return (
     <div data-page="black">
-      <Title>opencode</Title>
+      <Title>navi</Title>
       <div data-component="header-gradient" />
       <header data-component="header">
         <div data-component="header-logo">

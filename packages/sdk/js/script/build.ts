@@ -1,6 +1,7 @@
 #!/usr/bin/env bun
 
-const dir = new URL("..", import.meta.url).pathname
+import { fileURLToPath } from "url"
+const dir = fileURLToPath(new URL("..", import.meta.url))
 process.chdir(dir)
 
 import { $ } from "bun"
@@ -8,7 +9,10 @@ import path from "path"
 
 import { createClient } from "@hey-api/openapi-ts"
 
-await $`bun dev generate > ${dir}/openapi.json`.cwd(path.resolve(dir, "../../opencode"))
+// await $`bun dev generate > ${dir}/openapi.json`.cwd(path.resolve(dir, "../../navi"))
+// await $`cp ../openapi.json ${dir}/openapi.json`
+import fs from "fs"
+fs.copyFileSync(path.resolve(dir, "../openapi.json"), path.join(dir, "openapi.json"))
 
 await createClient({
   input: "./openapi.json",
@@ -24,7 +28,7 @@ await createClient({
     },
     {
       name: "@hey-api/sdk",
-      instance: "OpencodeClient",
+      instance: "NaviClient",
       exportFromIndex: false,
       auth: false,
       paramsStructure: "flat",
@@ -37,8 +41,7 @@ await createClient({
   ],
 })
 
-await $`bun prettier --write src/gen`
-await $`bun prettier --write src/v2`
-await $`rm -rf dist`
-await $`bun tsc`
-await $`rm openapi.json`
+await $`${process.argv[0]} prettier --write src/v2`
+await fs.promises.rm("dist", { recursive: true, force: true })
+await $`${process.argv[0]} tsc`
+await fs.promises.unlink("openapi.json")

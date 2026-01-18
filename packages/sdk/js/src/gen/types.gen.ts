@@ -1201,7 +1201,7 @@ export type Config = {
     diff_style?: "auto" | "stacked"
   }
   /**
-   * Command configuration, see https://opencode.ai/docs/commands
+   * Command configuration, see https://navi.ai/docs/commands
    */
   command?: {
     [key: string]: {
@@ -1258,7 +1258,7 @@ export type Config = {
     [key: string]: AgentConfig | undefined
   }
   /**
-   * Agent configuration, see https://opencode.ai/docs/agent
+   * Agent configuration, see https://navi.ai/docs/agent
    */
   agent?: {
     plan?: AgentConfig
@@ -1369,6 +1369,9 @@ export type Config = {
      * Tools that should only be available to primary agents.
      */
     primary_tools?: Array<string>
+    dynamic_context_pruning?: boolean
+    aggressive_truncation?: boolean
+    auto_resume?: boolean
   }
 }
 

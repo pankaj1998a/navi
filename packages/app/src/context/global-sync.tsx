@@ -17,15 +17,15 @@ import {
   type VcsInfo,
   type PermissionRequest,
   createOpencodeClient,
-} from "@opencode-ai/sdk/v2/client"
+} from "@navi-ai/sdk/v2/client"
 import { createStore, produce, reconcile } from "solid-js/store"
-import { Binary } from "@opencode-ai/util/binary"
-import { retry } from "@opencode-ai/util/retry"
+import { Binary } from "@navi-ai/util/binary"
+import { retry } from "@navi-ai/util/retry"
 import { useGlobalSDK } from "./global-sdk"
 import { ErrorPage, type InitError } from "../pages/error"
 import { batch, createContext, useContext, onCleanup, onMount, type ParentProps, Switch, Match } from "solid-js"
-import { showToast } from "@opencode-ai/ui/toast"
-import { getFilename } from "@opencode-ai/util/path"
+import { showToast } from "@navi-ai/ui/toast"
+import { getFilename } from "@navi-ai/util/path"
 import { usePlatform } from "./platform"
 
 type State = {
@@ -433,7 +433,7 @@ function createGlobalSync() {
         globalSDK.client.project.list().then(async (x) => {
           const projects = (x.data ?? [])
             .filter((p) => !!p?.id)
-            .filter((p) => !!p.worktree && !p.worktree.includes("opencode-test"))
+            .filter((p) => !!p.worktree && !p.worktree.includes("navi-test"))
             .slice()
             .sort((a, b) => a.id.localeCompare(b.id))
           setGlobalStore("project", projects)

@@ -3,7 +3,7 @@ import { ComponentProps, createEffect, createSignal, onCleanup, onMount, splitPr
 import { useSDK } from "@/context/sdk"
 import { SerializeAddon } from "@/addons/serialize"
 import { LocalPTY } from "@/context/terminal"
-import { resolveThemeVariant, useTheme, withAlpha, type HexColor } from "@opencode-ai/ui/theme"
+import { resolveThemeVariant, useTheme, withAlpha, type HexColor } from "@navi-ai/ui/theme"
 
 export interface TerminalProps extends ComponentProps<"div"> {
   pty: LocalPTY
@@ -102,7 +102,7 @@ export const Terminal = (props: TerminalProps) => {
 
     const url = new URL(sdk.url + `/pty/${local.pty.id}/connect?directory=${encodeURIComponent(sdk.directory)}`)
     if (window.__OPENCODE__?.serverPassword) {
-      url.username = "opencode"
+      url.username = "navi"
       url.password = window.__OPENCODE__?.serverPassword
     }
     const socket = new WebSocket(url)

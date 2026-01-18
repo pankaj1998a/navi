@@ -1,5 +1,5 @@
 {
-  "name": "@opencode-ai/desktop",
+  "name": "@navi-ai/desktop",
   "private": true,
   "version": "1.1.17",
   "type": "module",
@@ -13,8 +13,8 @@
     "tauri": "tauri"
   },
   "dependencies": {
-    "@opencode-ai/app": "workspace:*",
-    "@opencode-ai/ui": "workspace:*",
+    "@navi-ai/app": "workspace:*",
+    "@navi-ai/ui": "workspace:*",
     "@solid-primitives/storage": "catalog:",
     "@tauri-apps/api": "^2",
     "@tauri-apps/plugin-dialog": "~2",

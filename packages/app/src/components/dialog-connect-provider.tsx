@@ -1,16 +1,16 @@
-import type { ProviderAuthAuthorization } from "@opencode-ai/sdk/v2/client"
-import { Button } from "@opencode-ai/ui/button"
-import { useDialog } from "@opencode-ai/ui/context/dialog"
-import { Dialog } from "@opencode-ai/ui/dialog"
-import { Icon } from "@opencode-ai/ui/icon"
-import { IconButton } from "@opencode-ai/ui/icon-button"
-import type { IconName } from "@opencode-ai/ui/icons/provider"
-import { List, type ListRef } from "@opencode-ai/ui/list"
-import { ProviderIcon } from "@opencode-ai/ui/provider-icon"
-import { Spinner } from "@opencode-ai/ui/spinner"
-import { TextField } from "@opencode-ai/ui/text-field"
-import { showToast } from "@opencode-ai/ui/toast"
-import { iife } from "@opencode-ai/util/iife"
+import type { ProviderAuthAuthorization } from "@navi-ai/sdk/v2/client"
+import { Button } from "@navi-ai/ui/button"
+import { useDialog } from "@navi-ai/ui/context/dialog"
+import { Dialog } from "@navi-ai/ui/dialog"
+import { Icon } from "@navi-ai/ui/icon"
+import { IconButton } from "@navi-ai/ui/icon-button"
+import type { IconName } from "@navi-ai/ui/icons/provider"
+import { List, type ListRef } from "@navi-ai/ui/list"
+import { ProviderIcon } from "@navi-ai/ui/provider-icon"
+import { Spinner } from "@navi-ai/ui/spinner"
+import { TextField } from "@navi-ai/ui/text-field"
+import { showToast } from "@navi-ai/ui/toast"
+import { iife } from "@navi-ai/util/iife"
 import { createMemo, Match, onCleanup, onMount, Switch } from "solid-js"
 import { createStore, produce } from "solid-js/store"
 import { Link } from "@/components/link"
@@ -224,10 +224,10 @@ export function DialogConnectProvider(props: { provider: string }) {
                 return (
                   <div class="flex flex-col gap-6">
                     <Switch>
-                      <Match when={provider().id === "opencode"}>
+                      <Match when={provider().id === "navi"}>
                         <div class="flex flex-col gap-4">
                           <div class="text-14-regular text-text-base">
-                            OpenCode Zen gives you access to a curated set of reliable optimized models for coding
+                            Navi Zen gives you access to a curated set of reliable optimized models for coding
                             agents.
                           </div>
                           <div class="text-14-regular text-text-base">
@@ -235,8 +235,8 @@ export function DialogConnectProvider(props: { provider: string }) {
                           </div>
                           <div class="text-14-regular text-text-base">
                             Visit{" "}
-                            <Link href="https://opencode.ai/zen" tabIndex={-1}>
-                              opencode.ai/zen
+                            <Link href="https://navi.ai/zen" tabIndex={-1}>
+                              navi.ai/zen
                             </Link>{" "}
                             to collect your API key.
                           </div>
@@ -245,7 +245,7 @@ export function DialogConnectProvider(props: { provider: string }) {
                       <Match when={true}>
                         <div class="text-14-regular text-text-base">
                           Enter your {provider().name} API key to connect your account and use {provider().name} models
-                          in OpenCode.
+                          in Navi.
                         </div>
                       </Match>
                     </Switch>
@@ -313,7 +313,7 @@ export function DialogConnectProvider(props: { provider: string }) {
                       <div class="flex flex-col gap-6">
                         <div class="text-14-regular text-text-base">
                           Visit <Link href={store.authorization!.url}>this link</Link> to collect your authorization
-                          code to connect your account and use {provider().name} models in OpenCode.
+                          code to connect your account and use {provider().name} models in Navi.
                         </div>
                         <form onSubmit={handleSubmit} class="flex flex-col items-start gap-4">
                           <TextField
@@ -362,7 +362,7 @@ export function DialogConnectProvider(props: { provider: string }) {
                       <div class="flex flex-col gap-6">
                         <div class="text-14-regular text-text-base">
                           Visit <Link href={store.authorization!.url}>this link</Link> and enter the code below to
-                          connect your account and use {provider().name} models in OpenCode.
+                          connect your account and use {provider().name} models in Navi.
                         </div>
                         <TextField label="Confirmation code" class="font-mono" value={code()} readOnly copyable />
                         <div class="text-14-regular text-text-base flex items-center gap-4">

@@ -1,6 +1,6 @@
 // @refresh reload
 import { render } from "solid-js/web"
-import { AppBaseProviders, AppInterface, PlatformProvider, Platform } from "@opencode-ai/app"
+import { AppBaseProviders, AppInterface, PlatformProvider, Platform } from "@navi-ai/app"
 import { open, save } from "@tauri-apps/plugin-dialog"
 import { open as shellOpen } from "@tauri-apps/plugin-shell"
 import { type as ostype } from "@tauri-apps/plugin-os"
@@ -12,7 +12,7 @@ import { relaunch } from "@tauri-apps/plugin-process"
 import { AsyncStorage } from "@solid-primitives/storage"
 import { fetch as tauriFetch } from "@tauri-apps/plugin-http"
 import { Store } from "@tauri-apps/plugin-store"
-import { Logo } from "@opencode-ai/ui/logo"
+import { Logo } from "@navi-ai/ui/logo"
 import { createSignal, Show, Accessor, JSX, createResource } from "solid-js"
 
 import { UPDATER_ENABLED } from "./updater"
@@ -237,7 +237,7 @@ const createPlatform = (password: Accessor<string | null>): Platform => ({
       .then(() => {
         const notification = new Notification(title, {
           body: description ?? "",
-          icon: "https://opencode.ai/favicon-96x96.png",
+          icon: "https://navi.ai/favicon-96x96.png",
         })
         notification.onclick = () => {
           const win = getCurrentWindow()
@@ -259,7 +259,7 @@ const createPlatform = (password: Accessor<string | null>): Platform => ({
     const pw = password()
 
     const addHeader = (headers: Headers, password: string) => {
-      headers.append("Authorization", `Basic ${btoa(`opencode:${password}`)}`)
+      headers.append("Authorization", `Basic ${btoa(`navi:${password}`)}`)
     }
 
     if (input instanceof Request) {

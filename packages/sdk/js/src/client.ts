@@ -2,10 +2,12 @@ export * from "./gen/types.gen.js"
 
 import { createClient } from "./gen/client/client.gen.js"
 import { type Config } from "./gen/client/types.gen.js"
-import { OpencodeClient } from "./gen/sdk.gen.js"
-export { type Config as OpencodeClientConfig, OpencodeClient }
+import { OpencodeClient as NaviClient } from "./gen/sdk.gen.js"
+export { type Config as NaviClientConfig, NaviClient }
+// Backward compatibility
+export { type Config as OpencodeClientConfig, NaviClient as OpencodeClient }
 
-export function createOpencodeClient(config?: Config & { directory?: string }) {
+export function createNaviClient(config?: Config & { directory?: string }) {
   if (!config?.fetch) {
     const customFetch: any = (req: any) => {
       // @ts-ignore
@@ -21,10 +23,12 @@ export function createOpencodeClient(config?: Config & { directory?: string }) {
   if (config?.directory) {
     config.headers = {
       ...config.headers,
-      "x-opencode-directory": config.directory,
+      "x-navi-directory": config.directory,
     }
   }
 
   const client = createClient(config)
-  return new OpencodeClient({ client })
+  return new NaviClient({ client })
 }
+
+export const createOpencodeClient = createNaviClient

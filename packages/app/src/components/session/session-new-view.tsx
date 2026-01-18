@@ -1,9 +1,9 @@
 import { Show, createMemo } from "solid-js"
 import { DateTime } from "luxon"
 import { useSync } from "@/context/sync"
-import { Icon } from "@opencode-ai/ui/icon"
-import { getDirectory, getFilename } from "@opencode-ai/util/path"
-import { Select } from "@opencode-ai/ui/select"
+import { Icon } from "@navi-ai/ui/icon"
+import { getDirectory, getFilename } from "@navi-ai/util/path"
+import { Select } from "@navi-ai/ui/select"
 
 const MAIN_WORKTREE = "main"
 const CREATE_WORKTREE = "create"

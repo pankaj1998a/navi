@@ -1,6 +1,6 @@
 import { createMemo, Show } from "solid-js"
 import { useSync } from "@/context/sync"
-import { Tooltip } from "@opencode-ai/ui/tooltip"
+import { Tooltip } from "@navi-ai/ui/tooltip"
 
 export function SessionLspIndicator() {
   const sync = useSync()

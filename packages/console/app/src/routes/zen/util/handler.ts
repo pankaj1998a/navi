@@ -1,18 +1,18 @@
 import type { APIEvent } from "@solidjs/start/server"
-import { and, Database, eq, isNull, lt, or, sql } from "@opencode-ai/console-core/drizzle/index.js"
-import { KeyTable } from "@opencode-ai/console-core/schema/key.sql.js"
-import { BillingTable, SubscriptionTable, UsageTable } from "@opencode-ai/console-core/schema/billing.sql.js"
-import { centsToMicroCents } from "@opencode-ai/console-core/util/price.js"
-import { getWeekBounds } from "@opencode-ai/console-core/util/date.js"
-import { Identifier } from "@opencode-ai/console-core/identifier.js"
-import { Billing } from "@opencode-ai/console-core/billing.js"
-import { Actor } from "@opencode-ai/console-core/actor.js"
-import { WorkspaceTable } from "@opencode-ai/console-core/schema/workspace.sql.js"
-import { ZenData } from "@opencode-ai/console-core/model.js"
-import { BlackData } from "@opencode-ai/console-core/black.js"
-import { UserTable } from "@opencode-ai/console-core/schema/user.sql.js"
-import { ModelTable } from "@opencode-ai/console-core/schema/model.sql.js"
-import { ProviderTable } from "@opencode-ai/console-core/schema/provider.sql.js"
+import { and, Database, eq, isNull, lt, or, sql } from "@navi-ai/console-core/drizzle/index.js"
+import { KeyTable } from "@navi-ai/console-core/schema/key.sql.js"
+import { BillingTable, SubscriptionTable, UsageTable } from "@navi-ai/console-core/schema/billing.sql.js"
+import { centsToMicroCents } from "@navi-ai/console-core/util/price.js"
+import { getWeekBounds } from "@navi-ai/console-core/util/date.js"
+import { Identifier } from "@navi-ai/console-core/identifier.js"
+import { Billing } from "@navi-ai/console-core/billing.js"
+import { Actor } from "@navi-ai/console-core/actor.js"
+import { WorkspaceTable } from "@navi-ai/console-core/schema/workspace.sql.js"
+import { ZenData } from "@navi-ai/console-core/model.js"
+import { BlackData } from "@navi-ai/console-core/black.js"
+import { UserTable } from "@navi-ai/console-core/schema/user.sql.js"
+import { ModelTable } from "@navi-ai/console-core/schema/model.sql.js"
+import { ProviderTable } from "@navi-ai/console-core/schema/provider.sql.js"
 import { logger } from "./logger"
 import {
   AuthError,
@@ -55,7 +55,7 @@ export async function handler(
   const MAX_RETRIES = 3
   const FREE_WORKSPACES = [
     "wrk_01K46JDFR0E75SG2Q8K172KF3Y", // frank
-    "wrk_01K6W1A3VE0KMNVSCQT43BG2SX", // opencode bench
+    "wrk_01K6W1A3VE0KMNVSCQT43BG2SX", // navi bench
   ]
 
   try {
@@ -64,10 +64,10 @@ export async function handler(
     const model = opts.parseModel(url, body)
     const isStream = opts.parseIsStream(url, body)
     const ip = input.request.headers.get("x-real-ip") ?? ""
-    const sessionId = input.request.headers.get("x-opencode-session") ?? ""
-    const requestId = input.request.headers.get("x-opencode-request") ?? ""
-    const projectId = input.request.headers.get("x-opencode-project") ?? ""
-    const ocClient = input.request.headers.get("x-opencode-client") ?? ""
+    const sessionId = input.request.headers.get("x-navi-session") ?? ""
+    const requestId = input.request.headers.get("x-navi-request") ?? ""
+    const projectId = input.request.headers.get("x-navi-project") ?? ""
+    const ocClient = input.request.headers.get("x-navi-client") ?? ""
     logger.metric({
       is_tream: isStream,
       session: sessionId,
@@ -120,10 +120,10 @@ export async function handler(
           })
           headers.delete("host")
           headers.delete("content-length")
-          headers.delete("x-opencode-request")
-          headers.delete("x-opencode-session")
-          headers.delete("x-opencode-project")
-          headers.delete("x-opencode-client")
+          headers.delete("x-navi-request")
+          headers.delete("x-navi-session")
+          headers.delete("x-navi-project")
+          headers.delete("x-navi-client")
           return headers
         })(),
         body: reqBody,
@@ -525,11 +525,11 @@ export async function handler(
     const billing = authInfo.billing
     if (!billing.paymentMethodID)
       throw new CreditsError(
-        `No payment method. Add a payment method here: https://opencode.ai/workspace/${authInfo.workspaceID}/billing`,
+        `No payment method. Add a payment method here: https://navi.ai/workspace/${authInfo.workspaceID}/billing`,
       )
     if (billing.balance <= 0)
       throw new CreditsError(
-        `Insufficient balance. Manage your billing here: https://opencode.ai/workspace/${authInfo.workspaceID}/billing`,
+        `Insufficient balance. Manage your billing here: https://navi.ai/workspace/${authInfo.workspaceID}/billing`,
       )
 
     const now = new Date()
@@ -544,7 +544,7 @@ export async function handler(
       currentMonth === billing.timeMonthlyUsageUpdated.getUTCMonth()
     )
       throw new MonthlyLimitError(
-        `Your workspace has reached its monthly spending limit of $${billing.monthlyLimit}. Manage your limits here: https://opencode.ai/workspace/${authInfo.workspaceID}/billing`,
+        `Your workspace has reached its monthly spending limit of $${billing.monthlyLimit}. Manage your limits here: https://navi.ai/workspace/${authInfo.workspaceID}/billing`,
       )
 
     if (
@@ -556,7 +556,7 @@ export async function handler(
       currentMonth === authInfo.user.timeMonthlyUsageUpdated.getUTCMonth()
     )
       throw new UserLimitError(
-        `You have reached your monthly spending limit of $${authInfo.user.monthlyLimit}. Manage your limits here: https://opencode.ai/workspace/${authInfo.workspaceID}/members`,
+        `You have reached your monthly spending limit of $${authInfo.user.monthlyLimit}. Manage your limits here: https://navi.ai/workspace/${authInfo.workspaceID}/members`,
       )
   }
 

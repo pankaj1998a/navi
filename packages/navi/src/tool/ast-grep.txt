@@ -1,0 +1,53 @@
+Search codebase using AST (Abstract Syntax Tree) patterns. More precise than text search.
+
+WHEN TO USE:
+- Find specific code patterns (function calls, class definitions, imports)
+- Structural search that ignores formatting/whitespace
+- Find and optionally replace patterns across codebase
+
+LANGUAGE SUPPORT:
+TypeScript, JavaScript, Python, Go, Rust, Java, C, C++, Ruby, PHP, and more.
+
+PARAMETERS:
+- pattern: AST pattern to search for (see examples below)
+- language: Programming language (typescript, javascript, python, go, rust, java, c, cpp, ruby, php)
+- paths: Optional list of directories/files to search (default: current directory)
+- rewrite: Optional replacement pattern for find-and-replace
+- update_all: If true and rewrite is provided, apply changes to files
+
+PATTERN SYNTAX:
+- $VAR: Match any single AST node (capture as VAR)
+- $$$ARGS: Match zero or more arguments/items
+- Literal code: Match exact AST structure
+
+EXAMPLES:
+
+1. Find all console.log calls:
+   pattern: "console.log($$$ARGS)"
+   language: "typescript"
+
+2. Find React useState hooks:
+   pattern: "const [$STATE, $SETTER] = useState($$$INIT)"
+   language: "typescript"
+
+3. Find async functions:
+   pattern: "async function $NAME($$$PARAMS) { $$$BODY }"
+   language: "typescript"
+
+4. Find all imports from a module:
+   pattern: "import { $$$IMPORTS } from 'react'"
+   language: "typescript"
+
+5. Find function calls with specific argument count:
+   pattern: "fetch($URL, $OPTIONS)"
+   language: "javascript"
+
+6. Find and replace deprecated API:
+   pattern: "oldFunction($ARG)"
+   rewrite: "newFunction($ARG)"
+   update_all: true
+
+NOTE: Requires `sg` (ast-grep) to be installed. Install via:
+  - bun add -D @ast-grep/cli
+  - cargo install ast-grep --locked
+  - brew install ast-grep

@@ -1,113 +1,278 @@
 <p align="center">
-  <a href="https://opencode.ai">
-    <picture>
-      <source srcset="packages/console/app/src/asset/logo-ornate-dark.svg" media="(prefers-color-scheme: dark)">
-      <source srcset="packages/console/app/src/asset/logo-ornate-light.svg" media="(prefers-color-scheme: light)">
-      <img src="packages/console/app/src/asset/logo-ornate-light.svg" alt="OpenCode logo">
-    </picture>
-  </a>
+  <img src="docs/logo.png" alt="Navi logo" width="200">
 </p>
-<p align="center">The open source AI coding agent.</p>
+<h1 align="center">Navi</h1>
+<p align="center">The open-source AI coding IDE & CLI with parallel agent execution.</p>
 <p align="center">
-  <a href="https://opencode.ai/discord"><img alt="Discord" src="https://img.shields.io/discord/1391832426048651334?style=flat-square&label=discord" /></a>
-  <a href="https://www.npmjs.com/package/opencode-ai"><img alt="npm" src="https://img.shields.io/npm/v/opencode-ai?style=flat-square" /></a>
-  <a href="https://github.com/anomalyco/opencode/actions/workflows/publish.yml"><img alt="Build status" src="https://img.shields.io/github/actions/workflow/status/anomalyco/opencode/publish.yml?style=flat-square&branch=dev" /></a>
+  <a href="#installation"><strong>Installation</strong></a> •
+  <a href="#features"><strong>Features</strong></a> •
+  <a href="#parallel-agents"><strong>Parallel Agents</strong></a> •
+  <a href="#documentation"><strong>Docs</strong></a>
 </p>
 
-[![OpenCode Terminal UI](packages/web/src/assets/lander/screenshot.png)](https://opencode.ai)
+---
+
+## 🚀 What is Navi?
+
+Navi is a next-generation AI coding assistant that combines the best features from leading AI coding tools:
+
+- **OpenCode** - Base architecture, TUI framework, provider-agnostic design
+- **Claude Code** - Tool use patterns, file editing, terminal integration
+- **Gemini CLI** - Google Search grounding, checkpointing, custom commands
+- **Cline** - Browser automation (Computer Use), checkpoint restore
+- **Continue** - Cloud agents, IDE integration, Mission Control
+- **Amazon Q CLI / Kiro** - High-performance terminal patterns
+- **Qwen Code** - Plan mode, SubAgents system
+
+### Key Differentiators
+
+| Feature | Navi | Others |
+|---------|------|--------|
+| **Parallel Agent Execution** | ✅ Run multiple agents simultaneously | ❌ Sequential only |
+| **Provider Agnostic** | ✅ Claude, OpenAI, Gemini, local models | Varies |
+| **Browser Automation** | ✅ Click, type, scroll, screenshot | Some |
+| **Cloud Agents** | ✅ Background tasks, PR reviews | Some |
+| **Desktop + CLI + TUI** | ✅ All three interfaces | Varies |
 
 ---
 
-### Installation
+## Installation
+
+### Quick Install (NPM)
 
 ```bash
-# YOLO
-curl -fsSL https://opencode.ai/install | bash
+# Install globally via NPM
+npm install -g navi-ai-agent
 
-# Package managers
-npm i -g opencode-ai@latest        # or bun/pnpm/yarn
-scoop bucket add extras; scoop install extras/opencode  # Windows
-choco install opencode             # Windows
-brew install anomalyco/tap/opencode # macOS and Linux (recommended, always up to date)
-brew install opencode              # macOS and Linux (official brew formula, updated less)
-paru -S opencode-bin               # Arch Linux
-mise use -g opencode               # Any OS
-nix run nixpkgs#opencode           # or github:anomalyco/opencode for latest dev branch
+# Or with bun/pnpm/yarn
+bun add -g navi-ai-agent
+pnpm add -g navi-ai-agent
+yarn global add navi-ai-agent
 ```
 
-> [!TIP]
-> Remove versions older than 0.1.x before installing.
+### One-Click Installation (From Source)
 
-### Desktop App (BETA)
+If you have cloned the repository, you can use the automated installer:
 
-OpenCode is also available as a desktop application. Download directly from the [releases page](https://github.com/anomalyco/opencode/releases) or [opencode.ai/download](https://opencode.ai/download).
+#### Windows
+Run this in PowerShell:
+```powershell
+.\install.ps1
+```
 
-| Platform              | Download                              |
-| --------------------- | ------------------------------------- |
-| macOS (Apple Silicon) | `opencode-desktop-darwin-aarch64.dmg` |
-| macOS (Intel)         | `opencode-desktop-darwin-x64.dmg`     |
-| Windows               | `opencode-desktop-windows-x64.exe`    |
-| Linux                 | `.deb`, `.rpm`, or AppImage           |
+#### macOS / Linux
+Run this in your terminal:
+```bash
+chmod +x install.sh && ./install.sh
+```
+
+### 🔄 Update & Uninstall
+
+#### Update to latest version
+```powershell
+# Windows
+.\update.ps1
+
+# Mac/Linux
+./update.sh
+```
+
+#### Uninstall Navi
+```powershell
+# Windows
+.\uninstall.ps1
+
+# Mac/Linux
+./uninstall.sh
+```
+
+### Manual Installation (From Source)
+
+If you want to run the latest version directly from GitHub:
+
+1. **Clone the repository**:
+   ```bash
+   git clone https://github.com/pankaj/navi.git
+   cd navi
+   ```
+
+2. **Install dependencies** (requires [Bun](https://bun.sh)):
+   ```bash
+   bun install
+   ```
+
+3. **Link the command globally**:
+   ```bash
+   cd packages/navi
+   bun link
+   ```
+
+*Now you can run `navi` from any directory on your system!*
+
+### Windows One-Click Setup
+
+If you are on Windows, you can also use the included batch wrapper:
+
+1. Add the `navi` root folder to your **User PATH** environment variable.
+2. Restart your terminal.
+3. Type `navi` to start.
+
+### Environment Setup
+
+Create a `.env` file or set environment variables:
 
 ```bash
-# macOS (Homebrew)
-brew install --cask opencode-desktop
+# Required: Set your AI provider API key
+export GEMINI_API_KEY="your-api-key"
+# OR
+export ANTHROPIC_API_KEY="your-api-key"
+# OR
+export OPENAI_API_KEY="your-api-key"
 ```
 
-#### Installation Directory
+### Desktop App
 
-The install script respects the following priority order for the installation path:
+Download from the [releases page](https://github.com/pankaj/navi/releases):
 
-1. `$OPENCODE_INSTALL_DIR` - Custom installation directory
-2. `$XDG_BIN_DIR` - XDG Base Directory Specification compliant path
-3. `$HOME/bin` - Standard user binary directory (if exists or can be created)
-4. `$HOME/.opencode/bin` - Default fallback
-
-```bash
-# Examples
-OPENCODE_INSTALL_DIR=/usr/local/bin curl -fsSL https://opencode.ai/install | bash
-XDG_BIN_DIR=$HOME/.local/bin curl -fsSL https://opencode.ai/install | bash
-```
-
-### Agents
-
-OpenCode includes two built-in agents you can switch between with the `Tab` key.
-
-- **build** - Default, full access agent for development work
-- **plan** - Read-only agent for analysis and code exploration
-  - Denies file edits by default
-  - Asks permission before running bash commands
-  - Ideal for exploring unfamiliar codebases or planning changes
-
-Also, included is a **general** subagent for complex searches and multistep tasks.
-This is used internally and can be invoked using `@general` in messages.
-
-Learn more about [agents](https://opencode.ai/docs/agents).
-
-### Documentation
-
-For more info on how to configure OpenCode [**head over to our docs**](https://opencode.ai/docs).
-
-### Contributing
-
-If you're interested in contributing to OpenCode, please read our [contributing docs](./CONTRIBUTING.md) before submitting a pull request.
-
-### Building on OpenCode
-
-If you are working on a project that's related to OpenCode and is using "opencode" as a part of its name; for example, "opencode-dashboard" or "opencode-mobile", please add a note to your README to clarify that it is not built by the OpenCode team and is not affiliated with us in any way.
-
-### FAQ
-
-#### How is this different from Claude Code?
-
-It's very similar to Claude Code in terms of capability. Here are the key differences:
-
-- 100% open source
-- Not coupled to any provider. Although we recommend the models we provide through [OpenCode Zen](https://opencode.ai/zen); OpenCode can be used with Claude, OpenAI, Google or even local models. As models evolve the gaps between them will close and pricing will drop so being provider-agnostic is important.
-- Out of the box LSP support
-- A focus on TUI. OpenCode is built by neovim users and the creators of [terminal.shop](https://terminal.shop); we are going to push the limits of what's possible in the terminal.
-- A client/server architecture. This for example can allow OpenCode to run on your computer, while you can drive it remotely from a mobile app. Meaning that the TUI frontend is just one of the possible clients.
+| Platform | Download |
+|----------|----------|
+| Windows | `navi-desktop-windows-x64.exe` |
+| macOS (Apple Silicon) | `navi-desktop-darwin-aarch64.dmg` |
+| macOS (Intel) | `navi-desktop-darwin-x64.dmg` |
+| Linux | `.deb`, `.rpm`, or AppImage |
 
 ---
 
-**Join our community** [Discord](https://discord.gg/opencode) | [X.com](https://x.com/opencode)
+## Features
+
+### 🤖 Parallel Agent Execution
+
+Run multiple specialized agents simultaneously:
+
+```bash
+# Launch multiple agents in parallel
+> @code Fix the authentication bug
+> @docs Update the README  
+> @test Write unit tests for the new feature
+
+# All three agents work concurrently!
+```
+
+### 🧠 Built-in Agents
+
+- **build** - Full access agent for development work
+- **plan** - Read-only agent for analysis and planning
+- **general** - Complex searches and multi-step tasks
+- **explore** - Codebase exploration and understanding
+
+### 🔧 Claude Code Features
+
+- ✅ File editing with diffs
+- ✅ Terminal command execution
+- ✅ MCP (Model Context Protocol) support
+- ✅ Memory and context persistence
+- ✅ Tool use with parallel calls
+
+### 🌐 Browser Automation (from Cline)
+
+```bash
+> Test the login flow in the browser
+# Navi launches browser, clicks, types, captures screenshots
+```
+
+### 📝 Checkpointing (from Gemini CLI)
+
+```bash
+/checkpoint save "before-refactor"
+# ... make changes ...
+/checkpoint restore "before-refactor"
+```
+
+### ☁️ Cloud Agents (from Continue)
+
+Run agents in the background on:
+- PR opens
+- Scheduled times
+- Custom event triggers
+
+---
+
+## Parallel Agents
+
+Navi's killer feature is true parallel agent execution. Instead of waiting for one agent to finish before starting another, you can:
+
+1. **Launch multiple agents concurrently**
+2. **Each agent works independently**
+3. **Results merge seamlessly**
+
+### Example: Parallel Refactoring
+
+```
+User: Refactor the authentication module. Launch agents in parallel to:
+1. Update the backend auth logic
+2. Update the frontend auth components
+3. Update the tests
+4. Update the documentation
+
+Navi: Launching 4 agents in parallel...
+  @backend: Working on server/auth/...
+  @frontend: Working on client/components/auth/...
+  @test: Writing tests for auth module...
+  @docs: Updating AUTH.md...
+
+✅ All 4 agents completed in 45 seconds (vs ~3 minutes sequential)
+```
+
+### Configuration
+
+```yaml
+# .navi/config.yaml
+agents:
+  parallel:
+    max_concurrent: 4
+    timeout: 300
+```
+
+---
+
+## Provider Support
+
+Navi is provider-agnostic and supports:
+
+| Provider | Models |
+|----------|--------|
+| **Anthropic** | Claude 3.5 Sonnet, Claude 3 Opus |
+| **OpenAI** | GPT-4o, GPT-4 Turbo, o1 |
+| **Google** | Gemini 2.0 Flash, Gemini 1.5 Pro |
+| **Local** | Ollama, LM Studio, any OpenAI-compatible |
+| **AWS Bedrock** | Claude, Titan |
+| **Azure OpenAI** | GPT-4, GPT-3.5 |
+
+---
+
+## Documentation
+
+- [Getting Started](./docs/getting-started.md)
+- [Configuration](./docs/config.md)
+- [Agents](./docs/agents.md)
+- [Tools](./docs/tools.md)
+- [MCP Servers](./docs/mcp-servers.md)
+- [Parallel Execution](./docs/parallel.md)
+
+---
+
+## Contributing
+
+We welcome contributions! See [CONTRIBUTING.md](./CONTRIBUTING.md) for guidelines.
+
+---
+
+## License
+
+MIT License - see [LICENSE](./LICENSE)
+
+---
+
+<p align="center">
+  <strong>Navi</strong> - Navigate your code with AI
+</p>
