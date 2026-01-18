@@ -1,4 +1,4 @@
-import { createOpencodeClient } from "@navi-ai/sdk/v2/client"
+import { createnaviClient } from "@navi-ai/sdk/v2/client"
 import { createSimpleContext } from "@navi-ai/ui/context"
 import { batch, createEffect, createMemo, createSignal, onCleanup } from "solid-js"
 import { createStore } from "solid-js/store"
@@ -91,7 +91,7 @@ export const { use: useServer, provider: ServerProvider } = createSimpleContext(
     const [healthy, setHealthy] = createSignal<boolean | undefined>(undefined)
 
     const check = (url: string) => {
-      const sdk = createOpencodeClient({
+      const sdk = createnaviClient({
         baseUrl: url,
         fetch: platform.fetch,
         signal: AbortSignal.timeout(3000),

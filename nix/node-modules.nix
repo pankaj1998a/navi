@@ -10,7 +10,7 @@
 }:
 args:
 stdenvNoCC.mkDerivation {
-  pname = "opencode-node_modules";
+  pname = "navi-node_modules";
   inherit (args) version src;
 
   impureEnvVars = lib.fetchers.proxyImpureEnvVars ++ [

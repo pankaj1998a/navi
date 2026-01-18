@@ -66,7 +66,7 @@ export namespace Share {
   }
 
   export const URL =
-    process.env["OPENCODE_API"] ??
+    process.env["navi_API"] ??
     (Installation.isPreview() || Installation.isLocal() ? "https://api.dev.navi.ai" : "https://api.navi.ai")
 
   export async function create(sessionID: string) {

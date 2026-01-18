@@ -4,8 +4,8 @@
  * Provides Google OAuth authentication for accessing Google's Antigravity IDE
  * which grants access to advanced Gemini and Claude models with higher quotas.
  *
- * Based on opencode-antigravity-auth by NoeFabris
- * @see https://github.com/NoeFabris/opencode-antigravity-auth
+ * Based on navi-antigravity-auth by NoeFabris
+ * @see https://github.com/NoeFabris/navi-antigravity-auth
  */
 
 import type { Hooks, AuthHook, AuthOuathResult, PluginInput } from "@navi-ai/plugin"
@@ -18,7 +18,7 @@ import crypto from "crypto"
 
 const log = Log.create({ service: "antigravity" })
 
-// Antigravity OAuth configuration (from  opencode-antigravity-auth)
+// Antigravity OAuth configuration (from  navi-antigravity-auth)
 const ANTIGRAVITY_CLIENT_ID = "1071006060591-tmhssin2h21lcre235vtolojh4g403ep.apps.googleusercontent.com"
 const ANTIGRAVITY_CLIENT_SECRET = "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"
 const ANTIGRAVITY_REDIRECT_URI = "http://localhost:51121/oauth-callback"

@@ -1,4 +1,4 @@
-import { createOpencodeClient, type Event } from "@navi-ai/sdk/v2/client"
+import { createnaviClient, type Event } from "@navi-ai/sdk/v2/client"
 import { createSimpleContext } from "@navi-ai/ui/context"
 import { createGlobalEmitter } from "@solid-primitives/event-bus"
 import { onCleanup } from "solid-js"
@@ -10,7 +10,7 @@ export const { use: useSDK, provider: SDKProvider } = createSimpleContext({
   init: (props: { directory: string }) => {
     const platform = usePlatform()
     const globalSDK = useGlobalSDK()
-    const sdk = createOpencodeClient({
+    const sdk = createnaviClient({
       baseUrl: globalSDK.url,
       fetch: platform.fetch,
       directory: props.directory,

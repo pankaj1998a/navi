@@ -10,7 +10,7 @@
  * - TODO comments left by AI
  * - Comment-to-code ratio too high
  *
- * Ported from oh-my-opencode-dev plugin
+ * Ported from oh-my-navi-dev plugin
  */
 
 import type { Hooks } from "@navi-ai/plugin"

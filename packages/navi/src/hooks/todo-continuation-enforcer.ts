@@ -10,7 +10,7 @@
  * - Respects abort signals
  * - Skips planner agents
  *
- * Ported from oh-my-opencode-dev plugin
+ * Ported from oh-my-navi-dev plugin
  */
 
 import type { Hooks } from "@navi-ai/plugin"

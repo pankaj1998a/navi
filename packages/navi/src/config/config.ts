@@ -71,7 +71,7 @@ export namespace Config {
     }
 
     // Project config has highest precedence (overrides global and remote)
-    for (const file of ["navi.jsonc", "navi.json", "opencode.json", "oh-my-opencode.json"]) {
+    for (const file of ["navi.jsonc", "navi.json", "navi.json", "oh-my-navi.json"]) {
       const found = await Filesystem.findUp(file, Instance.directory, Instance.worktree)
       for (const resolved of found.toReversed()) {
         result = mergeConfigConcatArrays(result, await loadFile(resolved))
@@ -115,10 +115,10 @@ export namespace Config {
       if (
         dir.endsWith(".navi") ||
         dir.endsWith(".claude") ||
-        dir.endsWith(".opencode") ||
+        dir.endsWith(".navi") ||
         dir === Flag.NAVI_CONFIG_DIR
       ) {
-        for (const file of ["navi.jsonc", "navi.json", "opencode.json", "oh-my-opencode.json"]) {
+        for (const file of ["navi.jsonc", "navi.json", "navi.json", "oh-my-navi.json"]) {
           log.debug(`loading config from ${path.join(dir, file)}`)
           result = mergeConfigConcatArrays(result, await loadFile(path.join(dir, file)))
           // to satisfy the type checker

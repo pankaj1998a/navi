@@ -4,7 +4,7 @@
  * Structural code search using Abstract Syntax Trees.
  * More precise than text-based grep - matches actual code patterns.
  *
- * Ported from oh-my-opencode-dev plugin
+ * Ported from oh-my-navi-dev plugin
  */
 
 import { Tool } from "./tool"

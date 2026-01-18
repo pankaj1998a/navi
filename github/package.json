@@ -5,6 +5,7 @@
   "private": true,
   "license": "MIT",
   "devDependencies": {
+    "@octokit/webhooks-types": "7.6.1",
     "@types/bun": "catalog:"
   },
   "peerDependencies": {
@@ -15,6 +16,6 @@
     "@actions/github": "6.0.1",
     "@octokit/graphql": "9.0.1",
     "@octokit/rest": "catalog:",
-    "@opencode-ai/sdk": "workspace:*"
+    "@navi-ai/sdk": "workspace:*"
   }
 }

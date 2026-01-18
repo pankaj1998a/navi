@@ -6,7 +6,7 @@ import * as core from "@actions/core"
 import * as github from "@actions/github"
 import type { Context as GitHubContext } from "@actions/github/lib/context"
 import type { IssueCommentEvent, PullRequestReviewCommentEvent } from "@octokit/webhooks-types"
-import { createOpencodeClient } from "@opencode-ai/sdk"
+import { createNaviClient } from "@navi-ai/sdk"
 import { spawn } from "node:child_process"
 
 type GitHubAuthor = {
@@ -112,7 +112,7 @@ type IssueQueryResponse = {
   }
 }
 
-const { client, server } = createOpencode()
+const { client, server } = createNavi()
 let accessToken: string
 let octoRest: Octokit
 let octoGraph: typeof graphql
@@ -126,7 +126,7 @@ type PromptFiles = Awaited<ReturnType<typeof getUserPrompt>>["promptFiles"]
 try {
   assertContextEvent("issue_comment", "pull_request_review_comment")
   assertPayloadKeyword()
-  await assertOpencodeConnected()
+  await assertNaviConnected()
 
   accessToken = await getAccessToken()
   octoRest = new Octokit({ auth: accessToken })
@@ -141,7 +141,7 @@ try {
   const comment = await createComment()
   commentId = comment.data.id
 
-  // Setup opencode session
+  // Setup navi session
   const repoData = await fetchRepo()
   session = await client.session.create<true>().then((r) => r.data)
   await subscribeSessionEvents()
@@ -151,7 +151,7 @@ try {
     await client.session.share<true>({ path: session })
     return session.id.slice(-8)
   })()
-  console.log("opencode session", session.id)
+  console.log("Navi session", session.id)
   if (shareId) {
     console.log("Share link:", `${useShareUrl()}/s/${shareId}`)
   }
@@ -227,12 +227,12 @@ try {
 }
 process.exit(exitCode)
 
-function createOpencode() {
+function createNavi() {
   const host = "127.0.0.1"
   const port = 4096
   const url = `http://${host}:${port}`
-  const proc = spawn(`opencode`, [`serve`, `--hostname=${host}`, `--port=${port}`])
-  const client = createOpencodeClient({ baseUrl: url })
+  const proc = spawn(`navi`, [`serve`, `--hostname=${host}`, `--port=${port}`])
+  const client = createNaviClient({ baseUrl: url })
 
   return {
     server: { url, close: () => proc.kill() },
@@ -243,8 +243,8 @@ function createOpencode() {
 function assertPayloadKeyword() {
   const payload = useContext().payload as IssueCommentEvent | PullRequestReviewCommentEvent
   const body = payload.comment.body.trim()
-  if (!body.match(/(?:^|\s)(?:\/opencode|\/oc)(?=$|\s)/)) {
-    throw new Error("Comments must mention `/opencode` or `/oc`")
+  if (!body.match(/(?:^|\s)(?:\/navi|\/oc)(?=$|\s)/)) {
+    throw new Error("Comments must mention `/navi` or `/oc`")
   }
 }
 
@@ -266,7 +266,7 @@ function getReviewCommentContext() {
   }
 }
 
-async function assertOpencodeConnected() {
+async function assertNaviConnected() {
   let retry = 0
   let connected = false
   do {
@@ -280,12 +280,12 @@ async function assertOpencodeConnected() {
       })
       connected = true
       break
-    } catch (e) {}
+    } catch (e) { }
     await Bun.sleep(300)
   } while (retry++ < 30)
 
   if (!connected) {
-    throw new Error("Failed to connect to opencode server")
+    throw new Error("Failed to connect to Navi server")
   }
 }
 
@@ -365,6 +365,11 @@ function useShareUrl() {
   return isMock() ? "https://dev.opencode.ai" : "https://opencode.ai"
 }
 
+function isScheduleEvent() {
+  const context = useContext()
+  return context.eventName === "schedule"
+}
+
 async function getAccessToken() {
   const { repo } = useContext()
 
@@ -381,7 +386,7 @@ async function getAccessToken() {
       body: JSON.stringify({ owner: repo.owner, repo: repo.repo }),
     })
   } else {
-    const oidcToken = await core.getIDToken("opencode-github-action")
+    const oidcToken = await core.getIDToken("navi-github-action")
     response = await fetch("https://api.opencode.ai/exchange_github_app_token", {
       method: "POST",
       headers: {
@@ -417,19 +422,19 @@ async function getUserPrompt() {
 
   let prompt = (() => {
     const body = payload.comment.body.trim()
-    if (body === "/opencode" || body === "/oc") {
+    if (body === "/navi" || body === "/oc") {
       if (reviewContext) {
         return `Review this code change and suggest improvements for the commented lines:\n\nFile: ${reviewContext.file}\nLines: ${reviewContext.line}\n\n${reviewContext.diffHunk}`
       }
       return "Summarize this thread"
     }
-    if (body.includes("/opencode") || body.includes("/oc")) {
+    if (body.includes("/navi") || body.includes("/oc")) {
       if (reviewContext) {
         return `${body}\n\nContext: You are reviewing a comment on file "${reviewContext.file}" at line ${reviewContext.line}.\n\nDiff context:\n${reviewContext.diffHunk}`
       }
       return body
     }
-    throw new Error("Comments must mention `/opencode` or `/oc`")
+    throw new Error("Comments must mention `/navi` or `/oc`")
   })()
 
   // Handle images
@@ -513,64 +518,64 @@ async function subscribeSessionEvents() {
   const decoder = new TextDecoder()
 
   let text = ""
-  ;(async () => {
-    while (true) {
-      try {
-        const { done, value } = await reader.read()
-        if (done) break
+    ; (async () => {
+      while (true) {
+        try {
+          const { done, value } = await reader.read()
+          if (done) break
 
-        const chunk = decoder.decode(value, { stream: true })
-        const lines = chunk.split("\n")
+          const chunk = decoder.decode(value, { stream: true })
+          const lines = chunk.split("\n")
 
-        for (const line of lines) {
-          if (!line.startsWith("data: ")) continue
+          for (const line of lines) {
+            if (!line.startsWith("data: ")) continue
 
-          const jsonStr = line.slice(6).trim()
-          if (!jsonStr) continue
+            const jsonStr = line.slice(6).trim()
+            if (!jsonStr) continue
 
-          try {
-            const evt = JSON.parse(jsonStr)
+            try {
+              const evt = JSON.parse(jsonStr)
 
-            if (evt.type === "message.part.updated") {
-              if (evt.properties.part.sessionID !== session.id) continue
-              const part = evt.properties.part
+              if (evt.type === "message.part.updated") {
+                if (evt.properties.part.sessionID !== session.id) continue
+                const part = evt.properties.part
 
-              if (part.type === "tool" && part.state.status === "completed") {
-                const [tool, color] = TOOL[part.tool] ?? [part.tool, "\x1b[34m\x1b[1m"]
-                const title =
-                  part.state.title || Object.keys(part.state.input).length > 0
-                    ? JSON.stringify(part.state.input)
-                    : "Unknown"
-                console.log()
-                console.log(color + `|`, "\x1b[0m\x1b[2m" + ` ${tool.padEnd(7, " ")}`, "", "\x1b[0m" + title)
-              }
-
-              if (part.type === "text") {
-                text = part.text
-
-                if (part.time?.end) {
+                if (part.type === "tool" && part.state.status === "completed") {
+                  const [tool, color] = TOOL[part.tool] ?? [part.tool, "\x1b[34m\x1b[1m"]
+                  const title =
+                    part.state.title || Object.keys(part.state.input).length > 0
+                      ? JSON.stringify(part.state.input)
+                      : "Unknown"
                   console.log()
-                  console.log(text)
-                  console.log()
-                  text = ""
+                  console.log(color + `|`, "\x1b[0m\x1b[2m" + ` ${tool.padEnd(7, " ")}`, "", "\x1b[0m" + title)
+                }
+
+                if (part.type === "text") {
+                  text = part.text
+
+                  if (part.time?.end) {
+                    console.log()
+                    console.log(text)
+                    console.log()
+                    text = ""
+                  }
                 }
               }
-            }
 
-            if (evt.type === "session.updated") {
-              if (evt.properties.info.id !== session.id) continue
-              session = evt.properties.info
+              if (evt.type === "session.updated") {
+                if (evt.properties.info.id !== session.id) continue
+                session = evt.properties.info
+              }
+            } catch (e) {
+              // Ignore parse errors
             }
-          } catch (e) {
-            // Ignore parse errors
           }
+        } catch (e) {
+          console.log("Subscribing to session events done", e)
+          break
         }
-      } catch (e) {
-        console.log("Subscribing to session events done", e)
-        break
       }
-    }
-  })()
+    })()
 }
 
 async function summarize(response: string) {
@@ -590,7 +595,7 @@ async function resolveAgent(): Promise<string | undefined> {
   if (!envAgent) return undefined
 
   // Validate the agent exists and is a primary agent
-  const agents = await client.agent.list<true>()
+  const agents = await client.app.agents<true>()
   const agent = agents.data?.find((a) => a.name === envAgent)
 
   if (!agent) {
@@ -607,15 +612,17 @@ async function resolveAgent(): Promise<string | undefined> {
 }
 
 async function chat(text: string, files: PromptFiles = []) {
-  console.log("Sending message to opencode...")
+  console.log("Sending message to Navi...")
   const { providerID, modelID } = useEnvModel()
   const agent = await resolveAgent()
 
-  const chat = await client.session.chat<true>({
-    path: session,
+  const chat = await client.session.prompt<true>({
+    path: { id: session.id },
     body: {
-      providerID,
-      modelID,
+      model: {
+        providerID,
+        modelID,
+      },
       agent,
       parts: [
         {
@@ -663,8 +670,8 @@ async function configureGit(appToken: string) {
 
   await $`git config --local --unset-all ${config}`
   await $`git config --local ${config} "AUTHORIZATION: basic ${newCredentials}"`
-  await $`git config --global user.name "opencode-agent[bot]"`
-  await $`git config --global user.email "opencode-agent[bot]@users.noreply.github.com"`
+  await $`git config --global user.name "navi-agent[bot]"`
+  await $`git config --global user.email "navi-agent[bot]@users.noreply.github.com"`
 }
 
 async function restoreGitConfig() {
@@ -710,7 +717,7 @@ function generateBranchName(type: "issue" | "pr") {
     .replace(/\.\d{3}Z/, "")
     .split("T")
     .join("")
-  return `opencode/${type}${useIssueId()}-${timestamp}`
+  return `navi/${type}${useIssueId()}-${timestamp}`
 }
 
 async function pushToNewBranch(summary: string, branch: string) {

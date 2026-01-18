@@ -10,7 +10,7 @@
  * - Shows reminder at 70%+ context usage
  * - Prevents rushed/incomplete work
  *
- * Ported from oh-my-opencode-dev plugin
+ * Ported from oh-my-navi-dev plugin
  */
 
 import type { Hooks } from "@navi-ai/plugin"

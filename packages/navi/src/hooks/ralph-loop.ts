@@ -11,7 +11,7 @@
  * - Configurable max iterations
  * - Persists state across restarts
  *
- * Ported from oh-my-opencode-dev plugin
+ * Ported from oh-my-navi-dev plugin
  */
 
 import type { Hooks } from "@navi-ai/plugin"

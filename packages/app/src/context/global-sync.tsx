@@ -16,7 +16,7 @@ import {
   type LspStatus,
   type VcsInfo,
   type PermissionRequest,
-  createOpencodeClient,
+  createnaviClient,
 } from "@navi-ai/sdk/v2/client"
 import { createStore, produce, reconcile } from "solid-js/store"
 import { Binary } from "@navi-ai/util/binary"
@@ -139,7 +139,7 @@ function createGlobalSync() {
   async function bootstrapInstance(directory: string) {
     if (!directory) return
     const [store, setStore] = child(directory)
-    const sdk = createOpencodeClient({
+    const sdk = createnaviClient({
       baseUrl: globalSDK.url,
       fetch: platform.fetch,
       directory,
@@ -397,7 +397,7 @@ function createGlobalSync() {
         break
       }
       case "lsp.updated": {
-        const sdk = createOpencodeClient({
+        const sdk = createnaviClient({
           baseUrl: globalSDK.url,
           fetch: platform.fetch,
           directory,

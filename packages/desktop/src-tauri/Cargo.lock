@@ -2789,7 +2789,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "opencode-desktop"
+name = "navi-desktop"
 version = "0.0.0"
 dependencies = [
  "futures",

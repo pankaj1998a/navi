@@ -109,10 +109,10 @@ export namespace ModelsDev {
       }
     }
 
-    // Alias opencode to navi if present
-    if (providers["opencode"] && !providers["navi"]) {
+    // Alias navi to navi if present
+    if (providers["navi"] && !providers["navi"]) {
       providers["navi"] = {
-        ...providers["opencode"],
+        ...providers["navi"],
         id: "navi",
         name: "Navi",
       }

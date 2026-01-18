@@ -44,10 +44,10 @@ Config sources are loaded in this order (later sources override earlier ones):
 
 1. **Remote config** (from `.well-known/navi`) - organizational defaults
 2. **Global config** (`~/.config/navi/navi.json`) - user preferences
-3. **Custom config** (`OPENCODE_CONFIG` env var) - custom overrides
+3. **Custom config** (`navi_CONFIG` env var) - custom overrides
 4. **Project config** (`navi.json` in project) - project-specific settings
 5. **`.navi` directories** - agents, commands, plugins
-6. **Inline config** (`OPENCODE_CONFIG_CONTENT` env var) - runtime overrides
+6. **Inline config** (`navi_CONFIG_CONTENT` env var) - runtime overrides
 
 This means project configs can override global defaults, and global configs can override remote organizational defaults.
 
@@ -113,10 +113,10 @@ This is also safe to be checked into Git and uses the same schema as the global 
 
 ### Custom path
 
-Specify a custom config file path using the `OPENCODE_CONFIG` environment variable.
+Specify a custom config file path using the `navi_CONFIG` environment variable.
 
 ```bash
-export OPENCODE_CONFIG=/path/to/my/custom-config.json
+export navi_CONFIG=/path/to/my/custom-config.json
 navi run "Hello world"
 ```
 
@@ -126,13 +126,13 @@ Custom config is loaded between global and project configs in the precedence ord
 
 ### Custom directory
 
-Specify a custom config directory using the `OPENCODE_CONFIG_DIR`
+Specify a custom config directory using the `navi_CONFIG_DIR`
 environment variable. This directory will be searched for agents, commands,
 modes, and plugins just like the standard `.navi` directory, and should
 follow the same structure.
 
 ```bash
-export OPENCODE_CONFIG_DIR=/path/to/my/config-directory
+export navi_CONFIG_DIR=/path/to/my/config-directory
 navi run "Hello world"
 ```
 
@@ -632,7 +632,7 @@ Use `{env:VARIABLE_NAME}` to substitute environment variables:
 ```json title="navi.json"
 {
   "$schema": "https://navi.ai/config.json",
-  "model": "{env:OPENCODE_MODEL}",
+  "model": "{env:navi_MODEL}",
   "provider": {
     "anthropic": {
       "models": {},

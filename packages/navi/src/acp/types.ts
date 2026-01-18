@@ -1,5 +1,5 @@
 import type { McpServer } from "@agentclientprotocol/sdk"
-import type { OpencodeClient } from "@navi-ai/sdk/v2"
+import type { naviClient } from "@navi-ai/sdk/v2"
 
 export interface ACPSessionState {
   id: string
@@ -14,7 +14,7 @@ export interface ACPSessionState {
 }
 
 export interface ACPConfig {
-  sdk: OpencodeClient
+  sdk: naviClient
   defaultModel?: {
     providerID: string
     modelID: string

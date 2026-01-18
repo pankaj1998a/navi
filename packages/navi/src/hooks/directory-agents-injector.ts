@@ -11,7 +11,7 @@
  * - Caches injections per session to avoid duplicates
  * - Also supports README.md injection
  *
- * Ported from oh-my-opencode-dev plugin
+ * Ported from oh-my-navi-dev plugin
  */
 
 import type { Hooks } from "@navi-ai/plugin"

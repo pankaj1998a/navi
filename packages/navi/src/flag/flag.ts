@@ -1,13 +1,13 @@
 export namespace Flag {
   export const NAVI_AUTO_SHARE = truthy("NAVI_AUTO_SHARE")
-  export const NAVI_GIT_BASH_PATH = process.env["NAVI_GIT_BASH_PATH"] || process.env["OPENCODE_GIT_BASH_PATH"]
-  export const NAVI_CONFIG = process.env["NAVI_CONFIG"] || process.env["OPENCODE_CONFIG"]
-  export const NAVI_CONFIG_DIR = process.env["NAVI_CONFIG_DIR"] || process.env["OPENCODE_CONFIG_DIR"]
-  export const NAVI_CONFIG_CONTENT = process.env["NAVI_CONFIG_CONTENT"] || process.env["OPENCODE_CONFIG_CONTENT"]
+  export const NAVI_GIT_BASH_PATH = process.env["NAVI_GIT_BASH_PATH"] || process.env["navi_GIT_BASH_PATH"]
+  export const NAVI_CONFIG = process.env["NAVI_CONFIG"] || process.env["navi_CONFIG"]
+  export const NAVI_CONFIG_DIR = process.env["NAVI_CONFIG_DIR"] || process.env["navi_CONFIG_DIR"]
+  export const NAVI_CONFIG_CONTENT = process.env["NAVI_CONFIG_CONTENT"] || process.env["navi_CONFIG_CONTENT"]
   export const NAVI_DISABLE_AUTOUPDATE = truthy("NAVI_DISABLE_AUTOUPDATE")
   export const NAVI_DISABLE_PRUNE = truthy("NAVI_DISABLE_PRUNE")
   export const NAVI_DISABLE_TERMINAL_TITLE = truthy("NAVI_DISABLE_TERMINAL_TITLE")
-  export const NAVI_PERMISSION = process.env["NAVI_PERMISSION"] || process.env["OPENCODE_PERMISSION"]
+  export const NAVI_PERMISSION = process.env["NAVI_PERMISSION"] || process.env["navi_PERMISSION"]
   export const NAVI_DISABLE_DEFAULT_PLUGINS = truthy("NAVI_DISABLE_DEFAULT_PLUGINS")
   export const NAVI_DISABLE_LSP_DOWNLOAD = truthy("NAVI_DISABLE_LSP_DOWNLOAD")
   export const NAVI_ENABLE_EXPERIMENTAL_MODELS = truthy("NAVI_ENABLE_EXPERIMENTAL_MODELS")
@@ -18,10 +18,10 @@ export namespace Flag {
     NAVI_DISABLE_CLAUDE_CODE || truthy("NAVI_DISABLE_CLAUDE_CODE_PROMPT")
   export const NAVI_DISABLE_CLAUDE_CODE_SKILLS =
     NAVI_DISABLE_CLAUDE_CODE || truthy("NAVI_DISABLE_CLAUDE_CODE_SKILLS")
-  export const NAVI_FAKE_VCS = process.env["NAVI_FAKE_VCS"] || process.env["OPENCODE_FAKE_VCS"]
-  export const NAVI_CLIENT = process.env["NAVI_CLIENT"] || process.env["OPENCODE_CLIENT"] || "cli"
-  export const NAVI_SERVER_PASSWORD = process.env["NAVI_SERVER_PASSWORD"] || process.env["OPENCODE_SERVER_PASSWORD"]
-  export const NAVI_SERVER_USERNAME = process.env["NAVI_SERVER_USERNAME"] || process.env["OPENCODE_SERVER_USERNAME"]
+  export const NAVI_FAKE_VCS = process.env["NAVI_FAKE_VCS"] || process.env["navi_FAKE_VCS"]
+  export const NAVI_CLIENT = process.env["NAVI_CLIENT"] || process.env["navi_CLIENT"] || "cli"
+  export const NAVI_SERVER_PASSWORD = process.env["NAVI_SERVER_PASSWORD"] || process.env["navi_SERVER_PASSWORD"]
+  export const NAVI_SERVER_USERNAME = process.env["NAVI_SERVER_USERNAME"] || process.env["navi_SERVER_USERNAME"]
 
   // Experimental
   export const NAVI_EXPERIMENTAL = truthy("NAVI_EXPERIMENTAL")
@@ -46,8 +46,8 @@ export namespace Flag {
     let value = process.env[key]?.toLowerCase()
     if (value === "true" || value === "1") return true
 
-    // Fallback to OPENCODE_
-    const legacyKey = key.replace("NAVI_", "OPENCODE_")
+    // Fallback to navi_
+    const legacyKey = key.replace("NAVI_", "navi_")
     value = process.env[legacyKey]?.toLowerCase()
     return value === "true" || value === "1"
   }
@@ -56,8 +56,8 @@ export namespace Flag {
     // Check NAVI_ first
     let value = process.env[key]
     if (!value) {
-      // Fallback to OPENCODE_
-      const legacyKey = key.replace("NAVI_", "OPENCODE_")
+      // Fallback to navi_
+      const legacyKey = key.replace("NAVI_", "navi_")
       value = process.env[legacyKey]
     }
 

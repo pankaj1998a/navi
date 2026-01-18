@@ -4,7 +4,7 @@
  * Spawns agent tasks that run asynchronously in the background,
  * allowing parallel execution of multiple exploration/research tasks.
  *
- * Ported from oh-my-opencode-dev sisyphus_task with background=true
+ * Ported from oh-my-navi-dev sisyphus_task with background=true
  */
 
 import { Tool } from "./tool"

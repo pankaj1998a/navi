@@ -16,7 +16,7 @@
 
 Navi is a next-generation AI coding assistant that combines the best features from leading AI coding tools:
 
-- **OpenCode** - Base architecture, TUI framework, provider-agnostic design
+- **navi** - Base architecture, TUI framework, provider-agnostic design
 - **Claude Code** - Tool use patterns, file editing, terminal integration
 - **Gemini CLI** - Google Search grounding, checkpointing, custom commands
 - **Cline** - Browser automation (Computer Use), checkpoint restore

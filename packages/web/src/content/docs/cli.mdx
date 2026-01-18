@@ -358,7 +358,7 @@ Start a headless Navi server for API access. Check out the [server docs](/docs/s
 navi serve
 ```
 
-This starts an HTTP server that provides API access to navi functionality without the TUI interface. Set `OPENCODE_SERVER_PASSWORD` to enable HTTP basic auth (username defaults to `navi`).
+This starts an HTTP server that provides API access to navi functionality without the TUI interface. Set `navi_SERVER_PASSWORD` to enable HTTP basic auth (username defaults to `navi`).
 
 #### Flags
 
@@ -454,7 +454,7 @@ Start a headless Navi server with a web interface.
 navi web
 ```
 
-This starts an HTTP server and opens a web browser to access Navi through a web interface. Set `OPENCODE_SERVER_PASSWORD` to enable HTTP basic auth (username defaults to `navi`).
+This starts an HTTP server and opens a web browser to access Navi through a web interface. Set `navi_SERVER_PASSWORD` to enable HTTP basic auth (username defaults to `navi`).
 
 #### Flags
 
@@ -553,26 +553,26 @@ Navi can be configured using environment variables.
 
 | Variable                              | Type    | Description                                       |
 | ------------------------------------- | ------- | ------------------------------------------------- |
-| `OPENCODE_AUTO_SHARE`                 | boolean | Automatically share sessions                      |
-| `OPENCODE_GIT_BASH_PATH`              | string  | Path to Git Bash executable on Windows            |
-| `OPENCODE_CONFIG`                     | string  | Path to config file                               |
-| `OPENCODE_CONFIG_DIR`                 | string  | Path to config directory                          |
-| `OPENCODE_CONFIG_CONTENT`             | string  | Inline json config content                        |
-| `OPENCODE_DISABLE_AUTOUPDATE`         | boolean | Disable automatic update checks                   |
-| `OPENCODE_DISABLE_PRUNE`              | boolean | Disable pruning of old data                       |
-| `OPENCODE_DISABLE_TERMINAL_TITLE`     | boolean | Disable automatic terminal title updates          |
-| `OPENCODE_PERMISSION`                 | string  | Inlined json permissions config                   |
-| `OPENCODE_DISABLE_DEFAULT_PLUGINS`    | boolean | Disable default plugins                           |
-| `OPENCODE_DISABLE_LSP_DOWNLOAD`       | boolean | Disable automatic LSP server downloads            |
-| `OPENCODE_ENABLE_EXPERIMENTAL_MODELS` | boolean | Enable experimental models                        |
-| `OPENCODE_DISABLE_AUTOCOMPACT`        | boolean | Disable automatic context compaction              |
-| `OPENCODE_DISABLE_CLAUDE_CODE`        | boolean | Disable reading from `.claude` (prompt + skills)  |
-| `OPENCODE_DISABLE_CLAUDE_CODE_PROMPT` | boolean | Disable reading `~/.claude/CLAUDE.md`             |
-| `OPENCODE_DISABLE_CLAUDE_CODE_SKILLS` | boolean | Disable loading `.claude/skills`                  |
-| `OPENCODE_CLIENT`                     | string  | Client identifier (defaults to `cli`)             |
-| `OPENCODE_ENABLE_EXA`                 | boolean | Enable Exa web search tools                       |
-| `OPENCODE_SERVER_PASSWORD`            | string  | Enable basic auth for `serve`/`web`               |
-| `OPENCODE_SERVER_USERNAME`            | string  | Override basic auth username (default `navi`) |
+| `navi_AUTO_SHARE`                 | boolean | Automatically share sessions                      |
+| `navi_GIT_BASH_PATH`              | string  | Path to Git Bash executable on Windows            |
+| `navi_CONFIG`                     | string  | Path to config file                               |
+| `navi_CONFIG_DIR`                 | string  | Path to config directory                          |
+| `navi_CONFIG_CONTENT`             | string  | Inline json config content                        |
+| `navi_DISABLE_AUTOUPDATE`         | boolean | Disable automatic update checks                   |
+| `navi_DISABLE_PRUNE`              | boolean | Disable pruning of old data                       |
+| `navi_DISABLE_TERMINAL_TITLE`     | boolean | Disable automatic terminal title updates          |
+| `navi_PERMISSION`                 | string  | Inlined json permissions config                   |
+| `navi_DISABLE_DEFAULT_PLUGINS`    | boolean | Disable default plugins                           |
+| `navi_DISABLE_LSP_DOWNLOAD`       | boolean | Disable automatic LSP server downloads            |
+| `navi_ENABLE_EXPERIMENTAL_MODELS` | boolean | Enable experimental models                        |
+| `navi_DISABLE_AUTOCOMPACT`        | boolean | Disable automatic context compaction              |
+| `navi_DISABLE_CLAUDE_CODE`        | boolean | Disable reading from `.claude` (prompt + skills)  |
+| `navi_DISABLE_CLAUDE_CODE_PROMPT` | boolean | Disable reading `~/.claude/CLAUDE.md`             |
+| `navi_DISABLE_CLAUDE_CODE_SKILLS` | boolean | Disable loading `.claude/skills`                  |
+| `navi_CLIENT`                     | string  | Client identifier (defaults to `cli`)             |
+| `navi_ENABLE_EXA`                 | boolean | Enable Exa web search tools                       |
+| `navi_SERVER_PASSWORD`            | string  | Enable basic auth for `serve`/`web`               |
+| `navi_SERVER_USERNAME`            | string  | Override basic auth username (default `navi`) |
 
 ---
 
@@ -582,12 +582,12 @@ These environment variables enable experimental features that may change or be r
 
 | Variable                                        | Type    | Description                             |
 | ----------------------------------------------- | ------- | --------------------------------------- |
-| `OPENCODE_EXPERIMENTAL`                         | boolean | Enable all experimental features        |
-| `OPENCODE_EXPERIMENTAL_ICON_DISCOVERY`          | boolean | Enable icon discovery                   |
-| `OPENCODE_EXPERIMENTAL_DISABLE_COPY_ON_SELECT`  | boolean | Disable copy on select in TUI           |
-| `OPENCODE_EXPERIMENTAL_BASH_MAX_OUTPUT_LENGTH`  | number  | Max output length for bash commands     |
-| `OPENCODE_EXPERIMENTAL_BASH_DEFAULT_TIMEOUT_MS` | number  | Default timeout for bash commands in ms |
-| `OPENCODE_EXPERIMENTAL_OUTPUT_TOKEN_MAX`        | number  | Max output tokens for LLM responses     |
-| `OPENCODE_EXPERIMENTAL_FILEWATCHER`             | boolean | Enable file watcher for entire dir      |
-| `OPENCODE_EXPERIMENTAL_OXFMT`                   | boolean | Enable oxfmt formatter                  |
-| `OPENCODE_EXPERIMENTAL_LSP_TOOL`                | boolean | Enable experimental LSP tool            |
+| `navi_EXPERIMENTAL`                         | boolean | Enable all experimental features        |
+| `navi_EXPERIMENTAL_ICON_DISCOVERY`          | boolean | Enable icon discovery                   |
+| `navi_EXPERIMENTAL_DISABLE_COPY_ON_SELECT`  | boolean | Disable copy on select in TUI           |
+| `navi_EXPERIMENTAL_BASH_MAX_OUTPUT_LENGTH`  | number  | Max output length for bash commands     |
+| `navi_EXPERIMENTAL_BASH_DEFAULT_TIMEOUT_MS` | number  | Default timeout for bash commands in ms |
+| `navi_EXPERIMENTAL_OUTPUT_TOKEN_MAX`        | number  | Max output tokens for LLM responses     |
+| `navi_EXPERIMENTAL_FILEWATCHER`             | boolean | Enable file watcher for entire dir      |
+| `navi_EXPERIMENTAL_OXFMT`                   | boolean | Enable oxfmt formatter                  |
+| `navi_EXPERIMENTAL_LSP_TOOL`                | boolean | Enable experimental LSP tool            |

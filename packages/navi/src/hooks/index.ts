@@ -1,5 +1,5 @@
 /**
- * Navi Hooks - Automation hooks ported from oh-my-opencode-dev
+ * Navi Hooks - Automation hooks ported from oh-my-navi-dev
  *
  * Available hooks:
  * - keywordDetector: Detects ultrawork/search/analyze keywords

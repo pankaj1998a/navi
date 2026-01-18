@@ -101,9 +101,9 @@ export const Terminal = (props: TerminalProps) => {
     ghostty = await mod.Ghostty.load()
 
     const url = new URL(sdk.url + `/pty/${local.pty.id}/connect?directory=${encodeURIComponent(sdk.directory)}`)
-    if (window.__OPENCODE__?.serverPassword) {
+    if (window.__navi__?.serverPassword) {
       url.username = "navi"
-      url.password = window.__OPENCODE__?.serverPassword
+      url.password = window.__navi__?.serverPassword
     }
     const socket = new WebSocket(url)
     ws = socket

@@ -9,7 +9,7 @@
  * - Multi-account support
  * - Automatic token refresh
  *
- * Based on opencode-antigravity-auth by NoeFabris
+ * Based on navi-antigravity-auth by NoeFabris
  */
 
 import type { Plugin } from "@navi-ai/plugin"

@@ -90,7 +90,7 @@ export async function createNaviServer(options?: ServerOptions) {
   }
 }
 
-export const createOpencodeServer = createNaviServer
+export const createnaviServer = createNaviServer
 
 export function createNaviTui(options?: TuiOptions) {
   const args = []
@@ -124,4 +124,4 @@ export function createNaviTui(options?: TuiOptions) {
   }
 }
 
-export const createOpencodeTui = createNaviTui
+export const createnaviTui = createNaviTui

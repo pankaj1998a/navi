@@ -1,5 +1,5 @@
 {
-  description = "OpenCode development flake";
+  description = "navi development flake";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
@@ -20,7 +20,7 @@
       inherit (nixpkgs) lib;
       forEachSystem = lib.genAttrs systems;
       pkgsFor = system: nixpkgs.legacyPackages.${system};
-      packageJson = builtins.fromJSON (builtins.readFile ./packages/opencode/package.json);
+      packageJson = builtins.fromJSON (builtins.readFile ./packages/navi/package.json);
       bunTarget = {
         "aarch64-linux" = "bun-linux-arm64";
         "x86_64-linux" = "bun-linux-x64";
@@ -86,10 +86,10 @@
             bunCpu = bunPlatform.cpu;
             bunOs = bunPlatform.os;
           };
-          mkOpencode = pkgs.callPackage ./nix/opencode.nix { };
+          mknavi = pkgs.callPackage ./nix/navi.nix { };
           mkDesktop = pkgs.callPackage ./nix/desktop.nix { };
 
-          opencodePkg = mkOpencode {
+          naviPkg = mknavi {
             inherit (packageJson) version;
             src = ./.;
             scripts = ./nix/scripts;
@@ -103,11 +103,11 @@
             src = ./.;
             scripts = ./nix/scripts;
             mkNodeModules = mkNodeModules;
-            opencode = opencodePkg;
+            navi = naviPkg;
           };
         in
         {
-          default = opencodePkg;
+          default = naviPkg;
           desktop = desktopPkg;
         }
       );
@@ -118,20 +118,20 @@
           pkgs = pkgsFor system;
         in
         {
-          opencode-dev = {
+          navi-dev = {
             type = "app";
             meta = {
-              description = "Nix devshell shell for OpenCode";
+              description = "Nix devshell shell for navi";
               runtimeInputs = [ pkgs.bun ];
             };
             program = "${
               pkgs.writeShellApplication {
-                name = "opencode-dev";
+                name = "navi-dev";
                 text = ''
                   exec bun run dev "$@"
                 '';
               }
-            }/bin/opencode-dev";
+            }/bin/navi-dev";
           };
         }
       );

@@ -1,7 +1,7 @@
-import { createOpencodeClient, createOpencodeServer } from "@navi-ai/sdk"
+import { createnaviClient, createnaviServer } from "@navi-ai/sdk"
 
-const server = await createOpencodeServer()
-const client = createOpencodeClient({ baseUrl: server.url })
+const server = await createnaviServer()
+const client = createnaviClient({ baseUrl: server.url })
 
 const input = await Array.fromAsync(new Bun.Glob("packages/core/*.ts").scan())
 

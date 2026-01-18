@@ -15,7 +15,7 @@ afterAll(() => {
 // This prevents tests from picking up real user configs/skills from ~/.claude/skills
 const testHome = path.join(dir, "home")
 await fs.mkdir(testHome, { recursive: true })
-process.env["OPENCODE_TEST_HOME"] = testHome
+process.env["navi_TEST_HOME"] = testHome
 
 process.env["XDG_DATA_HOME"] = path.join(dir, "share")
 process.env["XDG_CACHE_HOME"] = path.join(dir, "cache")
@@ -32,7 +32,7 @@ if (response.ok) {
   await fs.writeFile(path.join(cacheDir, "models.json"), await response.text())
 }
 // Disable models.dev refresh to avoid race conditions during tests
-process.env["OPENCODE_DISABLE_MODELS_FETCH"] = "true"
+process.env["navi_DISABLE_MODELS_FETCH"] = "true"
 
 // Clear provider env vars to ensure clean test state
 delete process.env["ANTHROPIC_API_KEY"]

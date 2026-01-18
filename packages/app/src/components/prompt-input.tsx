@@ -49,7 +49,7 @@ import { SessionContextUsage } from "@/components/session-context-usage"
 import { usePermission } from "@/context/permission"
 import { useGlobalSync } from "@/context/global-sync"
 import { usePlatform } from "@/context/platform"
-import { createOpencodeClient, type Message, type Part } from "@navi-ai/sdk/v2/client"
+import { createnaviClient, type Message, type Part } from "@navi-ai/sdk/v2/client"
 import { Binary } from "@navi-ai/util/binary"
 import { showToast } from "@navi-ai/ui/toast"
 import { base64Encode } from "@navi-ai/util/encode"
@@ -1030,7 +1030,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
       }
 
       if (sessionDirectory !== projectDirectory) {
-        client = createOpencodeClient({
+        client = createnaviClient({
           baseUrl: sdk.url,
           fetch: platform.fetch,
           directory: sessionDirectory,

@@ -1,12 +1,12 @@
 {
-  "$schema": "https://opencode.ai/config.json",
-  // "plugin": ["opencode-openai-codex-auth"],
+  "$schema": "https://navi.ai/config.json",
+  // "plugin": ["navi-openai-codex-auth"],
   // "enterprise": {
-  //   "url": "https://enterprise.dev.opencode.ai",
+  //   "url": "https://enterprise.dev.navi.ai",
   // },
   "instructions": ["STYLE_GUIDE.md"],
   "provider": {
-    "opencode": {
+    "navi": {
       "options": {},
     },
   },

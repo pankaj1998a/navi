@@ -61,10 +61,10 @@ export const ModelsCommand = cmd({
         }
 
         const providerIDs = Object.keys(providers).sort((a, b) => {
-          const aIsOpencode = a.startsWith("navi")
-          const bIsOpencode = b.startsWith("navi")
-          if (aIsOpencode && !bIsOpencode) return -1
-          if (!aIsOpencode && bIsOpencode) return 1
+          const aIsnavi = a.startsWith("navi")
+          const bIsnavi = b.startsWith("navi")
+          if (aIsnavi && !bIsnavi) return -1
+          if (!aIsnavi && bIsnavi) return 1
           return a.localeCompare(b)
         })
 

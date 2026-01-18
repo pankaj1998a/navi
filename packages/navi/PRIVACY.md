@@ -49,13 +49,13 @@ Navi only connects to external services when:
 2. **MCP Servers** - Explicitly configured MCP servers
 3. **Telemetry** - Only if explicitly enabled
 
-## No OpenCode Servers
-Navi does **NOT** send any data to opencode.dev or opencode.io servers.
-All opencode references have been renamed to navi.
+## No navi Servers
+Navi does **NOT** send any data to navi.dev or navi.io servers.
+All navi references have been renamed to navi.
 
 ## Verification
 Run this command to verify no external connections:
 ```bash
 # Check for external URLs in config
-grep -r "opencode" ~/.navi/
+grep -r "navi" ~/.navi/
 ```

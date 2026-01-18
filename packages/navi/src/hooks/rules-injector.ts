@@ -10,7 +10,7 @@
  * Rules are conditionally applied based on frontmatter patterns
  * that match the file being edited.
  *
- * Ported from oh-my-opencode-dev plugin
+ * Ported from oh-my-navi-dev plugin
  */
 
 import type { Hooks } from "@navi-ai/plugin"

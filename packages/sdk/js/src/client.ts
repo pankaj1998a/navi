@@ -2,10 +2,10 @@ export * from "./gen/types.gen.js"
 
 import { createClient } from "./gen/client/client.gen.js"
 import { type Config } from "./gen/client/types.gen.js"
-import { OpencodeClient as NaviClient } from "./gen/sdk.gen.js"
+import { naviClient as NaviClient } from "./gen/sdk.gen.js"
 export { type Config as NaviClientConfig, NaviClient }
 // Backward compatibility
-export { type Config as OpencodeClientConfig, NaviClient as OpencodeClient }
+export { type Config as naviClientConfig, NaviClient as naviClient }
 
 export function createNaviClient(config?: Config & { directory?: string }) {
   if (!config?.fetch) {
@@ -31,4 +31,4 @@ export function createNaviClient(config?: Config & { directory?: string }) {
   return new NaviClient({ client })
 }
 
-export const createOpencodeClient = createNaviClient
+export const createnaviClient = createNaviClient

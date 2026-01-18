@@ -150,10 +150,10 @@ for (const item of targets) {
       NAVI_CHANNEL: `'${Script.channel}'`,
       NAVI_LIBC: item.os === "linux" ? `'${item.abi ?? "glibc"}'` : "",
       // Backward compatibility
-      OPENCODE_VERSION: `'${Script.version}'`,
-      OPENCODE_WORKER_PATH: workerPath,
-      OPENCODE_CHANNEL: `'${Script.channel}'`,
-      OPENCODE_LIBC: item.os === "linux" ? `'${item.abi ?? "glibc"}'` : "",
+      navi_VERSION: `'${Script.version}'`,
+      navi_WORKER_PATH: workerPath,
+      navi_CHANNEL: `'${Script.channel}'`,
+      navi_LIBC: item.os === "linux" ? `'${item.abi ?? "glibc"}'` : "",
     },
   })
 

@@ -11,7 +11,7 @@
  * - Cooldown period to prevent rapid successive compactions
  * - Works with Claude models (expandable to others)
  *
- * Ported from oh-my-opencode-dev plugin
+ * Ported from oh-my-navi-dev plugin
  */
 
 import type { Hooks } from "@navi-ai/plugin"

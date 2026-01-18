@@ -18,8 +18,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - **Privacy Documentation** - Clear data policy in PRIVACY.md
 
 ### Changed
-- Renamed all `OPENCODE_` environment variables to `NAVI_`
-- Renamed SDK functions from `createOpencode*` to `createNavi*`
+- Renamed all `navi_` environment variables to `NAVI_`
+- Renamed SDK functions from `createnavi*` to `createNavi*`
 - Improved TUI performance (30 FPS, message virtualization)
 
 ### Removed
@@ -31,13 +31,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Security
 - Telemetry disabled by default (opt-in only)
 - No data sent to external servers by default
-- Verified no opencode server URLs in codebase
+- Verified no navi server URLs in codebase
 
 ## [0.1.0] - 2026-01-18
 
 ### Added
 - Initial release of Navi
-- Forked from OpenCode with full rebranding
+- Forked from navi with full rebranding
 - Multi-provider support (Gemini, Anthropic, OpenAI, etc.)
 - TUI interface with Ink
 - Browser automation support
