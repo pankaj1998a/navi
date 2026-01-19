@@ -21,7 +21,7 @@ import { OTLPMetricExporter as OTLPMetricExporterHttp } from '@opentelemetry/exp
 import { CompressionAlgorithm } from '@opentelemetry/otlp-exporter-base';
 import { NodeSDK } from '@opentelemetry/sdk-node';
 import { SemanticResourceAttributes } from '@opentelemetry/semantic-conventions';
-import { resourceFromAttributes } from '@opentelemetry/resources';
+// import { resourceFromAttributes } from '@opentelemetry/resources';
 import {
   BatchSpanProcessor,
   ConsoleSpanExporter,
@@ -47,7 +47,7 @@ import {
 } from './file-exporters.js';
 import {
   GcpTraceExporter,
-  GcpMetricExporter,
+  // GcpMetricExporter,
   GcpLogExporter,
 } from './gcp-exporters.js';
 import { TelemetryTarget } from './index.js';
@@ -164,8 +164,8 @@ export async function initializeTelemetry(
   if (config.getTelemetryUseCollector() && config.getTelemetryUseCliAuth()) {
     debugLogger.error(
       'Telemetry configuration error: "useCollector" and "useCliAuth" cannot both be true. ' +
-        'CLI authentication is only supported with in-process exporters. ' +
-        'Disabling telemetry.',
+      'CLI authentication is only supported with in-process exporters. ' +
+      'Disabling telemetry.',
     );
     return;
   }
@@ -190,11 +190,11 @@ export async function initializeTelemetry(
     return;
   }
 
-  const resource = resourceFromAttributes({
-    [SemanticResourceAttributes.SERVICE_NAME]: SERVICE_NAME,
-    [SemanticResourceAttributes.SERVICE_VERSION]: process.version,
-    'session.id': config.getSessionId(),
-  });
+  // const resource = resourceFromAttributes({
+  //   [SemanticResourceAttributes.SERVICE_NAME]: SERVICE_NAME,
+  //   [SemanticResourceAttributes.SERVICE_VERSION]: process.version,
+  //   'session.id': config.getSessionId(),
+  // });
 
   const otlpEndpoint = config.getTelemetryOtlpEndpoint();
   const otlpProtocol = config.getTelemetryOtlpProtocol();
@@ -235,7 +235,7 @@ export async function initializeTelemetry(
     spanExporter = new GcpTraceExporter(gcpProjectId, credentials);
     logExporter = new GcpLogExporter(gcpProjectId, credentials);
     metricReader = new PeriodicExportingMetricReader({
-      exporter: new GcpMetricExporter(gcpProjectId, credentials),
+      exporter: new ConsoleMetricExporter(), // GcpMetricExporter removed due to missing dependency
       exportIntervalMillis: 30000,
     });
   } else if (useOtlp) {
@@ -291,10 +291,10 @@ export async function initializeTelemetry(
   logRecordProcessor = new BatchLogRecordProcessor(logExporter);
 
   sdk = new NodeSDK({
-    resource,
-    spanProcessors: [spanProcessor],
-    logRecordProcessors: [logRecordProcessor],
-    metricReader,
+    // resource,
+    spanProcessors: [spanProcessor as any],
+    logRecordProcessors: [logRecordProcessor as any],
+    metricReader: metricReader as any,
     instrumentations: [new HttpInstrumentation()],
   });
 

@@ -95,7 +95,7 @@ export class DelegateToAgentTool extends BaseDeclarativeTool<
         // Cast required because Zod can't infer the discriminator from dynamic keys
         return z.object(
           inputShape,
-        ) as z.ZodDiscriminatedUnionOption<'agent_name'>;
+        ) as any;
       });
 
       // Create the discriminated union
@@ -106,9 +106,9 @@ export class DelegateToAgentTool extends BaseDeclarativeTool<
         schema = z.discriminatedUnion(
           'agent_name',
           agentSchemas as [
-            z.ZodDiscriminatedUnionOption<'agent_name'>,
-            z.ZodDiscriminatedUnionOption<'agent_name'>,
-            ...Array<z.ZodDiscriminatedUnionOption<'agent_name'>>,
+            any,
+            any,
+            ...Array<any>,
           ],
         );
       }

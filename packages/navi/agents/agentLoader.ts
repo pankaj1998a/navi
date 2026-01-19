@@ -121,7 +121,7 @@ function formatZodError(error: z.ZodError, context: string): string {
     .map((i) => {
       // Handle union errors specifically to give better context
       if (i.code === z.ZodIssueCode.invalid_union) {
-        return i.unionErrors
+        return (i as any).unionErrors
           .map((unionError, index) => {
             const label =
               agentUnionOptions[index]?.label ?? `Agent type #${index + 1}`;
@@ -292,8 +292,8 @@ export function markdownToAgentDefinition(
     },
     toolConfig: markdown.tools
       ? {
-          tools: markdown.tools,
-        }
+        tools: markdown.tools,
+      }
       : undefined,
     inputConfig,
   };

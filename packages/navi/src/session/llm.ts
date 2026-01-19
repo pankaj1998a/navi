@@ -4,12 +4,10 @@ import { Provider } from "@/provider/provider"
 import { Log } from "@/util/log"
 import {
   streamText,
-  wrapLanguageModel,
-  type ModelMessage,
+  type CoreMessage,
   type StreamTextResult,
   type Tool,
   type ToolSet,
-  extractReasoningMiddleware,
 } from "ai"
 import { clone, mergeDeep, pipe } from "remeda"
 import { ProviderTransform } from "@/provider/transform"
@@ -35,7 +33,7 @@ export namespace LLM {
     agent: Agent.Info
     system: string[]
     abort: AbortSignal
-    messages: ModelMessage[]
+    messages: CoreMessage[]
     small?: boolean
     tools: Record<string, Tool>
     retries?: number
@@ -200,31 +198,17 @@ export namespace LLM {
             {
               role: "user",
               content: system.join("\n\n"),
-            } as ModelMessage,
+            } as CoreMessage,
           ]
           : system.map(
-            (x): ModelMessage => ({
+            (x): CoreMessage => ({
               role: "system",
               content: x,
             }),
           )),
         ...input.messages,
       ],
-      model: wrapLanguageModel({
-        model: language,
-        middleware: [
-          {
-            async transformParams(args) {
-              if (args.type === "stream") {
-                // @ts-expect-error
-                args.params.prompt = ProviderTransform.message(args.params.prompt, input.model)
-              }
-              return args.params
-            },
-          },
-          extractReasoningMiddleware({ tagName: "think", startWithReasoning: false }),
-        ],
-      }),
+      model: language,
       experimental_telemetry: { isEnabled: cfg.experimental?.openTelemetry },
     })
   }

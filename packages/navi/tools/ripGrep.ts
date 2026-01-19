@@ -8,7 +8,7 @@ import type { MessageBus } from '../confirmation-bus/message-bus.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
-import { downloadRipGrep } from '@joshua.litt/get-ripgrep';
+// import { downloadRipGrep } from '@joshua.litt/get-ripgrep';
 import type { ToolInvocation, ToolResult } from './tools.js';
 import { BaseDeclarativeTool, BaseToolInvocation, Kind } from './tools.js';
 import { SchemaValidator } from '../utils/schemaValidator.js';
@@ -42,24 +42,15 @@ async function resolveExistingRgPath(): Promise<string | null> {
   return null;
 }
 
-let ripgrepAcquisitionPromise: Promise<string | null> | null = null;
+// ...
 
 async function ensureRipgrepAvailable(): Promise<string | null> {
   const existingPath = await resolveExistingRgPath();
   if (existingPath) {
     return existingPath;
   }
-  if (!ripgrepAcquisitionPromise) {
-    ripgrepAcquisitionPromise = (async () => {
-      try {
-        await downloadRipGrep(Storage.getGlobalBinDir());
-        return await resolveExistingRgPath();
-      } finally {
-        ripgrepAcquisitionPromise = null;
-      }
-    })();
-  }
-  return ripgrepAcquisitionPromise;
+  // Fallback to assuming 'rg' is in PATH if not found in bin dir
+  return 'rg';
 }
 
 /**

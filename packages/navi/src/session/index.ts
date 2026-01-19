@@ -73,9 +73,6 @@ export namespace Session {
         })
         .optional(),
     })
-    .meta({
-      ref: "Session",
-    })
   export type Info = z.output<typeof Info>
 
   export const ShareInfo = z
@@ -211,7 +208,7 @@ export namespace Session {
       info: result,
     })
     const cfg = await Config.get()
-    if (!result.parentID && (Flag.NAVI_AUTO_SHARE || cfg.share === "auto"))
+    if (!result.parentID && ((Flag.NAVI_AUTO_SHARE as any) || cfg.share === "auto"))
       share(result.id)
         .then((share) => {
           update(result.id, (draft) => {

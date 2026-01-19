@@ -19,9 +19,10 @@ export interface PtyProcess {
 
 export const getPty = async (): Promise<PtyImplementation> => {
   try {
-    const lydell = '@lydell/node-pty';
-    const module = await import(lydell);
-    return { module, name: 'lydell-node-pty' };
+    // const lydell = '@lydell/node-pty';
+    // const module = await import(lydell);
+    // return { module, name: 'lydell-node-pty' };
+    throw new Error('lydell-node-pty not supported');
   } catch (_e) {
     try {
       const nodePty = 'node-pty';

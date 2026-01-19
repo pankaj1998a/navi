@@ -5,6 +5,8 @@ import z from "zod"
 import { data } from "./models-macro" with { type: "macro" }
 import { Installation } from "../installation"
 import { Flag } from "../flag/flag"
+import { mergeDeep } from "remeda"
+import { fileURLToPath } from "url"
 
 export namespace ModelsDev {
   const log = Log.create({ service: "models.dev" })
@@ -81,6 +83,20 @@ export namespace ModelsDev {
     const result = (await file.json().catch(() => { })) as Record<string, Provider> | undefined
     const providers = result || (JSON.parse(await data()) as Record<string, Provider>)
 
+    // Inject local free models if present
+    try {
+      const freeModelsPath = path.join(path.dirname(fileURLToPath(import.meta.url)), "free-models.json")
+      const freeModelsFile = Bun.file(freeModelsPath)
+      if (await freeModelsFile.exists()) {
+        const freeModels = await freeModelsFile.json()
+        for (const [id, provider] of Object.entries(freeModels)) {
+          providers[id] = mergeDeep(providers[id] ?? {}, provider as any)
+        }
+      }
+    } catch (e) {
+      log.error("Failed to load free-models.json", { error: e })
+    }
+
     // Inject Antigravity provider if not present
     if (!providers["google-antigravity"]) {
       const { ANTIGRAVITY_MODELS } = await import("./antigravity")
@@ -109,10 +125,10 @@ export namespace ModelsDev {
       }
     }
 
-    // Alias navi to navi if present
-    if (providers["navi"] && !providers["navi"]) {
+    // Alias opencode to navi if present
+    if (providers["opencode"]) {
       providers["navi"] = {
-        ...providers["navi"],
+        ...providers["opencode"],
         id: "navi",
         name: "Navi",
       }

@@ -7,6 +7,7 @@
 import type { AnyDeclarativeTool, AnyToolInvocation } from '../index.js';
 import { isTool } from '../index.js';
 import { SHELL_TOOL_NAMES } from './shell-utils.js';
+// @ts-ignore
 import levenshtein from 'fast-levenshtein';
 
 /**

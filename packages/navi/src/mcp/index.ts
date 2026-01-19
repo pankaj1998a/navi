@@ -1,4 +1,4 @@
-import { dynamicTool, type Tool, jsonSchema, type JSONSchema7 } from "ai"
+import { tool, type Tool, jsonSchema, type JSONSchema7 } from "ai"
 import { Client } from "@modelcontextprotocol/sdk/client/index.js"
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js"
 import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js"
@@ -121,9 +121,9 @@ export namespace MCP {
     }
     const config = await Config.get()
 
-    return dynamicTool({
+    return tool({
       description: mcpTool.description ?? "",
-      inputSchema: jsonSchema(schema),
+      parameters: jsonSchema(schema),
       execute: async (args: unknown) => {
         return client.callTool(
           {

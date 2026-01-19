@@ -402,8 +402,7 @@ interface CalculatedEdit {
 
 class EditToolInvocation
   extends BaseToolInvocation<EditToolParams, ToolResult>
-  implements ToolInvocation<EditToolParams, ToolResult>
-{
+  implements ToolInvocation<EditToolParams, ToolResult> {
   constructor(
     private readonly config: Config,
     params: EditToolParams,
@@ -708,7 +707,7 @@ class EditToolInvocation
       title: `Confirm Edit: ${shortenPath(makeRelative(this.params.file_path, this.config.getTargetDir()))}`,
       fileName,
       filePath: this.params.file_path,
-      fileDiff,
+      fileDiff: fileDiff as any,
       originalContent: editData.currentContent,
       newContent: editData.newContent,
       onConfirm: async (outcome: ToolConfirmationOutcome) => {
@@ -850,7 +849,7 @@ class EditToolInvocation
 
       return {
         llmContent: llmSuccessMessageParts.join(' '),
-        returnDisplay: displayResult,
+        returnDisplay: displayResult as any,
       };
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
@@ -881,8 +880,7 @@ class EditToolInvocation
  */
 export class EditTool
   extends BaseDeclarativeTool<EditToolParams, ToolResult>
-  implements ModifiableDeclarativeTool<EditToolParams>
-{
+  implements ModifiableDeclarativeTool<EditToolParams> {
   static readonly Name = EDIT_TOOL_NAME;
 
   constructor(

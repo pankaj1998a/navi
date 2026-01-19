@@ -26,7 +26,7 @@ export {
 } from './config.js';
 export {
   GcpTraceExporter,
-  GcpMetricExporter,
+  // GcpMetricExporter,
   GcpLogExporter,
 } from './gcp-exporters.js';
 export {

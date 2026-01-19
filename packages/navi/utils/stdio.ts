@@ -37,7 +37,7 @@ export function patchStdio(): () => void {
   const previousStdoutWrite = process.stdout.write;
   const previousStderrWrite = process.stderr.write;
 
-  process.stdout.write = (
+  process.stdout.write = ((
     chunk: Uint8Array | string,
     encodingOrCb?:
       | BufferEncoding
@@ -52,9 +52,9 @@ export function patchStdio(): () => void {
       callback();
     }
     return true;
-  };
+  }) as any;
 
-  process.stderr.write = (
+  process.stderr.write = ((
     chunk: Uint8Array | string,
     encodingOrCb?:
       | BufferEncoding
@@ -69,7 +69,7 @@ export function patchStdio(): () => void {
       callback();
     }
     return true;
-  };
+  }) as any;
 
   return () => {
     process.stdout.write = previousStdoutWrite;

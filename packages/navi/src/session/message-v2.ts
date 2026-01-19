@@ -1,7 +1,7 @@
 import { BusEvent } from "@/bus/bus-event"
 import z from "zod"
 import { NamedError } from "@navi-ai/util/error"
-import { APICallError, convertToModelMessages, LoadAPIKeyError, type ModelMessage, type UIMessage } from "ai"
+import { APICallError, convertToCoreMessages, LoadAPIKeyError, type CoreMessage, type UIMessage } from "ai"
 import { Identifier } from "../id/id"
 import { LSP } from "../lsp"
 import { Snapshot } from "@/snapshot"
@@ -430,129 +430,101 @@ export namespace MessageV2 {
   })
   export type WithParts = z.infer<typeof WithParts>
 
-  export function toModelMessage(input: WithParts[]): ModelMessage[] {
-    const result: UIMessage[] = []
+  export function toModelMessage(input: WithParts[]): CoreMessage[] {
+    const messages: CoreMessage[] = []
 
     for (const msg of input) {
       if (msg.parts.length === 0) continue
 
       if (msg.info.role === "user") {
-        const userMessage: UIMessage = {
-          id: msg.info.id,
-          role: "user",
-          parts: [],
-        }
-        result.push(userMessage)
+        const content: any[] = []
         for (const part of msg.parts) {
-          if (part.type === "text" && !part.ignored)
-            userMessage.parts.push({
-              type: "text",
-              text: part.text,
-            })
-          // text/plain and directory files are converted into text parts, ignore them
-          if (part.type === "file" && part.mime !== "text/plain" && part.mime !== "application/x-directory")
-            userMessage.parts.push({
-              type: "file",
-              url: part.url,
-              mediaType: part.mime,
-              filename: part.filename,
-            })
-
-          if (part.type === "compaction") {
-            userMessage.parts.push({
-              type: "text",
-              text: "What did we do so far?",
-            })
-          }
-          if (part.type === "subtask") {
-            userMessage.parts.push({
-              type: "text",
-              text: "The following tool was executed by the user",
-            })
+          if (part.type === "text" && !part.ignored) {
+            content.push({ type: "text", text: part.text })
+          } else if (part.type === "file" && part.mime !== "text/plain" && part.mime !== "application/x-directory") {
+            content.push({ type: "file", data: part.url, mimeType: part.mime })
+          } else if (part.type === "compaction") {
+            content.push({ type: "text", text: "What did we do so far?" })
+          } else if (part.type === "subtask") {
+            content.push({ type: "text", text: "The following tool was executed by the user" })
           }
         }
-      }
-
-      if (msg.info.role === "assistant") {
+        if (content.length > 0) {
+          messages.push({ role: "user", content })
+        }
+      } else if (msg.info.role === "assistant") {
         if (
           msg.info.error &&
           !(
             MessageV2.AbortedError.isInstance(msg.info.error) &&
-            msg.parts.some((part) => part.type !== "step-start" && part.type !== "reasoning")
+            msg.parts.some((p) => p.type !== "step-start" && p.type !== "reasoning")
           )
         ) {
           continue
         }
-        const assistantMessage: UIMessage = {
-          id: msg.info.id,
-          role: "assistant",
-          parts: [],
-        }
+
+        const content: any[] = []
+        const toolResults: any[] = []
+
         for (const part of msg.parts) {
-          if (part.type === "text")
-            assistantMessage.parts.push({
-              type: "text",
-              text: part.text,
+          if (part.type === "text") {
+            content.push({ type: "text", text: part.text, providerMetadata: part.metadata })
+          } else if (part.type === "reasoning") {
+            content.push({ type: "reasoning", reasoning: part.text, providerMetadata: part.metadata })
+          } else if (part.type === "tool") {
+            content.push({
+              type: "tool-call",
+              toolCallId: part.callID,
+              toolName: part.tool,
+              args: part.state.input,
               providerMetadata: part.metadata,
             })
-          if (part.type === "step-start")
-            assistantMessage.parts.push({
-              type: "step-start",
-            })
-          if (part.type === "tool") {
+
             if (part.state.status === "completed") {
               if (part.state.attachments?.length) {
-                result.push({
-                  id: Identifier.ascending("message"),
+                messages.push({
                   role: "user",
-                  parts: [
-                    {
-                      type: "text",
-                      text: `Tool ${part.tool} returned an attachment:`,
-                    },
-                    ...part.state.attachments.map((attachment) => ({
+                  content: [
+                    { type: "text", text: `Tool ${part.tool} returned an attachment:` },
+                    ...part.state.attachments.map((a) => ({
                       type: "file" as const,
-                      url: attachment.url,
-                      mediaType: attachment.mime,
-                      filename: attachment.filename,
+                      data: a.url,
+                      mimeType: a.mime,
                     })),
                   ],
                 })
               }
-              assistantMessage.parts.push({
-                type: ("tool-" + part.tool) as `tool-${string}`,
-                state: "output-available",
+              toolResults.push({
+                type: "tool-result",
                 toolCallId: part.callID,
-                input: part.state.input,
-                output: part.state.time.compacted ? "[Old tool result content cleared]" : part.state.output,
-                callProviderMetadata: part.metadata,
+                toolName: part.tool,
+                result: part.state.time.compacted ? "[Old tool result content cleared]" : part.state.output,
+                providerMetadata: part.state.metadata,
+              })
+            } else if (part.state.status === "error") {
+              toolResults.push({
+                type: "tool-result",
+                toolCallId: part.callID,
+                toolName: part.tool,
+                result: part.state.error,
+                isError: true,
+                providerMetadata: part.metadata,
               })
             }
-            if (part.state.status === "error")
-              assistantMessage.parts.push({
-                type: ("tool-" + part.tool) as `tool-${string}`,
-                state: "output-error",
-                toolCallId: part.callID,
-                input: part.state.input,
-                errorText: part.state.error,
-                callProviderMetadata: part.metadata,
-              })
-          }
-          if (part.type === "reasoning") {
-            assistantMessage.parts.push({
-              type: "reasoning",
-              text: part.text,
-              providerMetadata: part.metadata,
-            })
           }
         }
-        if (assistantMessage.parts.length > 0) {
-          result.push(assistantMessage)
+
+        if (content.length > 0) {
+          messages.push({ role: "assistant", content } as any)
+        }
+
+        if (toolResults.length > 0) {
+          messages.push({ role: "tool", content: toolResults })
         }
       }
     }
 
-    return convertToModelMessages(result.filter((msg) => msg.parts.some((part) => part.type !== "step-start")))
+    return messages
   }
 
   export const stream = fn(Identifier.schema("session"), async function* (sessionID) {

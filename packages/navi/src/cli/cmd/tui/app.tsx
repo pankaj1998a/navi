@@ -745,7 +745,7 @@ function ErrorComponent(props: {
   })
   const [copied, setCopied] = createSignal(false)
 
-  const issueURL = new URL("https://github.com/pankaj/navi/issues/new?template=bug-report.yml")
+  const issueURL = new URL("https://github.com/pankaj1998a/navi/issues/new?template=bug-report.yml")
 
   // Choose safe fallback colors per mode since theme context may not be available
   const isLight = props.mode === "light"

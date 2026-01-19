@@ -10,8 +10,8 @@ env:
 
 jobs:
   update-docs:
-    if: github.repository == 'sst/opencode'
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    if: github.repository == 'pankaj1998a/navi'
+    runs-on: ubuntu-latest
     permissions:
       id-token: write
       contents: write

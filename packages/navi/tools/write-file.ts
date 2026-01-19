@@ -220,7 +220,7 @@ class WriteFileToolInvocation extends BaseToolInvocation<
       title: `Confirm Write: ${shortenPath(relativePath)}`,
       fileName,
       filePath: this.resolvedPath,
-      fileDiff,
+      fileDiff: fileDiff as any,
       originalContent,
       newContent: correctedContent,
       onConfirm: async (outcome: ToolConfirmationOutcome) => {
@@ -346,7 +346,7 @@ class WriteFileToolInvocation extends BaseToolInvocation<
       );
 
       const displayResult: FileDiff = {
-        fileDiff,
+        fileDiff: fileDiff as any,
         fileName,
         filePath: this.resolvedPath,
         originalContent: correctedContentResult.originalContent,
@@ -407,8 +407,7 @@ class WriteFileToolInvocation extends BaseToolInvocation<
  */
 export class WriteFileTool
   extends BaseDeclarativeTool<WriteFileToolParams, ToolResult>
-  implements ModifiableDeclarativeTool<WriteFileToolParams>
-{
+  implements ModifiableDeclarativeTool<WriteFileToolParams> {
   static readonly Name = WRITE_FILE_TOOL_NAME;
 
   constructor(
@@ -469,9 +468,8 @@ export class WriteFileTool
         }
       }
     } catch (statError: unknown) {
-      return `Error accessing path properties for validation: ${resolvedPath}. Reason: ${
-        statError instanceof Error ? statError.message : String(statError)
-      }`;
+      return `Error accessing path properties for validation: ${resolvedPath}. Reason: ${statError instanceof Error ? statError.message : String(statError)
+        }`;
     }
 
     return null;

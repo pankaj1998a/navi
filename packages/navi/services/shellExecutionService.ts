@@ -10,8 +10,17 @@ import { getPty } from '../utils/getPty.js';
 import { spawn as cpSpawn } from 'node:child_process';
 import { TextDecoder } from 'node:util';
 import os from 'node:os';
-import type { IPty } from '@lydell/node-pty';
 import { getCachedEncodingForBuffer } from '../utils/systemEncoding.js';
+
+export interface IPty {
+  pid: number;
+  write(data: string): void;
+  onData(listener: (data: string) => void): void;
+  onExit(listener: (e: { exitCode: number; signal?: number }) => void): void;
+  kill(signal?: string): void;
+  destroy?(): void;
+  resize?(cols: number, rows: number): void;
+}
 import {
   getShellConfiguration,
   resolveExecutable,
@@ -99,21 +108,21 @@ export interface ShellExecutionConfig {
  */
 export type ShellOutputEvent =
   | {
-      /** The event contains a chunk of output data. */
-      type: 'data';
-      /** The decoded string chunk. */
-      chunk: string | AnsiOutput;
-    }
+    /** The event contains a chunk of output data. */
+    type: 'data';
+    /** The decoded string chunk. */
+    chunk: string | AnsiOutput;
+  }
   | {
-      /** Signals that the output stream has been identified as binary. */
-      type: 'binary_detected';
-    }
+    /** Signals that the output stream has been identified as binary. */
+    type: 'binary_detected';
+  }
   | {
-      /** Provides progress updates for a binary stream. */
-      type: 'binary_progress';
-      /** The total number of bytes received so far. */
-      bytesReceived: number;
-    };
+    /** Provides progress updates for a binary stream. */
+    type: 'binary_progress';
+    /** The total number of bytes received so far. */
+    bytesReceived: number;
+  };
 
 interface ActivePty {
   ptyProcess: IPty;
@@ -346,9 +355,8 @@ export class ShellExecutionService {
             stdout + (stderr ? (stdout ? separator : '') + stderr : '');
 
           if (stdoutTruncated || stderrTruncated) {
-            const truncationMessage = `\n[GEMINI_CLI_WARNING: Output truncated. The buffer is limited to ${
-              MAX_CHILD_PROCESS_BUFFER_SIZE / (1024 * 1024)
-            }MB.]`;
+            const truncationMessage = `\n[GEMINI_CLI_WARNING: Output truncated. The buffer is limited to ${MAX_CHILD_PROCESS_BUFFER_SIZE / (1024 * 1024)
+              }MB.]`;
             combinedOutput += truncationMessage;
           }
 
@@ -815,7 +823,7 @@ export class ShellExecutionService {
     const activePty = this.activePtys.get(pid);
     if (activePty) {
       try {
-        activePty.ptyProcess.resize(cols, rows);
+        activePty.ptyProcess.resize?.(cols, rows);
         activePty.headlessTerminal.resize(cols, rows);
       } catch (e) {
         // Ignore errors if the pty has already exited, which can happen

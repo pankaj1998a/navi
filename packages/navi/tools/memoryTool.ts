@@ -219,7 +219,7 @@ class MemoryToolInvocation extends BaseToolInvocation<
       title: `Confirm Memory Save: ${tildeifyPath(memoryFilePath)}`,
       fileName: memoryFilePath,
       filePath: memoryFilePath,
-      fileDiff,
+      fileDiff: fileDiff as any,
       originalContent: currentContent,
       newContent,
       onConfirm: async (outcome: ToolConfirmationOutcome) => {
@@ -294,8 +294,7 @@ class MemoryToolInvocation extends BaseToolInvocation<
 
 export class MemoryTool
   extends BaseDeclarativeTool<SaveMemoryParams, ToolResult>
-  implements ModifiableDeclarativeTool<SaveMemoryParams>
-{
+  implements ModifiableDeclarativeTool<SaveMemoryParams> {
   static readonly Name = MEMORY_TOOL_NAME;
 
   constructor(messageBus: MessageBus) {

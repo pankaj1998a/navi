@@ -6,7 +6,8 @@
 
 import { type JWTInput } from 'google-auth-library';
 import { TraceExporter } from '@google-cloud/opentelemetry-cloud-trace-exporter';
-import { MetricExporter } from '@google-cloud/opentelemetry-cloud-monitoring-exporter';
+// import { MetricExporter } from '@google-cloud/opentelemetry-cloud-monitoring-exporter';
+
 import { Logging } from '@google-cloud/logging';
 import type { Log } from '@google-cloud/logging';
 import { hrTimeToMilliseconds } from '@opentelemetry/core';
@@ -30,18 +31,15 @@ export class GcpTraceExporter extends TraceExporter {
   }
 }
 
-/**
- * Google Cloud Monitoring exporter that extends the official metrics exporter
- */
-export class GcpMetricExporter extends MetricExporter {
-  constructor(projectId?: string, credentials?: JWTInput) {
-    super({
-      projectId,
-      credentials,
-      prefix: 'custom.googleapis.com/gemini_cli',
-    });
-  }
-}
+// export class GcpMetricExporter extends MetricExporter {
+//   constructor(projectId?: string, credentials?: JWTInput) {
+//     super({
+//       projectId,
+//       credentials,
+//       prefix: 'custom.googleapis.com/gemini_cli',
+//     });
+//   }
+// }
 
 /**
  * Google Cloud Logging exporter that uses the Cloud Logging client

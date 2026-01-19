@@ -106,7 +106,7 @@ To install Navi, run:
 Or manually install the platform-specific package:
   npm install -g ${base}
 
-For more information, visit: https://github.com/pankaj/navi
+For more information, visit: https://github.com/pankaj1998a/navi
 `);
   process.exit(1);
 }

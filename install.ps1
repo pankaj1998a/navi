@@ -1,22 +1,20 @@
 # Navi AI Agent - Windows Installer
-# This script installs Navi from source on your Windows device.
+# This script installs Navi from source on your device.
 
-$ErrorActionPreference = "Stop"
-
-Write-Host "`n╔══════════════════════════════════════════════════════════════════╗" -ForegroundColor Cyan
-Write-Host "║                    Navi AI Agent - Installer                     ║" -ForegroundColor Cyan
-Write-Host "╚══════════════════════════════════════════════════════════════════╝`n" -ForegroundColor Cyan
+Write-Host "====================================================" -ForegroundColor Cyan
+Write-Host "                Navi AI Agent - Installer" -ForegroundColor Cyan
+Write-Host "====================================================" -ForegroundColor Cyan
+Write-Host ""
 
 # 1. Check for Bun
-if (!(Get-Command bun -ErrorAction SilentlyContinue)) {
+if (-not (Get-Command bun -ErrorAction SilentlyContinue)) {
     Write-Host "ℹ️  Bun is not installed. Navi requires Bun to run from source." -ForegroundColor Yellow
     $installBun = Read-Host "Would you like to install Bun now? (y/n)"
-    if ($installBun -eq "y") {
+    if ($installBun -eq "y" -or $installBun -eq "Y") {
         Write-Host "📥 Installing Bun..." -ForegroundColor Cyan
-        powershell -c "irm bun.sh/install.ps1 | iex"
+        irm bun.sh/install.ps1 | iex
         $env:PATH = "$env:USERPROFILE\.bun\bin;$env:PATH"
-    }
-    else {
+    } else {
         Write-Host "❌ Installation cancelled. Bun is required." -ForegroundColor Red
         exit 1
     }
@@ -26,36 +24,35 @@ if (!(Get-Command bun -ErrorAction SilentlyContinue)) {
 Write-Host "📦 Installing project dependencies..." -ForegroundColor Cyan
 bun install
 
-# 3. Create Shims
+# 3. Create Launcher Script
 Write-Host "🛠️  Setting up global command..." -ForegroundColor Cyan
-$currentDir = Get-Location
-$naviCmd = Join-Path $currentDir "navi.cmd"
-$naviPs1 = Join-Path $currentDir "navi.ps1"
+$CURRENT_DIR = Get-Location
+$BIN_PATH = Join-Path $env:USERPROFILE "navi-launcher.ps1"
 
-$cmdContent = @"
-@echo off
-bun run --cwd "$currentDir\packages\navi" --conditions=browser src/index.ts %*
+$launcherContent = @"
+bun run --cwd "$CURRENT_DIR\packages\navi" --conditions=browser "src\index.ts" `$args
 "@
 
-$ps1Content = @"
-bun run --cwd "$currentDir\packages\navi" --conditions=browser src/index.ts `$args
-"@
-
-Set-Content -Path $naviCmd -Value $cmdContent
-Set-Content -Path $naviPs1 -Value $ps1Content
+Set-Content -Path $BIN_PATH -Value $launcherContent
 
 # 4. Add to PATH
-Write-Host "🔗 Adding Navi to your PATH..." -ForegroundColor Cyan
-$userPath = [Environment]::GetEnvironmentVariable("Path", "User")
-if ($userPath -notlike "*$currentDir*") {
-    [Environment]::SetEnvironmentVariable("Path", "$userPath;$currentDir", "User")
-    $env:PATH = "$currentDir;$env:PATH"
-    Write-Host "✅ Added to PATH." -ForegroundColor Green
-}
-else {
-    Write-Host "ℹ️  Already in PATH." -ForegroundColor Gray
+$profilePath = $PROFILE
+if (-not (Test-Path $profilePath)) {
+    New-Item -Path $profilePath -ItemType File -Force | Out-Null
 }
 
-Write-Host "`n✨ Navi has been successfully installed!" -ForegroundColor Green
-Write-Host "🚀 You can now run 'navi' from any terminal window." -ForegroundColor Green
-Write-Host "💡 Note: You may need to restart your terminal for changes to take effect.`n" -ForegroundColor Yellow
+$aliasLine = "function navi { & `"$BIN_PATH`" `$args }"
+
+if (Select-String -Path $profilePath -Pattern "function navi" -Quiet) {
+    Write-Host "ℹ️  Navi function already exists in PowerShell profile." -ForegroundColor Yellow
+} else {
+    Add-Content -Path $profilePath -Value "`n# Navi"
+    Add-Content -Path $profilePath -Value $aliasLine
+    Write-Host "✅ Added function to PowerShell profile" -ForegroundColor Green
+}
+
+Write-Host ""
+Write-Host "✨ Navi has been successfully installed!" -ForegroundColor Green
+Write-Host "🚀 You can now run 'navi' from any PowerShell window." -ForegroundColor Green
+Write-Host "💡 Note: You may need to restart your PowerShell or run '. `$PROFILE' for changes to take effect." -ForegroundColor Yellow
+Write-Host ""

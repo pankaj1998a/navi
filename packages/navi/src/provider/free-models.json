@@ -1,0 +1,53 @@
+{
+    "zenmux": {
+        "id": "zenmux",
+        "name": "ZenMux Free Models",
+        "api": "https://zenmux.ai/api/v1",
+        "env": [],
+        "npm": "@ai-sdk/openai-compatible",
+        "models": {
+            "xiaomi/mimo-v2-flash-free": {
+                "id": "xiaomi/mimo-v2-flash-free",
+                "name": "MiMo-V2-Flash Free",
+                "attachment": false,
+                "reasoning": true,
+                "temperature": true,
+                "tool_call": true,
+                "cost": {
+                    "input": 0,
+                    "output": 0
+                },
+                "limit": {
+                    "context": 262144,
+                    "output": 64000
+                },
+                "options": {},
+                "headers": {
+                    "HTTP-Referer": "https://navi.ai/",
+                    "X-Title": "navi"
+                }
+            },
+            "xiaomi/mimo-v2-flash": {
+                "id": "xiaomi/mimo-v2-flash",
+                "name": "MiMo-V2-Flash",
+                "attachment": false,
+                "reasoning": true,
+                "temperature": true,
+                "tool_call": true,
+                "cost": {
+                    "input": 0,
+                    "output": 0
+                },
+                "limit": {
+                    "context": 262144,
+                    "output": 64000
+                },
+                "options": {},
+                "headers": {
+                    "HTTP-Referer": "https://navi.ai/",
+                    "X-Title": "navi"
+                }
+            }
+        }
+    }
+}
