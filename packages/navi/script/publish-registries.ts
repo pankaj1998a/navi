@@ -18,7 +18,7 @@ if (!Script.preview) {
     "",
     "pkgname='navi-bin'",
     `pkgver=${pkgver}`,
-    "_subver=${_subver}`,
+    `_subver=${_subver}`,
     "options=('!debug' '!strip')",
     "pkgrel=1",
     "pkgdesc='The AI coding agent built for the terminal.'",
