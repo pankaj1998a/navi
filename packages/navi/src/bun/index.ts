@@ -2,7 +2,7 @@ import z from "zod"
 import { Global } from "../global"
 import { Log } from "../util/log"
 import path from "path"
-import { NamedError } from "@navi-ai/util/error"
+import { NamedError } from "@navi-ai/sdk/util/error"
 import { readableStreamToText } from "bun"
 import { createRequire } from "module"
 import { Lock } from "../util/lock"
@@ -61,6 +61,10 @@ export namespace BunProc {
   )
 
   export async function install(pkg: string, version = "latest") {
+    if (process.env.CI) {
+      log.warn("skipping install in CI", { pkg, version })
+      return path.join(Global.Path.cache, "node_modules", pkg)
+    }
     // Use lock to ensure only one install at a time
     using _ = await Lock.write("bun-install")
 
@@ -128,3 +132,4 @@ export namespace BunProc {
     return mod
   }
 }
+

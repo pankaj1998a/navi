@@ -13,6 +13,7 @@ import { DialogModel } from "./dialog-model"
 import { useKeyboard } from "@opentui/solid"
 import { Clipboard } from "@tui/util/clipboard"
 import { useToast } from "../ui/toast"
+import { ProviderHealth } from "@/provider/health"
 
 const PROVIDER_PRIORITY: Record<string, number> = {
   navi: 0,
@@ -21,12 +22,39 @@ const PROVIDER_PRIORITY: Record<string, number> = {
   openai: 3,
   "google-antigravity": 4,
   google: 5,
+  kilocode: 6,
+  opencode: 7,
+}
+
+function formatProviderAuth(provider: { source: string }) {
+  switch (provider.source) {
+    case "env":
+      return "connected"
+    case "api":
+      return "connected"
+    case "config":
+      return "configured"
+    case "free":
+      return "free"
+    default:
+      return provider.source
+  }
 }
 
 export function createDialogProviderOptions() {
   const sync = useSync()
   const dialog = useDialog()
   const sdk = useSDK()
+  function formatCatalogAge(ageMs?: number) {
+    if (ageMs === undefined) return "freshness unknown"
+    const seconds = Math.floor(ageMs / 1000)
+    if (seconds < 60) return `${seconds}s old`
+    const minutes = Math.floor(seconds / 60)
+    if (minutes < 60) return `${minutes}m old`
+    const hours = Math.floor(minutes / 60)
+    if (hours < 24) return `${hours}h old`
+    return `${Math.floor(hours / 24)}d old`
+  }
   const options = createMemo(() => {
     return pipe(
       sync.data.provider_next.all,
@@ -34,12 +62,25 @@ export function createDialogProviderOptions() {
       map((provider) => ({
         title: provider.name,
         value: provider.id,
-        description: {
-          navi: "(Recommended)",
-          anthropic: "(Claude Max or API key)",
-          openai: "(ChatGPT Plus/Pro or API key)",
-          "google-antigravity": "(Gemini 3 & Claude 4.5 via Google OAuth)",
-        }[provider.id],
+        description: (() => {
+          const health = ProviderHealth.summarizeProvider(provider)
+          const base = {
+            navi: "(Recommended)",
+            anthropic: "(Claude Max or API key)",
+            openai: "(ChatGPT Plus/Pro or API key)",
+            "google-antigravity": "(Gemini 3 & Claude 4.5 via Google OAuth)",
+            kilocode: "(Free models)",
+            opencode: "(Free models)",
+          }[provider.id]
+          const freshness = formatCatalogAge(provider.catalog?.ageMs)
+          return [
+            base,
+            `${formatProviderAuth(provider)} · ${health.status} · ${health.activeModels} active`,
+            provider.catalog ? freshness : undefined,
+          ]
+            .filter(Boolean)
+            .join(" · ")
+        })(),
         category: provider.id in PROVIDER_PRIORITY ? "Popular" : "Other",
         async onSelect() {
           const methods = sync.data.provider_auth[provider.id] ?? [

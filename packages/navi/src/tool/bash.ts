@@ -20,6 +20,54 @@ import { Truncate } from "./truncation"
 const MAX_METADATA_LENGTH = 30_000
 const DEFAULT_TIMEOUT = Flag.NAVI_EXPERIMENTAL_BASH_DEFAULT_TIMEOUT_MS || 2 * 60 * 1000
 
+type BashRisk = "low" | "medium" | "high" | "critical"
+
+function summarizeBashCommand(command: string): {
+  command: string
+  summary: string
+  risk: BashRisk
+  destructive: boolean
+  warnings: string[]
+} {
+  const normalized = command.trim()
+  const tokens = normalized.split(/\s+/).filter(Boolean)
+  const commandName = BashArity.prefix(tokens).join(" ") || tokens[0] || normalized
+  const lower = normalized.toLowerCase()
+  const warnings: string[] = []
+
+  let risk: BashRisk = "low"
+  let destructive = false
+  let summary = commandName
+
+  if (/^(rm|rmdir)\b/i.test(lower) || /^git\s+clean\b.*-f/i.test(lower) || /^git\s+reset\b.*--hard\b/i.test(lower) || /^git\s+push\b.*--force/i.test(lower) || /^dd\b/i.test(lower) || /^mkfs/i.test(lower) || /^shutdown\b/i.test(lower) || /^reboot\b/i.test(lower)) {
+    risk = "critical"
+    destructive = true
+    summary = `destructive command: ${commandName}`
+    warnings.push("Can delete, overwrite, or irreversibly change files or system state")
+  } else if (/^(mv|cp|mkdir|touch|chmod|chown)\b/i.test(lower) || /^git\s+(commit|merge|rebase|am|tag)\b/i.test(lower)) {
+    risk = "high"
+    destructive = true
+    summary = `filesystem change: ${commandName}`
+    warnings.push("Will modify project files or repository state")
+  } else if (/^(?:bun|npm|pnpm|yarn|pip|poetry|cargo|go|mvn|gradle)\s+(?:install|add|update|upgrade)\b/i.test(lower)) {
+    risk = "medium"
+    summary = `dependency install: ${commandName}`
+    warnings.push("May update lockfiles, downloaded packages, or dependency state")
+  } else if (/^(?:bun|npm|pnpm|yarn)\s+(?:test|run\s+test|lint|run\s+lint|build|run\s+build)\b/i.test(lower) || /\b(?:test|lint|build|debug)\b/i.test(lower)) {
+    risk = "low"
+    summary = `workflow command: ${commandName}`
+    warnings.push("May run for a long time or emit large output")
+  }
+
+  return {
+    command: commandName,
+    summary,
+    risk,
+    destructive,
+    warnings,
+  }
+}
+
 export const log = Log.create({ service: "bash-tool" })
 
 const resolveWasm = (asset: string) => {
@@ -103,6 +151,8 @@ export const BashTool = Tool.define("bash", async () => {
       if (!Instance.containsPath(cwd)) directories.add(cwd)
       const patterns = new Set<string>()
       const always = new Set<string>()
+      const commandSummaries: ReturnType<typeof summarizeBashCommand>[] = []
+      let overallRisk: BashRisk = "low"
 
       for (const node of tree.rootNode.descendantsOfType("command")) {
         if (!node) continue
@@ -144,6 +194,12 @@ export const BashTool = Tool.define("bash", async () => {
           }
         }
 
+        const commandSummary = summarizeBashCommand(command.join(" "))
+        commandSummaries.push(commandSummary)
+        if (commandSummary.risk === "critical") overallRisk = "critical"
+        else if (commandSummary.risk === "high" && overallRisk !== "critical") overallRisk = "high"
+        else if (commandSummary.risk === "medium" && overallRisk === "low") overallRisk = "medium"
+
         // cd covered by above check
         if (command.length && command[0] !== "cd") {
           patterns.add(command.join(" "))
@@ -156,7 +212,12 @@ export const BashTool = Tool.define("bash", async () => {
           permission: "external_directory",
           patterns: Array.from(directories),
           always: Array.from(directories).map((x) => path.dirname(x) + "*"),
-          metadata: {},
+          metadata: {
+            cwd,
+            paths: Array.from(directories),
+            risk: directories.size > 0 ? "medium" : "low",
+            summary: directories.size > 0 ? "Access external files or directories outside the current project" : undefined,
+          },
         })
       }
 
@@ -165,7 +226,19 @@ export const BashTool = Tool.define("bash", async () => {
           permission: "bash",
           patterns: Array.from(patterns),
           always: Array.from(always),
-          metadata: {},
+          metadata: {
+            command: params.command,
+            cwd,
+            summary:
+              commandSummaries.length > 0
+                ? commandSummaries.map((item) => item.summary).join(" ; ")
+                : params.description,
+            risk: overallRisk,
+            destructive: commandSummaries.some((item) => item.destructive),
+            warnings: commandSummaries.flatMap((item) => item.warnings),
+            targets: Array.from(directories),
+            commands: commandSummaries.map((item) => item.command),
+          },
         })
       }
 

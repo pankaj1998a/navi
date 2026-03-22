@@ -6,6 +6,7 @@ import { DialogSelect, type DialogSelectRef } from "@tui/ui/dialog-select"
 import { useDialog } from "@tui/ui/dialog"
 import { createDialogProviderOptions, DialogProvider } from "./dialog-provider"
 import { Keybind } from "@/util/keybind"
+import { ProviderHealth } from "@/provider/health"
 import * as fuzzysort from "fuzzysort"
 
 export function useConnected() {
@@ -13,6 +14,45 @@ export function useConnected() {
   return createMemo(() =>
     sync.data.provider.some((x) => x.id !== "navi" || Object.values(x.models).some((y) => y.cost?.input !== 0)),
   )
+}
+
+function formatCatalogAge(ageMs?: number) {
+  if (ageMs === undefined) return "freshness unknown"
+  const seconds = Math.floor(ageMs / 1000)
+  if (seconds < 60) return `${seconds}s old`
+  const minutes = Math.floor(seconds / 60)
+  if (minutes < 60) return `${minutes}m old`
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return `${hours}h old`
+  return `${Math.floor(hours / 24)}d old`
+}
+
+function formatCapabilityHints(model: { capabilities?: { reasoning?: boolean; toolcall?: boolean; input?: { image?: boolean; pdf?: boolean } }; limit?: { context?: number } }) {
+  const hints: string[] = []
+  if (model.capabilities?.reasoning) hints.push("reasoning")
+  if (model.capabilities?.toolcall) hints.push("toolcall")
+  if (model.capabilities?.input?.image) hints.push("image")
+  if (model.capabilities?.input?.pdf) hints.push("pdf")
+  if (model.limit?.context) hints.push(`${Math.round(model.limit.context / 1000)}k ctx`)
+  return hints.join(" · ")
+}
+
+function formatModelCost(model: { cost?: { input: number; output: number; cache?: { read: number; write: number } } }) {
+  const cost = model.cost
+  if (!cost) return "cost unknown"
+  if (cost.input === 0 && cost.output === 0 && (cost.cache?.read ?? 0) === 0 && (cost.cache?.write ?? 0) === 0) {
+    return "free"
+  }
+  const parts = [`in ${cost.input.toFixed(4)}`, `out ${cost.output.toFixed(4)}`]
+  if (cost.cache && (cost.cache.read || cost.cache.write)) {
+    parts.push(`cache ${cost.cache.read.toFixed(4)}/${cost.cache.write.toFixed(4)}`)
+  }
+  return parts.join(" · ")
+}
+
+function formatContextLimit(limit?: number) {
+  if (!limit) return "context unknown"
+  return `${limit.toLocaleString()} ctx`
 }
 
 export function DialogModel(props: { providerID?: string; agentName?: string }) {
@@ -50,6 +90,7 @@ export function DialogModel(props: { providerID?: string; agentName?: string }) 
         if (!provider) return []
         const model = provider.models[item.modelID]
         if (!model) return []
+        const health = ProviderHealth.summarizeProvider(provider)
         return [
           {
             key: item,
@@ -58,10 +99,17 @@ export function DialogModel(props: { providerID?: string; agentName?: string }) 
               modelID: model.id,
             },
             title: model.name ?? item.modelID,
-            description: provider.name,
+            description: `${provider.name} · ${health.status} · ${health.activeModels} active · ${model.status}`,
             category: "Favorites",
             disabled: provider.id === "navi" && model.id.includes("-nano"),
-            footer: model.cost?.input === 0 && provider.id === "navi" ? "Free" : undefined,
+            footer: [
+              formatCapabilityHints(model),
+              formatModelCost(model),
+              formatContextLimit(model.limit?.context),
+              provider.catalog?.ageMs !== undefined ? formatCatalogAge(provider.catalog.ageMs) : undefined,
+            ]
+              .filter(Boolean)
+              .join(" · ") || undefined,
             onSelect: () => {
               dialog.clear()
               local.model.set(
@@ -83,6 +131,7 @@ export function DialogModel(props: { providerID?: string; agentName?: string }) 
         if (!provider) return []
         const model = provider.models[item.modelID]
         if (!model) return []
+        const health = ProviderHealth.summarizeProvider(provider)
         return [
           {
             key: item,
@@ -91,10 +140,17 @@ export function DialogModel(props: { providerID?: string; agentName?: string }) 
               modelID: model.id,
             },
             title: model.name ?? item.modelID,
-            description: provider.name,
+            description: `${provider.name} · ${health.status} · ${health.activeModels} active · ${model.status}`,
             category: "Recent",
             disabled: provider.id === "navi" && model.id.includes("-nano"),
-            footer: model.cost?.input === 0 && provider.id === "navi" ? "Free" : undefined,
+            footer: [
+              formatCapabilityHints(model),
+              formatModelCost(model),
+              formatContextLimit(model.limit?.context),
+              provider.catalog?.ageMs !== undefined ? formatCatalogAge(provider.catalog.ageMs) : undefined,
+            ]
+              .filter(Boolean)
+              .join(" · ") || undefined,
             onSelect: () => {
               dialog.clear()
               local.model.set(
@@ -120,24 +176,34 @@ export function DialogModel(props: { providerID?: string; agentName?: string }) 
         pipe(
           provider.models,
           entries(),
-          filter(([_, info]) => info.status !== "deprecated"),
+          // filter(([_, info]) => info.status !== "deprecated"),
           filter(([_, info]) => (props.providerID ? info.providerID === props.providerID : true)),
           map(([model, info]) => {
+            const health = ProviderHealth.summarizeProvider(provider)
             const value = {
               providerID: provider.id,
               modelID: model,
             }
+            const isFavorite = favorites.some(
+              (item) => item.providerID === value.providerID && item.modelID === value.modelID,
+            )
+            const footer = [
+              formatCapabilityHints(info),
+              isFavorite ? "(Favorite)" : undefined,
+            ]
+              .filter(Boolean)
+              .join(" · ") || undefined
             return {
               value,
               title: info.name ?? model,
-              description: favorites.some(
-                (item) => item.providerID === value.providerID && item.modelID === value.modelID,
-              )
-                ? "(Favorite)"
-                : undefined,
+              description: `${provider.name} · ${health.status} · ${health.activeModels} active${
+                provider.catalog?.ageMs !== undefined ? ` · ${formatCatalogAge(provider.catalog.ageMs)}` : ""
+              } · ${info.status}`,
+              footer: [footer, formatModelCost(info), formatContextLimit(info.limit?.context)]
+                .filter(Boolean)
+                .join(" · "),
               category: connected() ? provider.name : undefined,
-              disabled: provider.id === "navi" && model.includes("-nano"),
-              footer: info.cost?.input === 0 && provider.id === "navi" ? "Free" : undefined,
+              disabled: false,
               onSelect() {
                 dialog.clear()
                 local.model.set(
@@ -163,8 +229,8 @@ export function DialogModel(props: { providerID?: string; agentName?: string }) 
             if (inRecents) return false
             return true
           }),
-          sortBy(
-            (x) => x.footer !== "Free",
+      sortBy(
+            (x) => x.footer?.includes("Free") !== true,
             (x) => x.title,
           ),
         ),
@@ -175,8 +241,16 @@ export function DialogModel(props: { providerID?: string; agentName?: string }) 
       ? pipe(
         providers(),
         map((option) => {
+          const provider = sync.data.provider.find((provider) => provider.id === option.value)
+          const age = provider?.catalog?.ageMs !== undefined ? formatCatalogAge(provider.catalog.ageMs) : undefined
           return {
             ...option,
+            description: [
+              option.description,
+              age,
+            ]
+              .filter(Boolean)
+              .join(" · "),
             category: "Popular providers",
           }
         }),

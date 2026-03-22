@@ -8,7 +8,7 @@ import { Log } from "../util/log"
 import { Flag } from "@/flag/flag"
 import { Session } from "../session"
 import { work } from "../util/queue"
-import { fn } from "@navi-ai/util/fn"
+import { fn } from "@navi-ai/sdk/util/fn"
 import { BusEvent } from "@/bus/bus-event"
 import { iife } from "@/util/iife"
 import { GlobalBus } from "@/bus/global"
@@ -314,3 +314,4 @@ export namespace Project {
     return valid
   }
 }
+

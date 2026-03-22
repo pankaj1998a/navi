@@ -24,6 +24,10 @@ export const GET_INTERNAL_DOCS_TOOL_NAME = 'get_internal_docs';
 export const ACTIVATE_SKILL_TOOL_NAME = 'activate_skill';
 export const EDIT_TOOL_NAMES = new Set([EDIT_TOOL_NAME, WRITE_FILE_TOOL_NAME]);
 export const DELEGATE_TO_AGENT_TOOL_NAME = 'delegate_to_agent';
+export const MAP_CODEBASE_TOOL_NAME = 'map_codebase';
+export const PLAN_PHASE_TOOL_NAME = 'plan_phase';
+export const EXECUTE_PHASE_TOOL_NAME = 'execute_phase';
+export const VERIFY_WORK_TOOL_NAME = 'verify_work';
 
 /** Prefix used for tools discovered via the toolDiscoveryCommand. */
 export const DISCOVERED_TOOL_PREFIX = 'discovered_tool_';
@@ -46,7 +50,18 @@ export const ALL_BUILTIN_TOOL_NAMES = [
   MEMORY_TOOL_NAME,
   ACTIVATE_SKILL_TOOL_NAME,
   DELEGATE_TO_AGENT_TOOL_NAME,
+  MAP_CODEBASE_TOOL_NAME,
+  PLAN_PHASE_TOOL_NAME,
+  EXECUTE_PHASE_TOOL_NAME,
+  VERIFY_WORK_TOOL_NAME,
+  'think',
+  'calculator',
+  'get_current_time',
 ] as const;
+
+export const THINK_TOOL_NAME = 'think';
+export const CALCULATOR_TOOL_NAME = 'calculator';
+export const TIME_TOOL_NAME = 'get_current_time';
 
 /**
  * Validates if a tool name is syntactically valid.

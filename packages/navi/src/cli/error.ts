@@ -33,9 +33,18 @@ export function FormatError(input: unknown) {
   if (Config.InvalidError.isInstance(input))
     return [
       `Configuration is invalid${input.data.path && input.data.path !== "config" ? ` at ${input.data.path}` : ""}` +
-        (input.data.message ? `: ${input.data.message}` : ""),
-      ...(input.data.issues?.map((issue) => "↳ " + issue.message + " " + issue.path.join(".")) ?? []),
+      (input.data.message ? `: ${input.data.message}` : ""),
+      ...(input.data.issues?.map((issue: any) => "↳ " + issue.message + " " + issue.path.join(".")) ?? []),
     ].join("\n")
+
+  if (input instanceof Error && "status" in input) {
+    const status = (input as any).status
+    if (status === 401) return "Unauthorized. Please check your API key or provider configuration."
+    if (status === 403) return "Forbidden. You may not have access to this model or resource."
+    if (status === 404) return "Not Found. The requested model or resource could not be found."
+    if (status === 429) return "Rate limit exceeded. Please try again later or check your quota."
+    if (status >= 500) return `Provider server error (${status}). Please try again later.`
+  }
 
   if (UI.CancelledError.isInstance(input)) return ""
 }

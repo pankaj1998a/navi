@@ -16,7 +16,9 @@ import path from "path"
 import { useRoute, useRouteData } from "@tui/context/route"
 import { useSync } from "@tui/context/sync"
 import { SplitBorder } from "@tui/component/border"
-import { useTheme } from "@tui/context/theme"
+import {
+  useLocal
+} from "@tui/context/local"
 import {
   BoxRenderable,
   ScrollBoxRenderable,
@@ -27,8 +29,8 @@ import {
   RGBA,
 } from "@opentui/core"
 import { Prompt, type PromptRef } from "@tui/component/prompt"
-import type { AssistantMessage, Part, ToolPart, UserMessage, TextPart, ReasoningPart } from "@navi-ai/sdk/v2"
-import { useLocal } from "@tui/context/local"
+import type { AssistantMessage, Part, ToolPart, UserMessage, TextPart, ReasoningPart, StepStartPart, StepFinishPart } from "@navi-ai/sdk/v2"
+import { useTheme } from "@tui/context/theme"
 import { Locale } from "@/util/locale"
 import type { Tool } from "@/tool/tool"
 import type { ReadTool } from "@/tool/read"
@@ -59,7 +61,7 @@ import { DialogForkFromTimeline } from "./dialog-fork-from-timeline"
 import { DialogSessionRename } from "../../component/dialog-session-rename"
 import { Sidebar } from "./sidebar"
 import { LANGUAGE_EXTENSIONS } from "@/lsp/language"
-import parsers from "../../../../../../parsers-config.ts"
+import parsers from "@/config/parsers"
 import { Clipboard } from "../../util/clipboard"
 import { Toast, useToast } from "../../ui/toast"
 import { useKV } from "../../context/kv.tsx"
@@ -75,6 +77,25 @@ import { DialogExportOptions } from "../../ui/dialog-export-options"
 import { formatTranscript } from "../../util/transcript"
 
 addDefaultParsers(parsers.parsers)
+
+type ResponseAwareTextPart = TextPart & {
+  response?: {
+    status?: string
+    summary?: string
+    nextStep?: string
+    blockedReason?: string
+    kind?: string
+    confidence?: number
+    question?: {
+      text?: string
+      why?: string
+      recommendedOption?: string
+      impact?: string
+      expectedNextStep?: string
+      options?: Array<{ label: string }>
+    }
+  }
+}
 
 class CustomSpeedScroll implements ScrollAcceleration {
   constructor(private speed: number) { }
@@ -109,6 +130,7 @@ export function Session() {
   const sync = useSync()
   const kv = useKV()
   const { theme } = useTheme()
+  const local = useLocal()
   const promptRef = usePromptRef()
   const session = createMemo(() => sync.session.get(route.sessionID))
   const children = createMemo(() => {
@@ -215,6 +237,10 @@ export function Session() {
     }
   })
 
+
+
+  // Tab key handling moved to prompt component to avoid duplicate events
+
   // Helper: Find next visible message boundary in direction
   const findNextVisibleMessage = (direction: "next" | "prev"): string | null => {
     const children = scroll.getChildren()
@@ -267,7 +293,6 @@ export function Session() {
     }, 50)
   }
 
-  const local = useLocal()
 
   function moveChild(direction: number) {
     if (children().length === 1) return
@@ -320,9 +345,53 @@ export function Session() {
       },
     },
     {
-      title: "Jump to message",
+      title: "Resume session",
+      value: "session.resume",
+      keybind: "session_resume",
+      category: "Session",
+      onSelect: async (dialog) => {
+        try {
+          toast.show({
+            variant: "info",
+            message: "Resuming session...",
+            duration: 3000,
+          })
+          await sdk.client.session.resume({
+            sessionID: route.sessionID,
+          })
+        } catch (error) {
+          toast.show({
+            variant: "error",
+            message: "Failed to resume session",
+            duration: 3000,
+          })
+        }
+        dialog.clear()
+      },
+    },
+    {
+      title: "Session Timeline",
       value: "session.timeline",
       keybind: "session_timeline",
+      category: "Session",
+      onSelect: (dialog) => {
+        dialog.replace(() => (
+          <DialogTimeline
+            onMove={(messageID) => {
+              const child = scroll.getChildren().find((child) => {
+                return child.id === messageID
+              })
+              if (child) scroll.scrollBy(child.y - scroll.y - 1)
+            }}
+            sessionID={route.sessionID}
+            setPrompt={(promptInfo) => prompt.set(promptInfo)}
+          />
+        ))
+      },
+    },
+    {
+      title: "Time Travel",
+      value: "session.timetravel",
       category: "Session",
       onSelect: (dialog) => {
         dialog.replace(() => (
@@ -921,7 +990,6 @@ export function Session() {
                   alignItems="center"
                   justifyContent="center"
                   onMouseUp={() => setVisibleCount((prev) => prev + 50)}
-                  cursor="pointer"
                 >
                   <text fg={theme.textMuted}>
                     ↑ Load previous messages ({messages().length - visibleCount()} remaining)
@@ -1095,7 +1163,13 @@ function UserMessage(props: {
 }) {
   const ctx = use()
   const local = useLocal()
-  const text = createMemo(() => props.parts.flatMap((x) => (x.type === "text" && !x.synthetic ? [x] : []))[0])
+  const text = createMemo(() => {
+    const t = props.parts.flatMap((x) => (x.type === "text" && !x.synthetic ? [x] : []))[0]?.text
+    if (!t) return undefined
+    const filtered = filterLeak(t)
+    if (!filtered) return { text: "" }
+    return { text: filtered }
+  })
   const files = createMemo(() => props.parts.flatMap((x) => (x.type === "file" ? [x] : [])))
   const sync = useSync()
   const { theme } = useTheme()
@@ -1228,7 +1302,7 @@ function AssistantMessage(props: { message: AssistantMessage; parts: Part[]; las
           customBorderChars={SplitBorder.customBorderChars}
           borderColor={theme.error}
         >
-          <text fg={theme.textMuted}>{props.message.error?.data.message}</text>
+          <text fg={theme.error}>⚠️ <span style={{ bold: true }}>{filterLeak(props.message.error?.data.message) || "Error"}</span></text>
         </box>
       </Show>
       <Switch>
@@ -1265,6 +1339,50 @@ const PART_MAPPING = {
   text: TextPart,
   tool: ToolPart,
   reasoning: ReasoningPart,
+  "step-start": StepStartPartComponent,
+  "step-finish": StepFinishPartComponent,
+  subtask: SubtaskPartComponent,
+}
+
+function StepStartPartComponent(props: { last: boolean; part: StepStartPart; message: AssistantMessage }) {
+  const { theme } = useTheme()
+  return (
+    <box paddingLeft={3} marginTop={1} flexDirection="row" gap={1}>
+      <text fg={theme.accent}>◈</text>
+      <text fg={theme.textMuted}>{props.part.snapshot || "Executing step..."}</text>
+    </box>
+  )
+}
+
+function StepFinishPartComponent(props: { last: boolean; part: StepFinishPart; message: AssistantMessage }) {
+  const { theme } = useTheme()
+  return (
+    <box paddingLeft={3} marginTop={1} flexDirection="row" gap={1}>
+      <text fg={theme.success}>✔</text>
+      <text fg={theme.textMuted}>{props.part.reason || "Step completed"}</text>
+    </box>
+  )
+}
+
+function SubtaskPartComponent(props: { last: boolean; part: any; message: AssistantMessage }) {
+  const { theme } = useTheme()
+  const local = useLocal()
+  const color = createMemo(() => local.agent.color(props.part.agent))
+
+  return (
+    <box
+      border={["left"]}
+      borderColor={color()}
+      paddingLeft={2}
+      marginTop={1}
+      customBorderChars={SplitBorder.customBorderChars}
+    >
+      <box paddingLeft={1}>
+        <text fg={theme.textMuted}>Delegating to <span style={{ fg: color(), bold: true }}>@{props.part.agent}</span></text>
+        <text fg={theme.text}>{filterLeak(props.part.description) ?? ""}</text>
+      </box>
+    </box>
+  )
 }
 
 function ReasoningPart(props: { last: boolean; part: ReasoningPart; message: AssistantMessage }) {
@@ -1273,7 +1391,8 @@ function ReasoningPart(props: { last: boolean; part: ReasoningPart; message: Ass
   const content = createMemo(() => {
     // Filter out redacted reasoning chunks from OpenRouter
     // OpenRouter sends encrypted reasoning data that appears as [REDACTED]
-    return props.part.text.replace("[REDACTED]", "").trim()
+    let text = props.part.text.replace("[REDACTED]", "").trim()
+    return filterLeak(text) ?? ""
   })
   return (
     <Show when={content() && ctx.showThinking()}>
@@ -1300,18 +1419,54 @@ function ReasoningPart(props: { last: boolean; part: ReasoningPart; message: Ass
   )
 }
 
-function TextPart(props: { last: boolean; part: TextPart; message: AssistantMessage }) {
+function TextPart(props: { last: boolean; part: ResponseAwareTextPart; message: AssistantMessage }) {
   const ctx = use()
   const { theme, syntax } = useTheme()
+
+  const content = createMemo(() => {
+    const text = props.part.text.trim()
+    return filterLeak(text) ?? ""
+  })
+
   return (
-    <Show when={props.part.text.trim()}>
+    <Show when={content()}>
       <box id={"text-" + props.part.id} paddingLeft={3} marginTop={1} flexShrink={0}>
+        <Show when={props.part.response?.status === "asking"}>
+          <box marginBottom={1} flexDirection="column" gap={0}>
+            <text fg={theme.warning}>Awaiting user input</text>
+            <Show when={props.part.response?.question?.why}>
+              <text fg={theme.textMuted}>Why: {props.part.response?.question?.why}</text>
+            </Show>
+            <Show when={props.part.response?.question?.impact}>
+              <text fg={theme.textMuted}>Impact: {props.part.response?.question?.impact}</text>
+            </Show>
+            <Show when={props.part.response?.question?.recommendedOption}>
+              <text fg={theme.textMuted}>Recommended: {props.part.response?.question?.recommendedOption}</text>
+            </Show>
+            <Show when={props.part.response?.question?.expectedNextStep}>
+              <text fg={theme.textMuted}>Next: {props.part.response?.question?.expectedNextStep}</text>
+            </Show>
+          </box>
+        </Show>
+        <Show when={props.part.response?.summary || props.part.response?.nextStep || props.part.response?.blockedReason}>
+          <box marginBottom={1} flexDirection="column" gap={0}>
+            <Show when={props.part.response?.summary}>
+              <text fg={theme.textMuted}>Summary: {props.part.response?.summary}</text>
+            </Show>
+            <Show when={props.part.response?.nextStep}>
+              <text fg={theme.textMuted}>Next: {props.part.response?.nextStep}</text>
+            </Show>
+            <Show when={props.part.response?.blockedReason}>
+              <text fg={theme.warning}>Blocked: {props.part.response?.blockedReason}</text>
+            </Show>
+          </box>
+        </Show>
         <code
           filetype="markdown"
           drawUnstyledText={false}
           streaming={true}
           syntaxStyle={syntax()}
-          content={props.part.text.trim()}
+          content={content()}
           conceal={ctx.conceal()}
           fg={theme.text}
         />
@@ -1382,6 +1537,9 @@ function ToolPart(props: { last: boolean; part: ToolPart; message: AssistantMess
         </Match>
         <Match when={props.part.tool === "websearch"}>
           <WebSearch {...toolprops} />
+        </Match>
+        <Match when={props.part.tool === "googlesearch"}>
+          <GoogleAiSearch {...toolprops} />
         </Match>
         <Match when={props.part.tool === "write"}>
           <Write {...toolprops} />
@@ -1461,7 +1619,7 @@ function InlineTool(props: {
     return theme.text
   })
 
-  const error = createMemo(() => (props.part.state.status === "error" ? props.part.state.error : undefined))
+  const error = createMemo(() => (props.part.state.status === "error" ? (filterLeak(props.part.state.error) || "Error") : undefined))
 
   const denied = createMemo(
     () =>
@@ -1498,7 +1656,7 @@ function InlineTool(props: {
       }}
     >
       <text paddingLeft={3} fg={fg()} attributes={denied() ? TextAttributes.STRIKETHROUGH : undefined}>
-        <Show fallback={<>~ {props.pending}</>} when={props.complete}>
+        <Show fallback={<>~ {filterLeak(props.pending) ?? props.pending}</>} when={props.complete}>
           <span style={{ fg: props.iconColor }}>{props.icon}</span> {props.children}
         </Show>
       </text>
@@ -1513,7 +1671,7 @@ function BlockTool(props: { title: string; children: JSX.Element; onClick?: () =
   const { theme } = useTheme()
   const renderer = useRenderer()
   const [hover, setHover] = createSignal(false)
-  const error = createMemo(() => (props.part?.state.status === "error" ? props.part.state.error : undefined))
+  const error = createMemo(() => (props.part?.state.status === "error" ? (filterLeak(props.part.state.error) || "Error") : undefined))
   return (
     <box
       border={["left"]}
@@ -1533,7 +1691,7 @@ function BlockTool(props: { title: string; children: JSX.Element; onClick?: () =
       }}
     >
       <text paddingLeft={3} fg={theme.textMuted}>
-        {props.title}
+        {filterLeak(props.title) ?? props.title}
       </text>
       {props.children}
       <Show when={error()}>
@@ -1545,7 +1703,8 @@ function BlockTool(props: { title: string; children: JSX.Element; onClick?: () =
 
 function Bash(props: ToolProps<typeof BashTool>) {
   const { theme } = useTheme()
-  const output = createMemo(() => stripAnsi(props.metadata.output?.trim() ?? ""))
+  const output = createMemo(() => filterLeak(stripAnsi(props.metadata.output?.trim() ?? "")) ?? "")
+  const command = createMemo(() => filterLeak(props.input.command) ?? "")
   const [expanded, setExpanded] = createSignal(false)
   const lines = createMemo(() => output().split("\n"))
   const overflow = createMemo(() => lines().length > 10)
@@ -1558,12 +1717,12 @@ function Bash(props: ToolProps<typeof BashTool>) {
     <Switch>
       <Match when={props.metadata.output !== undefined}>
         <BlockTool
-          title={"# " + (props.input.description ?? "Shell")}
+          title={"# " + (filterLeak(props.input.description) ?? "Shell")}
           part={props.part}
           onClick={overflow() ? () => setExpanded((prev) => !prev) : undefined}
         >
           <box gap={1}>
-            <text fg={theme.text}>$ {props.input.command}</text>
+            <text fg={theme.text}>$ {command()}</text>
             <text fg={theme.text}>{limited()}</text>
             <Show when={overflow()}>
               <text fg={theme.textMuted}>{expanded() ? "Click to collapse" : "Click to expand"}</text>
@@ -1572,8 +1731,8 @@ function Bash(props: ToolProps<typeof BashTool>) {
         </BlockTool>
       </Match>
       <Match when={true}>
-        <InlineTool icon="$" pending="Writing command..." complete={props.input.command} part={props.part}>
-          {props.input.command}
+        <InlineTool icon="$" pending="Writing command..." complete={command()} part={props.part}>
+          {command()}
         </InlineTool>
       </Match>
     </Switch>
@@ -1584,23 +1743,25 @@ function Write(props: ToolProps<typeof WriteTool>) {
   const { theme, syntax } = useTheme()
   const code = createMemo(() => {
     if (!props.input.content) return ""
-    return props.input.content
+    return filterLeak(props.input.content) ?? ""
   })
 
+  const filePath = createMemo(() => filterLeak(props.input.filePath))
+
   const diagnostics = createMemo(() => {
-    const filePath = Filesystem.normalizePath(props.input.filePath ?? "")
-    return props.metadata.diagnostics?.[filePath] ?? []
+    const p = Filesystem.normalizePath(filePath() ?? "")
+    return (props.metadata as any).diagnostics?.[p] ?? []
   })
 
   return (
     <Switch>
-      <Match when={props.metadata.diagnostics !== undefined}>
-        <BlockTool title={"# Wrote " + normalizePath(props.input.filePath!)} part={props.part}>
+      <Match when={(props.metadata as any).diagnostics !== undefined}>
+        <BlockTool title={"# Wrote " + normalizePath(filePath()!)} part={props.part}>
           <line_number fg={theme.textMuted} minWidth={3} paddingRight={1}>
             <code
               conceal={false}
               fg={theme.text}
-              filetype={filetype(props.input.filePath!)}
+              filetype={filetype(filePath()!)}
               syntaxStyle={syntax()}
               content={code()}
             />
@@ -1617,8 +1778,8 @@ function Write(props: ToolProps<typeof WriteTool>) {
         </BlockTool>
       </Match>
       <Match when={true}>
-        <InlineTool icon="←" pending="Preparing write..." complete={props.input.filePath} part={props.part}>
-          Write {normalizePath(props.input.filePath!)}
+        <InlineTool icon="←" pending="Preparing write..." complete={filePath()} part={props.part}>
+          Write {normalizePath(filePath()!)}
         </InlineTool>
       </Match>
     </Switch>
@@ -1628,16 +1789,17 @@ function Write(props: ToolProps<typeof WriteTool>) {
 function Glob(props: ToolProps<typeof GlobTool>) {
   return (
     <InlineTool icon="✱" pending="Finding files..." complete={props.input.pattern} part={props.part}>
-      Glob "{props.input.pattern}" <Show when={props.input.path}>in {normalizePath(props.input.path)} </Show>
+      Glob "{filterLeak(props.input.pattern) ?? props.input.pattern}" <Show when={props.input.path}>in {normalizePath(filterLeak(props.input.path) ?? props.input.path)} </Show>
       <Show when={props.metadata.count}>({props.metadata.count} matches)</Show>
     </InlineTool>
   )
 }
 
-function Read(props: ToolProps<typeof ReadTool>) {
+function Read(props: any) {
+  const filePath = createMemo(() => filterLeak(props.input.filePath))
   return (
-    <InlineTool icon="→" pending="Reading file..." complete={props.input.filePath} part={props.part}>
-      Read {normalizePath(props.input.filePath!)} {input(props.input, ["filePath"])}
+    <InlineTool icon="→" pending="Reading file..." complete={filePath()} part={props.part}>
+      Read {normalizePath(filePath()!)} {input(props.input, ["filePath"])}
     </InlineTool>
   )
 }
@@ -1645,7 +1807,7 @@ function Read(props: ToolProps<typeof ReadTool>) {
 function Grep(props: ToolProps<typeof GrepTool>) {
   return (
     <InlineTool icon="✱" pending="Searching content..." complete={props.input.pattern} part={props.part}>
-      Grep "{props.input.pattern}" <Show when={props.input.path}>in {normalizePath(props.input.path)} </Show>
+      Grep "{filterLeak(props.input.pattern) ?? props.input.pattern}" <Show when={props.input.path}>in {normalizePath(filterLeak(props.input.path) ?? props.input.path)} </Show>
       <Show when={props.metadata.matches}>({props.metadata.matches} matches)</Show>
     </InlineTool>
   )
@@ -1666,9 +1828,14 @@ function List(props: ToolProps<typeof ListTool>) {
 }
 
 function WebFetch(props: ToolProps<typeof WebFetchTool>) {
+  const url = createMemo(() => {
+    const u = (props.input as any).url
+    if (typeof u !== "string") return ""
+    return filterLeak(u) || "Invalid URL"
+  })
   return (
-    <InlineTool icon="%" pending="Fetching from the web..." complete={(props.input as any).url} part={props.part}>
-      WebFetch {(props.input as any).url}
+    <InlineTool icon="%" pending="Fetching from the web..." complete={url()} part={props.part}>
+      WebFetch {url()}
     </InlineTool>
   )
 }
@@ -1676,9 +1843,15 @@ function WebFetch(props: ToolProps<typeof WebFetchTool>) {
 function CodeSearch(props: ToolProps<any>) {
   const input = props.input as any
   const metadata = props.metadata as any
+  const query = createMemo(() => {
+    const q = input.query
+    if (typeof q !== "string") return ""
+    return filterLeak(q) || "Code Search"
+  })
+
   return (
-    <InlineTool icon="◇" pending="Searching code..." complete={input.query} part={props.part}>
-      Exa Code Search "{input.query}" <Show when={metadata.results}>({metadata.results} results)</Show>
+    <InlineTool icon="◇" pending="Searching code..." complete={query()} part={props.part}>
+      Code Search "{query()}" <Show when={metadata.results}>({metadata.results} results)</Show>
     </InlineTool>
   )
 }
@@ -1686,9 +1859,57 @@ function CodeSearch(props: ToolProps<any>) {
 function WebSearch(props: ToolProps<any>) {
   const input = props.input as any
   const metadata = props.metadata as any
+
+  const query = createMemo(() => {
+    let q = input.query
+    if (typeof q !== "string") return "Invalid query"
+    return filterLeak(q) || "Web Search"
+  })
+
   return (
-    <InlineTool icon="◈" pending="Searching web..." complete={input.query} part={props.part}>
-      Exa Web Search "{input.query}" <Show when={metadata.numResults}>({metadata.numResults} results)</Show>
+    <InlineTool icon="◈" pending="Searching web..." complete={query()} part={props.part}>
+      Web Search "{query()}" <Show when={metadata.numResults}>({metadata.numResults} results)</Show>
+    </InlineTool>
+  )
+}
+
+function GoogleAiSearch(props: ToolProps<any>) {
+  const input = props.input as any
+  const metadata = props.metadata as any
+  const { theme } = useTheme()
+
+  const query = createMemo(() => {
+    const q = input.query
+    if (typeof q !== "string") return "Invalid query"
+    return filterLeak(q) || "Google AI Search"
+  })
+
+  const mode = createMemo(() => {
+    const value = metadata.aiMode
+    if (typeof value !== "string" || value.length === 0) return undefined
+    return value
+  })
+
+  const provider = createMemo(() => {
+    const value = metadata.provider
+    if (typeof value !== "string" || value.length === 0) return undefined
+    return value
+  })
+
+  const usedFallback = createMemo(() => mode() === "heuristic")
+
+  return (
+    <InlineTool
+      icon="✦"
+      iconColor={theme.info}
+      pending="Synthesizing with Google AI..."
+      complete={query()}
+      part={props.part}
+    >
+      Google AI Search "{query()}" <Show when={mode()}>[{mode()}]</Show> <Show when={provider()}>via {provider()}</Show>
+      <Show when={usedFallback()}>
+        <span style={{ fg: theme.textMuted }}> fallback summary used</span>
+      </Show>
     </InlineTool>
   )
 }
@@ -1700,13 +1921,15 @@ function Task(props: ToolProps<typeof TaskTool>) {
   const local = useLocal()
 
   const current = createMemo(() => props.metadata.summary?.findLast((x) => x.state.status !== "pending"))
-  const color = createMemo(() => local.agent.color(props.input.subagent_type ?? "unknown"))
+  const desc = createMemo(() => filterLeak(props.input.description) ?? "")
+  const type = createMemo(() => filterLeak(props.input.subagent_type) ?? "unknown")
+  const color = createMemo(() => local.agent.color(type()))
 
   return (
     <Switch>
       <Match when={props.metadata.summary?.length}>
         <BlockTool
-          title={"# " + Locale.titlecase(props.input.subagent_type ?? "unknown") + " Task"}
+          title={"# " + Locale.titlecase(type()) + " Task"}
           onClick={
             props.metadata.sessionId
               ? () => navigate({ type: "session", sessionID: props.metadata.sessionId! })
@@ -1716,7 +1939,7 @@ function Task(props: ToolProps<typeof TaskTool>) {
         >
           <box>
             <text style={{ fg: theme.textMuted }}>
-              {props.input.description} ({props.metadata.summary?.length} toolcalls)
+              {desc()} ({props.metadata.summary?.length} toolcalls)
             </text>
             <Show when={current()}>
               <text style={{ fg: current()!.state.status === "error" ? theme.error : theme.textMuted }}>
@@ -1736,11 +1959,11 @@ function Task(props: ToolProps<typeof TaskTool>) {
           icon="◉"
           iconColor={color()}
           pending="Delegating..."
-          complete={props.input.subagent_type ?? props.input.description}
+          complete={type() ?? desc()}
           part={props.part}
         >
-          <span style={{ fg: theme.text }}>{Locale.titlecase(props.input.subagent_type ?? "unknown")}</span> Task "
-          {props.input.description}"
+          <span style={{ fg: theme.text }}>{Locale.titlecase(type())}</span> Task "
+          {desc()}"
         </InlineTool>
       </Match>
     </Switch>
@@ -1750,6 +1973,7 @@ function Task(props: ToolProps<typeof TaskTool>) {
 function Edit(props: ToolProps<typeof EditTool>) {
   const ctx = use()
   const { theme, syntax } = useTheme()
+  const filePath = createMemo(() => filterLeak(props.input.filePath))
 
   const view = createMemo(() => {
     const diffStyle = ctx.sync.data.config.tui?.diff_style
@@ -1758,20 +1982,20 @@ function Edit(props: ToolProps<typeof EditTool>) {
     return ctx.width > 120 ? "split" : "unified"
   })
 
-  const ft = createMemo(() => filetype(props.input.filePath))
+  const ft = createMemo(() => filetype(filePath()))
 
   const diffContent = createMemo(() => props.metadata.diff)
 
   const diagnostics = createMemo(() => {
-    const filePath = Filesystem.normalizePath(props.input.filePath ?? "")
-    const arr = props.metadata.diagnostics?.[filePath] ?? []
+    const p = Filesystem.normalizePath(filePath() ?? "")
+    const arr = props.metadata.diagnostics?.[p] ?? []
     return arr.filter((x) => x.severity === 1).slice(0, 3)
   })
 
   return (
     <Switch>
       <Match when={props.metadata.diff !== undefined}>
-        <BlockTool title={"← Edit " + normalizePath(props.input.filePath!)} part={props.part}>
+        <BlockTool title={"← Edit " + normalizePath(filePath()!)} part={props.part}>
           <box paddingLeft={1}>
             <diff
               diff={diffContent()}
@@ -1808,8 +2032,8 @@ function Edit(props: ToolProps<typeof EditTool>) {
         </BlockTool>
       </Match>
       <Match when={true}>
-        <InlineTool icon="←" pending="Preparing edit..." complete={props.input.filePath} part={props.part}>
-          Edit {normalizePath(props.input.filePath!)} {input({ replaceAll: props.input.replaceAll })}
+        <InlineTool icon="←" pending="Preparing edit..." complete={filePath()} part={props.part}>
+          Edit {normalizePath(filePath()!)} {input({ replaceAll: props.input.replaceAll })}
         </InlineTool>
       </Match>
     </Switch>
@@ -1823,7 +2047,7 @@ function Patch(props: ToolProps<typeof PatchTool>) {
       <Match when={props.output !== undefined}>
         <BlockTool title="# Patch" part={props.part}>
           <box>
-            <text fg={theme.text}>{props.output?.trim()}</text>
+            <text fg={theme.text}>{filterLeak(props.output?.trim()) ?? ""}</text>
           </box>
         </BlockTool>
       </Match>
@@ -1843,7 +2067,7 @@ function TodoWrite(props: ToolProps<typeof TodoWriteTool>) {
         <BlockTool title="# Todos" part={props.part}>
           <box>
             <For each={props.input.todos ?? []}>
-              {(todo) => <TodoItem status={todo.status} content={todo.content} />}
+              {(todo, index) => <TodoItem id={todo.id ?? index().toString()} status={todo.status} content={todo.content} />}
             </For>
           </box>
         </BlockTool>
@@ -1905,7 +2129,11 @@ function input(input: Record<string, any>, omit?: string[]): string {
     return typeof value === "string" || typeof value === "number" || typeof value === "boolean"
   })
   if (primitives.length === 0) return ""
-  return `[${primitives.map(([key, value]) => `${key}=${value}`).join(", ")}]`
+
+  const str = `[${primitives.map(([key, value]) => `${key}=${value}`).join(", ")}]`
+  const filtered = filterLeak(str)
+  if (!filtered) return "[Filtered]"
+  return filtered
 }
 
 function filetype(input?: string) {
@@ -1914,4 +2142,41 @@ function filetype(input?: string) {
   const language = LANGUAGE_EXTENSIONS[ext]
   if (["typescriptreact", "javascriptreact", "javascript"].includes(language)) return "typescript"
   return language
+}
+
+function filterLeak(text: any) {
+  if (typeof text !== "string") return undefined
+  // Quick length check - schema dumps are typically long
+  if (text.length < 100) return text
+
+  // Check for JSON schema patterns (tool definition dumps)
+  const schemaIndicators = [
+    '"contextMaxCharacters"',
+    '"additionalProperties"',
+    '"livecrawl"',
+  ]
+  for (const indicator of schemaIndicators) {
+    if (text.includes(indicator)) return ""
+  }
+
+  // Count JSON schema keywords - if 3+ present, likely a schema dump
+  const schemaKeywords = [
+    '"type": "object"',
+    '"type": "string"',
+    '"type": "number"',
+    '"type": "boolean"',
+    '"type": "array"',
+    '"properties":',
+    '"description":',
+    '"enum": [',
+    '"required": [',
+    '"items":',
+  ]
+  let matches = 0
+  for (const keyword of schemaKeywords) {
+    if (text.includes(keyword)) matches++
+    if (matches >= 3) return ""
+  }
+
+  return text
 }

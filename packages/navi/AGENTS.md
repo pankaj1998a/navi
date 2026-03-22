@@ -25,3 +25,12 @@
 - **Logging**: Use `Log.create({ service: "name" })` pattern
 - **Storage**: Use `Storage` namespace for persistence
 - **API Client**: The TypeScript TUI (built with SolidJS + OpenTUI) communicates with the Navi server using `@navi-ai/sdk`. When adding/modifying server endpoints in `packages/navi/src/server/server.ts`, run `./script/generate.ts` to regenerate the SDK and related files.
+
+## Ralph Efficiency (The Loop)
+
+Navigate complex tasks using the **Ralph Loop** methodology:
+1. **Delegation**: Use the `swarm` tool to run sub-agents in parallel (e.g., `frontend`, `backend`, `tester`).
+2. **Verification**: Always verify code changes with `bash` (tests/build) before reporting success.
+3. **Persistence**: Save project-level state (PRDs, Tasks) to `.specs/` or `prd.json`.
+4. **Learning**: Discover patterns and record them in this `AGENTS.md` file or its project-local equivalent.
+5. **Iteration**: Loop until the task is demonstrably complete and verified. Never assume; always prove.

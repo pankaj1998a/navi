@@ -6,6 +6,16 @@ import { Identifier } from "../id/id"
 import { Plugin } from "../plugin"
 import { Instance } from "../project/instance"
 import { Wildcard } from "../util/wildcard"
+import { getPermissionMode } from "./mode-manager"
+import { validateBashCommand } from "./bash-validator"
+import { CompiledBashPattern, SAFE_MODE_CONFIG } from "./mode-types"
+import { permissionsConfigCache } from "./permissions-config"
+
+// Re-export all permission-related functionality
+export * from "./mode-types"
+export * from "./mode-manager"
+export * from "./permissions-config"
+export * from "./bash-validator"
 
 export namespace Permission {
   const log = Log.create({ service: "permission" })
@@ -115,6 +125,53 @@ export namespace Permission {
     })
     const approvedForSession = approved[input.sessionID] || {}
     const keys = toKeys(input.pattern, input.type)
+
+    const mode = getPermissionMode(input.sessionID)
+
+    if (mode === "allow-all") {
+      // Still check for explicitly blocked tools
+      const mergedConfig = permissionsConfigCache.getMergedConfig(Instance.directory)
+      if (mergedConfig.blockedTools.has(input.type)) {
+        log.info("blocking explicitly blocked tool in allow-all mode", { type: input.type })
+        throw new RejectedError(
+          input.sessionID,
+          "blocked-tool",
+          input.callID,
+          input.metadata,
+          `Tool "${input.type}" is explicitly blocked even in Allow-All mode.`,
+        )
+      }
+      log.info("auto-allowing due to allow-all mode", { sessionID: input.sessionID })
+      return
+    }
+
+    if (mode === "safe") {
+      // Load merged config from permissions.json or use defaults
+      const mergedConfig = permissionsConfigCache.getMergedConfig(Instance.directory)
+      
+      // Check against configured safe patterns
+      if (input.type === "bash" && typeof input.metadata.command === "string") {
+        const validation = validateBashCommand(input.metadata.command, mergedConfig.readOnlyBashPatterns)
+        if (!validation.allowed) {
+          log.info("blocking command in safe mode", { command: input.metadata.command })
+          throw new RejectedError(
+            input.sessionID,
+            "safe-mode-block",
+            input.callID,
+            input.metadata,
+            `Command blocked in Safe Mode: ${validation.reason?.type === "unsafe_command" ? validation.reason.explanation : "Dangerous construct detected"}`,
+          )
+        }
+        return // Allowed
+      }
+
+      // Block write tools in safe mode
+      if (mergedConfig.blockedTools.has(input.type)) {
+        log.info("blocking tool in safe mode", { type: input.type })
+        throw new RejectedError(input.sessionID, "safe-mode-block", input.callID, input.metadata, `Tool "${input.type}" is blocked in Safe Mode.`)
+      }
+    }
+
     if (covered(keys, approvedForSession)) return
     const info: Info = {
       id: Identifier.ascending("permission"),
@@ -131,9 +188,9 @@ export namespace Permission {
     }
 
     switch (
-      await Plugin.trigger("permission.ask", info, {
-        status: "ask",
-      }).then((x) => x.status)
+    await Plugin.trigger("permission.ask", info, {
+      status: "ask",
+    }).then((x) => x.status)
     ) {
       case "deny":
         throw new RejectedError(info.sessionID, info.id, info.callID, info.metadata)

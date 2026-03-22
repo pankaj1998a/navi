@@ -2,7 +2,19 @@ import { render, useKeyboard, useRenderer, useTerminalDimensions } from "@opentu
 import { Clipboard } from "@tui/util/clipboard"
 import { TextAttributes } from "@opentui/core"
 import { RouteProvider, useRoute } from "@tui/context/route"
-import { Switch, Match, createEffect, untrack, ErrorBoundary, createSignal, onMount, batch, Show, on } from "solid-js"
+import {
+  Switch,
+  Match,
+  createEffect,
+  untrack,
+  ErrorBoundary,
+  createSignal,
+  onMount,
+  batch,
+  Show,
+  on,
+  onCleanup,
+} from "solid-js"
 import { Installation } from "@/installation"
 import { Flag } from "@/flag/flag"
 import { DialogProvider, useDialog } from "@tui/ui/dialog"
@@ -13,12 +25,14 @@ import { LocalProvider, useLocal } from "@tui/context/local"
 import { DialogModel, useConnected } from "./component/dialog-model"
 import { DialogMcp } from "./component/dialog-mcp"
 import { DialogStatus } from "./component/dialog-status"
+import { DialogGit } from "./component/dialog-git"
 import { DialogThemeList } from "./component/dialog-theme-list"
 import { DialogHelp } from "./ui/dialog-help"
 import { CommandProvider, useCommandDialog } from "./component/dialog-command"
 import { DialogMode } from "./component/dialog-mode"
 import { DialogAgent } from "./component/dialog-agent"
 import { DialogSessionList } from "./component/dialog-session-list"
+import { DialogSwarm } from "./component/dialog-swarm"
 import { KeybindProvider } from "@tui/context/keybind"
 import { ThemeProvider, useTheme } from "@tui/context/theme"
 import { Home } from "@tui/routes/home"
@@ -39,66 +53,8 @@ import { writeHeapSnapshot } from "v8"
 import { PromptRefProvider, usePromptRef } from "./context/prompt"
 
 async function getTerminalBackgroundColor(): Promise<"dark" | "light"> {
-  // On Windows, skip terminal background detection as it can hang
-  if (process.platform === "win32") return "dark"
-
-  // can't set raw mode if not a TTY
-  if (!process.stdin.isTTY) return "dark"
-
-  return new Promise((resolve) => {
-    let timeout: NodeJS.Timeout
-
-    const cleanup = () => {
-      process.stdin.setRawMode(false)
-      process.stdin.removeListener("data", handler)
-      clearTimeout(timeout)
-    }
-
-    const handler = (data: Buffer) => {
-      const str = data.toString()
-      const match = str.match(/\x1b]11;([^\x07\x1b]+)/)
-      if (match) {
-        cleanup()
-        const color = match[1]
-        // Parse RGB values from color string
-        // Formats: rgb:RR/GG/BB or #RRGGBB or rgb(R,G,B)
-        let r = 0,
-          g = 0,
-          b = 0
-
-        if (color.startsWith("rgb:")) {
-          const parts = color.substring(4).split("/")
-          r = parseInt(parts[0], 16) >> 8 // Convert 16-bit to 8-bit
-          g = parseInt(parts[1], 16) >> 8 // Convert 16-bit to 8-bit
-          b = parseInt(parts[2], 16) >> 8 // Convert 16-bit to 8-bit
-        } else if (color.startsWith("#")) {
-          r = parseInt(color.substring(1, 3), 16)
-          g = parseInt(color.substring(3, 5), 16)
-          b = parseInt(color.substring(5, 7), 16)
-        } else if (color.startsWith("rgb(")) {
-          const parts = color.substring(4, color.length - 1).split(",")
-          r = parseInt(parts[0])
-          g = parseInt(parts[1])
-          b = parseInt(parts[2])
-        }
-
-        // Calculate luminance using relative luminance formula
-        const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255
-
-        // Determine if dark or light based on luminance threshold
-        resolve(luminance > 0.5 ? "light" : "dark")
-      }
-    }
-
-    process.stdin.setRawMode(true)
-    process.stdin.on("data", handler)
-    process.stdout.write("\x1b]11;?\x07")
-
-    timeout = setTimeout(() => {
-      cleanup()
-      resolve("dark")
-    }, 1000)
-  })
+  // Always return dark mode to avoid any terminal detection issues
+  return "dark"
 }
 
 import type { EventSource } from "./context/sdk"
@@ -112,8 +68,10 @@ export function tui(input: {
   onExit?: () => Promise<void>
 }) {
   // promise to prevent immediate exit
+
   return new Promise<void>(async (resolve) => {
-    const mode = await getTerminalBackgroundColor()
+    const mode = input.args.themeMode ?? (await getTerminalBackgroundColor())
+
     const onExit = async () => {
       await input.onExit?.()
       resolve()
@@ -216,10 +174,6 @@ function App() {
   }
   const [terminalTitleEnabled, setTerminalTitleEnabled] = createSignal(kv.get("terminal_title_enabled", true))
 
-  createEffect(() => {
-    console.log(JSON.stringify(route.data))
-  })
-
   // Update terminal window title based on current route and session
   createEffect(() => {
     if (!terminalTitleEnabled() || Flag.NAVI_DISABLE_TERMINAL_TITLE) return
@@ -246,6 +200,7 @@ function App() {
   onMount(() => {
     batch(() => {
       if (args.agent) local.agent.set(args.agent)
+      if (args.mode) local.mode.set(args.mode)
       if (args.model) {
         const { providerID, modelID } = Provider.parseModel(args.model)
         if (!providerID || !modelID)
@@ -302,7 +257,7 @@ function App() {
           "websearch:web_search",
         ]
         const name = cmd.name.toLowerCase()
-        if (name.includes("websearch")) return false
+        if (name.includes("websearch") || (cmd as any).skill) return false
         return !blacklisted.includes(cmd.name) && !cmd.name.startsWith("websearch:")
       })
       .map((cmd) => ({
@@ -372,10 +327,20 @@ function App() {
       value: "session.new",
       keybind: "session_new",
       category: "Session",
-      onSelect: () => {
+      onSelect: async () => {
         const current = promptRef.current
         // Don't require focus - if there's any text, preserve it
         const currentPrompt = current?.current?.input ? current.current : undefined
+
+        if (route.data.type === "session") {
+          route.navigate({
+            type: "home",
+            initialPrompt: currentPrompt,
+          })
+          dialog.clear()
+          return
+        }
+
         route.navigate({
           type: "home",
           initialPrompt: currentPrompt,
@@ -458,12 +423,21 @@ function App() {
       },
     },
     {
-      title: "Mode cycle",
+      title: "Agent cycle",
       value: "agent.cycle",
       keybind: "agent_cycle",
       category: "Agent",
       onSelect: () => {
         local.agent.move(1)
+      },
+    },
+    {
+      title: "Mode cycle",
+      value: "mode.cycle",
+      keybind: "mode_cycle",
+      category: "Agent",
+      onSelect: () => {
+        local.mode.cycle()
       },
     },
     {
@@ -476,7 +450,7 @@ function App() {
       },
     },
     {
-      title: "Mode cycle reverse",
+      title: "Agent cycle reverse",
       value: "agent.cycle.reverse",
       keybind: "agent_cycle_reverse",
       category: "Agent",
@@ -499,6 +473,22 @@ function App() {
       value: "navi.status",
       onSelect: () => {
         dialog.replace(() => <DialogStatus />)
+      },
+      category: "System",
+    },
+    {
+      title: "Git Status",
+      value: "git.status",
+      onSelect: () => {
+        dialog.replace(() => <DialogGit />)
+      },
+      category: "System",
+    },
+    {
+      title: "Swarm Collaboration",
+      value: "system.swarm",
+      onSelect: () => {
+        dialog.replace(() => <DialogSwarm />)
       },
       category: "System",
     },
@@ -630,11 +620,10 @@ function App() {
     }
   })
 
-  sdk.event.on(TuiEvent.CommandExecute.type, (evt) => {
+  const unsubCommandExecute = sdk.event.on(TuiEvent.CommandExecute.type, (evt) => {
     command.trigger(evt.properties.command)
   })
-
-  sdk.event.on(TuiEvent.ToastShow.type, (evt) => {
+  const unsubToastShow = sdk.event.on(TuiEvent.ToastShow.type, (evt) => {
     toast.show({
       title: evt.properties.title,
       message: evt.properties.message,
@@ -642,15 +631,13 @@ function App() {
       duration: evt.properties.duration,
     })
   })
-
-  sdk.event.on(TuiEvent.SessionSelect.type, (evt) => {
+  const unsubSessionSelect = sdk.event.on(TuiEvent.SessionSelect.type, (evt) => {
     route.navigate({
       type: "session",
       sessionID: evt.properties.sessionID,
     })
   })
-
-  sdk.event.on(SessionApi.Event.Deleted.type, (evt) => {
+  const unsubSessionDeleted = sdk.event.on(SessionApi.Event.Deleted.type, (evt) => {
     if (route.data.type === "session" && route.data.sessionID === evt.properties.info.id) {
       route.navigate({ type: "home" })
       toast.show({
@@ -659,8 +646,7 @@ function App() {
       })
     }
   })
-
-  sdk.event.on(SessionApi.Event.Error.type, (evt) => {
+  const unsubSessionError = sdk.event.on(SessionApi.Event.Error.type, (evt) => {
     const error = evt.properties.error
     if (error && typeof error === "object" && error.name === "MessageAbortedError") return
     const message = (() => {
@@ -681,8 +667,7 @@ function App() {
       duration: 5000,
     })
   })
-
-  sdk.event.on(Installation.Event.UpdateAvailable.type, (evt) => {
+  const unsubUpdateAvailable = sdk.event.on(Installation.Event.UpdateAvailable.type, (evt) => {
     toast.show({
       variant: "info",
       title: "Update Available",
@@ -690,6 +675,13 @@ function App() {
       duration: 10000,
     })
   })
+
+  onCleanup(unsubCommandExecute)
+  onCleanup(unsubToastShow)
+  onCleanup(unsubSessionSelect)
+  onCleanup(unsubSessionDeleted)
+  onCleanup(unsubSessionError)
+  onCleanup(unsubUpdateAvailable)
 
   return (
     <box
@@ -716,8 +708,12 @@ function App() {
       }}
     >
       <Switch>
-        <Match when={route.data.type === "home"}><Home /></Match>
-        <Match when={route.data.type === "session"}><Session /></Match>
+        <Match when={route.data.type === "home"}>
+          <Home />
+        </Match>
+        <Match when={route.data.type === "session"}>
+          <Session />
+        </Match>
       </Switch>
     </box>
   )
@@ -778,9 +774,13 @@ function ErrorComponent(props: {
   return (
     <box flexDirection="column" gap={1} backgroundColor={colors.bg}>
       <box flexDirection="row" gap={1} alignItems="center">
-        <text attributes={TextAttributes.BOLD} fg={colors.text}>Please report an issue.</text>
+        <text attributes={TextAttributes.BOLD} fg={colors.text}>
+          Please report an issue.
+        </text>
         <box onMouseUp={copyIssueURL} backgroundColor={colors.primary} padding={1}>
-          <text attributes={TextAttributes.BOLD} fg={colors.bg}>Copy issue URL (exception info pre-filled)</text>
+          <text attributes={TextAttributes.BOLD} fg={colors.bg}>
+            Copy issue URL (exception info pre-filled)
+          </text>
         </box>
         {copied() && <text fg={colors.muted}>Successfully copied</text>}
       </box>

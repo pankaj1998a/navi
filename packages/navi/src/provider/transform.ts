@@ -319,8 +319,9 @@ export namespace ProviderTransform {
         if (id === "gpt-5-pro") return {}
         const openaiEfforts = iife(() => {
           if (id.includes("codex")) {
-            if (id.includes("5.2")) return [...WIDELY_SUPPORTED_EFFORTS, "xhigh"]
-            return WIDELY_SUPPORTED_EFFORTS
+            const efforts = [...WIDELY_SUPPORTED_EFFORTS]
+            if (model.release_date >= "2025-12-04") efforts.push("xhigh")
+            return efforts
           }
           const arr = [...WIDELY_SUPPORTED_EFFORTS]
           if (id.includes("gpt-5-") || id === "gpt-5") {
@@ -488,11 +489,14 @@ export namespace ProviderTransform {
     }
 
     if (model.api.npm === "@ai-sdk/google" || model.api.npm === "@ai-sdk/google-vertex") {
-      result["thinkingConfig"] = {
-        includeThoughts: true,
-      }
-      if (model.api.id.includes("gemini-3")) {
-        result["thinkingConfig"]["thinkingLevel"] = "high"
+      // Only set thinking config if model supports reasoning/thinking
+      if (model.capabilities.reasoning) {
+        result["thinkingConfig"] = {
+          includeThoughts: true,
+        }
+        if (model.api.id.includes("gemini-3")) {
+          result["thinkingConfig"]["thinkingLevel"] = "high"
+        }
       }
     }
 
@@ -622,7 +626,11 @@ export namespace ProviderTransform {
     */
 
     // Convert integer enums to string enums for Google/Gemini
-    if (model.providerID === "google" || model.api.id.includes("gemini")) {
+    const isGemini = model.providerID === "google" ||
+      model.providerID === "gemini-cli" ||
+      model.api.id.toLowerCase().includes("gemini")
+
+    if (isGemini) {
       const sanitizeGemini = (obj: any): any => {
         if (obj === null || typeof obj !== "object") {
           return obj
@@ -633,7 +641,11 @@ export namespace ProviderTransform {
         }
 
         const result: any = {}
+        const EXCLUDED_KEYS = ["$schema", "$id", "$defs", "definitions", "additionalProperties"]
+
         for (const [key, value] of Object.entries(obj)) {
+          if (EXCLUDED_KEYS.includes(key)) continue
+
           if (key === "enum" && Array.isArray(value)) {
             // Convert all enum values to strings
             result[key] = value.map((v) => String(v))
@@ -648,19 +660,31 @@ export namespace ProviderTransform {
           }
         }
 
+        // Gemini requires type to be present for all schema objects
+        if (!result.type) {
+          if (result.properties) result.type = "object"
+          else if (result.items) result.type = "array"
+        }
+
         // Filter required array to only include fields that exist in properties
         if (result.type === "object" && result.properties && Array.isArray(result.required)) {
           result.required = result.required.filter((field: any) => field in result.properties)
+          if (result.required.length === 0) delete result.required
         }
 
         if (result.type === "array" && result.items == null) {
-          result.items = {}
+          result.items = { type: "string" } // Default to string items if missing
         }
 
         return result
       }
 
       schema = sanitizeGemini(schema)
+
+      // Final check: root must be an object
+      if (typeof schema === "object" && schema !== null) {
+        (schema as any).type = "object"
+      }
     }
 
     return schema

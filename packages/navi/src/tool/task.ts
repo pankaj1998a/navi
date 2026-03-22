@@ -10,7 +10,8 @@ import { SessionPrompt } from "../session/prompt"
 import { iife } from "@/util/iife"
 import { defer } from "@/util/defer"
 import { Config } from "../config/config"
-import { PermissionNext } from "@/permission/next"
+import { canSpawnAgent, filterSpawnableAgents } from "../agent/spawn"
+import { AgentScorecard } from "../agent/scorecard"
 
 const parameters = z.object({
   description: z.string().describe("A short (3-5 words) description of the task"),
@@ -23,16 +24,32 @@ const parameters = z.object({
 export const TaskTool = Tool.define("task", async (ctx) => {
   const agents = await Agent.list().then((x) => x.filter((a) => a.mode !== "primary"))
 
-  // Filter agents by permissions if agent provided
   const caller = ctx?.agent
-  const accessibleAgents = caller
-    ? agents.filter((a) => PermissionNext.evaluate("task", a.name, caller.permission).action !== "deny")
-    : agents
+  const accessibleAgents = filterSpawnableAgents(caller, agents)
+  const taskClass = caller?.name ?? "general"
+  const rankedAgents = await AgentScorecard.rankAgentsForTask(
+    taskClass,
+    accessibleAgents.map((agent) => agent.name),
+  )
+  const scoreByAgent = new Map(rankedAgents.map((entry) => [entry.agentName, entry]))
+  const orderedAgents = [...accessibleAgents].sort((a, b) => {
+    const scoreA = scoreByAgent.get(a.name)?.score ?? 50
+    const scoreB = scoreByAgent.get(b.name)?.score ?? 50
+    if (scoreB !== scoreA) return scoreB - scoreA
+    return a.name.localeCompare(b.name)
+  })
 
   const description = DESCRIPTION.replace(
     "{agents}",
-    accessibleAgents
-      .map((a) => `- ${a.name}: ${a.description ?? "This subagent should only be called manually by the user."}`)
+    orderedAgents
+      .map((a) => {
+        const scorecard = scoreByAgent.get(a.name)
+        const suffix =
+          scorecard && scorecard.samples > 0
+            ? ` [score ${scorecard.score.toFixed(1)}, ${scorecard.samples} runs]`
+            : ""
+        return `- ${a.name}: ${a.description ?? "This subagent should only be called manually by the user."}${suffix}`
+      })
       .join("\n"),
   )
   return {
@@ -56,6 +73,9 @@ export const TaskTool = Tool.define("task", async (ctx) => {
 
       const agent = await Agent.get(params.subagent_type)
       if (!agent) throw new Error(`Unknown agent type: ${params.subagent_type} is not a valid agent type`)
+      if (!canSpawnAgent(caller, agent.name)) {
+        throw new Error(`Agent "${agent.name}" is not available to "${caller?.name ?? "this agent"}"`)
+      }
 
       const hasTaskPermission = agent.permission.some((rule) => rule.permission === "task")
 

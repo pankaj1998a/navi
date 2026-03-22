@@ -16,7 +16,11 @@ export class CanvasIPC {
     private socketPath: string
 
     constructor(private canvasId: string) {
-        this.socketPath = path.join(Global.Path.state, `canvas-${canvasId}.sock`)
+        if (process.platform === "win32") {
+            this.socketPath = `\\\\.\\pipe\\navi-canvas-${canvasId}`
+        } else {
+            this.socketPath = path.join(Global.Path.state, `canvas-${canvasId}.sock`)
+        }
     }
 
     createServer(onMessage: (msg: CanvasMessage, socket: net.Socket) => void) {
@@ -45,7 +49,12 @@ export class CanvasIPC {
     }
 
     static connect(canvasId: string, onMessage: (msg: CanvasMessage) => void): Promise<net.Socket> {
-        const socketPath = path.join(Global.Path.state, `canvas-${canvasId}.sock`)
+        let socketPath: string
+        if (process.platform === "win32") {
+            socketPath = `\\\\.\\pipe\\navi-canvas-${canvasId}`
+        } else {
+            socketPath = path.join(Global.Path.state, `canvas-${canvasId}.sock`)
+        }
         return new Promise((resolve, reject) => {
             const socket = net.createConnection(socketPath, () => {
                 this.log.debug("connected to canvas ipc server", { id: canvasId })

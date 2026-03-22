@@ -5,7 +5,7 @@ import type { PermissionNext } from "../permission/next"
 import { Truncate } from "./truncation"
 
 export namespace Tool {
-  interface Metadata {
+  export interface Metadata {
     [key: string]: any
   }
 
@@ -20,6 +20,7 @@ export namespace Tool {
     abort: AbortSignal
     callID?: string
     extra?: { [key: string]: any }
+    messages: MessageV2.WithParts[]
     metadata(input: { title?: string; metadata?: M }): void
     ask(input: Omit<PermissionNext.Request, "id" | "sessionID" | "tool">): Promise<void>
   }
@@ -70,7 +71,7 @@ export namespace Tool {
           if (result.metadata.truncated !== undefined) {
             return result
           }
-          const truncated = await Truncate.output(result.output, {}, initCtx?.agent)
+          const truncated = await Truncate.output(result.output, {}, initCtx?.agent, ctx.sessionID)
           return {
             ...result,
             output: truncated.content,

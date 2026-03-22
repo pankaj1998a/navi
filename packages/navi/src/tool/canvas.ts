@@ -25,6 +25,13 @@ export const CanvasTool: Tool.Info = {
                 // In a real TUI, this might open a new pane or window.
                 // For now, we'll simulate by starting the canvas process.
                 const canvasAppPath = path.join(import.meta.dir, "../canvas/app.tsx")
+                if (!(await Bun.file(canvasAppPath).exists())) {
+                    return {
+                        title: "Canvas Unavailable",
+                        output: "The Canvas tool is not available in this build of Navi (source file not found).",
+                        metadata: { error: true }
+                    }
+                }
                 Bun.spawn(["bun", canvasAppPath, args.id], {
                     stdout: "inherit",
                     stderr: "inherit",

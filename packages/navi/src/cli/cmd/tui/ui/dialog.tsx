@@ -136,6 +136,15 @@ function init() {
     setSize(size: "medium" | "large") {
       setStore("size", size)
     },
+    pop() {
+      if (store.stack.length === 0) return
+      const current = store.stack.at(-1)!
+      current.onClose?.()
+      setStore("stack", store.stack.slice(0, -1))
+      if (store.stack.length === 0) {
+        refocus()
+      }
+    },
   }
 }
 

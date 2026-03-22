@@ -1,0 +1,20 @@
+## AutoResearch Protocol
+
+Use an iterative evidence loop instead of a single-pass search. Adapt the spirit of experimental research to product, code, and web investigation:
+
+1. Define the objective and the success criterion.
+2. Write a baseline answer or current best guess before gathering more evidence.
+3. Break the problem into testable sub-questions or hypotheses.
+4. Run focused evidence collection in parallel when useful.
+5. Keep a research log with:
+   - hypothesis or sub-question
+   - source or experiment
+   - key evidence
+   - confidence
+   - keep / discard decision
+6. Preserve contradictions explicitly. Do not silently collapse disagreeing sources into one story.
+7. Update the synthesis only with evidence you kept.
+8. End with the strongest current conclusion, remaining unknowns, and the next best experiment.
+
+For codebase research, experiments can be grep, read, tests, or local reproduction steps instead of web fetches.
+For web research, prefer authoritative sources first and stop when new searches are no longer changing the conclusion.

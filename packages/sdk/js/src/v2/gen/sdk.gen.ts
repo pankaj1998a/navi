@@ -34,6 +34,7 @@ import type {
   GlobalDisposeResponses,
   GlobalEventResponses,
   GlobalHealthResponses,
+  GlobalPeersResponses,
   InstanceDisposeResponses,
   LspStatusResponses,
   McpAddErrors,
@@ -116,6 +117,8 @@ import type {
   SessionPromptAsyncResponses,
   SessionPromptErrors,
   SessionPromptResponses,
+  SessionResumeErrors,
+  SessionResumeResponses,
   SessionRevertErrors,
   SessionRevertResponses,
   SessionShareErrors,
@@ -134,6 +137,9 @@ import type {
   SessionUnshareResponses,
   SessionUpdateErrors,
   SessionUpdateResponses,
+  SkillGetErrors,
+  SkillGetResponses,
+  SkillListResponses,
   SubtaskPartInput,
   TextPartInput,
   ToolIdsErrors,
@@ -216,6 +222,18 @@ export class Global extends HeyApiClient {
   public health<ThrowOnError extends boolean = false>(options?: Options<never, ThrowOnError>) {
     return (options?.client ?? this.client).get<GlobalHealthResponses, unknown, ThrowOnError>({
       url: "/global/health",
+      ...options,
+    })
+  }
+
+  /**
+   * Get swarm peers
+   *
+   * Get discovered Navi nodes on the local machine or network.
+   */
+  public peers<ThrowOnError extends boolean = false>(options?: Options<never, ThrowOnError>) {
+    return (options?.client ?? this.client).get<GlobalPeersResponses, unknown, ThrowOnError>({
+      url: "/global/peers",
       ...options,
     })
   }
@@ -525,6 +543,57 @@ export class Pty extends HeyApiClient {
   }
 }
 
+export class Skill extends HeyApiClient {
+  /**
+   * List skills
+   *
+   * Get a list of all available skills.
+   */
+  public list<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams([parameters], [{ args: [{ in: "query", key: "directory" }] }])
+    return (options?.client ?? this.client).get<SkillListResponses, unknown, ThrowOnError>({
+      url: "/skill",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Get skill
+   *
+   * Retrieve details for a specific skill.
+   */
+  public get<ThrowOnError extends boolean = false>(
+    parameters: {
+      skillName: string
+      directory?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "skillName" },
+            { in: "query", key: "directory" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<SkillGetResponses, SkillGetErrors, ThrowOnError>({
+      url: "/skill/{skillName}",
+      ...options,
+      ...params,
+    })
+  }
+}
+
 export class Config extends HeyApiClient {
   /**
    * Get configuration
@@ -816,6 +885,7 @@ export class Session extends HeyApiClient {
     parameters?: {
       directory?: string
       parentID?: string
+      resumeFrom?: string
       title?: string
       permission?: PermissionRuleset
     },
@@ -828,6 +898,7 @@ export class Session extends HeyApiClient {
           args: [
             { in: "query", key: "directory" },
             { in: "body", key: "parentID" },
+            { in: "body", key: "resumeFrom" },
             { in: "body", key: "title" },
             { in: "body", key: "permission" },
           ],
@@ -1382,6 +1453,36 @@ export class Session extends HeyApiClient {
     )
     return (options?.client ?? this.client).get<SessionMessageResponses, SessionMessageErrors, ThrowOnError>({
       url: "/session/{sessionID}/message/{messageID}",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Resume session
+   *
+   * Resume processing a session where it left off (e.g. if the backend encountered an issue).
+   */
+  public resume<ThrowOnError extends boolean = false>(
+    parameters: {
+      sessionID: string
+      directory?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "sessionID" },
+            { in: "query", key: "directory" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<SessionResumeResponses, SessionResumeErrors, ThrowOnError>({
+      url: "/session/{sessionID}/resume",
       ...options,
       ...params,
     })
@@ -2987,6 +3088,8 @@ export class NaviClient extends HeyApiClient {
   project = new Project({ client: this.client })
 
   pty = new Pty({ client: this.client })
+
+  skill = new Skill({ client: this.client })
 
   config = new Config({ client: this.client })
 

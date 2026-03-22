@@ -31,8 +31,8 @@ import { WEB_FETCH_TOOL_NAME } from './tool-names.js';
 import { debugLogger } from '../utils/debugLogger.js';
 import { retryWithBackoff } from '../utils/retry.js';
 
-const URL_FETCH_TIMEOUT_MS = 10000;
-const MAX_CONTENT_LENGTH = 100000;
+const DEFAULT_URL_FETCH_TIMEOUT_MS = 10000;
+const DEFAULT_MAX_CONTENT_LENGTH = 100000;
 
 /**
  * Parses a prompt to extract valid URLs and identify malformed ones.
@@ -111,6 +111,8 @@ class WebFetchToolInvocation extends BaseToolInvocation<
   WebFetchToolParams,
   ToolResult
 > {
+  private static readonly cache = new Map<string, any>();
+
   constructor(
     private readonly config: Config,
     params: WebFetchToolParams,
@@ -121,91 +123,147 @@ class WebFetchToolInvocation extends BaseToolInvocation<
     super(params, messageBus, _toolName, _toolDisplayName);
   }
 
-  private async executeFallback(signal: AbortSignal): Promise<ToolResult> {
-    const { validUrls: urls } = parsePrompt(this.params.prompt);
-    // For now, we only support one URL for fallback
-    let url = urls[0];
+  private async fetchUrlWithRetry(url: string, signal: AbortSignal): Promise<string> {
+    const timeout = this.config.getUrlFetchTimeout?.() ?? DEFAULT_URL_FETCH_TIMEOUT_MS;
+    const maxContentLength = this.config.getMaxContentLength?.() ?? DEFAULT_MAX_CONTENT_LENGTH;
 
-    // Convert GitHub blob URL to raw URL
-    if (url.includes('github.com') && url.includes('/blob/')) {
-      url = url
-        .replace('github.com', 'raw.githubusercontent.com')
-        .replace('/blob/', '/');
+    const response = await retryWithBackoff(
+      async () => {
+        const res = await fetchWithTimeout(url, timeout, signal);
+        if (!res.ok) {
+          const error = new Error(
+            `Request failed with status code ${res.status} ${res.statusText}`,
+          );
+          (error as ErrorWithStatus).status = res.status;
+          throw error;
+        }
+        return res;
+      },
+      {
+        retryFetchErrors: this.config.getRetryFetchErrors(),
+      },
+    );
+
+    const rawContent = await response.text();
+    const contentType = response.headers.get('content-type') || '';
+    let textContent: string;
+
+    if (
+      contentType.toLowerCase().includes('text/html') ||
+      contentType === ''
+    ) {
+      textContent = convert(rawContent, {
+        wordwrap: false,
+        selectors: [
+          { selector: 'a', options: { ignoreHref: true } },
+          { selector: 'img', format: 'skip' },
+        ],
+      });
+    } else {
+      textContent = rawContent;
     }
 
-    try {
-      const response = await retryWithBackoff(
-        async () => {
-          const res = await fetchWithTimeout(url, URL_FETCH_TIMEOUT_MS);
-          if (!res.ok) {
-            const error = new Error(
-              `Request failed with status code ${res.status} ${res.statusText}`,
-            );
-            (error as ErrorWithStatus).status = res.status;
-            throw error;
-          }
-          return res;
-        },
-        {
-          retryFetchErrors: this.config.getRetryFetchErrors(),
-        },
-      );
+    return textContent.substring(0, maxContentLength);
+  }
 
-      const rawContent = await response.text();
-      const contentType = response.headers.get('content-type') || '';
-      let textContent: string;
+  private async executeFallback(signal: AbortSignal): Promise<ToolResult> {
+    const { validUrls: urls } = parsePrompt(this.params.prompt);
 
-      // Only use html-to-text if content type is HTML, or if no content type is provided (assume HTML)
-      if (
-        contentType.toLowerCase().includes('text/html') ||
-        contentType === ''
-      ) {
-        textContent = convert(rawContent, {
-          wordwrap: false,
-          selectors: [
-            { selector: 'a', options: { ignoreHref: true } },
-            { selector: 'img', format: 'skip' },
-          ],
-        });
-      } else {
-        // For other content types (text/plain, application/json, etc.), use raw text
-        textContent = rawContent;
+    // Fetch all URLs in parallel
+    const fetchPromises = urls.map(async (originalUrl) => {
+      let url = originalUrl;
+      if (url.includes('github.com') && url.includes('/blob/')) {
+        url = url
+          .replace('github.com', 'raw.githubusercontent.com')
+          .replace('/blob/', '/');
       }
 
-      textContent = textContent.substring(0, MAX_CONTENT_LENGTH);
+      try {
+        const content = await this.fetchUrlWithRetry(url, signal);
+        return { url: originalUrl, content, error: null };
+      } catch (error) {
+        return {
+          url: originalUrl,
+          content: null,
+          error: `Error fetching ${originalUrl}: ${(error as Error).message}`
+        };
+      }
+    });
 
+    const results = await Promise.all(fetchPromises);
+
+    // Process results
+    const successfulResults = results.filter(result => result.error === null && result.content);
+    const errorResults = results.filter(result => result.error !== null);
+
+    if (successfulResults.length === 0) {
+      const errorMessages = errorResults.map(result => result.error).join('\n');
+      return {
+        llmContent: `Error: ${errorMessages}`,
+        returnDisplay: `Error fetching URLs: ${errorResults.length} failed`,
+        error: {
+          message: errorMessages,
+          type: ToolErrorType.WEB_FETCH_FALLBACK_FAILED,
+        },
+      };
+    }
+
+    // If there's only one successful result, process it as before
+    if (successfulResults.length === 1) {
+      const result = successfulResults[0];
       const geminiClient = this.config.getGeminiClient();
       const fallbackPrompt = `The user requested the following: "${this.params.prompt}".
 
 I was unable to access the URL directly. Instead, I have fetched the raw content of the page. Please use the following content to answer the request. Do not attempt to access the URL again.
 
 ---
-${textContent}
+${result.content}
 ---
 `;
-      const result = await geminiClient.generateContent(
+      const geminiResult = await geminiClient.generateContent(
         { model: 'web-fetch-fallback' },
         [{ role: 'user', parts: [{ text: fallbackPrompt }] }],
         signal,
       );
-      const resultText = getResponseText(result) || '';
+      const resultText = getResponseText(geminiResult) || '';
       return {
         llmContent: resultText,
-        returnDisplay: `Content for ${url} processed using fallback fetch.`,
-      };
-    } catch (e) {
-      const error = e as Error;
-      const errorMessage = `Error during fallback fetch for ${url}: ${error.message}`;
-      return {
-        llmContent: `Error: ${errorMessage}`,
-        returnDisplay: `Error: ${errorMessage}`,
-        error: {
-          message: errorMessage,
-          type: ToolErrorType.WEB_FETCH_FALLBACK_FAILED,
-        },
+        returnDisplay: `Content for ${result.url} processed using fallback fetch.`,
       };
     }
+
+    // If there are multiple successful results, combine them
+    const combinedContent = successfulResults.map(result =>
+      `---
+URL: ${result.url}
+---
+${result.content}
+`
+    ).join('\n');
+
+    const geminiClient = this.config.getGeminiClient();
+    const fallbackPrompt = `The user requested the following: "${this.params.prompt}".
+
+I was unable to access the URLs directly. Instead, I have fetched the raw content of the pages. Please use the following content to answer the request. Do not attempt to access the URLs again.
+
+---
+${combinedContent}
+---
+`;
+    const geminiResult = await geminiClient.generateContent(
+      { model: 'web-fetch-fallback' },
+      [{ role: 'user', parts: [{ text: fallbackPrompt }] }],
+      signal,
+    );
+    const resultText = getResponseText(geminiResult) || '';
+
+    return {
+      llmContent: resultText,
+      returnDisplay: `Content for ${successfulResults.length} URLs processed using fallback fetch.`,
+    };
   }
+
+
 
   getDescription(): string {
     const displayPrompt =
@@ -257,10 +315,25 @@ ${textContent}
   async execute(signal: AbortSignal): Promise<ToolResult> {
     const userPrompt = this.params.prompt;
     const { validUrls: urls } = parsePrompt(userPrompt);
-    const url = urls[0];
-    const isPrivate = isPrivateIp(url);
 
-    if (isPrivate) {
+    // Create cache key
+    const cacheKey = JSON.stringify({
+      prompt: userPrompt,
+      urls: urls.sort(), // Sort for consistent caching
+    });
+
+    // Check cache
+    const cachedResult = WebFetchToolInvocation.cache.get(cacheKey);
+    if (cachedResult && Date.now() - cachedResult.timestamp < 300000) { // 5 minutes
+      return {
+        llmContent: cachedResult.llmContent,
+        returnDisplay: `Cached content for ${urls.length} URL${urls.length > 1 ? 's' : ''}`,
+      };
+    }
+
+    // Check if any URL is private
+    const hasPrivateUrls = urls.some(url => isPrivateIp(url));
+    if (hasPrivateUrls) {
       logWebFetchFallbackAttempt(
         this.config,
         new WebFetchFallbackAttemptEvent('private_ip'),
@@ -375,9 +448,23 @@ ${sourceListFormatted.join('\n')}`;
         llmContent,
       );
 
+      // Cache the result
+      WebFetchToolInvocation.cache.set(cacheKey, {
+        llmContent,
+        timestamp: Date.now(),
+      });
+
+      // Clean up old cache entries
+      const now = Date.now();
+      for (const [key, value] of WebFetchToolInvocation.cache.entries()) {
+        if (now - value.timestamp > 3600000) { // 1 hour
+          WebFetchToolInvocation.cache.delete(key);
+        }
+      }
+
       return {
         llmContent,
-        returnDisplay: `Content processed from prompt.`,
+        returnDisplay: `Content processed from ${urls.length} URL${urls.length > 1 ? 's' : ''}.`,
       };
     } catch (error: unknown) {
       const errorMessage = `Error processing web content for prompt "${userPrompt.substring(

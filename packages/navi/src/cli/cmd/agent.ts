@@ -1,4 +1,5 @@
 import { cmd } from "./cmd"
+import { AgentStore } from "../../agent/store"
 import * as prompts from "@clack/prompts"
 import { UI } from "../ui"
 import { Global } from "../../global"
@@ -10,6 +11,8 @@ import matter from "gray-matter"
 import { Instance } from "../../project/instance"
 import { EOL } from "os"
 import type { Argv } from "yargs"
+import { AgentScorecard } from "../../agent/scorecard"
+import { buildAgentContract, renderSubagentContractSection } from "../../agent/contract"
 
 type AgentMode = "all" | "primary" | "subagent"
 
@@ -249,9 +252,166 @@ const AgentListCommand = cmd({
   },
 })
 
+const AgentScorecardsCommand = cmd({
+  command: "scorecards [task]",
+  describe: "show agent scorecards grouped by task class",
+  builder: (yargs: Argv) =>
+    yargs.option("json", {
+      type: "boolean",
+      describe: "print scorecards as JSON",
+    }),
+  async handler(args) {
+    await Instance.provide({
+      directory: process.cwd(),
+      async fn() {
+        const taskClass = typeof args.task === "string" ? args.task : undefined
+        const scorecards = await AgentScorecard.list(taskClass)
+
+        if (args.json) {
+          process.stdout.write(JSON.stringify(scorecards, null, 2) + EOL)
+          return
+        }
+
+        if (!scorecards.length) {
+          process.stdout.write("No agent scorecards recorded yet." + EOL)
+          return
+        }
+
+        let currentTaskClass: string | undefined
+        for (const scorecard of scorecards) {
+          if (scorecard.taskClass !== currentTaskClass) {
+            currentTaskClass = scorecard.taskClass
+            process.stdout.write(EOL + currentTaskClass + EOL)
+          }
+
+          process.stdout.write(
+            `  ${scorecard.agentName}  score=${scorecard.score.toFixed(1)}  success=${(scorecard.successRate * 100).toFixed(1)}%  samples=${scorecard.samples}` +
+              EOL,
+          )
+          process.stdout.write(
+            `    latency=${Math.round(scorecard.avgLatencyMs)}ms  cost=${scorecard.avgCost.toFixed(4)}  toolCalls=${scorecard.avgToolCalls.toFixed(1)}  questions=${scorecard.avgQuestions.toFixed(1)}` +
+              EOL,
+          )
+        }
+      },
+    })
+  },
+})
+
+const AgentContractCommand = cmd({
+  command: "contract [name]",
+  describe: "show explicit subagent contracts",
+  builder: (yargs: Argv) =>
+    yargs.option("json", {
+      type: "boolean",
+      describe: "print contracts as JSON",
+    }),
+  async handler(args) {
+    await Instance.provide({
+      directory: process.cwd(),
+      async fn() {
+        const name = typeof args.name === "string" ? args.name : undefined
+        const agents = name ? [await Agent.get(name)] : (await Agent.list()).filter((agent) => agent.mode === "subagent")
+        const contracts = agents.flatMap((agent) =>
+          agent
+            ? [{
+                name: agent.name,
+                contract: agent.contract ?? buildAgentContract(agent),
+              }]
+            : [],
+        )
+
+        if (args.json) {
+          process.stdout.write(JSON.stringify(contracts, null, 2) + EOL)
+          return
+        }
+
+        if (!contracts.length) {
+          process.stdout.write("No subagent contracts found." + EOL)
+          return
+        }
+
+        for (const entry of contracts) {
+          process.stdout.write(renderSubagentContractSection(entry.name, entry.contract) + EOL)
+        }
+      },
+    })
+  },
+})
+
+const AgentStoreCommand = cmd({
+  command: "store",
+  describe: "browse agent store",
+  builder: (yargs) =>
+    yargs
+      .command({
+        command: "list",
+        describe: "list available agents in the registry",
+        handler: async () => {
+          console.log("Available agents (mock):")
+          console.log("- navi/demo (A helpful demo agent)")
+        },
+      })
+      .command({
+        command: "search <query>",
+        describe: "search for agents",
+        handler: async (args: any) => {
+          console.log(`Searching for "${args.query}"...`)
+          if ("navi/demo".includes(args.query)) {
+            console.log("- navi/demo (A helpful demo agent)")
+          } else {
+            console.log("No agents found.")
+          }
+        }
+      }),
+  async handler() { },
+})
+
+const AgentInstallCommand = cmd({
+  command: "install <source>",
+  describe: "install an agent from store or URL",
+  async handler(args) {
+    const spinner = prompts.spinner()
+    spinner.start(`Fetching agent from ${args.source}...`)
+    try {
+      const manifest = await AgentStore.fetch(args.source as string)
+      await AgentStore.install(manifest)
+      spinner.stop(`Successfully installed ${manifest.name} v${manifest.version}`)
+    } catch (e: any) {
+      spinner.stop(`Failed to install: ${e.message}`, 1)
+      process.exit(1)
+    }
+  },
+})
+
+const AgentUninstallCommand = cmd({
+  command: "uninstall <name>",
+  describe: "uninstall an agent",
+  async handler(args) {
+    const spinner = prompts.spinner()
+    spinner.start(`Uninstalling ${args.name}...`)
+    const success = await AgentStore.uninstall(args.name as string)
+    if (success) {
+      spinner.stop(`Uninstalled ${args.name}`)
+    } else {
+      spinner.stop(`Agent ${args.name} not found`, 1)
+      process.exit(1)
+    }
+  },
+})
+
 export const AgentCommand = cmd({
   command: "agent",
   describe: "manage agents",
-  builder: (yargs) => yargs.command(AgentCreateCommand).command(AgentListCommand).demandCommand(),
-  async handler() {},
+  builder: (yargs) =>
+    yargs
+      .command(AgentCreateCommand)
+      .command(AgentListCommand)
+      .command(AgentScorecardsCommand)
+      .command(AgentContractCommand)
+      .command(AgentStoreCommand)
+      .command(AgentInstallCommand)
+      .command(AgentUninstallCommand)
+      .demandCommand(),
+  async handler() { },
 })

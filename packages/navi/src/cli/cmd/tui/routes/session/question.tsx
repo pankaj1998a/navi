@@ -192,6 +192,12 @@ export function QuestionPrompt(props: { request: QuestionRequest }) {
       selectTab((store.tab + 1) % tabs())
     }
 
+    if (evt.name === "tab") {
+      evt.preventDefault()
+      const direction = evt.shift ? -1 : 1
+      selectTab((store.tab + direction + tabs()) % tabs())
+    }
+
     if (confirm()) {
       if (evt.name === "return") {
         evt.preventDefault()
@@ -276,16 +282,34 @@ export function QuestionPrompt(props: { request: QuestionRequest }) {
                 {multi() ? " (select all that apply)" : ""}
               </text>
             </box>
+            <Show when={question()?.why || question()?.impact || question()?.recommendedOption || question()?.expectedNextStep}>
+              <box paddingLeft={1} gap={0}>
+                <Show when={question()?.why}>
+                  <text fg={theme.textMuted}>Why: {question()?.why}</text>
+                </Show>
+                <Show when={question()?.impact}>
+                  <text fg={theme.textMuted}>Impact: {question()?.impact}</text>
+                </Show>
+                <Show when={question()?.recommendedOption}>
+                  <text fg={theme.success}>Recommended: {question()?.recommendedOption}</text>
+                </Show>
+                <Show when={question()?.expectedNextStep}>
+                  <text fg={theme.textMuted}>Next step: {question()?.expectedNextStep}</text>
+                </Show>
+              </box>
+            </Show>
             <box>
               <For each={options()}>
                 {(opt, i) => {
                   const active = () => i() === store.selected
                   const picked = () => store.answers[store.tab]?.includes(opt.label) ?? false
+                  const recommended = () => question()?.recommendedOption === opt.label
                   return (
                     <box onMouseOver={() => moveTo(i())} onMouseUp={() => selectOption()}>
                       <box flexDirection="row" gap={1}>
                         <box backgroundColor={active() ? theme.backgroundElement : undefined}>
-                          <text fg={active() ? theme.secondary : picked() ? theme.success : theme.text}>
+                          <text fg={active() ? theme.secondary : recommended() ? theme.success : picked() ? theme.success : theme.text}>
+                            {recommended() ? "★ " : ""}
                             {i() + 1}. {opt.label}
                           </text>
                         </box>
@@ -340,9 +364,27 @@ export function QuestionPrompt(props: { request: QuestionRequest }) {
               const value = () => store.answers[index()]?.join(", ") ?? ""
               const answered = () => Boolean(value())
               return (
-                <box flexDirection="row" gap={1} paddingLeft={1}>
-                  <text fg={theme.textMuted}>{q.header}:</text>
-                  <text fg={answered() ? theme.text : theme.error}>{answered() ? value() : "(not answered)"}</text>
+                <box gap={0} paddingLeft={1}>
+                  <box flexDirection="row" gap={1}>
+                    <text fg={theme.textMuted}>{q.header}:</text>
+                    <text fg={answered() ? theme.text : theme.error}>{answered() ? value() : "(not answered)"}</text>
+                  </box>
+                  <Show when={q.why || q.impact || q.recommendedOption || q.expectedNextStep}>
+                    <box paddingLeft={3} gap={0}>
+                      <Show when={q.why}>
+                        <text fg={theme.textMuted}>Why: {q.why}</text>
+                      </Show>
+                      <Show when={q.impact}>
+                        <text fg={theme.textMuted}>Impact: {q.impact}</text>
+                      </Show>
+                      <Show when={q.recommendedOption}>
+                        <text fg={theme.success}>Recommended: {q.recommendedOption}</text>
+                      </Show>
+                      <Show when={q.expectedNextStep}>
+                        <text fg={theme.textMuted}>Next step: {q.expectedNextStep}</text>
+                      </Show>
+                    </box>
+                  </Show>
                 </box>
               )
             }}

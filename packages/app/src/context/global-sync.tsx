@@ -385,7 +385,7 @@ function createGlobalSync() {
       case "permission.replied": {
         const permissions = store.permission[event.properties.sessionID]
         if (!permissions) break
-        const result = Binary.search(permissions, event.properties.requestID, (p) => p.id)
+        const result = Binary.search(permissions, event.properties.permissionID, (p) => p.id)
         if (!result.found) break
         setStore(
           "permission",

@@ -1,7 +1,7 @@
 import path from "path"
 import { exec } from "child_process"
 import * as prompts from "@clack/prompts"
-import { map, pipe, sortBy, values } from "remeda"
+import { map, pipe, sortBy } from "remeda"
 import { Octokit } from "@octokit/rest"
 import { graphql } from "@octokit/graphql"
 import * as core from "@actions/core"
@@ -185,7 +185,7 @@ export const GithubCommand = cmd({
   command: "github",
   describe: "manage GitHub agent",
   builder: (yargs) => yargs.command(GithubInstallCommand).command(GithubRunCommand).demandCommand(),
-  async handler() {},
+  async handler() { },
 })
 
 export const GithubInstallCommand = cmd({
@@ -223,7 +223,7 @@ export const GithubInstallCommand = cmd({
               step2 = [
                 `    2. Add the following secrets in org or repo (${app.owner}/${app.repo}) settings`,
                 "",
-                ...providers[provider].env.map((e) => `       - ${e}`),
+                ...providers[provider].env.map((e: string) => `       - ${e}`),
               ].join("\n")
             }
 
@@ -269,8 +269,7 @@ export const GithubInstallCommand = cmd({
               message: "Select provider",
               maxItems: 8,
               options: pipe(
-                providers,
-                values(),
+                Object.values(providers),
                 sortBy(
                   (x) => priority[x.id] ?? 99,
                   (x) => x.name ?? x.id,
@@ -295,8 +294,7 @@ export const GithubInstallCommand = cmd({
               message: "Select model",
               maxItems: 8,
               options: pipe(
-                providerData.models,
-                values(),
+                Object.values(providerData.models),
                 sortBy((x) => x.name ?? x.id),
                 map((x) => ({
                   label: x.name ?? x.id,
@@ -366,7 +364,7 @@ export const GithubInstallCommand = cmd({
             const envStr =
               provider === "amazon-bedrock"
                 ? ""
-                : `\n        env:${providers[provider].env.map((e) => `\n          ${e}: \${{ secrets.${e} }}`).join("")}`
+                : `\n        env:${providers[provider].env.map((e: string) => `\n          ${e}: \${{ secrets.${e} }}`).join("")}`
 
             await Bun.write(
               path.join(app.root, WORKFLOW_FILE),
@@ -972,18 +970,18 @@ export const GithubRunCommand = cmd({
       async function exchangeForAppToken(token: string) {
         const response = token.startsWith("github_pat_")
           ? await fetch(`${oidcBaseUrl}/exchange_github_app_token_with_pat`, {
-              method: "POST",
-              headers: {
-                Authorization: `Bearer ${token}`,
-              },
-              body: JSON.stringify({ owner, repo }),
-            })
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({ owner, repo }),
+          })
           : await fetch(`${oidcBaseUrl}/exchange_github_app_token`, {
-              method: "POST",
-              headers: {
-                Authorization: `Bearer ${token}`,
-              },
-            })
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          })
 
         if (!response.ok) {
           const responseJson = (await response.json()) as { error?: string }

@@ -1,4 +1,4 @@
-import type { NamedError } from "@navi-ai/util/error"
+import type { NamedError } from "@navi-ai/sdk/util/error"
 import { MessageV2 } from "./message-v2"
 
 export namespace SessionRetry {
@@ -54,7 +54,9 @@ export namespace SessionRetry {
       }
     }
 
-    return Math.min(RETRY_INITIAL_DELAY * Math.pow(RETRY_BACKOFF_FACTOR, attempt - 1), RETRY_MAX_DELAY_NO_HEADERS)
+    // Exponential backoff with jitter to prevent thundering herd
+    const base = Math.min(RETRY_INITIAL_DELAY * Math.pow(RETRY_BACKOFF_FACTOR, attempt - 1), RETRY_MAX_DELAY_NO_HEADERS)
+    return base + Math.random() * Math.min(base * 0.5, 5000)
   }
 
   export function retryable(error: ReturnType<NamedError["toObject"]>) {
@@ -82,9 +84,10 @@ export namespace SessionRetry {
         ) {
           return "Provider Server Error"
         }
-      } catch {}
+      } catch { }
     }
 
     return undefined
   }
 }
+

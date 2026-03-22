@@ -1,5 +1,7 @@
 import * as chromeLauncher from "chrome-launcher"
 import puppeteer, { Browser, Page } from "puppeteer-core"
+import path from "path"
+import fs from "fs"
 import { Log } from "../../util/log"
 
 const log = Log.create({ service: "browser" })
@@ -35,11 +37,22 @@ export class BrowserSession {
             throw new Error("Chrome installation not found")
         }
 
+        const userDataDir = path.resolve(process.cwd(), ".navi", "browser-profile")
+        if (!fs.existsSync(userDataDir)) {
+            fs.mkdirSync(userDataDir, { recursive: true })
+        }
+
         this.browser = await puppeteer.launch({
             executablePath: chromePath,
             headless: false,
             defaultViewport: { width: 1280, height: 800 },
-            args: ["--no-sandbox", "--disable-setuid-sandbox"],
+            userDataDir, // Persist login state
+            args: [
+                "--no-sandbox",
+                "--disable-setuid-sandbox",
+                "--disable-blink-features=AutomationControlled" // Helps bypass bots
+            ],
+            ignoreDefaultArgs: ["--enable-automation"] // Hide puppeteer flag
         })
 
         const pages = await this.browser.pages()
@@ -55,7 +68,7 @@ export class BrowserSession {
         })
 
         if (url) {
-            await this.page.goto(url, { waitUntil: "domcontentloaded" })
+            await this.page.goto(url, { waitUntil: "networkidle2" })
         }
 
         return this.getState()
@@ -108,12 +121,15 @@ export class BrowserSession {
         const logs = this.consoleLogs.join("\n")
         this.consoleLogs = [] // Clear logs after reading
 
+        const text = await this.page.evaluate(() => document.body.innerText).catch(() => undefined)
+
         const url = this.page.url()
         const title = await this.page.title()
 
         return {
             screenshot: screenshot as string,
             logs: logs || undefined,
+            text,
             url,
             title,
         }

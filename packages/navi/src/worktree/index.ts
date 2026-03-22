@@ -2,7 +2,7 @@ import { $ } from "bun"
 import fs from "fs/promises"
 import path from "path"
 import z from "zod"
-import { NamedError } from "@navi-ai/util/error"
+import { NamedError } from "@navi-ai/sdk/util/error"
 import { Global } from "../global"
 import { Instance } from "../project/instance"
 import { Project } from "../project/project"
@@ -215,3 +215,4 @@ export namespace Worktree {
     return info
   })
 }
+

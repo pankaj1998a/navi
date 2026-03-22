@@ -34,10 +34,7 @@ const PolicyRuleSchema = z.object({
   // - Tier 2 (user): range [2.000, 2.999]
   // - Tier 3 (admin): range [3.000, 3.999]
   priority: z
-    .number({
-      required_error: 'priority is required',
-      invalid_type_error: 'priority must be a number',
-    })
+    .number({ message: 'priority must be a number' })
     .int({ message: 'priority must be an integer' })
     .min(0, { message: 'priority must be >= 0' })
     .max(999, {
@@ -64,13 +61,13 @@ const SafetyCheckerRuleSchema = z.object({
       type: z.literal('in-process'),
       name: z.nativeEnum(InProcessCheckerType),
       required_context: z.array(z.string()).optional(),
-      config: z.record(z.unknown()).optional(),
+      config: z.record(z.string(), z.unknown()).optional(),
     }),
     z.object({
       type: z.literal('external'),
       name: z.string(),
       required_context: z.array(z.string()).optional(),
-      config: z.record(z.unknown()).optional(),
+      config: z.record(z.string(), z.unknown()).optional(),
     }),
   ]),
 });

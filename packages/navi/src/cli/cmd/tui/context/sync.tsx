@@ -2,7 +2,6 @@ import type {
   Message,
   Agent,
   Provider,
-  Session,
   Part,
   Config,
   Todo,
@@ -17,15 +16,18 @@ import type {
   ProviderListResponse,
   ProviderAuthMethod,
   VcsInfo,
+  EventSessionUpdated,
 } from "@navi-ai/sdk/v2"
+
+export type Session = EventSessionUpdated["properties"]["info"]
 import { createStore, produce, reconcile } from "solid-js/store"
 import { useSDK } from "@tui/context/sdk"
-import { Binary } from "@navi-ai/util/binary"
+import { Binary } from "@navi-ai/sdk/util/binary"
 import { createSimpleContext } from "./helper"
 import type { Snapshot } from "@/snapshot"
 import { useExit } from "./exit"
 import { useArgs } from "./args"
-import { batch, onMount } from "solid-js"
+import { batch, onMount, onCleanup } from "solid-js"
 import { Log } from "@/util/log"
 import type { Path } from "@navi-ai/sdk"
 
@@ -104,7 +106,7 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
 
     const sdk = useSDK()
 
-    sdk.event.listen((e) => {
+    const unsub = sdk.event.listen((e) => {
       const event = e.details
       switch (event.type) {
         case "server.instance.disposed":
@@ -113,7 +115,9 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
         case "permission.replied": {
           const requests = store.permission[event.properties.sessionID]
           if (!requests) break
-          const match = Binary.search(requests, event.properties.requestID, (r) => r.id)
+          const props = event.properties as any
+          const id = props.requestID ?? props.permissionID
+          const match = Binary.search(requests, id, (r) => r.id)
           if (!match.found) break
           setStore(
             "permission",
@@ -310,8 +314,19 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
     const exit = useExit()
     const args = useArgs()
 
+    function bySessionID<T extends { sessionID: string }>(items: T[]) {
+      return items.reduce(
+        (acc, item) => {
+          const existing = acc[item.sessionID] ?? []
+          existing.push(item)
+          acc[item.sessionID] = existing
+          return acc
+        },
+        {} as Record<string, T[]>,
+      )
+    }
+
     async function bootstrap() {
-      console.log("bootstrapping")
       const start = Date.now() - 7 * 24 * 60 * 60 * 1000
       const sessionListPromise = sdk.client.session
         .list({ start: start })
@@ -349,6 +364,8 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
             sdk.client.session.status().then((x) => {
               setStore("session_status", reconcile(x.data!))
             }),
+            sdk.client.permission.list().then((x) => setStore("permission", reconcile(bySessionID(x.data ?? [])))),
+            sdk.client.question.list().then((x) => setStore("question", reconcile(bySessionID(x.data ?? [])))),
             sdk.client.provider.auth().then((x) => setStore("provider_auth", reconcile(x.data ?? {}))),
             sdk.client.vcs.get().then((x) => setStore("vcs", reconcile(x.data))),
             sdk.client.path.get().then((x) => setStore("path", reconcile(x.data!))),
@@ -422,6 +439,8 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
       },
       bootstrap,
     }
+    onCleanup(unsub)
     return result
   },
 })
+

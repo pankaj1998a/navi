@@ -1,0 +1,27 @@
+{
+    "name": "@navi-ai/native",
+    "version": "0.1.0",
+    "main": "src/index.ts",
+    "type": "module",
+    "scripts": {
+        "build": "echo 'No build needed for TS'",
+        "typecheck": "tsc --noEmit"
+    },
+    "dependencies": {
+        "fast-glob": "^3.3.2",
+        "simple-git": "^3.22.0",
+        "web-tree-sitter": "0.25.10",
+        "js-tiktoken": "^1.0.10",
+        "zod": "^3.22.4",
+        "fs-extra": "^11.2.0"
+    },
+    "devDependencies": {
+        "typescript": "^5.3.3",
+        "@types/node": "^20.11.24",
+        "@types/fs-extra": "^11.0.4"
+    },
+    "description": "",
+    "keywords": [],
+    "author": "",
+    "license": "ISC"
+}

@@ -24,6 +24,10 @@ export namespace Question {
       header: z.string().max(12).describe("Very short label (max 12 chars)"),
       options: z.array(Option).describe("Available choices"),
       multiple: z.boolean().optional().describe("Allow selecting multiple choices"),
+      why: z.string().optional().describe("Why the question is being asked"),
+      recommendedOption: z.string().optional().describe("Preferred choice when one stands out"),
+      impact: z.string().optional().describe("What the choice affects"),
+      expectedNextStep: z.string().optional().describe("What happens after the answer"),
     })
     .meta({
       ref: "QuestionInfo",

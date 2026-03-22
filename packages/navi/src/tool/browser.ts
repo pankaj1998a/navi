@@ -66,6 +66,7 @@ The tool returns a screenshot of the current page state, console logs, and curre
                 if (result.title) outputParts.push(`Title: ${result.title}`)
                 if (result.url) outputParts.push(`URL: ${result.url}`)
                 if (result.logs) outputParts.push(`Logs:\n${result.logs}`)
+                if (result.text) outputParts.push(`Page Text:\n${result.text.substring(0, 10000)}`)
 
                 if (result.screenshot) outputParts.push(`[Screenshot captured]`)
 

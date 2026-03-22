@@ -21,15 +21,15 @@ export function prepareResponsesTools({
 }): {
   tools?: Array<OpenAIResponsesTool>
   toolChoice?:
-    | "auto"
-    | "none"
-    | "required"
-    | { type: "file_search" }
-    | { type: "web_search_preview" }
-    | { type: "web_search" }
-    | { type: "function"; name: string }
-    | { type: "code_interpreter" }
-    | { type: "image_generation" }
+  | "auto"
+  | "none"
+  | "required"
+  | { type: "file_search" }
+  | { type: "web_search_preview" }
+  | { type: "web_search" }
+  | { type: "function"; name: string }
+  | { type: "code_interpreter" }
+  | { type: "image_generation" }
   toolWarnings: LanguageModelV2CallWarning[]
 } {
   // when the tools array is empty, change it to undefined to prevent errors:
@@ -46,11 +46,38 @@ export function prepareResponsesTools({
   for (const tool of tools) {
     switch (tool.type) {
       case "function":
+        // Ensure we have valid schema before pushing to openaiTools
+        let parameters = tool.inputSchema
+        const isNoneType = typeof parameters === "object" && parameters !== null && (parameters as any).type === "None"
+
+        if (!parameters || isNoneType) {
+          parameters = {
+            type: "object",
+            properties: {},
+            additionalProperties: false,
+          }
+
+          // Only warn if it's completely missing, not if it's just 'None' (which we fix silently)
+          if (!tool.inputSchema) {
+            toolWarnings.push({
+              type: "other",
+              message: `Invalid schema for function '${tool.name}': schema is missing, using default empty object`,
+            })
+          }
+        }
+
+        // Ensure schema has required type: "object"
+        if (typeof parameters === "object" && parameters !== null && (parameters as any).type !== "object") {
+          parameters = {
+            ...parameters,
+            type: "object",
+          }
+        }
         openaiTools.push({
           type: "function",
           name: tool.name,
           description: tool.description,
-          parameters: tool.inputSchema,
+          parameters,
           strict: strictJsonSchema,
         })
         break
@@ -65,9 +92,9 @@ export function prepareResponsesTools({
               max_num_results: args.maxNumResults,
               ranking_options: args.ranking
                 ? {
-                    ranker: args.ranking.ranker,
-                    score_threshold: args.ranking.scoreThreshold,
-                  }
+                  ranker: args.ranking.ranker,
+                  score_threshold: args.ranking.scoreThreshold,
+                }
                 : undefined,
               filters: args.filters,
             })
@@ -120,9 +147,9 @@ export function prepareResponsesTools({
               input_fidelity: args.inputFidelity,
               input_image_mask: args.inputImageMask
                 ? {
-                    file_id: args.inputImageMask.fileId,
-                    image_url: args.inputImageMask.imageUrl,
-                  }
+                  file_id: args.inputImageMask.fileId,
+                  image_url: args.inputImageMask.imageUrl,
+                }
                 : undefined,
               model: args.model,
               moderation: args.moderation,
@@ -159,10 +186,10 @@ export function prepareResponsesTools({
         tools: openaiTools,
         toolChoice:
           toolChoice.toolName === "code_interpreter" ||
-          toolChoice.toolName === "file_search" ||
-          toolChoice.toolName === "image_generation" ||
-          toolChoice.toolName === "web_search_preview" ||
-          toolChoice.toolName === "web_search"
+            toolChoice.toolName === "file_search" ||
+            toolChoice.toolName === "image_generation" ||
+            toolChoice.toolName === "web_search_preview" ||
+            toolChoice.toolName === "web_search"
             ? { type: toolChoice.toolName }
             : { type: "function", name: toolChoice.toolName },
         toolWarnings,

@@ -64,6 +64,7 @@ export class DiscoveredMCPToolInvocation extends BaseToolInvocation<
   ToolResult
 > {
   private static readonly allowlist: Set<string> = new Set();
+  private static readonly cache = new Map<string, any>();
 
   constructor(
     private readonly mcpTool: CallableTool,
@@ -135,26 +136,30 @@ export class DiscoveredMCPToolInvocation extends BaseToolInvocation<
   // This is needed because CallToolResults should return errors inside the response.
   // ref: https://modelcontextprotocol.io/specification/2025-06-18/schema#calltoolresult
   isMCPToolError(rawResponseParts: Part[]): boolean {
-    const functionResponse = rawResponseParts?.[0]?.functionResponse;
-    const response = functionResponse?.response;
+    for (const part of rawResponseParts) {
+      const functionResponse = part.functionResponse;
+      if (!functionResponse) continue;
 
-    interface McpError {
-      isError?: boolean | string;
-    }
+      const response = functionResponse.response;
 
-    if (response) {
-      // Check for top-level isError (MCP Spec compliant)
-      const isErrorTop = (response as { isError?: boolean | string }).isError;
-      if (isErrorTop === true || isErrorTop === 'true') {
-        return true;
+      interface McpError {
+        isError?: boolean | string;
       }
 
-      // Legacy check for nested error object (keep for backward compatibility if any tools rely on it)
-      const error = (response as { error?: McpError })?.error;
-      const isError = error?.isError;
+      if (response) {
+        // Check for top-level isError (MCP Spec compliant)
+        const isErrorTop = (response as { isError?: boolean | string }).isError;
+        if (isErrorTop === true || isErrorTop === 'true') {
+          return true;
+        }
 
-      if (error && (isError === true || isError === 'true')) {
-        return true;
+        // Legacy check for nested error object (keep for backward compatibility if any tools rely on it)
+        const error = (response as { error?: McpError })?.error;
+        const isError = error?.isError;
+
+        if (error && (isError === true || isError === 'true')) {
+          return true;
+        }
       }
     }
     return false;
@@ -167,6 +172,22 @@ export class DiscoveredMCPToolInvocation extends BaseToolInvocation<
         args: this.params,
       },
     ];
+
+    // Create cache key based on tool name and params
+    const cacheKey = JSON.stringify({
+      server: this.serverName,
+      tool: this.serverToolName,
+      params: this.params,
+    });
+
+    // Check cache first
+    const cachedResult = DiscoveredMCPToolInvocation.cache.get(cacheKey);
+    if (cachedResult) {
+      return {
+        llmContent: cachedResult.llmContent,
+        returnDisplay: `Cached result for ${this.displayName}`,
+      };
+    }
 
     // Race MCP tool call with abort signal to respect cancellation
     const rawResponseParts = await new Promise<Part[]>((resolve, reject) => {
@@ -201,11 +222,10 @@ export class DiscoveredMCPToolInvocation extends BaseToolInvocation<
 
     // Ensure the response is not an error
     if (this.isMCPToolError(rawResponseParts)) {
-      const errorMessage = `MCP tool '${
-        this.serverToolName
-      }' reported tool error for function call: ${safeJsonStringify(
-        functionCalls[0],
-      )} with response: ${safeJsonStringify(rawResponseParts)}`;
+      const errorMessage = `MCP tool '${this.serverToolName
+        }' reported tool error for function call: ${safeJsonStringify(
+          functionCalls[0],
+        )} with response: ${safeJsonStringify(rawResponseParts)}`;
       return {
         llmContent: errorMessage,
         returnDisplay: `Error: MCP tool '${this.serverToolName}' reported an error.`,
@@ -217,10 +237,26 @@ export class DiscoveredMCPToolInvocation extends BaseToolInvocation<
     }
 
     const transformedParts = transformMcpContentToParts(rawResponseParts);
+    const displayResult = getStringifiedResultForDisplay(rawResponseParts);
+
+    // Cache the result
+    DiscoveredMCPToolInvocation.cache.set(cacheKey, {
+      llmContent: transformedParts,
+      returnDisplay: displayResult,
+      timestamp: Date.now(),
+    });
+
+    // Clean up old cache entries (older than 1 hour)
+    const now = Date.now();
+    for (const [key, value] of DiscoveredMCPToolInvocation.cache.entries()) {
+      if (now - value.timestamp > 3600000) {
+        DiscoveredMCPToolInvocation.cache.delete(key);
+      }
+    }
 
     return {
       llmContent: transformedParts,
-      returnDisplay: getStringifiedResultForDisplay(rawResponseParts),
+      returnDisplay: displayResult,
     };
   }
 
@@ -309,9 +345,8 @@ function transformImageAudioBlock(
 ): Part[] {
   return [
     {
-      text: `[Tool '${toolName}' provided the following ${
-        block.type
-      } data with mime-type: ${block.mimeType}]`,
+      text: `[Tool '${toolName}' provided the following ${block.type
+        } data with mime-type: ${block.mimeType}]`,
     },
     {
       inlineData: {
@@ -420,9 +455,8 @@ function getStringifiedResultForDisplay(rawResponse: Part[]): string {
         if (block.resource?.text) {
           return block.resource.text;
         }
-        return `[Embedded Resource: ${
-          block.resource?.mimeType || 'unknown type'
-        }]`;
+        return `[Embedded Resource: ${block.resource?.mimeType || 'unknown type'
+          }]`;
       default:
         return `[Unknown content type: ${(block as { type: string }).type}]`;
     }

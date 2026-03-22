@@ -18,14 +18,17 @@ import crypto from "crypto"
 
 const log = Log.create({ service: "antigravity" })
 
-// Antigravity OAuth configuration (from  navi-antigravity-auth)
-const ANTIGRAVITY_CLIENT_ID = "1071006060591-tmhssin2h21lcre235vtolojh4g403ep.apps.googleusercontent.com"
-const ANTIGRAVITY_CLIENT_SECRET = "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"
-const ANTIGRAVITY_REDIRECT_URI = "http://localhost:51121/oauth-callback"
+// Antigravity OAuth configuration (from navi-antigravity-auth)
+const ANTIGRAVITY_CLIENT_ID = process.env.ANTIGRAVITY_CLIENT_ID || "1071006060591-tmhssin2h21lcre235vtolojh4g403ep.apps.googleusercontent.com"
+const ANTIGRAVITY_CLIENT_SECRET = process.env.ANTIGRAVITY_CLIENT_SECRET || "_PLACEHOLDER_SECRET_"
+const ANTIGRAVITY_REDIRECT_URI = "http://127.0.0.1:51121/oauth2callback"
 const GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth"
 const GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token"
 
-// OAuth Scopes for Antigravity (including cclog and experimentsandconfigs)
+// OAuth Scopes for Antigravity
+// IMPORTANT: Only these scopes are registered for the Antigravity OAuth client.
+// Do NOT add generative-language — it is not whitelisted and causes 403 restricted_client.
+// The cloudcode-pa.googleapis.com endpoint accepts cloud-platform tokens.
 const ANTIGRAVITY_SCOPES = [
     "https://www.googleapis.com/auth/cloud-platform",
     "https://www.googleapis.com/auth/userinfo.email",
@@ -35,35 +38,70 @@ const ANTIGRAVITY_SCOPES = [
 ]
 
 // Antigravity API configuration
-const ANTIGRAVITY_BASE_URL = "https://daily-cloudcode-pa.sandbox.googleapis.com"
-const ANTIGRAVITY_DEFAULT_PROJECT_ID = "rising-fact-p41fc"
+// Uses the internal Google Cloud Code PA endpoint (same as Code Assist / gemini-cli)
+// which accepts cloud-platform tokens and supports antigravity model quotas.
+export const ANTIGRAVITY_BASE_URL = "https://cloudcode-pa.googleapis.com"
+export const ANTIGRAVITY_API_VERSION = "v1internal"
+export const ANTIGRAVITY_DEFAULT_PROJECT_ID = "rising-fact-p41fc"
 
 /**
- * Antigravity model definitions
+ * Antigravity model definitions — matches models available via the Antigravity IDE quota.
+ * Reference: https://github.com/NoeFabris/opencode-antigravity-auth
  */
 export const ANTIGRAVITY_MODELS = {
-    "antigravity-gemini-3-pro": {
-        name: "Gemini 3 Pro (Antigravity)",
-        id: "gemini-3-pro",
+    // Gemini 3.1 Pro — High thinking (strongest reasoning)
+    "antigravity-gemini-3.1-pro-high": {
+        name: "Gemini 3.1 Pro (High)",
+        id: "antigravity-gemini-3.1-pro",
         thinking: true,
         attachment: true,
         limit: { context: 1048576, output: 65535 },
         modalities: { input: ["text", "image", "pdf"], output: ["text"] },
     },
+    // Gemini 3.1 Pro — Low thinking (faster, lower latency)
+    "antigravity-gemini-3.1-pro-low": {
+        name: "Gemini 3.1 Pro (Low)",
+        id: "antigravity-gemini-3.1-pro",
+        thinking: false,
+        attachment: true,
+        limit: { context: 1048576, output: 65535 },
+        modalities: { input: ["text", "image", "pdf"], output: ["text"] },
+    },
+    // Gemini 3 Flash — fast, supports thinking modes
     "antigravity-gemini-3-flash": {
-        name: "Gemini 3 Flash (Antigravity)",
-        id: "gemini-3-flash",
+        name: "Gemini 3 Flash",
+        id: "antigravity-gemini-3-flash",
+        thinking: false,
         attachment: true,
         limit: { context: 1048576, output: 65536 },
         modalities: { input: ["text", "image", "pdf"], output: ["text"] },
     },
-    "antigravity-claude-4-5-sonnet": {
-        name: "Claude 4.5 Sonnet (Antigravity)",
-        id: "claude-4-5-sonnet",
+    // Claude Sonnet 4.6 — extended thinking
+    "antigravity-claude-sonnet-4-6": {
+        name: "Claude Sonnet 4.6 (Thinking)",
+        id: "antigravity-claude-sonnet-4-6",
         thinking: true,
         attachment: true,
         limit: { context: 200000, output: 64000 },
         modalities: { input: ["text", "image", "pdf"], output: ["text"] },
+    },
+    // Claude Opus 4.6 — extended thinking (most powerful Claude)
+    "antigravity-claude-opus-4-6-thinking": {
+        name: "Claude Opus 4.6 (Thinking)",
+        id: "antigravity-claude-opus-4-6-thinking",
+        thinking: true,
+        attachment: true,
+        limit: { context: 200000, output: 64000 },
+        modalities: { input: ["text", "image", "pdf"], output: ["text"] },
+    },
+    // GPT-OSS 120B — OpenAI open-weight model (medium reasoning)
+    "antigravity-gpt-oss-120b": {
+        name: "GPT-OSS 120B (Medium)",
+        id: "gpt-oss-120b",
+        thinking: false,
+        attachment: false,
+        limit: { context: 128000, output: 16384 },
+        modalities: { input: ["text"], output: ["text"] },
     },
 } as const
 
@@ -133,19 +171,17 @@ function decodeState(state: string): AntigravityAuthState {
  * Get current auth state from storage
  */
 async function getState(): Promise<AntigravityState> {
-    const auths = await Auth.list("google-antigravity")
+    const auth = await Auth.get("google-antigravity")
     const accounts: AntigravityAccount[] = []
 
-    for (const auth of auths) {
-        if (auth.type === "oauth") {
-            const accountId = (auth as typeof auth & { accountId?: string }).accountId
-            accounts.push({
-                email: accountId || "unknown",
-                refresh: auth.refresh,
-                access: auth.access,
-                expires: auth.expires,
-            })
-        }
+    if (auth && auth.type === "oauth") {
+        const authWithAccount = auth as typeof auth & { accountId?: string }
+        accounts.push({
+            email: authWithAccount.accountId || "unknown",
+            refresh: auth.refresh,
+            access: auth.access,
+            expires: auth.expires,
+        })
     }
 
     return {
@@ -292,11 +328,17 @@ async function exchangeCode(
 
         if (!response.ok) {
             const errorText = await response.text()
-            log.error("Token exchange failed", {
-                status: response.status,
-                statusText: response.statusText,
-                error: errorText
-            })
+            if (errorText.includes("restricted_client")) {
+                log.error("Token exchange failed: restricted_client. This client ID might be restricted or disabled.")
+                log.error("Token exchange failed: restricted_client. This client ID might be restricted or disabled.")
+                // console.error calls removed to prevent TUI leak
+            } else {
+                log.error("Token exchange failed", {
+                    status: response.status,
+                    statusText: response.statusText,
+                    error: errorText
+                })
+            }
             return null
         }
 
@@ -340,7 +382,7 @@ function startCallbackServer(port: number): Promise<{ code: string; state: strin
         const server = http.createServer((req, res) => {
             const url = new URL(req.url ?? "/", `http://localhost:${port}`)
 
-            if (url.pathname === "/oauth-callback") {
+            if (url.pathname === "/oauth2callback") {
                 const code = url.searchParams.get("code")
                 const state = url.searchParams.get("state")
 
@@ -390,6 +432,241 @@ function startCallbackServer(port: number): Promise<{ code: string; state: strin
 }
 
 /**
+ * Map an antigravity model key to the actual API model name used by the Cloud Code PA endpoint.
+ * Strips the "antigravity-" prefix since the API uses model names directly.
+ */
+function resolveAntigravityModelId(modelId: string): string {
+    return modelId.startsWith("antigravity-") ? modelId.slice("antigravity-".length) : modelId
+}
+
+// ─── ANTIGRAVITY FETCH ───────────────────────────────────────────────────────
+
+/**
+ * Extract request body as string from various body types.
+ */
+function extractAntigravityBody(body: RequestInit["body"]): string {
+    if (typeof body === "string") return body
+    if (body instanceof URLSearchParams) return body.toString()
+    if (body instanceof ArrayBuffer) return Buffer.from(body).toString("utf8")
+    if (ArrayBuffer.isView(body)) return Buffer.from(body.buffer as ArrayBuffer).toString("utf8")
+    return "{}"
+}
+
+/**
+ * Parse a @ai-sdk/google URL to extract the model name and method.
+ * Handles query params like ?alt=sse correctly.
+ */
+function parseAntigravityUrl(input: RequestInfo | URL): { rawModel: string; apiModel: string; method: string; isStream: boolean } | null {
+    try {
+        const urlStr = typeof input === "string" ? input
+            : input instanceof URL ? input.toString()
+                : (input as Request).url
+        const u = new URL(urlStr)
+        // Match pathname only (no query string)
+        const match = u.pathname.match(/\/models\/([^:/?#]+):(generateContent|streamGenerateContent|countTokens)$/)
+        if (!match) return null
+        const rawModel = match[1]  // e.g. "antigravity-gemini-3-flash"
+        // Strip the antigravity- prefix for the actual API model name
+        const apiModel = rawModel.startsWith("antigravity-")
+            ? rawModel.slice("antigravity-".length)
+            : rawModel
+        const method = match[2]
+        return { rawModel, apiModel, method, isStream: method === "streamGenerateContent" }
+    } catch {
+        return null
+    }
+}
+
+/**
+ * Antigravity fetch: transforms @ai-sdk/google requests to Code Assist format.
+ *
+ * @ai-sdk/google sends:
+ *   POST https://generativelanguage.googleapis.com/v1beta/models/{model}:{method}
+ *   Body: { contents, systemInstruction, generationConfig, tools, ... }
+ *
+ * Code Assist (cloudcode-pa.googleapis.com) expects:
+ *   POST https://cloudcode-pa.googleapis.com/v1internal:{method}
+ *   Body: { model, project, user_prompt_id, request: { contents, systemInstruction, ... } }
+ *
+ * Response transformation (streaming):
+ *   Code Assist SSE: data: { "response": <GenerateContentResponse> }
+ *   @ai-sdk/google expects: data: <GenerateContentResponse>
+ */
+export async function antigravityFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+    const maxAttempts = 3
+
+    const parsed = parseAntigravityUrl(input)
+    if (!parsed) {
+        // Not a model inference call — pass through with auth header only
+        for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+            const token = await getAccessToken()
+            if (!token) throw new Error("Unauthorized: No access token for Antigravity")
+            const headers = new Headers(init?.headers || {})
+            headers.set("Authorization", `Bearer ${token}`)
+            headers.delete("x-goog-api-key")
+            const response = await fetch(input, { ...init, headers })
+            if (response.ok) return response
+            if (response.status === 401 || response.status === 403) {
+                if (attempt < maxAttempts) { await getAccessToken(true); continue }
+            }
+            return response
+        }
+        throw new Error("Antigravity: Pass-through request failed")
+    }
+
+    const { apiModel, method, isStream } = parsed
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        const token = await getAccessToken()
+        if (!token) throw new Error("Unauthorized: No access token available for Antigravity API")
+
+        // Get project ID from stored refresh token (format: token|projectId)
+        const auth = await Auth.get("google-antigravity") as any
+        const storedRefresh: string = auth?.refresh ?? ""
+        const parts = storedRefresh.split("|")
+        const projectId = parts.length > 1 ? parts[1] : ""
+        const effectiveProjectId = projectId || ANTIGRAVITY_DEFAULT_PROJECT_ID
+
+        // Parse and transform request body from @ai-sdk/google format to Code Assist format
+        const rawBody = extractAntigravityBody(init?.body)
+        const body = JSON.parse(rawBody || "{}") as Record<string, any>
+
+        let codeAssistBody: Record<string, any>
+        let endpoint: string
+
+        if (method === "countTokens") {
+            codeAssistBody = {
+                request: {
+                    model: `models/${apiModel}`,
+                    contents: body.contents,
+                },
+            }
+            endpoint = `${ANTIGRAVITY_BASE_URL}/${ANTIGRAVITY_API_VERSION}:countTokens`
+        } else {
+            codeAssistBody = {
+                model: apiModel,
+                project: effectiveProjectId,
+                user_prompt_id: `navi-antigravity-${Date.now()}`,
+                request: {
+                    contents: body.contents || [],
+                    systemInstruction: body.systemInstruction,
+                    cachedContent: body.cachedContent,
+                    tools: body.tools,
+                    toolConfig: body.toolConfig,
+                    labels: body.labels,
+                    safetySettings: body.safetySettings,
+                    generationConfig: body.generationConfig,
+                },
+            }
+            endpoint = isStream
+                ? `${ANTIGRAVITY_BASE_URL}/${ANTIGRAVITY_API_VERSION}:streamGenerateContent?alt=sse`
+                : `${ANTIGRAVITY_BASE_URL}/${ANTIGRAVITY_API_VERSION}:generateContent`
+        }
+
+        log.info("Antigravity fetch", { model: apiModel, method, endpoint, attempt })
+
+        const response = await fetch(endpoint, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify(codeAssistBody),
+        })
+
+        if (!response.ok) {
+            const errText = await response.clone().text().catch(() => "")
+            log.error("Antigravity API error", {
+                status: response.status,
+                model: apiModel,
+                error: errText.substring(0, 500),
+            })
+
+            if (response.status === 401 || response.status === 403) {
+                if (attempt < maxAttempts) {
+                    log.warn(`Antigravity: ${response.status}, refreshing token... (attempt ${attempt}/${maxAttempts})`)
+                    await getAccessToken(true)
+                    continue
+                }
+                return response
+            }
+
+            if (response.status === 429 || response.status >= 500) {
+                if (attempt < maxAttempts) {
+                    const delay = Math.pow(2, attempt) * 1000
+                    log.warn(`Antigravity: ${response.status}, retrying in ${delay}ms... (attempt ${attempt}/${maxAttempts})`)
+                    await new Promise(r => setTimeout(r, delay))
+                    continue
+                }
+                return response
+            }
+
+            return response
+        }
+
+        // ── Transform response back to @ai-sdk/google format ───────────────────
+        if (isStream) {
+            // Code Assist SSE: data: { "response": <GenerateContentResponse> }
+            // @ai-sdk/google expects: data: <GenerateContentResponse>
+            const originalBody = response.body
+            if (!originalBody) {
+                return new Response(null, { status: response.status, statusText: response.statusText })
+            }
+
+            const transformedStream = new TransformStream<Uint8Array, Uint8Array>({
+                transform(chunk, controller) {
+                    const text = new TextDecoder().decode(chunk)
+                    const transformed = text
+                        .split("\n")
+                        .map((line) => {
+                            if (!line.startsWith("data: ")) return line
+                            const payload = line.slice(6)
+                            if (payload.trim() === "[DONE]") return line
+                            try {
+                                const parsed = JSON.parse(payload) as { response?: unknown }
+                                return `data: ${JSON.stringify(parsed.response ?? parsed)}`
+                            } catch {
+                                return line
+                            }
+                        })
+                        .join("\n")
+                    controller.enqueue(new TextEncoder().encode(transformed))
+                },
+            })
+
+            originalBody.pipeTo(transformedStream.writable).catch((e) =>
+                log.error("Antigravity: Stream pipe error", { error: String(e) })
+            )
+
+            return new Response(transformedStream.readable, {
+                status: response.status,
+                statusText: response.statusText,
+                headers: response.headers,
+            })
+        }
+
+        if (method === "countTokens") {
+            const data = await response.json().catch(() => undefined)
+            return new Response(JSON.stringify(data), {
+                status: response.status,
+                statusText: response.statusText,
+                headers: { "Content-Type": "application/json" },
+            })
+        }
+
+        // generateContent: unwrap { response: {...} } -> {...}
+        const data = (await response.json().catch(() => undefined)) as { response?: unknown } | undefined
+        return new Response(JSON.stringify(data?.response ?? data ?? {}), {
+            status: response.status,
+            statusText: response.statusText,
+            headers: { "Content-Type": "application/json" },
+        })
+    }
+
+    throw new Error("Antigravity: Request failed after maximum retry attempts.")
+}
+
+/**
  * Antigravity Auth Hook for plugin integration
  */
 export const AntigravityAuthHook: AuthHook = {
@@ -401,7 +678,7 @@ export const AntigravityAuthHook: AuthHook = {
             return {}
         }
 
-        // Check if token needs refresh
+        // Check if token needs refresh (graceful — don't throw, just log)
         const authWithAccount = auth as typeof auth & { accountId?: string }
         if (auth.expires < Date.now() + 5 * 60 * 1000) {
             log.info("Refreshing token in loader", { email: authWithAccount.accountId })
@@ -418,60 +695,37 @@ export const AntigravityAuthHook: AuthHook = {
                 }
             } catch (error) {
                 const errorMessage = error instanceof Error ? error.message : String(error)
-                log.error("Failed to refresh token in loader", { email: authWithAccount.accountId, error: errorMessage })
-                throw new Error(`Failed to refresh Antigravity token in loader: ${errorMessage}`)
+                // Don't throw — the token might still be valid or getAccessToken() will handle it
+                log.warn("Pre-flight token refresh failed in loader, will retry on request", { email: authWithAccount.accountId, error: errorMessage })
             }
         }
 
         return {
-            // Don't set apiKey - we'll use Authorization header via custom fetch
             baseURL: ANTIGRAVITY_BASE_URL,
-            // Use custom fetch to add Authorization header dynamically
-            fetch: async (input: RequestInfo | URL, init?: RequestInit) => {
-                const token = await getAccessToken()
-                if (!token) {
-                    log.error("No access token available for Antigravity request")
-                    throw new Error("Unauthorized: No access token available for Antigravity API")
-                }
-
-                const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url
-                log.info("Antigravity fetch", { url, hasToken: !!token })
-
-                const headers = new Headers(init?.headers || {})
-                headers.set("Authorization", `Bearer ${token}`)
-                headers.delete("x-goog-api-key") // Remove any API key header
-
-                const response = await fetch(input, {
-                    ...init,
-                    headers,
-                })
-
-                // If unauthorized, try refreshing token and retry once
-                if (response.status === 401) {
-                    log.warn("Received 401, forcing token refresh and retrying...")
-                    const newToken = await getAccessToken(true)
-                    if (newToken) {
-                        headers.set("Authorization", `Bearer ${newToken}`)
-                        return fetch(input, {
-                            ...init,
-                            headers,
-                        })
-                    }
-                }
-
-                return response
-            },
+            fetch: antigravityFetch,
         }
     },
     methods: [
         {
             type: "oauth",
             label: "OAuth with Google (Antigravity)",
-            async authorize(): Promise<AuthOuathResult> {
+            prompts: [
+                {
+                    type: "text",
+                    key: "projectId",
+                    message: "Google Cloud Project ID (optional)",
+                    placeholder: ANTIGRAVITY_DEFAULT_PROJECT_ID,
+                },
+            ],
+            async authorize(inputs: Record<string, string> = {}): Promise<AuthOuathResult> {
                 const port = 51121
                 const pkce = generatePKCE()
-                const projectId = "" // Will be fetched during token exchange if not provided
+                const projectId = inputs.projectId || ANTIGRAVITY_DEFAULT_PROJECT_ID
                 const authUrl = createAuthUrl(pkce, projectId)
+
+                // Log URL in case open fails
+                // console.log(`\n\nLogin URL: ${authUrl}\n\n`) // Removed to prevent TUI leak
+                log.info("Auth URL generated", { url: authUrl })
 
                 // Start callback server
                 const callbackPromise = startCallbackServer(port)
@@ -485,9 +739,9 @@ export const AntigravityAuthHook: AuthHook = {
                     method: "auto",
                     async callback() {
                         try {
-                            const { code, state } = await callbackPromise
-
-                            const tokens = await exchangeCode(code, state)
+                            const { code, state: stateStr } = await callbackPromise
+                            const { projectId } = decodeState(stateStr)
+                            const tokens = await exchangeCode(code, stateStr)
                             if (!tokens) {
                                 return { type: "failed" }
                             }
@@ -495,6 +749,8 @@ export const AntigravityAuthHook: AuthHook = {
                             return {
                                 type: "success",
                                 provider: "google-antigravity",
+                                // tokens.refresh already contains projectId (set in exchangeCode)
+                                // Don't double-append it here
                                 refresh: tokens.refresh,
                                 access: tokens.access,
                                 expires: tokens.expires,

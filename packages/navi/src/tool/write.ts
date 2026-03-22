@@ -11,6 +11,9 @@ import { Filesystem } from "../util/filesystem"
 import { Instance } from "../project/instance"
 import { trimDiff } from "./edit"
 import { assertExternalDirectory } from "./external-directory"
+import { Log } from "../util/log"
+
+const log = Log.create({ service: "tool:write" })
 
 const MAX_DIAGNOSTICS_PER_FILE = 20
 const MAX_PROJECT_DIAGNOSTICS_FILES = 5
@@ -31,6 +34,8 @@ export const WriteTool = Tool.define("write", {
     if (exists) await FileTime.assert(ctx.sessionID, filepath)
 
     const diff = trimDiff(createTwoFilesPatch(filepath, filepath, contentOld, params.content))
+    const additions = (params.content.match(/\n/g) || []).length - (contentOld.match(/\n/g) || []).length
+    
     await ctx.ask({
       permission: "edit",
       patterns: [path.relative(Instance.worktree, filepath)],
@@ -38,9 +43,11 @@ export const WriteTool = Tool.define("write", {
       metadata: {
         filepath,
         diff,
+        summary: `+${additions > 0 ? additions : 0} lines, -${additions < 0 ? Math.abs(additions) : 0} lines`
       },
     })
 
+    // Optimized file writing
     await Bun.write(filepath, params.content)
     await Bus.publish(File.Event.Edited, {
       file: filepath,
@@ -48,29 +55,34 @@ export const WriteTool = Tool.define("write", {
     FileTime.read(ctx.sessionID, filepath)
 
     let output = "Wrote file successfully."
-    await LSP.touchFile(filepath, true)
-    const diagnostics = await LSP.diagnostics()
-    const normalizedFilepath = Filesystem.normalizePath(filepath)
-    let projectDiagnosticsCount = 0
-    for (const [file, issues] of Object.entries(diagnostics)) {
-      const errors = issues.filter((item) => item.severity === 1)
-      if (errors.length === 0) continue
-      const limited = errors.slice(0, MAX_DIAGNOSTICS_PER_FILE)
-      const suffix =
-        errors.length > MAX_DIAGNOSTICS_PER_FILE ? `\n... and ${errors.length - MAX_DIAGNOSTICS_PER_FILE} more` : ""
-      if (file === normalizedFilepath) {
-        output += `\n\nLSP errors detected in this file:\n<diagnostics file="${filepath}">\n${limited.map(LSP.Diagnostic.pretty).join("\n")}${suffix}\n</diagnostics>`
-        continue
+
+    // Optional LSP diagnostics (can be slow, so we might skip if not needed)
+    try {
+      await LSP.touchFile(filepath, false)
+      const diagnostics = await LSP.diagnostics()
+      const normalizedFilepath = Filesystem.normalizePath(filepath)
+      let projectDiagnosticsCount = 0
+      for (const [file, issues] of Object.entries(diagnostics)) {
+        const errors = issues.filter((item) => item.severity === 1)
+        if (errors.length === 0) continue
+        const limited = errors.slice(0, MAX_DIAGNOSTICS_PER_FILE)
+        const suffix =
+          errors.length > MAX_DIAGNOSTICS_PER_FILE ? `\n... and ${errors.length - MAX_DIAGNOSTICS_PER_FILE} more` : ""
+        if (file === normalizedFilepath) {
+          output += `\n\nLSP errors detected in this file:\n<diagnostics file="${filepath}">\n${limited.map(LSP.Diagnostic.pretty).join("\n")}${suffix}\n</diagnostics>`
+          continue
+        }
+        if (projectDiagnosticsCount >= MAX_PROJECT_DIAGNOSTICS_FILES) continue
+        projectDiagnosticsCount++
+        output += `\n\nLSP errors detected in other files:\n<diagnostics file="${file}">\n${limited.map(LSP.Diagnostic.pretty).join("\n")}${suffix}\n</diagnostics>`
       }
-      if (projectDiagnosticsCount >= MAX_PROJECT_DIAGNOSTICS_FILES) continue
-      projectDiagnosticsCount++
-      output += `\n\nLSP errors detected in other files:\n<diagnostics file="${file}">\n${limited.map(LSP.Diagnostic.pretty).join("\n")}${suffix}\n</diagnostics>`
+    } catch (error) {
+      console.warn("Failed to get LSP diagnostics:", error instanceof Error ? error.message : String(error))
     }
 
     return {
       title: path.relative(Instance.worktree, filepath),
       metadata: {
-        diagnostics,
         filepath,
         exists: exists,
       },

@@ -68,7 +68,7 @@ export const EditTool = Tool.define("edit", {
       }
 
       const file = Bun.file(filePath)
-      const stats = await file.stat().catch(() => {})
+      const stats = await file.stat().catch(() => { })
       if (!stats) throw new Error(`File ${filePath} not found`)
       if (stats.isDirectory()) throw new Error(`Path is a directory, not a file: ${filePath}`)
       await FileTime.assert(ctx.sessionID, filePath)
@@ -78,6 +78,14 @@ export const EditTool = Tool.define("edit", {
       diff = trimDiff(
         createTwoFilesPatch(filePath, filePath, normalizeLineEndings(contentOld), normalizeLineEndings(contentNew)),
       )
+      
+      let additions = 0
+      let deletions = 0
+      for (const change of diffLines(contentOld, contentNew)) {
+        if (change.added) additions += change.count || 0
+        if (change.removed) deletions += change.count || 0
+      }
+
       await ctx.ask({
         permission: "edit",
         patterns: [path.relative(Instance.worktree, filePath)],
@@ -85,6 +93,7 @@ export const EditTool = Tool.define("edit", {
         metadata: {
           filepath: filePath,
           diff,
+          summary: `+${additions} lines, -${deletions} lines`
         },
       })
 
@@ -120,7 +129,7 @@ export const EditTool = Tool.define("edit", {
     })
 
     let output = "Edit applied successfully."
-    await LSP.touchFile(filePath, true)
+    await LSP.touchFile(filePath, false)
     const diagnostics = await LSP.diagnostics()
     const normalizedFilePath = Filesystem.normalizePath(filePath)
     const issues = diagnostics[normalizedFilePath] ?? []

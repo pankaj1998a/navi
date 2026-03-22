@@ -7,6 +7,8 @@ import { Config } from "../config/config"
 import { Flag } from "../flag/flag"
 import { Identifier } from "../id/id"
 import { Installation } from "../installation"
+import fs from "fs/promises"
+import path from "path"
 
 import { Storage } from "../storage/storage"
 import { Log } from "../util/log"
@@ -36,43 +38,44 @@ export namespace Session {
     ).test(title)
   }
 
-  export const Info = z
-    .object({
-      id: Identifier.schema("session"),
-      projectID: z.string(),
-      directory: z.string(),
-      parentID: Identifier.schema("session").optional(),
-      summary: z
-        .object({
-          additions: z.number(),
-          deletions: z.number(),
-          files: z.number(),
-          diffs: Snapshot.FileDiff.array().optional(),
-        })
-        .optional(),
-      share: z
-        .object({
-          url: z.string(),
-        })
-        .optional(),
-      title: z.string(),
-      version: z.string(),
-      time: z.object({
-        created: z.number(),
-        updated: z.number(),
-        compacting: z.number().optional(),
-        archived: z.number().optional(),
-      }),
-      permission: PermissionNext.Ruleset.optional(),
-      revert: z
-        .object({
-          messageID: z.string(),
-          partID: z.string().optional(),
-          snapshot: z.string().optional(),
-          diff: z.string().optional(),
-        })
-        .optional(),
-    })
+  export const Info = z.object({
+    id: Identifier.schema("session"),
+    projectID: z.string(),
+    directory: z.string(),
+    parentID: Identifier.schema("session").optional(),
+    resumeFrom: Identifier.schema("session").optional(),
+    summary: z
+      .object({
+        additions: z.number(),
+        deletions: z.number(),
+        files: z.number(),
+        diffs: Snapshot.FileDiff.array().optional(),
+      })
+      .optional(),
+    share: z
+      .object({
+        url: z.string(),
+      })
+      .optional(),
+    title: z.string(),
+    version: z.string(),
+    time: z.object({
+      created: z.number(),
+      updated: z.number(),
+      compacting: z.number().optional(),
+      archived: z.number().optional(),
+    }),
+    permission: PermissionNext.Ruleset.optional(),
+    revert: z
+      .object({
+        messageID: z.string(),
+        partID: z.string().optional(),
+        snapshot: z.string().optional(),
+        diff: z.string().optional(),
+      })
+      .optional(),
+    status: z.enum(["todo", "in_progress", "done"]).optional(),
+  })
   export type Info = z.output<typeof Info>
 
   export const ShareInfo = z
@@ -124,6 +127,7 @@ export namespace Session {
     z
       .object({
         parentID: Identifier.schema("session").optional(),
+        resumeFrom: Identifier.schema("session").optional(),
         title: z.string().optional(),
         permission: Info.shape.permission,
       })
@@ -131,6 +135,7 @@ export namespace Session {
     async (input) => {
       return createNext({
         parentID: input?.parentID,
+        resumeFrom: input?.resumeFrom,
         directory: Instance.directory,
         title: input?.title,
         permission: input?.permission,
@@ -186,6 +191,7 @@ export namespace Session {
     id?: string
     title?: string
     parentID?: string
+    resumeFrom?: string
     directory: string
     permission?: PermissionNext.Ruleset
   }) {
@@ -195,12 +201,14 @@ export namespace Session {
       projectID: Instance.project.id,
       directory: input.directory,
       parentID: input.parentID,
+      resumeFrom: input.resumeFrom,
       title: input.title ?? createDefaultTitle(!!input.parentID),
       permission: input.permission,
       time: {
         created: Date.now(),
         updated: Date.now(),
       },
+      status: "todo",
     }
     log.info("created", result)
     await Storage.write(["session", Instance.project.id, result.id], result)
@@ -221,6 +229,7 @@ export namespace Session {
     Bus.publish(Event.Updated, {
       info: result,
     })
+    void syncStateFile()
     return result
   }
 
@@ -259,14 +268,57 @@ export namespace Session {
 
   export async function update(id: string, editor: (session: Info) => void) {
     const project = Instance.project
+    let oldStatus: string | undefined
     const result = await Storage.update<Info>(["session", project.id, id], (draft) => {
+      oldStatus = draft.status
       editor(draft)
       draft.time.updated = Date.now()
     })
     Bus.publish(Event.Updated, {
       info: result,
     })
+    if (oldStatus !== result.status) {
+      void syncStateFile()
+    }
     return result
+  }
+
+  async function syncStateFile() {
+    try {
+      const stateFile = path.join(Instance.worktree, "specs", "STATE.md")
+      if (!(await fs.stat(stateFile).catch(() => false))) return
+
+      const sessions = []
+      for await (const s of list()) {
+        sessions.push(s)
+      }
+      // Sort by updated time descending
+      sessions.sort((a, b) => b.time.updated - a.time.updated)
+
+      const active = sessions.filter((s) => s.status !== "done").slice(0, 5)
+
+      let content = await fs.readFile(stateFile, "utf-8")
+      const sectionHeader = "## Active Sessions"
+
+      // Regex to match the section content until the next header or end of file
+      const regex = new RegExp(`(${sectionHeader}\\s*\\n)([\\s\\S]*?)(?=\\n## |$)`)
+
+      if (!regex.test(content)) {
+        if (content.includes("## Blockers")) {
+          content = content.replace("## Blockers", `${sectionHeader}\n\n## Blockers`)
+        } else {
+          content += `\n\n${sectionHeader}\n`
+        }
+      }
+
+      const newContent = active.length > 0 ? active.map((s) => `- **${s.title}**`).join("\n") : "- No active sessions."
+
+      content = content.replace(regex, `$1${newContent}\n`)
+
+      await fs.writeFile(stateFile, content)
+    } catch (e) {
+      log.error("failed to sync state file", { error: e })
+    }
   }
 
   export const diff = fn(Identifier.schema("session"), async (sessionID) => {
@@ -315,7 +367,7 @@ export namespace Session {
       for (const child of await children(sessionID)) {
         await remove(child.id)
       }
-      await unshare(sessionID).catch(() => { })
+      await unshare(sessionID).catch(() => {})
       for (const msg of await Storage.list(["message", sessionID])) {
         for (const part of await Storage.list(["part", msg.at(-1)!])) {
           await Storage.remove(part)

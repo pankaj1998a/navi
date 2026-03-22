@@ -6,14 +6,40 @@ import { Global } from "../global"
 import z from "zod"
 import { Config } from "../config/config"
 import { Instance } from "../project/instance"
+import { Scheduler } from "../scheduler"
 
 export namespace Snapshot {
   const log = Log.create({ service: "snapshot" })
+  const HOUR = 60 * 60 * 1000
+
+  export const init = Instance.state(() => {
+    Scheduler.register({
+      id: "snapshot.cleanup",
+      interval: HOUR,
+      run: cleanup,
+      scope: "instance",
+    })
+  })
+
+  export async function cleanup() {
+    if (Instance.project.vcs !== "git") return
+    const cfg = await Config.get()
+    if (cfg.snapshot === false) return
+    const git = gitdir()
+
+    const exists = await fs.stat(git).then(() => true).catch(() => false)
+    if (!exists) return
+
+    // Find and delete old blobs/commits if needed (simplified git cleanup)
+    await $`git --git-dir ${git} gc --prune=7.days.ago --quiet`.nothrow()
+    log.info("cleanup complete")
+  }
 
   export async function track() {
     if (Instance.project.vcs !== "git") return
     const cfg = await Config.get()
     if (cfg.snapshot === false) return
+    init()
     const git = gitdir()
     if (await fs.mkdir(git, { recursive: true })) {
       await $`git init`
@@ -114,7 +140,7 @@ export namespace Snapshot {
             })
           } else {
             log.info("file did not exist in snapshot, deleting", { file })
-            await fs.unlink(file).catch(() => {})
+            await fs.unlink(file).catch(() => { })
           }
         }
         files.add(file)
@@ -170,15 +196,15 @@ export namespace Snapshot {
       const before = isBinaryFile
         ? ""
         : await $`git -c core.autocrlf=false --git-dir ${git} --work-tree ${Instance.worktree} show ${from}:${file}`
-            .quiet()
-            .nothrow()
-            .text()
+          .quiet()
+          .nothrow()
+          .text()
       const after = isBinaryFile
         ? ""
         : await $`git -c core.autocrlf=false --git-dir ${git} --work-tree ${Instance.worktree} show ${to}:${file}`
-            .quiet()
-            .nothrow()
-            .text()
+          .quiet()
+          .nothrow()
+          .text()
       const added = isBinaryFile ? 0 : parseInt(additions)
       const deleted = isBinaryFile ? 0 : parseInt(deletions)
       result.push({

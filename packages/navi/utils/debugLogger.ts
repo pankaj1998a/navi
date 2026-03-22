@@ -26,8 +26,8 @@ class DebugLogger {
   constructor() {
     this.logStream = process.env['GEMINI_DEBUG_LOG_FILE']
       ? fs.createWriteStream(process.env['GEMINI_DEBUG_LOG_FILE'], {
-          flags: 'a',
-        })
+        flags: 'a',
+      })
       : undefined;
     // Handle potential errors with the stream
     this.logStream?.on('error', (err) => {
@@ -63,6 +63,11 @@ class DebugLogger {
   debug(...args: unknown[]): void {
     this.writeToFile('DEBUG', args);
     console.debug(...args);
+  }
+
+  info(...args: unknown[]): void {
+    this.writeToFile('INFO', args);
+    console.info(...args);
   }
 }
 

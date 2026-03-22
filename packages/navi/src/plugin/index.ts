@@ -1,4 +1,4 @@
-import type { Hooks, PluginInput, Plugin as PluginInstance } from "@navi-ai/plugin"
+import type { Hooks, PluginInput, Plugin as PluginInstance } from "./types"
 import { Config } from "../config/config"
 import { Bus } from "../bus"
 import { Log } from "../util/log"
@@ -9,16 +9,21 @@ import { Instance } from "../project/instance"
 import { Flag } from "../flag/flag"
 import { CodexAuthPlugin } from "./codex"
 import { AntigravityAuthPlugin } from "./antigravity"
+import { GeminiAuthPlugin } from "../provider/gemini-cli"
+import { QwenAuthPlugin } from "../provider/qwen-cli"
+import { KilocodeAuthPlugin } from "../provider/kilocode"
+import { ClineAuthPlugin } from "../provider/cline-provider"
+import { RoocodeAuthPlugin } from "../provider/roocode-provider"
 import { Session } from "../session"
-import { NamedError } from "@navi-ai/util/error"
+import { NamedError } from "@navi-ai/sdk/util/error"
 
 export namespace Plugin {
   const log = Log.create({ service: "plugin" })
 
-  const BUILTIN = ["navi-copilot-auth@0.0.12", "navi-anthropic-auth@0.0.8"]
+  const BUILTIN: string[] = [] // Removed private plugins to fix installation error
 
   // Built-in plugins that are directly imported (not installed from npm)
-  const INTERNAL_PLUGINS: PluginInstance[] = [CodexAuthPlugin, AntigravityAuthPlugin]
+  const INTERNAL_PLUGINS: PluginInstance[] = [CodexAuthPlugin, AntigravityAuthPlugin, GeminiAuthPlugin, QwenAuthPlugin, KilocodeAuthPlugin, ClineAuthPlugin, RoocodeAuthPlugin]
 
 
   const state = Instance.state(async () => {
@@ -76,16 +81,20 @@ export namespace Plugin {
         })
         if (!plugin) continue
       }
-      const mod = await import(plugin)
-      // Prevent duplicate initialization when plugins export the same function
-      // as both a named export and default export (e.g., `export const X` and `export default X`).
-      // Object.entries(mod) would return both entries pointing to the same function reference.
-      const seen = new Set<PluginInstance>()
-      for (const [_name, fn] of Object.entries<PluginInstance>(mod)) {
-        if (seen.has(fn)) continue
-        seen.add(fn)
-        const init = await fn(input)
-        hooks.push(init)
+      try {
+        const mod = await import(plugin)
+        // Prevent duplicate initialization when plugins export the same function
+        // as both a named export and default export (e.g., `export const X` and `export default X`).
+        // Object.entries(mod) would return both entries pointing to the same function reference.
+        const seen = new Set<PluginInstance>()
+        for (const [_name, fn] of Object.entries<PluginInstance>(mod)) {
+          if (seen.has(fn)) continue
+          seen.add(fn)
+          const init = await fn(input)
+          hooks.push(init)
+        }
+      } catch (err) {
+        log.error("failed to import plugin", { plugin, error: err })
       }
     }
 
@@ -102,11 +111,8 @@ export namespace Plugin {
   >(name: Name, input: Input, output: Output): Promise<Output> {
     if (!name) return output
     for (const hook of await state().then((x) => x.hooks)) {
-      const fn = hook[name]
+      const fn = hook[name] as ((input: Input, output: Output) => Promise<void>) | undefined
       if (!fn) continue
-      // @ts-expect-error if you feel adventurous, please fix the typing, make sure to bump the try-counter if you
-      // give up.
-      // try-counter: 2
       await fn(input, output)
     }
     return output
@@ -133,3 +139,4 @@ export namespace Plugin {
     })
   }
 }
+

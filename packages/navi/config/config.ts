@@ -58,6 +58,13 @@ import { shouldAttemptBrowserLaunch } from '../utils/browser.js';
 import type { MCPOAuthConfig } from '../mcp/oauth-provider.js';
 import { ideContextStore } from '../ide/ideContext.js';
 import { WriteTodosTool } from '../tools/write-todos.js';
+import { MapCodebaseTool } from '../tools/map-codebase.js';
+import { PlanPhaseTool } from '../tools/plan-phase.js';
+import { ExecutePhaseTool } from '../tools/execute-phase.js';
+import { VerifyWorkTool } from '../tools/verify-work.js';
+import { ThinkTool } from '../tools/think-tool.js';
+import { CalculatorTool } from '../tools/calculator-tool.js';
+import { TimeTool } from '../tools/time-tool.js';
 import type { FileSystemService } from '../services/fileSystemService.js';
 import { StandardFileSystemService } from '../services/fileSystemService.js';
 import { logRipgrepFallback, logFlashFallback } from '../telemetry/loggers.js';
@@ -232,6 +239,8 @@ export {
 
 export const DEFAULT_TRUNCATE_TOOL_OUTPUT_THRESHOLD = 4_000_000;
 export const DEFAULT_TRUNCATE_TOOL_OUTPUT_LINES = 1000;
+export const DEFAULT_URL_FETCH_TIMEOUT_MS = 10000;
+export const DEFAULT_MAX_CONTENT_LENGTH = 100000;
 
 export class MCPServerConfig {
   constructor(
@@ -269,7 +278,7 @@ export class MCPServerConfig {
     readonly targetAudience?: string,
     /* targetServiceAccount format: <service-account-name>@<project-num>.iam.gserviceaccount.com */
     readonly targetServiceAccount?: string,
-  ) {}
+  ) { }
 }
 
 export enum AuthProviderType {
@@ -290,6 +299,8 @@ export interface ConfigParameters {
   targetDir: string;
   debugMode: boolean;
   question?: string;
+  urlFetchTimeout?: number;
+  maxContentLength?: number;
 
   coreTools?: string[];
   allowedTools?: string[];
@@ -419,6 +430,8 @@ export class Config {
   private workspaceContext: WorkspaceContext;
   private readonly debugMode: boolean;
   private readonly question: string | undefined;
+  private readonly urlFetchTimeout!: number;
+  private readonly maxContentLength!: number;
 
   private readonly coreTools: string[] | undefined;
   private readonly allowedTools: string[] | undefined;
@@ -522,10 +535,10 @@ export class Config {
   private readonly onModelChange: ((model: string) => void) | undefined;
   private readonly onReload:
     | (() => Promise<{
-        disabledSkills?: string[];
-        adminSkillsEnabled?: boolean;
-        agents?: AgentSettings;
-      }>)
+      disabledSkills?: string[];
+      adminSkillsEnabled?: boolean;
+      agents?: AgentSettings;
+    }>)
     | undefined;
 
   private readonly enableAgents: boolean;
@@ -554,6 +567,8 @@ export class Config {
     this.pendingIncludeDirectories = params.includeDirectories ?? [];
     this.debugMode = params.debugMode;
     this.question = params.question;
+    this.urlFetchTimeout = params.urlFetchTimeout ?? DEFAULT_URL_FETCH_TIMEOUT_MS;
+    this.maxContentLength = params.maxContentLength ?? DEFAULT_MAX_CONTENT_LENGTH;
 
     this.coreTools = params.coreTools;
     this.allowedTools = params.allowedTools;
@@ -1757,7 +1772,7 @@ export class Config {
     return Math.min(
       // Estimate remaining context window in characters (1 token ~= 4 chars).
       4 *
-        (tokenLimit(this.model) - uiTelemetryService.getLastPromptTokenCount()),
+      (tokenLimit(this.model) - uiTelemetryService.getLastPromptTokenCount()),
       this.truncateToolOutputThreshold,
     );
   }
@@ -1786,6 +1801,14 @@ export class Config {
 
   getFileExclusions(): FileExclusions {
     return this.fileExclusions;
+  }
+
+  getUrlFetchTimeout(): number {
+    return this.urlFetchTimeout;
+  }
+
+  getMaxContentLength(): number {
+    return this.maxContentLength;
   }
 
   getMessageBus(): MessageBus {
@@ -1875,6 +1898,14 @@ export class Config {
     if (this.getUseWriteTodos()) {
       registerCoreTool(WriteTodosTool);
     }
+
+    registerCoreTool(MapCodebaseTool, this);
+    registerCoreTool(PlanPhaseTool, this);
+    registerCoreTool(ExecutePhaseTool, this);
+    registerCoreTool(VerifyWorkTool, this);
+    registerCoreTool(ThinkTool, this);
+    registerCoreTool(CalculatorTool, this);
+    registerCoreTool(TimeTool, this);
 
     // Register Subagents as Tools
     // Register DelegateToAgentTool if agents are enabled

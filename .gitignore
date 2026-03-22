@@ -18,7 +18,7 @@ target/
 .env
 .env.*
 opencode.json
-navi.json
+/navi.json
 prd.json
 progress.txt
 
@@ -51,3 +51,25 @@ playground/
 /result
 refs/
 .scripts/
+
+# Binaries
+*.exe
+*.dll
+*.so
+*.dylib
+bin/
+build/
+
+out/
+*.zip
+*.tar
+*.tar.gz
+*.7z
+*.rar
+NUL
+.navi/
+navi-portable
+packages/navi/navi-portable
+test-local-install
+inspect-tar
+*.sqlite

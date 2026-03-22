@@ -1,7 +1,7 @@
 import { BusEvent } from "@/bus/bus-event"
 import z from "zod"
-import { NamedError } from "@navi-ai/util/error"
-import { APICallError, convertToCoreMessages, LoadAPIKeyError, type CoreMessage, type UIMessage } from "ai"
+import { NamedError } from "@navi-ai/sdk/util/error"
+import { APICallError, convertToModelMessages, LoadAPIKeyError, type CoreMessage, type UIMessage, type ModelMessage } from "ai"
 import { Identifier } from "../id/id"
 import { LSP } from "../lsp"
 import { Snapshot } from "@/snapshot"
@@ -11,6 +11,8 @@ import { ProviderTransform } from "@/provider/transform"
 import { STATUS_CODES } from "http"
 import { iife } from "@/util/iife"
 import { type SystemError } from "bun"
+import { NaviResponse } from "./response"
+
 
 export namespace MessageV2 {
   export const OutputLengthError = NamedError.create("MessageOutputLengthError", z.object({}))
@@ -65,6 +67,12 @@ export namespace MessageV2 {
     text: z.string(),
     synthetic: z.boolean().optional(),
     ignored: z.boolean().optional(),
+    /**
+     * Parsed unified response envelope. Present only on completed (non-streaming)
+     * text parts. Normalises the diverse output styles of different LLM providers
+     * into a single canonical shape with status, answer, question, files, etc.
+     */
+    response: NaviResponse.optional(),
     time: z
       .object({
         start: z.number(),
@@ -76,6 +84,7 @@ export namespace MessageV2 {
     ref: "TextPart",
   })
   export type TextPart = z.infer<typeof TextPart>
+
 
   export const ReasoningPart = PartBase.extend({
     type: z.literal("reasoning"),
@@ -430,101 +439,140 @@ export namespace MessageV2 {
   })
   export type WithParts = z.infer<typeof WithParts>
 
-  export function toModelMessage(input: WithParts[]): CoreMessage[] {
-    const messages: CoreMessage[] = []
+  export function toModelMessage(input: WithParts[]): ModelMessage[] {
+    const result: UIMessage[] = []
 
     for (const msg of input) {
       if (msg.parts.length === 0) continue
 
       if (msg.info.role === "user") {
-        const content: any[] = []
+        const userMessage: UIMessage = {
+          id: msg.info.id,
+          role: "user",
+          parts: [],
+        }
+        result.push(userMessage)
         for (const part of msg.parts) {
-          if (part.type === "text" && !part.ignored) {
-            content.push({ type: "text", text: part.text })
-          } else if (part.type === "file" && part.mime !== "text/plain" && part.mime !== "application/x-directory") {
-            content.push({ type: "file", data: part.url, mimeType: part.mime })
-          } else if (part.type === "compaction") {
-            content.push({ type: "text", text: "What did we do so far?" })
-          } else if (part.type === "subtask") {
-            content.push({ type: "text", text: "The following tool was executed by the user" })
+          if (part.type === "text" && !part.ignored)
+            userMessage.parts.push({
+              type: "text",
+              text: part.text,
+            })
+          // text/plain and directory files are converted into text parts, ignore them
+          if (part.type === "file" && part.mime !== "text/plain" && part.mime !== "application/x-directory")
+            userMessage.parts.push({
+              type: "file",
+              url: part.url,
+              mediaType: part.mime,
+              filename: part.filename,
+            })
+
+          if (part.type === "compaction") {
+            userMessage.parts.push({
+              type: "text",
+              text: "What did we do so far?",
+            })
+          }
+          if (part.type === "subtask") {
+            userMessage.parts.push({
+              type: "text",
+              text: "The following tool was executed by the user",
+            })
           }
         }
-        if (content.length > 0) {
-          messages.push({ role: "user", content })
-        }
-      } else if (msg.info.role === "assistant") {
+      }
+
+      if (msg.info.role === "assistant") {
         if (
           msg.info.error &&
           !(
             MessageV2.AbortedError.isInstance(msg.info.error) &&
-            msg.parts.some((p) => p.type !== "step-start" && p.type !== "reasoning")
+            msg.parts.some((part) => part.type !== "step-start" && part.type !== "reasoning")
           )
         ) {
           continue
         }
-
-        const content: any[] = []
-        const toolResults: any[] = []
-
+        const assistantMessage: UIMessage = {
+          id: msg.info.id,
+          role: "assistant",
+          parts: [],
+        }
         for (const part of msg.parts) {
-          if (part.type === "text") {
-            content.push({ type: "text", text: part.text, providerMetadata: part.metadata })
-          } else if (part.type === "reasoning") {
-            content.push({ type: "reasoning", reasoning: part.text, providerMetadata: part.metadata })
-          } else if (part.type === "tool") {
-            content.push({
-              type: "tool-call",
-              toolCallId: part.callID,
-              toolName: part.tool,
-              args: part.state.input,
+          if (part.type === "text")
+            assistantMessage.parts.push({
+              type: "text",
+              text: part.text,
               providerMetadata: part.metadata,
             })
-
+          if (part.type === "step-start")
+            assistantMessage.parts.push({
+              type: "step-start",
+            })
+          if (part.type === "tool") {
             if (part.state.status === "completed") {
               if (part.state.attachments?.length) {
-                messages.push({
+                result.push({
+                  id: Identifier.ascending("message"),
                   role: "user",
-                  content: [
-                    { type: "text", text: `Tool ${part.tool} returned an attachment:` },
-                    ...part.state.attachments.map((a) => ({
+                  parts: [
+                    {
+                      type: "text",
+                      text: `The tool ${part.tool} returned the following attachments:`,
+                    },
+                    ...part.state.attachments.map((attachment) => ({
                       type: "file" as const,
-                      data: a.url,
-                      mimeType: a.mime,
+                      url: attachment.url,
+                      mediaType: attachment.mime,
+                      filename: attachment.filename,
                     })),
                   ],
                 })
               }
-              toolResults.push({
-                type: "tool-result",
+              assistantMessage.parts.push({
+                type: ("tool-" + part.tool) as `tool-${string}`,
+                state: "output-available",
                 toolCallId: part.callID,
-                toolName: part.tool,
-                result: part.state.time.compacted ? "[Old tool result content cleared]" : part.state.output,
-                providerMetadata: part.state.metadata,
-              })
-            } else if (part.state.status === "error") {
-              toolResults.push({
-                type: "tool-result",
-                toolCallId: part.callID,
-                toolName: part.tool,
-                result: part.state.error,
-                isError: true,
-                providerMetadata: part.metadata,
+                input: part.state.input,
+                output: part.state.time.compacted ? "[Old tool result content cleared]" : part.state.output,
+                callProviderMetadata: part.metadata,
               })
             }
+            if (part.state.status === "error")
+              assistantMessage.parts.push({
+                type: ("tool-" + part.tool) as `tool-${string}`,
+                state: "output-error",
+                toolCallId: part.callID,
+                input: part.state.input,
+                errorText: part.state.error,
+                callProviderMetadata: part.metadata,
+              })
+            // Handle pending/running tool calls to prevent dangling tool_use blocks
+            // Anthropic/Claude APIs require every tool_use to have a corresponding tool_result
+            if (part.state.status === "pending" || part.state.status === "running")
+              assistantMessage.parts.push({
+                type: ("tool-" + part.tool) as `tool-${string}`,
+                state: "output-error",
+                toolCallId: part.callID,
+                input: part.state.input,
+                errorText: "[Tool execution was interrupted]",
+                callProviderMetadata: part.metadata,
+              })
+          }
+          if (part.type === "reasoning") {
+            assistantMessage.parts.push({
+              type: "reasoning",
+              text: part.text,
+              providerMetadata: part.metadata,
+            })
           }
         }
-
-        if (content.length > 0) {
-          messages.push({ role: "assistant", content } as any)
-        }
-
-        if (toolResults.length > 0) {
-          messages.push({ role: "tool", content: toolResults })
+        if (assistantMessage.parts.length > 0) {
+          result.push(assistantMessage)
         }
       }
     }
 
-    return messages
+    return convertToModelMessages(result.filter((msg) => msg.parts.some((part) => part.type !== "step-start")))
   }
 
   export const stream = fn(Identifier.schema("session"), async function* (sessionID) {
@@ -659,3 +707,4 @@ export namespace MessageV2 {
     }
   }
 }
+

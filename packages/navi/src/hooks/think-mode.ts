@@ -85,6 +85,15 @@ const HIGH_VARIANT_MAP: Record<string, string> = {
     "gemini-3-pro-preview": "gemini-3-pro-preview-high",
     "gemini-3-flash": "gemini-3-flash-high",
     "gemini-3-flash-preview": "gemini-3-flash-preview-high",
+    "gemini-2-5-pro": "gemini-2-5-pro-high",
+    "gemini-2-5-flash": "gemini-2-5-flash-high",
+    // Antigravity variants
+    "antigravity-gemini-3-pro": "antigravity-gemini-3-pro-high",
+    "antigravity-gemini-3-flash": "antigravity-gemini-3-flash-high",
+    "antigravity-gemini-2-5-pro": "antigravity-gemini-2-5-pro-high",
+    "antigravity-gemini-2-5-flash": "antigravity-gemini-2-5-flash-high",
+    "antigravity-claude-4-6-sonnet": "antigravity-claude-4-6-sonnet-high",
+    "antigravity-claude-4-6-opus": "antigravity-claude-4-6-opus-high",
     // GPT-5
     "gpt-5": "gpt-5-high",
     "gpt-5-mini": "gpt-5-mini-high",
@@ -144,8 +153,8 @@ export const THINKING_CONFIGS: Record<string, Record<string, unknown>> = {
 const THINKING_CAPABLE_MODELS: Record<string, string[]> = {
     anthropic: ["claude-sonnet-4", "claude-opus-4", "claude-3"],
     "amazon-bedrock": ["claude", "anthropic"],
-    google: ["gemini-2", "gemini-3"],
-    "google-antigravity": ["gemini-2", "gemini-3", "antigravity-gemini"],
+    google: ["gemini-2", "gemini-3", "gemini-2-5"],
+    "google-antigravity": ["gemini-2", "gemini-3", "gemini-2-5", "antigravity-gemini", "antigravity-claude"],
     openai: ["gpt-5", "o1", "o3"],
 }
 

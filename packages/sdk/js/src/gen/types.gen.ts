@@ -535,6 +535,7 @@ export type Session = {
   projectID: string
   directory: string
   parentID?: string
+  resumeFrom?: string
   summary?: {
     additions: number
     deletions: number
@@ -1509,7 +1510,7 @@ export type Model = {
 export type Provider = {
   id: string
   name: string
-  source: "env" | "config" | "custom" | "api"
+  source: "env" | "config" | "custom" | "api" | "free"
   env: Array<string>
   key?: string
   options: {
@@ -2074,6 +2075,7 @@ export type SessionListResponse = SessionListResponses[keyof SessionListResponse
 export type SessionCreateData = {
   body?: {
     parentID?: string
+    resumeFrom?: string
     title?: string
   }
   path?: never
@@ -2299,6 +2301,41 @@ export type SessionTodoResponses = {
 }
 
 export type SessionTodoResponse = SessionTodoResponses[keyof SessionTodoResponses]
+
+export type SessionTodoUpdateData = {
+  body: {
+    todos: Array<Todo>
+  }
+  path: {
+    /**
+     * Session ID
+     */
+    id: string
+  }
+  url: "/session/{id}/todo"
+}
+
+export type SessionTodoUpdateErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+  /**
+   * Not found
+   */
+  404: NotFoundError
+}
+
+export type SessionTodoUpdateError = SessionTodoUpdateErrors[keyof SessionTodoUpdateErrors]
+
+export type SessionTodoUpdateResponses = {
+  /**
+   * Todos updated successfully
+   */
+  200: Array<Todo>
+}
+
+export type SessionTodoUpdateResponse = SessionTodoUpdateResponses[keyof SessionTodoUpdateResponses]
 
 export type SessionInitData = {
   body?: {

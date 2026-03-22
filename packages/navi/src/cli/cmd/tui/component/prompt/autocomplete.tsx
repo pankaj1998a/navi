@@ -322,7 +322,6 @@ export function Autocomplete(props: {
     const s = session()
     const blacklisted = [
       "orchestration",
-      "orchestrator",
       "sisyphus",
       "search",
       "websearch:web_search_help",
@@ -332,6 +331,7 @@ export function Autocomplete(props: {
     ]
     for (const command of sync.data.command) {
       const name = command.name.toLowerCase()
+      if ((command as any).skill) continue
       if (blacklisted.includes(command.name)) continue
       if (command.name.startsWith("websearch:")) continue
       if (name.includes("orchestrator")) continue

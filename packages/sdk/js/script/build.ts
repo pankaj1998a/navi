@@ -41,7 +41,7 @@ await createClient({
   ],
 })
 
-await $`${process.argv[0]} prettier --write src/v2`
+await $`bun x prettier --write src/v2`
 await fs.promises.rm("dist", { recursive: true, force: true })
-await $`${process.argv[0]} tsc`
+await $`bun x tsc`
 await fs.promises.unlink("openapi.json")

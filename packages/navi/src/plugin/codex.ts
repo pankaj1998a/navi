@@ -3,9 +3,11 @@ import { Log } from "../util/log"
 import { OAUTH_DUMMY_KEY } from "../auth"
 import { ProviderTransform } from "../provider/transform"
 
+import { Env } from "../env"
+
 const log = Log.create({ service: "plugin.codex" })
 
-const CLIENT_ID = "app_EMoamEEZ73f0CkXaXp7hrann"
+const getClientID = () => Env.get("CODEX_CLIENT_ID") || "app_EMoamEEZ73f0CkXaXp7hrann"
 const ISSUER = "https://auth.openai.com"
 const CODEX_API_ENDPOINT = "https://chatgpt.com/backend-api/codex/responses"
 const OAUTH_PORT = 1455
@@ -35,7 +37,7 @@ function generateRandomString(length: number): string {
 function base64UrlEncode(buffer: ArrayBuffer): string {
   const bytes = new Uint8Array(buffer)
   const binary = String.fromCharCode(...bytes)
-  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "")
+  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/\=+$/, "")
 }
 
 function generateState(): string {
@@ -85,7 +87,7 @@ export function extractAccountId(tokens: TokenResponse): string | undefined {
 function buildAuthorizeUrl(redirectUri: string, pkce: PkceCodes, state: string): string {
   const params = new URLSearchParams({
     response_type: "code",
-    client_id: CLIENT_ID,
+    client_id: getClientID(),
     redirect_uri: redirectUri,
     scope: "openid profile email offline_access",
     code_challenge: pkce.challenge,
@@ -113,7 +115,7 @@ async function exchangeCodeForTokens(code: string, redirectUri: string, pkce: Pk
       grant_type: "authorization_code",
       code,
       redirect_uri: redirectUri,
-      client_id: CLIENT_ID,
+      client_id: getClientID(),
       code_verifier: pkce.verifier,
     }).toString(),
   })
@@ -130,7 +132,7 @@ async function refreshAccessToken(refreshToken: string): Promise<TokenResponse> 
     body: new URLSearchParams({
       grant_type: "refresh_token",
       refresh_token: refreshToken,
-      client_id: CLIENT_ID,
+      client_id: getClientID(),
     }).toString(),
   })
   if (!response.ok) {

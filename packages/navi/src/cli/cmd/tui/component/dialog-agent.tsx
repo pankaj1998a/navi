@@ -18,7 +18,7 @@ export function DialogAgent() {
           value: item.name,
           title: item.name,
           description: item.native ? "native" : item.description,
-          category: item.categories?.join(", "),
+          category: (item as any).categories?.join(", "),
           footer: m ? `${m.modelID}` : undefined,
         }
       })

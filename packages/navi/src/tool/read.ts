@@ -2,6 +2,7 @@ import z from "zod"
 import * as fs from "fs"
 import * as path from "path"
 import { Tool } from "./tool"
+import { readFileCore } from "@navi-ai/native"
 import { LSP } from "../lsp"
 import { FileTime } from "../file/time"
 import DESCRIPTION from "./read.txt"
@@ -12,6 +13,128 @@ import { assertExternalDirectory } from "./external-directory"
 const DEFAULT_READ_LIMIT = 2000
 const MAX_LINE_LENGTH = 2000
 const MAX_BYTES = 50 * 1024
+
+// Token estimation constants for media files (from Gemini CLI)
+const IMAGE_TOKEN_ESTIMATE = 3000 // Covers up to 4K resolution
+const PDF_TOKEN_ESTIMATE = 25800 // ~100 pages at 258 tokens/page
+const AUDIO_TOKEN_ESTIMATE = 128 // Per second of audio
+const VIDEO_TOKEN_ESTIMATE = 263 // Per second of video
+
+// MIME type mapping for common extensions
+const MIME_TYPES: Record<string, string> = {
+  // Images
+  ".png": "image/png",
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".gif": "image/gif",
+  ".webp": "image/webp",
+  ".bmp": "image/bmp",
+  ".svg": "image/svg+xml",
+  ".heic": "image/heic",
+  ".heif": "image/heif",
+  // Audio
+  ".mp3": "audio/mpeg",
+  ".wav": "audio/wav",
+  ".aiff": "audio/aiff",
+  ".aac": "audio/aac",
+  ".ogg": "audio/ogg",
+  ".flac": "audio/flac",
+  ".m4a": "audio/mp4",
+  // Video
+  ".mp4": "video/mp4",
+  ".mpeg": "video/mpeg",
+  ".mpg": "video/mpeg",
+  ".mov": "video/quicktime",
+  ".avi": "video/x-msvideo",
+  ".flv": "video/x-flv",
+  ".webm": "video/webm",
+  ".wmv": "video/x-ms-wmv",
+  ".3gpp": "video/3gpp",
+  ".3gp": "video/3gpp",
+  // Documents
+  ".pdf": "application/pdf",
+}
+
+// Known binary extensions that should not be processed as media
+const BINARY_EXTENSIONS = new Set([
+  ".zip", ".tar", ".gz", ".exe", ".dll", ".so", ".class", ".jar", ".war", ".7z",
+  ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx", ".odt", ".ods", ".odp",
+  ".bin", ".dat", ".obj", ".o", ".a", ".lib", ".wasm", ".pyc", ".pyo",
+])
+
+type FileType = "text" | "image" | "pdf" | "audio" | "video" | "binary" | "svg"
+
+/**
+ * Detects the type of file based on extension and MIME type.
+ * Inspired by Gemini CLI's detectFileType function.
+ */
+function detectFileType(filepath: string, mimeType: string | null): FileType {
+  const ext = path.extname(filepath).toLowerCase()
+
+  // TypeScript files can be misidentified as MPEG video
+  if ([".ts", ".mts", ".cts"].includes(ext)) {
+    return "text"
+  }
+
+  // SVG is text-based, treat separately
+  if (ext === ".svg" || mimeType === "image/svg+xml") {
+    return "svg"
+  }
+
+  // Check MIME type first
+  if (mimeType) {
+    if (mimeType.startsWith("image/")) return "image"
+    if (mimeType.startsWith("audio/")) return "audio"
+    if (mimeType.startsWith("video/")) return "video"
+    if (mimeType === "application/pdf") return "pdf"
+  }
+
+  // Check known binary extensions
+  if (BINARY_EXTENSIONS.has(ext)) {
+    return "binary"
+  }
+
+  // Check known media extensions
+  if (ext in MIME_TYPES) {
+    const mime = MIME_TYPES[ext]
+    if (mime.startsWith("image/")) return "image"
+    if (mime.startsWith("audio/")) return "audio"
+    if (mime.startsWith("video/")) return "video"
+    if (mime === "application/pdf") return "pdf"
+  }
+
+  return "text"
+}
+
+function getMimeType(filepath: string): string {
+  const ext = path.extname(filepath).toLowerCase()
+  return MIME_TYPES[ext] || "application/octet-stream"
+}
+
+/**
+ * Estimate tokens for media files based on type and size.
+ * Uses heuristics from Gemini CLI.
+ */
+function estimateMediaTokens(fileType: FileType, fileSize: number): number {
+  switch (fileType) {
+    case "image":
+      return IMAGE_TOKEN_ESTIMATE
+    case "pdf":
+      return PDF_TOKEN_ESTIMATE
+    case "audio":
+      // Estimate based on file size (rough approximation)
+      // ~16KB per second for MP3, ~500KB per minute
+      const audioDurationSeconds = Math.ceil(fileSize / 16000)
+      return audioDurationSeconds * AUDIO_TOKEN_ESTIMATE
+    case "video":
+      // Estimate based on file size (rough approximation)
+      // ~500KB per second for typical video
+      const videoDurationSeconds = Math.ceil(fileSize / 500000)
+      return videoDurationSeconds * VIDEO_TOKEN_ESTIMATE
+    default:
+      return 0
+  }
+}
 
 export const ReadTool = Tool.define("read", {
   description: DESCRIPTION,
@@ -31,26 +154,43 @@ export const ReadTool = Tool.define("read", {
       bypass: Boolean(ctx.extra?.["bypassCwdCheck"]),
     })
 
-    await ctx.ask({
-      permission: "read",
-      patterns: [filepath],
-      always: ["*"],
-      metadata: {},
-    })
+    // Feature 1: Engineering & Security Rigor (Credential Protection)
+    // Strictly guard sensitive files to prevent credential leakage
+    const isSensitive = filepath.includes('.env') || filepath.includes('credentials') || filepath.includes('secret')
+    if (isSensitive) {
+      await ctx.ask({
+        permission: "read_sensitive",
+        patterns: [filepath],
+        always: [], // Force explicit approval every time for sensitive files
+        metadata: { warning: "Attempting to read a sensitive credential file." },
+      })
+    } else {
+      await ctx.ask({
+        permission: "read",
+        patterns: [filepath],
+        always: ["*"],
+        metadata: {},
+      })
+    }
 
     const file = Bun.file(filepath)
     if (!(await file.exists())) {
       const dir = path.dirname(filepath)
       const base = path.basename(filepath)
 
-      const dirEntries = fs.readdirSync(dir)
-      const suggestions = dirEntries
-        .filter(
-          (entry) =>
-            entry.toLowerCase().includes(base.toLowerCase()) || base.toLowerCase().includes(entry.toLowerCase()),
-        )
-        .map((entry) => path.join(dir, entry))
-        .slice(0, 3)
+      let suggestions: string[] = []
+      try {
+        const dirEntries = fs.readdirSync(dir)
+        suggestions = dirEntries
+          .filter(
+            (entry) =>
+              entry.toLowerCase().includes(base.toLowerCase()) || base.toLowerCase().includes(entry.toLowerCase()),
+          )
+          .map((entry) => path.join(dir, entry))
+          .slice(0, 3)
+      } catch (e) {
+        // Ignore error if directory doesn't exist
+      }
 
       if (suggestions.length > 0) {
         throw new Error(`File not found: ${filepath}\n\nDid you mean one of these?\n${suggestions.join("\n")}`)
@@ -59,17 +199,27 @@ export const ReadTool = Tool.define("read", {
       throw new Error(`File not found: ${filepath}`)
     }
 
-    const isImage = file.type.startsWith("image/") && file.type !== "image/svg+xml"
-    const isPdf = file.type === "application/pdf"
-    if (isImage || isPdf) {
-      const mime = file.type
-      const msg = `${isImage ? "Image" : "PDF"} read successfully`
+    // Detect file type using improved detection
+    const fileType = detectFileType(filepath, file.type)
+    const mimeType = file.type || getMimeType(filepath)
+
+    // Handle media files (images, PDFs, audio, video)
+    if (fileType === "image" || fileType === "pdf" || fileType === "audio" || fileType === "video") {
+      const base64Data = Buffer.from(await file.bytes()).toString("base64")
+      const typeLabel = fileType.charAt(0).toUpperCase() + fileType.slice(1)
+      const stat = await file.stat()
+      const estimatedTokens = estimateMediaTokens(fileType, stat.size)
+      const msg = `${typeLabel} file read successfully (${mimeType}, ~${estimatedTokens} tokens)`
+
       return {
         title,
         output: msg,
         metadata: {
           preview: msg,
           truncated: false,
+          fileType: fileType as "image" | "pdf" | "audio" | "video",
+          mimeType,
+          estimatedTokens,
         },
         attachments: [
           {
@@ -77,10 +227,23 @@ export const ReadTool = Tool.define("read", {
             sessionID: ctx.sessionID,
             messageID: ctx.messageID,
             type: "file",
-            mime,
-            url: `data:${mime};base64,${Buffer.from(await file.bytes()).toString("base64")}`,
+            mime: mimeType,
+            url: `data:${mimeType};base64,${base64Data}`,
           },
         ],
+      }
+    }
+
+    // Handle SVG as text
+    if (fileType === "svg") {
+      const content = await file.text()
+      return {
+        title,
+        output: `<file>\n${content}\n</file>`,
+        metadata: {
+          preview: content.slice(0, 500),
+          truncated: content.length > 500,
+        } as any,
       }
     }
 
@@ -89,55 +252,36 @@ export const ReadTool = Tool.define("read", {
 
     const limit = params.limit ?? DEFAULT_READ_LIMIT
     const offset = params.offset || 0
-    const lines = await file.text().then((text) => text.split("\n"))
 
-    const raw: string[] = []
-    let bytes = 0
-    let truncatedByBytes = false
-    for (let i = offset; i < Math.min(lines.length, offset + limit); i++) {
-      const line = lines[i].length > MAX_LINE_LENGTH ? lines[i].substring(0, MAX_LINE_LENGTH) + "..." : lines[i]
-      const size = Buffer.byteLength(line, "utf-8") + (raw.length > 0 ? 1 : 0)
-      if (bytes + size > MAX_BYTES) {
-        truncatedByBytes = true
-        break
+    try {
+      // Use native read_file_core for memory efficiency
+      // Note: offset in native is 1-based line number, but params.offset is 0-based index
+      // So we pass offset + 1
+      const content = await readFileCore(filepath, offset + 1, limit)
+
+      let output = "<file>\n"
+      output += content
+      output += "\n</file>"
+
+      // Extract preview (first 20 lines)
+      const lines = content.split("\n")
+      const preview = lines.slice(0, 20).join("\n")
+      const truncated = lines.length >= limit
+
+      // just warms the lsp client
+      LSP.touchFile(filepath, false)
+      FileTime.read(ctx.sessionID, filepath)
+
+      return {
+        title,
+        output,
+        metadata: {
+          preview,
+          truncated,
+        } as any,
       }
-      raw.push(line)
-      bytes += size
-    }
-
-    const content = raw.map((line, index) => {
-      return `${(index + offset + 1).toString().padStart(5, "0")}| ${line}`
-    })
-    const preview = raw.slice(0, 20).join("\n")
-
-    let output = "<file>\n"
-    output += content.join("\n")
-
-    const totalLines = lines.length
-    const lastReadLine = offset + raw.length
-    const hasMoreLines = totalLines > lastReadLine
-    const truncated = hasMoreLines || truncatedByBytes
-
-    if (truncatedByBytes) {
-      output += `\n\n(Output truncated at ${MAX_BYTES} bytes. Use 'offset' parameter to read beyond line ${lastReadLine})`
-    } else if (hasMoreLines) {
-      output += `\n\n(File has more lines. Use 'offset' parameter to read beyond line ${lastReadLine})`
-    } else {
-      output += `\n\n(End of file - total ${totalLines} lines)`
-    }
-    output += "\n</file>"
-
-    // just warms the lsp client
-    LSP.touchFile(filepath, false)
-    FileTime.read(ctx.sessionID, filepath)
-
-    return {
-      title,
-      output,
-      metadata: {
-        preview,
-        truncated,
-      },
+    } catch (e) {
+      throw new Error(`read failed: ${e instanceof Error ? e.message : String(e)}`)
     }
   },
 })
@@ -145,38 +289,8 @@ export const ReadTool = Tool.define("read", {
 async function isBinaryFile(filepath: string, file: Bun.BunFile): Promise<boolean> {
   const ext = path.extname(filepath).toLowerCase()
   // binary check for common non-text extensions
-  switch (ext) {
-    case ".zip":
-    case ".tar":
-    case ".gz":
-    case ".exe":
-    case ".dll":
-    case ".so":
-    case ".class":
-    case ".jar":
-    case ".war":
-    case ".7z":
-    case ".doc":
-    case ".docx":
-    case ".xls":
-    case ".xlsx":
-    case ".ppt":
-    case ".pptx":
-    case ".odt":
-    case ".ods":
-    case ".odp":
-    case ".bin":
-    case ".dat":
-    case ".obj":
-    case ".o":
-    case ".a":
-    case ".lib":
-    case ".wasm":
-    case ".pyc":
-    case ".pyo":
-      return true
-    default:
-      break
+  if (BINARY_EXTENSIONS.has(ext)) {
+    return true
   }
 
   const stat = await file.stat()

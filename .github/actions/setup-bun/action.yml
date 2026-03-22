@@ -17,6 +17,15 @@ runs:
         restore-keys: |
           ${{ runner.os }}-bun-${{ hashFiles('package.json') }}-
 
+    - name: Cache TypeScript incremental build
+      id: cache-tsbuild
+      uses: actions/cache@v4
+      with:
+        path: packages/navi/node_modules/.tmp
+        key: ${{ runner.os }}-tsbuild-${{ hashFiles('packages/navi/tsconfig.json') }}-${{ hashFiles('packages/navi/src/**/*.ts', 'packages/navi/src/**/*.tsx') }}
+        restore-keys: |
+          ${{ runner.os }}-tsbuild-${{ hashFiles('packages/navi/tsconfig.json') }}-
+
     - name: Install dependencies
       run: bun install
       shell: bash

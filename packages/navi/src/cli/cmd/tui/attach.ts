@@ -19,13 +19,21 @@ export const AttachCommand = cmd({
         alias: ["s"],
         type: "string",
         describe: "session id to continue",
+      })
+      .option("theme-mode", {
+        type: "string",
+        choices: ["dark", "light"],
+        describe: "force TUI theme mode",
       }),
   handler: async (args) => {
     if (args.dir) process.chdir(args.dir)
     await tui({
       url: args.url,
-      args: { sessionID: args.session },
-      directory: args.dir ? process.cwd() : undefined,
+      args: {
+        sessionID: args.session,
+        themeMode: args["theme-mode"] as "dark" | "light",
+      },
+      directory: process.cwd(),
     })
   },
 })

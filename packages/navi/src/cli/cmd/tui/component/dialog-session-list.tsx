@@ -51,8 +51,13 @@ export function DialogSessionList() {
         const isDeleting = toDelete() === x.id
         const status = sync.data.session_status?.[x.id]
         const isWorking = status?.type === "busy"
+
+        let statusIcon = "[ ]"
+        if ((x as any).status === "in_progress") statusIcon = "[/]"
+        if ((x as any).status === "done") statusIcon = "[x]"
+
         return {
-          title: isDeleting ? `Press ${deleteKeybind} again to confirm` : x.title,
+          title: isDeleting ? `Press ${deleteKeybind} again to confirm` : `${statusIcon} ${x.title}`,
           bg: isDeleting ? theme.error : undefined,
           value: x.id,
           category,
@@ -107,6 +112,25 @@ export function DialogSessionList() {
           title: "rename",
           onTrigger: async (option) => {
             dialog.replace(() => <DialogSessionRename session={option.value} />)
+          },
+        },
+        {
+          keybind: Keybind.parse("ctrl+s")[0],
+          title: "status",
+          onTrigger: async (option) => {
+            const session = sessions().find((x) => x.id === option.value)
+            if (!session) return
+
+            const nextStatus = ({
+              todo: "in_progress",
+              in_progress: "done",
+              done: "todo",
+            } as Record<string, string>)[(session as any).status ?? "todo"] as "todo" | "in_progress" | "done"
+
+            await sdk.client.session.update({
+              sessionID: option.value,
+              status: nextStatus,
+            })
           },
         },
       ]}

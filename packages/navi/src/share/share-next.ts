@@ -28,7 +28,7 @@ export namespace ShareNext {
       await sync(evt.properties.info.sessionID, [
         {
           type: "message",
-          data: evt.properties.info,
+          data: evt.properties.info as any,
         },
       ])
       if (evt.properties.info.role === "user") {
@@ -88,25 +88,25 @@ export namespace ShareNext {
 
   type Data =
     | {
-        type: "session"
-        data: SDK.Session
-      }
+      type: "session"
+      data: SDK.Session
+    }
     | {
-        type: "message"
-        data: SDK.Message
-      }
+      type: "message"
+      data: SDK.Message
+    }
     | {
-        type: "part"
-        data: SDK.Part
-      }
+      type: "part"
+      data: SDK.Part
+    }
     | {
-        type: "session_diff"
-        data: SDK.FileDiff[]
-      }
+      type: "session_diff"
+      data: SDK.FileDiff[]
+    }
     | {
-        type: "model"
-        data: SDK.Model[]
-      }
+      type: "model"
+      data: SDK.Model[]
+    }
 
   const queue = new Map<string, { timeout: NodeJS.Timeout; data: Map<string, Data> }>()
   async function sync(sessionID: string, data: Data[]) {
@@ -174,11 +174,11 @@ export namespace ShareNext {
     await sync(sessionID, [
       {
         type: "session",
-        data: session,
+        data: session as any,
       },
       ...messages.map((x) => ({
         type: "message" as const,
-        data: x.info,
+        data: x.info as any,
       })),
       ...messages.flatMap((x) => x.parts.map((y) => ({ type: "part" as const, data: y }))),
       {

@@ -1,7 +1,7 @@
 import z from "zod"
 import { Config } from "../config/config"
 import { Instance } from "../project/instance"
-import { NamedError } from "@navi-ai/util/error"
+import { NamedError } from "@navi-ai/sdk/util/error"
 import { ConfigMarkdown } from "../config/markdown"
 import { Log } from "../util/log"
 import { Global } from "@/global"
@@ -125,3 +125,4 @@ export namespace Skill {
     return state().then((x) => Object.values(x))
   }
 }
+

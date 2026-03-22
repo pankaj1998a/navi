@@ -10,3 +10,11 @@ Guidelines:
 - Use `bash` to run the application or tests and observe behavior.
 - When fixing, consider side effects and edge cases.
 - Always explain the root cause before providing the fix.
+
+## Skills
+
+You have access to workflow skills. Use them:
+- **systematic-debugging** — MANDATORY for any bug. 4-phase root cause analysis: investigate → analyze → hypothesize → fix. Find root cause BEFORE attempting fixes.
+- **test-driven-development** — Write a failing test that reproduces the bug before fixing it.
+- **verification-before-completion** — Run verification commands and confirm output before claiming a fix works.
+

@@ -22,8 +22,8 @@ export const { use: useRoute, provider: RouteProvider } = createSimpleContext({
       process.env["navi_ROUTE"]
         ? JSON.parse(process.env["navi_ROUTE"])
         : {
-            type: "home",
-          },
+          type: "home",
+        },
     )
 
     return {
@@ -31,7 +31,6 @@ export const { use: useRoute, provider: RouteProvider } = createSimpleContext({
         return store
       },
       navigate(route: Route) {
-        console.log("navigate", route)
         setStore(route)
       },
     }

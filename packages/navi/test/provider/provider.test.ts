@@ -2069,6 +2069,37 @@ test("variants filtered in second pass for database models", async () => {
   })
 })
 
+test("openai provider includes built-in overrides for the latest official models", async () => {
+  await using tmp = await tmpdir({
+    init: async (dir) => {
+      await Bun.write(
+        path.join(dir, "navi.json"),
+        JSON.stringify({
+          $schema: "https://navi.ai/config.json",
+        }),
+      )
+    },
+  })
+  await Instance.provide({
+    directory: tmp.path,
+    init: async () => {
+      Env.set("OPENAI_API_KEY", "test-api-key")
+    },
+    fn: async () => {
+      const providers = await Provider.list()
+      const openai = providers["openai"]
+      expect(openai).toBeDefined()
+      expect(openai.models["gpt-5.2-codex"]).toBeDefined()
+      expect(openai.models["gpt-5.3-codex"]).toBeDefined()
+      expect(openai.models["gpt-5.3-chat-latest"]).toBeDefined()
+      expect(openai.models["gpt-5.4"]).toBeDefined()
+      expect(openai.models["gpt-5.4-pro"]).toBeDefined()
+      expect(openai.models["gpt-5.4"].api.id).toBe("gpt-5.4")
+      expect(openai.models["gpt-5.4-pro"].limit.context).toBe(1050000)
+    },
+  })
+})
+
 test("custom model with variants enabled and disabled", async () => {
   await using tmp = await tmpdir({
     init: async (dir) => {

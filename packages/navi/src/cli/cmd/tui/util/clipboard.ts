@@ -52,7 +52,7 @@ export namespace Clipboard {
       }
     }
 
-    const text = await clipboardy.read().catch(() => {})
+    const text = await clipboardy.read().catch(() => { })
     if (text) {
       return { data: text, mime: "text/plain" }
     }
@@ -62,7 +62,6 @@ export namespace Clipboard {
     const os = platform()
 
     if (os === "darwin" && Bun.which("osascript")) {
-      console.log("clipboard: using osascript")
       return async (text: string) => {
         const escaped = text.replace(/\\/g, "\\\\").replace(/"/g, '\\"')
         await $`osascript -e 'set the clipboard to "${escaped}"'`.nothrow().quiet()
@@ -71,16 +70,14 @@ export namespace Clipboard {
 
     if (os === "linux") {
       if (process.env["WAYLAND_DISPLAY"] && Bun.which("wl-copy")) {
-        console.log("clipboard: using wl-copy")
         return async (text: string) => {
           const proc = Bun.spawn(["wl-copy"], { stdin: "pipe", stdout: "ignore", stderr: "ignore" })
           proc.stdin.write(text)
           proc.stdin.end()
-          await proc.exited.catch(() => {})
+          await proc.exited.catch(() => { })
         }
       }
       if (Bun.which("xclip")) {
-        console.log("clipboard: using xclip")
         return async (text: string) => {
           const proc = Bun.spawn(["xclip", "-selection", "clipboard"], {
             stdin: "pipe",
@@ -89,11 +86,10 @@ export namespace Clipboard {
           })
           proc.stdin.write(text)
           proc.stdin.end()
-          await proc.exited.catch(() => {})
+          await proc.exited.catch(() => { })
         }
       }
       if (Bun.which("xsel")) {
-        console.log("clipboard: using xsel")
         return async (text: string) => {
           const proc = Bun.spawn(["xsel", "--clipboard", "--input"], {
             stdin: "pipe",
@@ -102,13 +98,12 @@ export namespace Clipboard {
           })
           proc.stdin.write(text)
           proc.stdin.end()
-          await proc.exited.catch(() => {})
+          await proc.exited.catch(() => { })
         }
       }
     }
 
     if (os === "win32") {
-      console.log("clipboard: using powershell")
       return async (text: string) => {
         // need to escape backticks because powershell uses them as escape code
         const escaped = text.replace(/"/g, '""').replace(/`/g, "``")
@@ -116,9 +111,8 @@ export namespace Clipboard {
       }
     }
 
-    console.log("clipboard: no native support")
     return async (text: string) => {
-      await clipboardy.write(text).catch(() => {})
+      await clipboardy.write(text).catch(() => { })
     }
   })
 

@@ -17,7 +17,9 @@ export const SkillTool = Tool.define("skill", async (ctx) => {
   const accessibleSkills = agent
     ? skills.filter((skill) => {
         const rule = PermissionNext.evaluate("skill", skill.name, agent.permission)
-        return rule.action !== "deny"
+        if (rule.action === "deny") return false
+        if (agent.skills?.length && !agent.skills.includes(skill.name)) return false
+        return true
       })
     : skills
 

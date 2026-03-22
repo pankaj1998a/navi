@@ -54,14 +54,16 @@ export interface WebSearchToolParams {
  */
 export interface WebSearchToolResult extends ToolResult {
   sources?: GroundingMetadata extends { groundingChunks: GroundingChunkItem[] }
-    ? GroundingMetadata['groundingChunks']
-    : GroundingChunkItem[];
+  ? GroundingMetadata['groundingChunks']
+  : GroundingChunkItem[];
 }
 
 class WebSearchToolInvocation extends BaseToolInvocation<
   WebSearchToolParams,
   WebSearchToolResult
 > {
+  private static readonly cache = new Map<string, any>();
+
   constructor(
     private readonly config: Config,
     params: WebSearchToolParams,
@@ -77,6 +79,21 @@ class WebSearchToolInvocation extends BaseToolInvocation<
   }
 
   async execute(signal: AbortSignal): Promise<WebSearchToolResult> {
+    // Create cache key
+    const cacheKey = JSON.stringify({
+      query: this.params.query,
+    });
+
+    // Check cache
+    const cachedResult = WebSearchToolInvocation.cache.get(cacheKey);
+    if (cachedResult && Date.now() - cachedResult.timestamp < 300000) { // 5 minutes
+      return {
+        llmContent: cachedResult.llmContent,
+        returnDisplay: `Cached search results for "${this.params.query}"`,
+        sources: cachedResult.sources,
+      };
+    }
+
     const geminiClient = this.config.getGeminiClient();
 
     try {
@@ -106,7 +123,12 @@ class WebSearchToolInvocation extends BaseToolInvocation<
       const sourceListFormatted: string[] = [];
 
       if (sources && sources.length > 0) {
-        sources.forEach((source: GroundingChunkItem, index: number) => {
+        // Filter and validate sources
+        const validSources = sources.filter(source =>
+          source.web?.uri && source.web.uri.startsWith('http')
+        );
+
+        validSources.forEach((source: GroundingChunkItem, index: number) => {
           const title = source.web?.title || 'Untitled';
           const uri = source.web?.uri || 'No URI';
           sourceListFormatted.push(`[${index + 1}] ${title} (${uri})`);
@@ -116,13 +138,20 @@ class WebSearchToolInvocation extends BaseToolInvocation<
           const insertions: Array<{ index: number; marker: string }> = [];
           groundingSupports.forEach((support: GroundingSupportItem) => {
             if (support.segment && support.groundingChunkIndices) {
-              const citationMarker = support.groundingChunkIndices
-                .map((chunkIndex: number) => `[${chunkIndex + 1}]`)
-                .join('');
-              insertions.push({
-                index: support.segment.endIndex,
-                marker: citationMarker,
-              });
+              // Filter out invalid chunk indices
+              const validChunkIndices = support.groundingChunkIndices.filter(
+                index => index < validSources.length
+              );
+
+              if (validChunkIndices.length > 0) {
+                const citationMarker = validChunkIndices
+                  .map((chunkIndex: number) => `[${chunkIndex + 1}]`)
+                  .join('');
+                insertions.push({
+                  index: support.segment.endIndex,
+                  marker: citationMarker,
+                });
+              }
             }
           });
 
@@ -159,15 +188,29 @@ class WebSearchToolInvocation extends BaseToolInvocation<
         }
       }
 
+      // Cache the result
+      WebSearchToolInvocation.cache.set(cacheKey, {
+        llmContent: `Web search results for "${this.params.query}":\n\n${modifiedResponseText}`,
+        sources: sources?.filter(source => source.web?.uri && source.web.uri.startsWith('http')),
+        timestamp: Date.now(),
+      });
+
+      // Clean up old cache entries
+      const now = Date.now();
+      for (const [key, value] of WebSearchToolInvocation.cache.entries()) {
+        if (now - value.timestamp > 3600000) { // 1 hour
+          WebSearchToolInvocation.cache.delete(key);
+        }
+      }
+
       return {
         llmContent: `Web search results for "${this.params.query}":\n\n${modifiedResponseText}`,
-        returnDisplay: `Search results for "${this.params.query}" returned.`,
-        sources,
+        returnDisplay: `Search results for "${this.params.query}" returned ${sources?.length || 0} sources.`,
+        sources: sources?.filter(source => source.web?.uri && source.web.uri.startsWith('http')),
       };
     } catch (error: unknown) {
-      const errorMessage = `Error during web search for query "${
-        this.params.query
-      }": ${getErrorMessage(error)}`;
+      const errorMessage = `Error during web search for query "${this.params.query
+        }": ${getErrorMessage(error)}`;
       debugLogger.warn(errorMessage, error);
       return {
         llmContent: `Error: ${errorMessage}`,

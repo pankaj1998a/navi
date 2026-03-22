@@ -1115,7 +1115,7 @@ export namespace ACP {
 
   function getNewContent(fileOriginal: string, unifiedDiff: string): string | undefined {
     const result = applyPatch(fileOriginal, unifiedDiff)
-    if (result === false) {
+    if (typeof result !== "string") {
       log.error("Failed to apply unified diff (context mismatch)")
       return undefined
     }

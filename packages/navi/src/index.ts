@@ -10,10 +10,16 @@ import { UninstallCommand } from "./cli/cmd/uninstall"
 import { ModelsCommand } from "./cli/cmd/models"
 import { UI } from "./cli/ui"
 import { Installation } from "./installation"
-import { NamedError } from "@navi-ai/util/error"
+import { NamedError } from "@navi-ai/sdk/util/error"
 import { FormatError } from "./cli/error"
 import { ServeCommand } from "./cli/cmd/serve"
 import { DebugCommand } from "./cli/cmd/debug"
+import { CriticCommand } from "./cli/cmd/critic"
+import { PlanCommand } from "./cli/cmd/plan"
+import { ReviewCommand } from "./cli/cmd/review"
+import { ResearchCommand } from "./cli/cmd/research"
+import { SpecCommand } from "./cli/cmd/spec"
+import { BrowseCommand } from "./cli/cmd/browse"
 import { StatsCommand } from "./cli/cmd/stats"
 import { McpCommand } from "./cli/cmd/mcp"
 import { GithubCommand } from "./cli/cmd/github"
@@ -26,7 +32,24 @@ import { EOL } from "os"
 import { WebCommand } from "./cli/cmd/web"
 import { PrCommand } from "./cli/cmd/pr"
 import { SessionCommand } from "./cli/cmd/session"
+import { HistoryCommand } from "./cli/cmd/history"
+import { TraceCommand } from "./cli/cmd/trace"
 import { CheckpointCommand } from "./cli/cmd/checkpoint"
+import { Global } from "./global"
+import { InitCommand } from "./cli/cmd/init"
+import { RustCommand } from "./cli/cmd/rust"
+import { EvalCommand } from "./cli/cmd/eval"
+import { HealthCommand } from "./cli/cmd/health"
+import { KnowledgeCommand } from "./cli/cmd/knowledge"
+
+import { Registry as AgentRegistry } from "./agent/registry"
+import { Learning } from "./agent/learning"
+import { MemoryMonitor } from "./agent/memory-monitor"
+import { Snapshot } from "./snapshot"
+import { Truncate } from "./tool/truncation"
+import "./agent/roles/index" // Register programmatic agent roles
+import { PeersCommand } from "./cli/cmd/peers"
+import { CollabCommand } from "./cli/cmd/collab"
 
 process.on("unhandledRejection", (e) => {
   Log.Default.error("rejection", {
@@ -58,6 +81,7 @@ const cli = yargs(hideBin(process.argv))
     choices: ["DEBUG", "INFO", "WARN", "ERROR"],
   })
   .middleware(async (opts) => {
+    await Global.init()
     await Log.init({
       print: process.argv.includes("--print-logs"),
       dev: Installation.isLocal(),
@@ -67,6 +91,12 @@ const cli = yargs(hideBin(process.argv))
         return "INFO"
       })(),
     })
+    await AgentRegistry.initialize()
+    await Learning.initialize()
+
+    Truncate.init()
+
+    MemoryMonitor.start()
 
     process.env.AGENT = "1"
     process.env.navi = "1"
@@ -95,20 +125,31 @@ const cli = yargs(hideBin(process.argv))
       })
     },
     handler: async (args: any) => {
-      const hasMessage = args.message && args.message.length > 0
+      // Filter out empty strings or non-string junk
+      const messageArgs = (args.message || []).filter((m: any) => typeof m === "string" && m.trim().length > 0)
+      const hasMessage = messageArgs.length > 0
       const hasCommand = !!args.command
-      const isTTY = process.stdout.isTTY || process.stdin.isTTY
-      const isDev = process.env.npm_lifecycle_event === "dev"
 
-      if (!hasMessage && !hasCommand && (isTTY || isDev)) {
+      // Always open TUI if no message or command is provided (simple, reliable logic)
+      const shouldOpenTui = !hasMessage && !hasCommand
+
+      if (shouldOpenTui) {
+        Log.Default.info("Calling TuiThreadCommand.handler")
         return TuiThreadCommand.handler(args)
       }
 
+      Log.Default.info("Calling RunCommand.handler")
       return RunCommand.handler(args)
     },
   })
   .command(GenerateCommand)
   .command(DebugCommand)
+  .command(CriticCommand)
+  .command(PlanCommand)
+  .command(ReviewCommand)
+  .command(ResearchCommand)
+  .command(SpecCommand)
+  .command(BrowseCommand)
   .command(AuthCommand)
   .command(AgentCommand)
   .command(UpgradeCommand)
@@ -122,7 +163,16 @@ const cli = yargs(hideBin(process.argv))
   .command(GithubCommand)
   .command(PrCommand)
   .command(SessionCommand)
+  .command(HistoryCommand)
+  .command(TraceCommand)
   .command(CheckpointCommand)
+  .command(RustCommand)
+  .command(EvalCommand)
+  .command(HealthCommand)
+  .command(KnowledgeCommand)
+  .command(InitCommand)
+  .command(PeersCommand)
+  .command(CollabCommand)
   .fail((msg, err) => {
     if (
       msg?.startsWith("Unknown argument") ||
@@ -138,7 +188,7 @@ const cli = yargs(hideBin(process.argv))
   .strict()
 
 try {
-  await cli.parse()
+  await cli.parseAsync()
 } catch (e) {
   let data: Record<string, any> = {}
   if (e instanceof NamedError) {
@@ -182,6 +232,12 @@ try {
   // Some subprocesses don't react properly to SIGTERM and similar signals.
   // Most notably, some docker-container-based MCP servers don't handle such signals unless
   // run using `docker run --init`.
-  // Explicitly exit to avoid any hanging subprocesses.
-  process.exit()
+  // Explicitly exit to avoid any hanging subprocesses, but only for non-TUI commands
+  // to allow the TUI to clean up the terminal properly.
+  const isTui = process.argv.some(arg => arg === "tui" || arg === "attach")
+  const isDefaultCommand = !process.argv.slice(2).some(arg => !arg.startsWith("-"))
+
+  if (!isTui && !isDefaultCommand) {
+    process.exit()
+  }
 }

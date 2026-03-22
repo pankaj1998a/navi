@@ -16,8 +16,8 @@ import { Identifier } from "../id/id"
 import { Agent } from "../agent/agent"
 import { SessionPrompt } from "../session/prompt"
 import { Config } from "../config/config"
-import { PermissionNext } from "@/permission/next"
 import { Log } from "../util/log"
+import { canSpawnAgent, filterSpawnableAgents } from "../agent/spawn"
 
 const log = Log.create({ service: "background-task" })
 
@@ -72,15 +72,10 @@ export function cancelBackgroundTask(taskId: string): boolean {
 }
 
 export const BackgroundTaskTool = Tool.define("background_task", async (ctx) => {
-    const agents = await Agent.list().then((x) => x.filter((a) => a.mode !== "primary"))
+  const agents = await Agent.list().then((x) => x.filter((a) => a.mode !== "primary"))
 
-    // Filter agents by permissions
-    const caller = ctx?.agent
-    const accessibleAgents = caller
-        ? agents.filter(
-            (a) => PermissionNext.evaluate("task", a.name, caller.permission).action !== "deny"
-        )
-        : agents
+  const caller = ctx?.agent
+  const accessibleAgents = filterSpawnableAgents(caller, agents)
 
     const description = DESCRIPTION.replace(
         "{agents}",
@@ -107,6 +102,9 @@ export const BackgroundTaskTool = Tool.define("background_task", async (ctx) => 
 
             const agent = await Agent.get(params.agent)
             if (!agent) throw new Error(`Unknown agent type: ${params.agent}`)
+            if (!canSpawnAgent(caller, agent.name)) {
+                throw new Error(`Agent "${agent.name}" is not available to "${caller?.name ?? "this agent"}"`)
+            }
 
             // Create a task ID using session identifier type
             const taskId = Identifier.ascending("session")
@@ -219,7 +217,7 @@ export const BackgroundOutputTool = Tool.define("background_output", async () =>
             if (!task) {
                 return {
                     title: "Task not found",
-                    metadata: {},
+                    metadata: {} as any,
                     output: `No background task found with ID: ${params.task_id}`,
                 }
             }
@@ -228,7 +226,7 @@ export const BackgroundOutputTool = Tool.define("background_output", async () =>
                 const elapsed = Math.round((Date.now() - task.startedAt) / 1000)
                 return {
                     title: `Running: ${task.description}`,
-                    metadata: { status: "running", elapsed: `${elapsed}s` },
+                    metadata: { status: "running", elapsed: `${elapsed}s` } as any,
                     output: `Task is still running (${elapsed}s elapsed).
 
 <background_task>
@@ -248,7 +246,7 @@ Check again later with \`background_output(task_id="${task.id}")\``,
                     : 0
                 return {
                     title: `Completed: ${task.description}`,
-                    metadata: { status: "completed", duration: `${duration}s` },
+                    metadata: { status: "completed", duration: `${duration}s` } as any,
                     output: `Task completed in ${duration}s.
 
 <background_task_result>
@@ -264,7 +262,7 @@ ${task.result ?? "(no output)"}`,
             if (task.status === "failed") {
                 return {
                     title: `Failed: ${task.description}`,
-                    metadata: { status: "failed" },
+                    metadata: { status: "failed" } as any,
                     output: `Task failed: ${task.error ?? "Unknown error"}`,
                 }
             }
@@ -272,14 +270,14 @@ ${task.result ?? "(no output)"}`,
             if (task.status === "cancelled") {
                 return {
                     title: `Cancelled: ${task.description}`,
-                    metadata: { status: "cancelled" },
+                    metadata: { status: "cancelled" } as any,
                     output: `Task was cancelled.`,
                 }
             }
 
             return {
                 title: task.description,
-                metadata: { status: task.status },
+                metadata: { status: task.status } as any,
                 output: `Task status: ${task.status}`,
             }
         },

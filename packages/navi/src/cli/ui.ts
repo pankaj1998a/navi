@@ -1,14 +1,12 @@
 import z from "zod"
 import { EOL } from "os"
-import { NamedError } from "@navi-ai/util/error"
+import { NamedError } from "@navi-ai/sdk/util/error"
 
 export namespace UI {
-  const LOGO = [
-    [`                   `, `             ▄     `],
-    [`█   █▀▀█ █   █▀▀▀ `, `█   █▀▀█ █   █▀▀▀`],
-    [`█   █░░█ █   █░░░ `, `█   █░░█ █   █░░░`],
-    [`▀   ▀▀▀▀ ▀   ▀▀▀▀ `, `▀   ▀▀▀▀ ▀   ▀▀▀▀`],
-  ]
+  const glyphs = {
+    left: ["                   ", "█▀▀█ █▀▀█ █▀▀█ █▀▀▄", "█__█ █__█ █^^^ █__█", "▀▀▀▀ █▀▀▀ ▀▀▀▀ ▀~~▀"],
+    right: ["             ▄     ", "█▀▀▀ █▀▀█ █▀▀█ █▀▀█", "█___ █__█ █__█ █^^^", "▀▀▀▀ ▀▀▀▀ ▀▀▀▀ ▀▀▀▀"],
+  }
 
   export const CancelledError = NamedError.create("UICancelledError", z.void())
 
@@ -23,10 +21,14 @@ export namespace UI {
     TEXT_WARNING_BOLD: "\x1b[93m\x1b[1m",
     TEXT_DANGER: "\x1b[91m",
     TEXT_DANGER_BOLD: "\x1b[91m\x1b[1m",
+    TEXT_ERROR: "\x1b[91m",
+    TEXT_ERROR_BOLD: "\x1b[91m\x1b[1m",
     TEXT_SUCCESS: "\x1b[92m",
     TEXT_SUCCESS_BOLD: "\x1b[92m\x1b[1m",
     TEXT_INFO: "\x1b[94m",
     TEXT_INFO_BOLD: "\x1b[94m\x1b[1m",
+    TEXT_BOLD: "\x1b[1m",
+    RESET: "\x1b[0m",
   }
 
   export function println(...message: string[]) {
@@ -47,15 +49,50 @@ export namespace UI {
   }
 
   export function logo(pad?: string) {
-    const result = []
-    for (const row of LOGO) {
-      if (pad) result.push(pad)
-      result.push(Bun.color("gray", "ansi"))
-      result.push(row[0])
-      result.push("\x1b[0m")
-      result.push(row[1])
-      result.push(EOL)
+    const result: string[] = []
+    const reset = "\x1b[0m"
+    const left = {
+      fg: Bun.color("gray", "ansi") ?? "",
+      shadow: "\x1b[38;5;235m",
+      bg: "\x1b[48;5;235m",
     }
+    const right = {
+      fg: reset,
+      shadow: "\x1b[38;5;238m",
+      bg: "\x1b[48;5;238m",
+    }
+    const gap = " "
+    const draw = (line: string, fg: string, shadow: string, bg: string) => {
+      const parts: string[] = []
+      for (const char of line) {
+        if (char === "_") {
+          parts.push(bg, " ", reset)
+          continue
+        }
+        if (char === "^") {
+          parts.push(fg, bg, "▀", reset)
+          continue
+        }
+        if (char === "~") {
+          parts.push(shadow, "▀", reset)
+          continue
+        }
+        if (char === " ") {
+          parts.push(" ")
+          continue
+        }
+        parts.push(fg, char, reset)
+      }
+      return parts.join("")
+    }
+    glyphs.left.forEach((row, index) => {
+      if (pad) result.push(pad)
+      result.push(draw(row, left.fg, left.shadow, left.bg))
+      result.push(gap)
+      const other = glyphs.right[index] ?? ""
+      result.push(draw(other, right.fg, right.shadow, right.bg))
+      result.push(EOL)
+    })
     return result.join("").trimEnd()
   }
 
@@ -82,3 +119,4 @@ export namespace UI {
     return text
   }
 }
+

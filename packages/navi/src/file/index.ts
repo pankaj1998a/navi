@@ -49,8 +49,8 @@ export namespace File {
       diff: z.string().optional(),
       patch: z
         .object({
-          oldFileName: z.string(),
-          newFileName: z.string(),
+          oldFileName: z.string().optional(),
+          newFileName: z.string().optional(),
           oldHeader: z.string().optional(),
           newHeader: z.string().optional(),
           hunks: z.array(
@@ -277,10 +277,20 @@ export namespace File {
     const project = Instance.project
     const full = path.join(Instance.directory, file)
 
-    // TODO: Filesystem.contains is lexical only - symlinks inside the project can escape.
-    // TODO: On Windows, cross-drive paths bypass this check. Consider realpath canonicalization.
+    // Lexical check first
     if (!Instance.containsPath(full)) {
       throw new Error(`Access denied: path escapes project directory`)
+    }
+
+    // Resolve real path to prevent symlink traversal
+    try {
+      const real = await fs.promises.realpath(full)
+      if (!Instance.containsPath(real)) {
+        throw new Error(`Access denied: symlink targets path outside project directory`)
+      }
+    } catch (error: any) {
+      // Only ignore if file doesn't exist (we can't read it anyway)
+      if (error.code !== "ENOENT") throw error
     }
 
     const bunFile = Bun.file(full)
@@ -337,10 +347,21 @@ export namespace File {
     }
     const resolved = dir ? path.join(Instance.directory, dir) : Instance.directory
 
-    // TODO: Filesystem.contains is lexical only - symlinks inside the project can escape.
-    // TODO: On Windows, cross-drive paths bypass this check. Consider realpath canonicalization.
+    // Lexical check first
     if (!Instance.containsPath(resolved)) {
       throw new Error(`Access denied: path escapes project directory`)
+    }
+
+    // Resolve real path to prevent symlink traversal
+    try {
+      const real = await fs.promises.realpath(resolved)
+      if (!Instance.containsPath(real)) {
+        throw new Error(`Access denied: symlink targets path outside project directory`)
+      }
+      // Use resolved path for listing to ensure we list the actual directory content
+      // But we might need to be careful about relative paths returned
+    } catch (error: any) {
+      if (error.code !== "ENOENT") throw error
     }
 
     const nodes: Node[] = []

@@ -7,6 +7,7 @@ import { SplitBorder } from "@tui/component/border"
 import type { AssistantMessage, Session } from "@navi-ai/sdk/v2"
 import { useCommandDialog } from "@tui/component/dialog-command"
 import { useKeybind } from "../../context/keybind"
+import { Locale } from "@/util/locale"
 
 const Title = (props: { session: Accessor<Session> }) => {
   const { theme } = useTheme()
@@ -17,12 +18,27 @@ const Title = (props: { session: Accessor<Session> }) => {
   )
 }
 
-const ContextInfo = (props: { context: Accessor<string | undefined>; cost: Accessor<string> }) => {
+function formatProviderAuth(source?: string) {
+  switch (source) {
+    case "env":
+      return "connected"
+    case "api":
+      return "connected"
+    case "config":
+      return "configured"
+    case "free":
+      return "free"
+    default:
+      return source
+  }
+}
+
+const ContextInfo = (props: { summary: Accessor<string | undefined> }) => {
   const { theme } = useTheme()
   return (
-    <Show when={props.context()}>
+    <Show when={props.summary()}>
       <text fg={theme.textMuted} wrapMode="none" flexShrink={0}>
-        {props.context()} ({props.cost()})
+        {props.summary()}
       </text>
     </Show>
   )
@@ -33,6 +49,7 @@ export function Header() {
   const sync = useSync()
   const session = createMemo(() => sync.session.get(route.sessionID)!)
   const messages = createMemo(() => sync.data.message[route.sessionID] ?? [])
+  const status = createMemo(() => sync.data.session_status[route.sessionID])
 
   const cost = createMemo(() => {
     const total = pipe(
@@ -42,7 +59,7 @@ export function Header() {
     return new Intl.NumberFormat("en-US", {
       style: "currency",
       currency: "USD",
-    }).format(total)
+      }).format(total)
   })
 
   const context = createMemo(() => {
@@ -50,12 +67,28 @@ export function Header() {
     if (!last) return
     const total =
       last.tokens.input + last.tokens.output + last.tokens.reasoning + last.tokens.cache.read + last.tokens.cache.write
-    const model = sync.data.provider.find((x) => x.id === last.providerID)?.models[last.modelID]
-    let result = total.toLocaleString()
-    if (model?.limit.context) {
-      result += "  " + Math.round((total / model.limit.context) * 100) + "%"
-    }
-    return result
+    const provider = sync.data.provider.find((x) => x.id === last.providerID)
+    const model = provider?.models[last.modelID]
+    const contextLimit = model?.limit.context
+    const contextSummary = contextLimit
+      ? `${total.toLocaleString()} / ${contextLimit.toLocaleString()} (${Math.round((total / contextLimit) * 100)}%)`
+      : total.toLocaleString()
+    const auth = formatProviderAuth(provider?.source)
+    const costSummary = cost()
+    return [provider?.name ?? last.providerID, auth, model?.name ?? last.modelID, contextSummary, costSummary]
+      .filter(Boolean)
+      .join(" · ")
+  })
+
+  const sessionHealth = createMemo(() => {
+    const current = status()
+    if (!current) return undefined
+    const parts: string[] = []
+    if (current.phase) parts.push(Locale.titlecase(current.phase))
+    if (current.activeAgents?.length) parts.push(`${current.activeAgents.length} agent${current.activeAgents.length === 1 ? "" : "s"}`)
+    if (current.blockedReason) parts.push(`blocked: ${current.blockedReason}`)
+    if (current.nextAction) parts.push(`next: ${current.nextAction}`)
+    return parts.length ? parts.join(" · ") : undefined
   })
 
   const { theme } = useTheme()
@@ -113,13 +146,18 @@ export function Header() {
                 </text>
               </box>
               <box flexGrow={1} flexShrink={1} />
-              <ContextInfo context={context} cost={cost} />
+              <ContextInfo summary={context} />
             </box>
           </Match>
           <Match when={true}>
             <box flexDirection="row" justifyContent="space-between" gap={1}>
-              <Title session={session} />
-              <ContextInfo context={context} cost={cost} />
+              <box flexDirection="column" gap={0}>
+                <Title session={session} />
+                <Show when={sessionHealth()}>
+                  <text fg={theme.textMuted}>{sessionHealth()}</text>
+                </Show>
+              </box>
+              <ContextInfo summary={context} />
             </box>
           </Match>
         </Switch>

@@ -292,8 +292,8 @@ export async function initializeTelemetry(
 
   sdk = new NodeSDK({
     // resource,
-    spanProcessors: [spanProcessor as any],
-    logRecordProcessors: [logRecordProcessor as any],
+    spanProcessor: spanProcessor as any,
+    logRecordProcessor: logRecordProcessor as any,
     metricReader: metricReader as any,
     instrumentations: [new HttpInstrumentation()],
   });

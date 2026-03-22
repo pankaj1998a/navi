@@ -57,6 +57,7 @@ export namespace Log {
 
   export async function init(options: Options) {
     if (options.level) level = options.level
+    await fs.mkdir(Global.Path.log, { recursive: true })
     cleanup(Global.Path.log)
     if (options.print) return
     logpath = path.join(
@@ -64,12 +65,26 @@ export namespace Log {
       options.dev ? "dev.log" : new Date().toISOString().split(".")[0].replace(/:/g, "") + ".log",
     )
     const logfile = Bun.file(logpath)
-    await fs.truncate(logpath).catch(() => {})
-    const writer = logfile.writer()
+    await fs.truncate(logpath).catch(() => { })
+    let writer: any
+    try {
+      writer = logfile.writer()
+    } catch (e) {
+      // Fallback if writer creation fails
+      return
+    }
     write = async (msg: any) => {
-      const num = writer.write(msg)
-      writer.flush()
-      return num
+      try {
+        const num = writer.write(msg)
+        const result = writer.flush()
+        if (result instanceof Promise) await result
+        return num
+      } catch (err) {
+        // If file writing fails, we usually can't do much. 
+        // We avoid writing to stderr to not break TUI, unless it's critical?
+        // For now, suppress error to prevent application crash.
+        return 0
+      }
     }
   }
 
@@ -84,7 +99,7 @@ export namespace Log {
     if (files.length <= 5) return
 
     const filesToDelete = files.slice(0, -10)
-    await Promise.all(filesToDelete.map((file) => fs.unlink(file).catch(() => {})))
+    await Promise.all(filesToDelete.map((file) => fs.unlink(file).catch(() => { })))
   }
 
   function formatError(error: Error, depth = 0): string {

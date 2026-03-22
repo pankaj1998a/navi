@@ -7,9 +7,9 @@ export const GenerateCommand = {
     const specs = await Server.openapi()
     for (const item of Object.values(specs.paths)) {
       for (const method of ["get", "post", "put", "delete", "patch"] as const) {
-        const operation = item[method]
+        const operation = (item as any)[method]
         if (!operation?.operationId) continue
-        // @ts-expect-error
+        //
         operation["x-codeSamples"] = [
           {
             lang: "js",

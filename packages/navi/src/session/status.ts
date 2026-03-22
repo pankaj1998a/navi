@@ -4,20 +4,46 @@ import { Instance } from "@/project/instance"
 import z from "zod"
 
 export namespace SessionStatus {
+  const Common = z.object({
+    permissionMode: z.enum(["safe", "ask", "allow-all"]).optional(),
+    thinkingLevel: z.enum(["off", "think", "max", "adaptive"]).optional(),
+    phase: z
+      .enum([
+        "idle",
+        "running",
+        "planning",
+        "delegating",
+        "reviewing",
+        "qa",
+        "researching",
+        "waiting",
+        "blocked",
+        "retrying",
+        "complete",
+      ])
+      .optional(),
+    blockedReason: z.string().optional(),
+    nextAction: z.string().optional(),
+    activeAgents: z.array(z.string()).optional(),
+    activeTools: z.array(z.string()).optional(),
+    burnRateUsd: z.number().nonnegative().optional(),
+    taskClass: z.string().optional(),
+  })
+
   export const Info = z
     .union([
       z.object({
         type: z.literal("idle"),
-      }),
+      }).extend(Common.shape),
       z.object({
         type: z.literal("retry"),
         attempt: z.number(),
         message: z.string(),
         next: z.number(),
-      }),
+      }).extend(Common.shape),
       z.object({
         type: z.literal("busy"),
-      }),
+      }).extend(Common.shape),
     ])
     .meta({
       ref: "SessionStatus",
@@ -50,6 +76,7 @@ export namespace SessionStatus {
     return (
       state()[sessionID] ?? {
         type: "idle",
+        phase: "idle",
       }
     )
   }

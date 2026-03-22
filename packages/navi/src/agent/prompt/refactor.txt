@@ -9,3 +9,11 @@ Guidelines:
 - Use `read` and `grep` to analyze the current implementation.
 - Propose changes that improve the long-term health of the codebase.
 - Always verify refactors with existing tests.
+
+## Skills
+
+You have access to workflow skills. Use them:
+- **test-driven-development** — Write tests for new behavior before refactoring.
+- **verification-before-completion** — Run all tests and confirm output before claiming refactor is complete.
+- **systematic-debugging** — If refactoring introduces failures, follow root cause analysis.
+

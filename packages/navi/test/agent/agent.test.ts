@@ -297,6 +297,59 @@ test("agent prompt can be set from config", async () => {
   })
 })
 
+test("visible agents receive the shared interaction protocol", async () => {
+  await using tmp = await tmpdir()
+  await Instance.provide({
+    directory: tmp.path,
+    fn: async () => {
+      const build = await Agent.get("build")
+      expect(build?.prompt).toContain("## Shared Interaction Protocol")
+    },
+  })
+})
+
+test("research agents receive the autoresearch protocol", async () => {
+  await using tmp = await tmpdir()
+  await Instance.provide({
+    directory: tmp.path,
+    fn: async () => {
+      const researcher = await Agent.get("researcher")
+      expect(researcher?.prompt).toContain("## AutoResearch Protocol")
+    },
+  })
+})
+
+test("autoresearch agent is available as a subagent", async () => {
+  await using tmp = await tmpdir()
+  await Instance.provide({
+    directory: tmp.path,
+    fn: async () => {
+      const autoresearch = await Agent.get("autoresearch")
+      expect(autoresearch?.mode).toBe("subagent")
+      expect(autoresearch?.prompt).toContain("AutoResearch")
+      expect(autoresearch?.prompt).toContain("## Shared Interaction Protocol")
+    },
+  })
+})
+
+test("config prompt overrides still inherit the shared interaction protocol", async () => {
+  await using tmp = await tmpdir({
+    config: {
+      agent: {
+        build: { prompt: "Custom system prompt" },
+      },
+    },
+  })
+  await Instance.provide({
+    directory: tmp.path,
+    fn: async () => {
+      const build = await Agent.get("build")
+      expect(build?.prompt).toContain("Custom system prompt")
+      expect(build?.prompt).toContain("## Shared Interaction Protocol")
+    },
+  })
+})
+
 test("unknown agent properties are placed into options", async () => {
   await using tmp = await tmpdir({
     config: {

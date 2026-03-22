@@ -1,4 +1,6 @@
 export * from "./gen/types.gen.js"
+import type { SessionGetResponses } from "./gen/types.gen.js"
+export type Session = SessionGetResponses[200]
 
 import { createClient } from "./gen/client/client.gen.js"
 import { type Config } from "./gen/client/types.gen.js"

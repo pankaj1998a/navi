@@ -8,7 +8,7 @@ WHEN TO USE:
 PARAMETERS:
 - description: Short (3-5 word) description of the background task
 - prompt: The task for the agent to perform
-- agent: The specialized agent to use (explore, librarian, oracle, etc.)
+- agent: The specialized agent to use (explore, researcher, architect, etc.)
 
 BEHAVIOR:
 - Returns immediately with a task_id
@@ -24,7 +24,7 @@ EXAMPLE PARALLEL USAGE:
 // Launch multiple background tasks for parallel search
 background_task(agent="explore", prompt="Find all API endpoints in src/")
 background_task(agent="explore", prompt="Find authentication implementations")
-background_task(agent="librarian", prompt="Find React 18 concurrent mode docs")
+background_task(agent="researcher", prompt="Find React 18 concurrent mode docs")
 // Continue with other work while these run...
 ```
 

@@ -13,6 +13,18 @@ export namespace MDNS {
 
     try {
       bonjour = new Bonjour()
+
+      // Suppress "Service name is already in use" from bonjour internals
+      const origConsoleLog = console.log
+      console.log = (...args: any[]) => {
+        const msg = args.join(" ")
+        if (msg.includes("Service name is already in use")) {
+          log.warn("mDNS name conflict (suppressed)")
+          return
+        }
+        origConsoleLog(...args)
+      }
+
       const service = bonjour.publish({
         name,
         type: "http",
@@ -20,21 +32,23 @@ export namespace MDNS {
         txt: { path: "/" },
       })
 
+      setTimeout(() => { console.log = origConsoleLog }, 3000)
+
       service.on("up", () => {
         log.info("mDNS service published", { name, port })
       })
 
       service.on("error", (err) => {
-        log.error("mDNS service error", { error: err })
+        log.warn("mDNS service error (non-fatal)", { error: String(err) })
       })
 
       currentPort = port
     } catch (err) {
-      log.error("mDNS publish failed", { error: err })
+      log.warn("mDNS publish failed (non-fatal)", { error: String(err) })
       if (bonjour) {
         try {
           bonjour.destroy()
-        } catch {}
+        } catch { }
       }
       bonjour = undefined
       currentPort = undefined

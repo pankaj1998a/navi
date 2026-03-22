@@ -95,13 +95,9 @@ function parseToolParams(input?: string) {
     try {
       return JSON.parse(trimmed)
     } catch (jsonError) {
-      try {
-        return new Function(`return (${trimmed})`)()
-      } catch (evalError) {
-        throw new Error(
-          `Failed to parse --params. Use JSON or a JS object literal. JSON error: ${jsonError}. Eval error: ${evalError}.`,
-        )
-      }
+      throw new Error(
+        `Failed to parse --params. Use valid JSON. JSON error: ${jsonError}.`,
+      )
     }
   })
 
@@ -153,7 +149,8 @@ async function createToolContext(agent: Agent.Info) {
     callID: Identifier.ascending("part"),
     agent: agent.name,
     abort: new AbortController().signal,
-    metadata: () => {},
+    messages: [],
+    metadata: () => { },
     async ask(req: Omit<PermissionNext.Request, "id" | "sessionID" | "tool">) {
       for (const pattern of req.patterns) {
         const rule = PermissionNext.evaluate(req.permission, pattern, ruleset)

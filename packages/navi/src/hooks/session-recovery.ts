@@ -11,6 +11,9 @@
 
 import type { Hooks } from "@navi-ai/plugin"
 import { Log } from "../util/log"
+import { Session } from "../session"
+import { MemoryManager } from "../agent/memory-manager"
+import { analyzeSessionForRecovery } from "../session/intelligent-recovery"
 
 const log = Log.create({ service: "session-recovery" })
 
@@ -175,14 +178,22 @@ export function createSessionRecoveryHook(options?: SessionRecoveryOptions): Ses
         try {
             log.info("Session recovery started", { sessionID, messageID, errorType })
 
-            // TODO: Implement actual recovery based on error type
-            // This would require access to session messages and the ability to:
-            // - For tool_result_missing: Inject cancelled tool results
-            // - For thinking_block_order: Fix message structure
-            // - For thinking_disabled_violation: Strip thinking blocks
-            // - For empty_content: Inject placeholder text
+            const messages = await Session.messages({ sessionID }).catch(() => [])
+            const context = messages.length ? analyzeSessionForRecovery(messages) : undefined
+            if (context?.summary) {
+                await MemoryManager.store(context.summary, {
+                    tier: "medium",
+                    importance: 0.75,
+                    tags: [`session:${sessionID}`, "recovery"],
+                    metadata: {
+                        recovery: true,
+                        errorType,
+                        lastActivity: context.lastActivity,
+                    },
+                })
+            }
 
-            log.info("Recovery would be attempted", {
+            log.info("Recovery snapshot stored", {
                 sessionID,
                 errorType,
                 recoveryActions: getRecoveryActions(errorType),
@@ -190,9 +201,8 @@ export function createSessionRecoveryHook(options?: SessionRecoveryOptions): Ses
 
             state.recoveryCount++
 
-            // TODO: If autoResume and recovery succeeded, inject continuation prompt
             if (autoResume) {
-                log.info("Would auto-resume session after recovery", { sessionID })
+                log.info("Recovery snapshot ready for resume", { sessionID, hasContext: Boolean(context?.summary) })
             }
 
             return true

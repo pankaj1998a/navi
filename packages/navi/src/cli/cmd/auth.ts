@@ -3,16 +3,33 @@ import { cmd } from "./cmd"
 import * as prompts from "@clack/prompts"
 import { UI } from "../ui"
 import { ModelsDev } from "../../provider/models"
-import { map, pipe, sortBy, values } from "remeda"
+import { map, pipe, sortBy } from "remeda"
 import path from "path"
 import os from "os"
 import { Config } from "../../config/config"
 import { Global } from "../../global"
 import { Plugin } from "../../plugin"
 import { Instance } from "../../project/instance"
+import { Provider } from "../../provider/provider"
 import type { Hooks } from "@navi-ai/plugin"
 
 type PluginAuth = NonNullable<Hooks["auth"]>
+
+export const PROVIDER_ALIASES: Record<string, string> = {
+  "claude-code": "anthropic",
+  "qwen-code": "qwen-cli",
+}
+
+export const EXTRA_PROVIDER_ENTRIES: Array<{ id: string; name: string }> = [
+  { id: "google-antigravity", name: "Antigravity (Google OAuth)" },
+  { id: "gemini-cli", name: "Gemini CLI" },
+  { id: "claude-code", name: "Claude Code" },
+  { id: "qwen-code", name: "Qwen Code" },
+]
+
+export function resolveProviderForAuth(provider: string): string {
+  return PROVIDER_ALIASES[provider] ?? provider
+}
 
 /**
  * Handle plugin-based authentication flow.
@@ -100,6 +117,8 @@ async function handlePluginAuth(plugin: { auth: PluginAuth }, provider: string):
             key: result.key,
           })
         }
+        // Refresh provider state and fetch the latest models for this provider when enabled.
+        await Provider.refreshProviderOnConnect(saveProvider)
         spinner.stop("Login successful")
       }
     }
@@ -132,6 +151,8 @@ async function handlePluginAuth(plugin: { auth: PluginAuth }, provider: string):
             key: result.key,
           })
         }
+        // Refresh provider state and fetch the latest models for this provider when enabled.
+        await Provider.refreshProviderOnConnect(saveProvider)
         prompts.log.success("Login successful")
       }
     }
@@ -152,6 +173,8 @@ async function handlePluginAuth(plugin: { auth: PluginAuth }, provider: string):
           type: "api",
           key: result.key,
         })
+        // Refresh provider state and fetch the latest models for this provider when enabled.
+        await Provider.refreshProviderOnConnect(saveProvider)
         prompts.log.success("Login successful")
       }
       prompts.outro("Done")
@@ -231,28 +254,31 @@ export const AuthLoginCommand = cmd({
       async fn() {
         UI.empty()
         prompts.intro("Add credential")
-        if (args.url) {
-          const wellknown = await fetch(`${args.url}/.well-known/navi`).then((x) => x.json() as any)
-          prompts.log.info(`Running \`${wellknown.auth.command.join(" ")}\``)
-          const proc = Bun.spawn({
-            cmd: wellknown.auth.command,
-            stdout: "pipe",
-          })
-          const exit = await proc.exited
-          if (exit !== 0) {
-            prompts.log.error("Failed")
+        let provider = args.url
+        if (provider) {
+          if (provider.startsWith("http://") || provider.startsWith("https://")) {
+            const wellknown = await fetch(`${provider}/.well-known/navi`).then((x) => x.json() as any)
+            prompts.log.info(`Running \`${wellknown.auth.command.join(" ")}\``)
+            const proc = Bun.spawn({
+              cmd: wellknown.auth.command,
+              stdout: "pipe",
+            })
+            const exit = await proc.exited
+            if (exit !== 0) {
+              prompts.log.error("Failed")
+              prompts.outro("Done")
+              return
+            }
+            const token = await new Response(proc.stdout).text()
+            await Auth.set(provider, {
+              type: "wellknown",
+              key: wellknown.auth.env,
+              token: token.trim(),
+            })
+            prompts.log.success("Logged into " + provider)
             prompts.outro("Done")
             return
           }
-          const token = await new Response(proc.stdout).text()
-          await Auth.set(args.url, {
-            type: "wellknown",
-            key: wellknown.auth.env,
-            token: token.trim(),
-          })
-          prompts.log.success("Logged into " + args.url)
-          prompts.outro("Done")
-          return
         }
         await ModelsDev.refresh().catch(() => { })
 
@@ -263,17 +289,23 @@ export const AuthLoginCommand = cmd({
 
         const providers = await ModelsDev.get().then((x) => {
           const filtered: Record<string, (typeof x)[string]> = {}
+          const shouldInclude = (id: string) => (enabled ? enabled.has(id) : true) && !disabled.has(id)
+
           for (const [key, value] of Object.entries(x)) {
-            if ((enabled ? enabled.has(key) : true) && !disabled.has(key)) {
+            if (shouldInclude(key)) {
               filtered[key] = value
             }
           }
 
-          // Inject Antigravity if not present
-          if (!filtered["google-antigravity"]) {
-            filtered["google-antigravity"] = {
-              id: "google-antigravity",
-              name: "Antigravity (Google OAuth)",
+          // Hide canonical provider IDs when we expose a login alias in UI.
+          delete filtered["qwen-cli"]
+
+          // Inject known providers that may not yet be available from models.dev.
+          for (const extra of EXTRA_PROVIDER_ENTRIES) {
+            if (!shouldInclude(extra.id) || filtered[extra.id]) continue
+            filtered[extra.id] = {
+              id: extra.id,
+              name: extra.name,
               env: [],
               models: {},
             }
@@ -283,60 +315,106 @@ export const AuthLoginCommand = cmd({
         })
 
         const priority: Record<string, number> = {
-          navi: 0,
-          anthropic: 1,
-          "github-copilot": 2,
-          "google-antigravity": 3,
+          "gemini-cli": 0,
+          "qwen-code": 0,
+          "google-antigravity": 0,
+          "claude-code": 1,
+          navi: 1,
+          anthropic: 2,
+          "github-copilot": 3,
           openai: 4,
           google: 5,
           openrouter: 6,
-          vercel: 7,
+          kilocode: 7,
+          cline: 8,
+          roocode: 9,
+          opencode: 10,
+          vercel: 11,
         }
-        let provider = await prompts.autocomplete({
-          message: "Select provider",
-          maxItems: 8,
-          options: [
-            ...pipe(
-              providers,
-              values(),
-              sortBy(
-                (x) => priority[x.id] ?? 99,
-                (x) => x.name ?? x.id,
+        if (!provider) {
+          const result = await prompts.autocomplete({
+            message: "Select provider",
+            maxItems: 8,
+            options: [
+              ...pipe(
+                Object.values(providers),
+                sortBy(
+                  (x) => priority[x.id] ?? 99,
+                  (x) => x.name ?? x.id,
+                ),
+                map((x) => ({
+                  label: x.name,
+                  value: x.id,
+                  hint: ({
+                    navi: "recommended",
+                    anthropic: "Claude Max or API key",
+                    "claude-code": "Use Claude Code account auth",
+                    openai: "ChatGPT Plus/Pro or API key",
+                    "google-antigravity": "Gemini 3/2.5 & Claude 4.6/3.5 via Google OAuth",
+                    "gemini-cli": "Run Gemini models via Google OAuth",
+                    "qwen-code": "Run Qwen models via Qwen Device Flow",
+                  } as Record<string, string | undefined>)[x.id],
+                })),
               ),
-              map((x) => ({
-                label: x.name,
-                value: x.id,
-                hint: {
-                  navi: "recommended",
-                  anthropic: "Claude Max or API key",
-                  openai: "ChatGPT Plus/Pro or API key",
-                  "google-antigravity": "Gemini 3 & Claude 4.5 via Google OAuth",
-                }[x.id],
-              })),
-            ),
-            {
-              value: "other",
-              label: "Other",
-            },
-          ],
-        })
+              {
+                value: "other",
+                label: "Other",
+              },
+            ],
+          })
+          if (prompts.isCancel(result)) throw new UI.CancelledError()
+          provider = result as string
+        }
 
-        if (prompts.isCancel(provider)) throw new UI.CancelledError()
+        if (!provider) throw new Error("Provider is required")
 
-        const plugin = await Plugin.list().then((x) => x.find((x) => x.auth?.provider === provider))
-        if (plugin && plugin.auth) {
-          const handled = await handlePluginAuth({ auth: plugin.auth }, provider)
+        const authProvider = resolveProviderForAuth(provider)
+
+        let pluginAuth = await Plugin.list().then((x) => x.find((x) => x.auth?.provider === authProvider)?.auth)
+
+        // Built-in handlers for internal providers that aren't loaded as plugins
+        if (!pluginAuth && authProvider === "google-antigravity") {
+          const { AntigravityAuthHook } = await import("../../provider/antigravity")
+          pluginAuth = AntigravityAuthHook
+        }
+
+        if (!pluginAuth && authProvider === "gemini-cli") {
+          const { GeminiAuthHook } = await import("../../provider/gemini-cli")
+          pluginAuth = GeminiAuthHook
+        }
+
+        if (!pluginAuth && authProvider === "qwen-cli") {
+          const { QwenAuthHook } = await import("../../provider/qwen-cli")
+          pluginAuth = QwenAuthHook
+        }
+
+        if (!pluginAuth && authProvider === "kilocode") {
+          const { KilocodeAuthHook } = await import("../../provider/kilocode")
+          pluginAuth = KilocodeAuthHook
+        }
+
+        if (!pluginAuth && authProvider === "cline") {
+          const { ClineAuthHook } = await import("../../provider/cline-provider")
+          pluginAuth = ClineAuthHook
+        }
+
+        if (!pluginAuth && authProvider === "roocode") {
+          const { RoocodeAuthHook } = await import("../../provider/roocode-provider")
+          pluginAuth = RoocodeAuthHook
+        }
+
+        if (pluginAuth) {
+          const handled = await handlePluginAuth({ auth: pluginAuth }, authProvider)
           if (handled) return
         }
 
         if (provider === "other") {
-          provider = await prompts.text({
+          const result = await prompts.text({
             message: "Enter provider id",
             validate: (x) => (x && x.match(/^[0-9a-z-]+$/) ? undefined : "a-z, 0-9 and hyphens only"),
           })
-          if (prompts.isCancel(provider)) throw new UI.CancelledError()
-          provider = provider.replace(/^@ai-sdk\//, "")
-          if (prompts.isCancel(provider)) throw new UI.CancelledError()
+          if (prompts.isCancel(result)) throw new UI.CancelledError()
+          provider = (result as string).replace(/^@ai-sdk\//, "")
 
           // Check if a plugin provides auth for this custom provider
           const customPlugin = await Plugin.list().then((x) => x.find((x) => x.auth?.provider === provider))
@@ -360,15 +438,31 @@ export const AuthLoginCommand = cmd({
           )
         }
 
-        if (provider === "navi") {
+        if (authProvider === "navi") {
           prompts.log.info("Create an api key at https://navi.ai/auth")
         }
 
-        if (provider === "vercel") {
+        if (authProvider === "opencode") {
+          prompts.log.info("Create an api key at https://opencode.ai/auth")
+        }
+
+        if (authProvider === "kilocode") {
+          prompts.log.info("Create an api key at https://kilo.ai/auth")
+        }
+
+        if (authProvider === "cline") {
+          prompts.log.info("Get your API key from your Cline account at https://cline.bot")
+        }
+
+        if (authProvider === "roocode") {
+          prompts.log.info("Get your API key from your Roo Code account at https://roocode.com")
+        }
+
+        if (authProvider === "vercel") {
           prompts.log.info("You can create an api key at https://vercel.link/ai-gateway-token")
         }
 
-        if (["cloudflare", "cloudflare-ai-gateway"].includes(provider)) {
+        if (authProvider && ["cloudflare", "cloudflare-ai-gateway"].includes(authProvider)) {
           prompts.log.info(
             "Cloudflare AI Gateway can be configured with CLOUDFLARE_GATEWAY_ID, CLOUDFLARE_ACCOUNT_ID, and CLOUDFLARE_API_TOKEN environment variables. Read more: https://navi.ai/docs/providers/#cloudflare-ai-gateway",
           )
@@ -379,10 +473,12 @@ export const AuthLoginCommand = cmd({
           validate: (x) => (x && x.length > 0 ? undefined : "Required"),
         })
         if (prompts.isCancel(key)) throw new UI.CancelledError()
-        await Auth.set(provider, {
+        await Auth.set(authProvider, {
           type: "api",
           key,
         })
+          // Refresh provider state and fetch the latest models for this provider when enabled.
+          await Provider.refreshProviderOnConnect(authProvider)
 
         prompts.outro("Done")
       },

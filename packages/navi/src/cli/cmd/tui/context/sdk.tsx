@@ -16,7 +16,15 @@ export const { use: useSDK, provider: SDKProvider } = createSimpleContext({
       signal: abort.signal,
       directory: props.directory,
       fetch: props.fetch,
-    })
+    }) as unknown as ReturnType<typeof createNaviClient> & {
+      session: {
+        list: (input: { search?: string; limit?: number }) => Promise<{ data: (import("@navi-ai/sdk/v2").Session & { status?: "todo" | "in_progress" | "done" })[] }>
+        update: (input: { sessionID: string; status?: "todo" | "in_progress" | "done" }) => Promise<import("@navi-ai/sdk/v2").Session>
+      }
+      todo: {
+        update: (input: { sessionID: string; todos: Array<{ id: string; content: string; status: string; priority: string }> }) => Promise<Array<{ id: string; content: string; status: string; priority: string }>>
+      }
+    }
 
     const emitter = createGlobalEmitter<{
       [key in Event["type"]]: Extract<Event, { type: key }>

@@ -14,6 +14,9 @@ import { fn } from "@/util/fn"
 import { Agent } from "@/agent/agent"
 import { Plugin } from "@/plugin"
 import { Config } from "@/config/config"
+import { MemoryManager } from "@/agent/memory-manager"
+import { MemoryFacts } from "@/agent/memory-facts"
+import { SessionCompactionMemory } from "./compaction-memory"
 
 export namespace SessionCompaction {
   const log = Log.create({ service: "session.compaction" })
@@ -38,22 +41,55 @@ export namespace SessionCompaction {
     return count > usable
   }
 
+  // Legacy constants (used as fallback when model is not available)
   export const PRUNE_MINIMUM = 20_000
   export const PRUNE_PROTECT = 40_000
 
+  /**
+   * Dynamic pruning thresholds based on the model's context window.
+   * Scales protection and minimum thresholds relative to available context.
+   */
+  export function getPruneThresholds(contextWindow?: number) {
+    if (!contextWindow || contextWindow === 0) {
+      return { minimum: PRUNE_MINIMUM, protect: PRUNE_PROTECT }
+    }
+    return {
+      minimum: Math.max(10_000, Math.floor(contextWindow * 0.05)), // 5% of context
+      protect: Math.max(20_000, Math.floor(contextWindow * 0.1)), // 10% of context
+    }
+  }
+
+  // Tool importance weights for pruning decisions
+  // Higher weight = more likely to be kept
+  const TOOL_IMPORTANCE: Record<string, number> = {
+    skill: 1.0, // always protected
+    read: 0.3, // file reads are low value after initial context
+    write: 0.8, // writes are important context
+    edit: 0.8, // edits are important context
+    bash: 0.5, // command output varies in importance
+    ls: 0.2, // directory listings are very transient
+    search: 0.4, // search results are medium value
+    task: 0.9, // task results are high value
+  }
+
+  function getToolImportance(toolName: string): number {
+    return TOOL_IMPORTANCE[toolName] ?? 0.5
+  }
+
   const PRUNE_PROTECTED_TOOLS = ["skill"]
 
-  // goes backwards through parts until there are 40_000 tokens worth of tool
-  // calls. then erases output of previous tool calls. idea is to throw away old
-  // tool calls that are no longer relevant.
-  export async function prune(input: { sessionID: string }) {
+  // goes backwards through parts, dynamically adjusting thresholds based on model context.
+  // uses importance weighting to preferentially prune low-value tool outputs first.
+  export async function prune(input: { sessionID: string; contextWindow?: number }) {
     const config = await Config.get()
     if (config.compaction?.prune === false) return
     log.info("pruning")
+
+    const thresholds = getPruneThresholds(input.contextWindow)
     const msgs = await Session.messages({ sessionID: input.sessionID })
     let total = 0
     let pruned = 0
-    const toPrune = []
+    const toPrune: Array<{ part: MessageV2.ToolPart; importance: number; estimate: number }> = []
     let turns = 0
 
     loop: for (let msgIndex = msgs.length - 1; msgIndex >= 0; msgIndex--) {
@@ -70,22 +106,31 @@ export namespace SessionCompaction {
             if (part.state.time.compacted) break loop
             const estimate = Token.estimate(part.state.output)
             total += estimate
-            if (total > PRUNE_PROTECT) {
+            if (total > thresholds.protect) {
+              const importance = getToolImportance(part.tool)
               pruned += estimate
-              toPrune.push(part)
+              toPrune.push({ part, importance, estimate })
             }
           }
       }
     }
-    log.info("found", { pruned, total })
-    if (pruned > PRUNE_MINIMUM) {
-      for (const part of toPrune) {
+
+    // Sort by importance (ascending) — prune least important first
+    toPrune.sort((a, b) => a.importance - b.importance)
+
+    log.info("found", { pruned, total, thresholds })
+    if (pruned > thresholds.minimum) {
+      let prunedSoFar = 0
+      for (const { part, estimate } of toPrune) {
         if (part.state.status === "completed") {
           part.state.time.compacted = Date.now()
           await Session.updatePart(part)
+          prunedSoFar += estimate
         }
+        // Stop pruning once we've freed enough tokens
+        if (prunedSoFar >= thresholds.minimum) break
       }
-      log.info("pruned", { count: toPrune.length })
+      log.info("pruned", { count: toPrune.length, prunedTokens: prunedSoFar })
     }
   }
 
@@ -96,6 +141,7 @@ export namespace SessionCompaction {
     abort: AbortSignal
     auto: boolean
   }) {
+    const session = await Session.get(input.sessionID)
     const userMessage = input.messages.findLast((m) => m.info.id === input.parentID)!.info as MessageV2.User
     const agent = await Agent.get("compaction")
     const model = agent.model
@@ -138,8 +184,18 @@ export namespace SessionCompaction {
       { sessionID: input.sessionID },
       { context: [], prompt: undefined },
     )
-    const defaultPrompt =
-      "Provide a detailed prompt for continuing our conversation above. Focus on information that would be helpful for continuing the conversation, including what we did, what we're doing, which files we're working on, and what we're going to do next considering new session will not have access to our conversation."
+    const defaultPrompt = [
+      "Create a continuation brief for the next model turn.",
+      "Use markdown with these exact headings when information exists:",
+      "## Objective",
+      "## Completed",
+      "## In Progress",
+      "## Files",
+      "## Constraints",
+      "## Decisions",
+      "## Next Steps",
+      "Keep each bullet short and concrete. Prefer current work, active files, user constraints, and the next best action.",
+    ].join("\n")
     const promptText = compacting.prompt ?? [defaultPrompt, ...compacting.context].join("\n\n")
     const result = await processor.process({
       user: userMessage,
@@ -162,6 +218,51 @@ export namespace SessionCompaction {
       ],
       model,
     })
+
+    // Store the summary in medium-tier memory
+    const parts = await MessageV2.parts(msg.id)
+    const textPart = parts.find((p): p is MessageV2.TextPart => p.type === "text")
+    if (textPart) {
+      const staleSummaries = await MemoryManager.recall({
+        tier: "medium",
+        tags: ["compaction-summary", `session:${input.sessionID}`],
+        includeExpired: true,
+        limit: 50,
+      })
+      for (const stale of staleSummaries) {
+        await MemoryManager.remove(stale.id)
+      }
+
+      const structured = SessionCompactionMemory.parse(textPart.text)
+      await MemoryManager.store(textPart.text, {
+        tier: "medium",
+        importance: 0.8,
+        tags: ["compaction-summary", `session:${input.sessionID}`],
+        metadata: {
+          sessionID: input.sessionID,
+          kind: "compaction-summary",
+          confidence: 0.9,
+          source: {
+            type: "session-compaction",
+            sessionID: input.sessionID,
+            messageID: msg.id,
+          },
+          structured,
+        },
+      })
+
+      await MemoryFacts.storeCompactionFacts({
+        summary: structured,
+        projectID: session.projectID,
+        source: {
+          type: "session-compaction",
+          sessionID: input.sessionID,
+          messageID: msg.id,
+          projectID: session.projectID,
+        },
+      })
+      await MemoryFacts.cleanupProjectFacts(session.projectID)
+    }
 
     if (result === "continue" && input.auto) {
       const continueMsg = await Session.updateMessage({

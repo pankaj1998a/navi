@@ -2,12 +2,31 @@
   "$schema": "https://turborepo.com/schema.json",
   "tasks": {
     "typecheck": {},
+    "lint": {},
+    "test": {},
     "build": {
-      "dependsOn": ["^build"],
-      "outputs": ["dist/**"]
+      "dependsOn": [
+        "^build"
+      ],
+      "outputs": [
+        "dist/**",
+        "*.node"
+      ]
+    },
+    "build:rs": {
+      "dependsOn": [
+        "^build:rs"
+      ],
+      "outputs": [
+        "target/**",
+        "navi-rs/target/**",
+        "*.node"
+      ]
     },
     "navi#test": {
-      "dependsOn": ["^build"],
+      "dependsOn": [
+        "^build"
+      ],
       "outputs": []
     }
   }

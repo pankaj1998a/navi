@@ -1,4 +1,4 @@
-import { NamedError } from "@navi-ai/util/error"
+import { NamedError } from "@navi-ai/sdk/util/error"
 import matter from "gray-matter"
 import { z } from "zod"
 
@@ -39,3 +39,4 @@ export namespace ConfigMarkdown {
     }),
   )
 }
+

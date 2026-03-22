@@ -1,4 +1,4 @@
-import { BoxRenderable, TextareaRenderable, MouseEvent, PasteEvent, t, dim, fg } from "@opentui/core"
+import { BoxRenderable, TextareaRenderable, MouseEvent, PasteEvent, KeyEvent, t, dim, fg } from "@opentui/core"
 import { createEffect, createMemo, type JSX, onMount, createSignal, onCleanup, Show, Switch, Match } from "solid-js"
 import "opentui-spinner/solid"
 import { useLocal } from "@tui/context/local"
@@ -15,7 +15,7 @@ import { usePromptStash } from "./stash"
 import { DialogStash } from "@tui/component/dialog-stash"
 import { type AutocompleteRef, Autocomplete } from "./autocomplete"
 import { useCommandDialog } from "@tui/component/dialog-command"
-import { useRenderer } from "@opentui/solid"
+import { useKeyboard, useRenderer } from "@opentui/solid"
 import { Editor } from "@tui/util/editor"
 import { useExit } from "@tui/context/exit"
 import { Clipboard } from "@tui/util/clipboard"
@@ -91,7 +91,7 @@ export function Prompt(props: PromptProps) {
   const pasteStyleId = syntax().getStyleId("extmark.paste")!
   let promptPartTypeId = 0
 
-  sdk.event.on(TuiEvent.PromptAppend.type, (evt) => {
+  const unsubPromptAppend = sdk.event.on(TuiEvent.PromptAppend.type, (evt) => {
     input.insertText(evt.properties.text)
     setTimeout(() => {
       input.getLayoutNode().markDirty()
@@ -99,6 +99,7 @@ export function Prompt(props: PromptProps) {
       renderer.requestRender()
     }, 0)
   })
+  onCleanup(unsubPromptAppend)
 
   createEffect(() => {
     if (props.disabled) input.cursorColor = theme.backgroundElement
@@ -147,6 +148,34 @@ export function Prompt(props: PromptProps) {
       }
       if (msg.model) local.model.set(msg.model)
       if (msg.variant) local.model.variant.set(msg.variant)
+    }
+  })
+
+  // Global keyboard handling for mode and agent cycling
+  useKeyboard((e: KeyEvent) => {
+    if (!input?.focused || props.disabled) return
+    if (store.mode !== "normal" || autocomplete?.visible) return
+
+    const isModeCycle =
+      keybind.match("mode_cycle", e) || (e.name === "tab" && !e.ctrl && !e.meta) || (e.name === "\t" && !e.ctrl && !e.meta)
+
+    if (isModeCycle) {
+      e.preventDefault()
+      const direction = e.shift ? -1 : 1
+      local.agent.movePrimary(direction)
+      const agent = local.agent.current()
+      toast.show({
+        variant: "info",
+        message: `Mode: ${agent.name}`,
+        duration: 2000,
+      })
+      return
+    }
+
+    if (keybind.match("agent_cycle", e)) {
+      e.preventDefault()
+      local.agent.move(e.shift ? -1 : 1)
+      return
     }
   })
 
@@ -558,7 +587,6 @@ export function Prompt(props: PromptProps) {
       inputText.startsWith("/") &&
       iife(() => {
         const command = inputText.split(" ")[0].slice(1)
-        console.log(command)
         return sync.data.command.some((x) => x.name === command)
       })
     ) {
@@ -852,16 +880,6 @@ export function Prompt(props: PromptProps) {
                 }
                 if (store.mode === "normal") autocomplete.onKeyDown(e)
                 if (!autocomplete.visible) {
-                  if (e.name === "tab" && !e.shift && !e.ctrl && !e.meta) {
-                    local.mode.cycle()
-                    e.preventDefault()
-                    return
-                  }
-                  if (e.name === "a" && e.meta && !e.shift && !e.ctrl) {
-                    local.agent.move(1)
-                    e.preventDefault()
-                    return
-                  }
                   if (
                     (keybind.match("history_previous", e) && input.cursorOffset === 0) ||
                     (keybind.match("history_next", e) && input.cursorOffset === input.plainText.length)
@@ -958,6 +976,7 @@ export function Prompt(props: PromptProps) {
               cursorColor={theme.text}
               syntaxStyle={syntax()}
             />
+
             <box flexDirection="row" flexShrink={0} paddingTop={1} gap={1}>
               <text fg={highlight()}>
                 {store.mode === "shell" ? "Shell" : Locale.titlecase(local.agent.current().name)}{" "}
@@ -1090,6 +1109,9 @@ export function Prompt(props: PromptProps) {
             <box gap={2} flexDirection="row">
               <Switch>
                 <Match when={store.mode === "normal"}>
+                  <text fg={theme.text}>
+                    {keybind.print("mode_cycle")} <span style={{ fg: theme.textMuted }}>modes</span>
+                  </text>
                   <text fg={theme.text}>
                     {keybind.print("variant_cycle")} <span style={{ fg: theme.textMuted }}>variants</span>
                   </text>

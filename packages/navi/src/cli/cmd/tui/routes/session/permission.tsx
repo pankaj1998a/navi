@@ -101,6 +101,49 @@ function TextBody(props: { title: string; description?: string; icon?: string })
   )
 }
 
+function BashBody(props: { request: PermissionRequest }) {
+  const { theme } = useTheme()
+  const metadata = props.request.metadata ?? {}
+  const command = typeof metadata.command === "string" ? metadata.command : undefined
+  const cwd = typeof metadata.cwd === "string" ? metadata.cwd : undefined
+  const summary = typeof metadata.summary === "string" ? metadata.summary : undefined
+  const risk = typeof metadata.risk === "string" ? metadata.risk : undefined
+  const destructive = Boolean(metadata.destructive)
+  const warnings = Array.isArray(metadata.warnings)
+    ? metadata.warnings.filter((x): x is string => typeof x === "string")
+    : []
+  const targets = Array.isArray(metadata.targets)
+    ? metadata.targets.filter((x): x is string => typeof x === "string")
+    : []
+
+  return (
+    <box flexDirection="column" gap={1} paddingLeft={1}>
+      <text fg={theme.textMuted}>{summary ?? "Bash command"}</text>
+      <text fg={theme.text}>$ {command ?? ""}</text>
+      <Show when={cwd}>
+        <text fg={theme.textMuted}>cwd: {normalizePath(cwd)}</text>
+      </Show>
+      <Show when={risk || destructive}>
+        <text fg={risk === "critical" ? theme.error : theme.warning}>
+          risk: {risk ?? "unknown"}
+          {destructive ? " · modifies project state" : ""}
+        </text>
+      </Show>
+      <Show when={targets.length > 0}>
+        <text fg={theme.textMuted}>targets: {targets.map((target) => normalizePath(target)).join(", ")}</text>
+      </Show>
+      <Show when={warnings.length > 0}>
+        <box flexDirection="column" gap={0}>
+          <text fg={theme.warning}>Warnings</text>
+          <For each={warnings}>
+            {(warning) => <text fg={theme.textMuted}>- {warning}</text>}
+          </For>
+        </box>
+      </Show>
+    </box>
+  )
+}
+
 export function PermissionPrompt(props: { request: PermissionRequest }) {
   const sdk = useSDK()
   const sync = useSync()
@@ -109,6 +152,12 @@ export function PermissionPrompt(props: { request: PermissionRequest }) {
   })
 
   const session = createMemo(() => sync.data.session.find((s) => s.id === props.request.sessionID))
+  const dangerousBash = createMemo(() => {
+    if (props.request.permission !== "bash") return false
+    const risk = props.request.metadata?.risk
+    const destructive = Boolean(props.request.metadata?.destructive)
+    return destructive || risk === "critical"
+  })
 
   const input = createMemo(() => {
     const tool = props.request.tool
@@ -123,6 +172,11 @@ export function PermissionPrompt(props: { request: PermissionRequest }) {
   })
 
   const { theme } = useTheme()
+  const permissionOptions = createMemo(() =>
+    dangerousBash()
+      ? { once: "Allow once", reject: "Reject" }
+      : { once: "Allow once", always: "Allow always", reject: "Reject" },
+  )
 
   return (
     <Switch>
@@ -196,11 +250,7 @@ export function PermissionPrompt(props: { request: PermissionRequest }) {
                 <TextBody icon="→" title={`List ` + normalizePath(input().path as string)} />
               </Match>
               <Match when={props.request.permission === "bash"}>
-                <TextBody
-                  icon="#"
-                  title={(input().description as string) ?? ""}
-                  description={("$ " + input().command) as string}
-                />
+                <BashBody request={props.request} />
               </Match>
               <Match when={props.request.permission === "task"}>
                 <TextBody
@@ -213,13 +263,33 @@ export function PermissionPrompt(props: { request: PermissionRequest }) {
                 <TextBody icon="%" title={`WebFetch ` + (input().url ?? "")} />
               </Match>
               <Match when={props.request.permission === "websearch"}>
-                <TextBody icon="◈" title={`Exa Web Search "` + (input().query ?? "") + `"`} />
+                <TextBody
+                  icon={props.request.metadata?.provider === "google-ai" ? "✦" : "◈"}
+                  title={
+                    (props.request.metadata?.provider === "google-ai" ? `Google AI Search "` : `Web Search "`) +
+                    (input().query ?? "") +
+                    `"`
+                  }
+                />
               </Match>
               <Match when={props.request.permission === "codesearch"}>
-                <TextBody icon="◇" title={`Exa Code Search "` + (input().query ?? "") + `"`} />
+                <TextBody icon="◇" title={`Code Search "` + (input().query ?? "") + `"`} />
               </Match>
               <Match when={props.request.permission === "external_directory"}>
-                <TextBody icon="←" title={`Access external directory ` + normalizePath(input().path as string)} />
+                <box flexDirection="column" gap={1}>
+                  <TextBody icon="←" title={`Access external directory ` + normalizePath(input().path as string)} />
+                  <Show when={Array.isArray(props.request.metadata?.paths) && props.request.metadata.paths.length > 0}>
+                    <box paddingLeft={1} flexDirection="column" gap={0}>
+                      <text fg={theme.textMuted}>paths:</text>
+                      <For each={props.request.metadata.paths as string[]}>
+                        {(file) => <text fg={theme.textMuted}>- {normalizePath(file)}</text>}
+                      </For>
+                    </box>
+                  </Show>
+                  <Show when={typeof props.request.metadata?.risk === "string"}>
+                    <text fg={theme.warning}>risk: {String(props.request.metadata?.risk)}</text>
+                  </Show>
+                </box>
               </Match>
               <Match when={props.request.permission === "doom_loop"}>
                 <TextBody icon="⟳" title="Continue after repeated failures" />
@@ -229,10 +299,10 @@ export function PermissionPrompt(props: { request: PermissionRequest }) {
               </Match>
             </Switch>
           }
-          options={{ once: "Allow once", always: "Allow always", reject: "Reject" }}
+          options={permissionOptions()}
           escapeKey="reject"
           onSelect={(option) => {
-            if (option === "always") {
+            if (option === "always" && !dangerousBash()) {
               setStore("stage", "always")
               return
             }
@@ -245,6 +315,7 @@ export function PermissionPrompt(props: { request: PermissionRequest }) {
                 reply: "reject",
                 requestID: props.request.id,
               })
+              return
             }
             sdk.client.permission.reply({
               reply: "once",

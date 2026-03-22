@@ -11,10 +11,12 @@ import { useKeybind } from "../../context/keybind"
 import { useDirectory } from "../../context/directory"
 import { useKV } from "../../context/kv"
 import { TodoItem } from "../../component/todo-item"
+import { useSDK } from "@tui/context/sdk"
 
 export function Sidebar(props: { sessionID: string; overlay?: boolean }) {
   const sync = useSync()
   const { theme } = useTheme()
+  const sdk = useSDK()
   const session = createMemo(() => sync.session.get(props.sessionID)!)
   const diff = createMemo(() => sync.data.session_diff[props.sessionID] ?? [])
   const todo = createMemo(() => sync.data.todo[props.sessionID] ?? [])
@@ -201,7 +203,7 @@ export function Sidebar(props: { sessionID: string; overlay?: boolean }) {
                 </For>
               </Show>
             </box>
-            <Show when={todo().length > 0 && todo().some((t) => t.status !== "completed")}>
+            <Show when={todo().length > 0}>
               <box>
                 <box
                   flexDirection="row"
@@ -216,7 +218,27 @@ export function Sidebar(props: { sessionID: string; overlay?: boolean }) {
                   </text>
                 </box>
                 <Show when={todo().length <= 2 || expanded.todo}>
-                  <For each={todo()}>{(todo) => <TodoItem status={todo.status} content={todo.content} />}</For>
+                  <For each={todo()}>
+                    {(todoItem) => (
+                      <TodoItem
+                        id={todoItem.id}
+                        status={todoItem.status}
+                        content={todoItem.content}
+                        onToggle={async (id) => {
+                          const todos = todo()
+                          const updatedTodos = todos.map((t) =>
+                            t.id === id
+                              ? { ...t, status: t.status === "completed" ? "pending" : "completed" }
+                              : t
+                          )
+                          await sdk.client.todo.update({
+                            sessionID: props.sessionID,
+                            todos: updatedTodos as any
+                          })
+                        }}
+                      />
+                    )}
+                  </For>
                 </Show>
               </box>
             </Show>

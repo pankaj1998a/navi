@@ -9,7 +9,7 @@ import { mergeDeep, pipe, unique } from "remeda"
 import { Global } from "../global"
 import fs from "fs/promises"
 import { lazy } from "../util/lazy"
-import { NamedError } from "@navi-ai/util/error"
+import { NamedError } from "@navi-ai/sdk/util/error"
 import { Flag } from "../flag/flag"
 import { Auth } from "../auth"
 import { type ParseError as JsoncParseError, parse as parseJsonc, printParseErrorCode } from "jsonc-parser"
@@ -71,7 +71,7 @@ export namespace Config {
     }
 
     // Project config has highest precedence (overrides global and remote)
-    for (const file of ["navi.jsonc", "navi.json", "navi.json", "oh-my-navi.json"]) {
+    for (const file of ["navi.jsonc", "navi.json", "oh-my-navi.json"]) {
       const found = await Filesystem.findUp(file, Instance.directory, Instance.worktree)
       for (const resolved of found.toReversed()) {
         result = mergeConfigConcatArrays(result, await loadFile(resolved))
@@ -115,10 +115,9 @@ export namespace Config {
       if (
         dir.endsWith(".navi") ||
         dir.endsWith(".claude") ||
-        dir.endsWith(".navi") ||
         dir === Flag.NAVI_CONFIG_DIR
       ) {
-        for (const file of ["navi.jsonc", "navi.json", "navi.json", "oh-my-navi.json"]) {
+        for (const file of ["navi.jsonc", "navi.json", "oh-my-navi.json"]) {
           log.debug(`loading config from ${path.join(dir, file)}`)
           result = mergeConfigConcatArrays(result, await loadFile(path.join(dir, file)))
           // to satisfy the type checker
@@ -129,8 +128,7 @@ export namespace Config {
       }
 
       const exists = existsSync(path.join(dir, "node_modules"))
-      const installing = installDependencies(dir)
-      if (!exists) await installing
+      if (!exists) await installDependencies(dir)
 
       result.command = mergeDeep(result.command ?? {}, await loadCommand(dir))
       result.agent = mergeDeep(result.agent, await loadAgent(dir))
@@ -193,6 +191,7 @@ export namespace Config {
   })
 
   export async function installDependencies(dir: string) {
+    if (process.env.CI) return
     const pkg = path.join(dir, "package.json")
 
     if (!(await Bun.file(pkg).exists())) {
@@ -228,7 +227,8 @@ export namespace Config {
     return ext.length ? file.slice(0, -ext.length) : file
   }
 
-  const COMMAND_GLOB = new Bun.Glob("{command,commands,skill,skills}/**/*.md")
+  const COMMAND_GLOB = new Bun.Glob("{command,commands}/**/*.md")
+  const SKILL_AS_COMMAND_GLOB = new Bun.Glob("{skill,skills}/**/*.md")
   async function loadCommand(dir: string) {
     const result: Record<string, Command> = {}
     for await (const item of COMMAND_GLOB.scan({
@@ -246,9 +246,6 @@ export namespace Config {
         "/command/",
         "/commands/",
         "/.claude/commands/",
-        "/.claude/skills/",
-        "/skill/",
-        "/skills/",
       ]
       const file = rel(item, patterns) ?? path.basename(item)
       let name = trim(file)
@@ -274,6 +271,42 @@ export namespace Config {
       }
       throw new InvalidError({ path: item, issues: parsed.error.issues }, { cause: parsed.error })
     }
+
+    // Load skills — these are executable but marked so TUI can hide them from /commands autocomplete
+    for await (const item of SKILL_AS_COMMAND_GLOB.scan({
+      absolute: true,
+      followSymlinks: true,
+      dot: true,
+      cwd: dir,
+    })) {
+      const md = await ConfigMarkdown.parse(item)
+      if (!md.data) continue
+
+      const patterns = [
+        "/.navi/skill/",
+        "/.navi/skills/",
+        "/.claude/skills/",
+        "/skill/",
+        "/skills/",
+      ]
+      const file = rel(item, patterns) ?? path.basename(item)
+      let name = trim(file)
+
+      // Handle SKILL.md pattern — use parent directory name as command name
+      if (name.endsWith("/SKILL")) name = name.slice(0, -6)
+      else if (name.endsWith("/index")) name = name.slice(0, -6)
+      name = name.replace(/[\/\\]/g, ":")
+
+      const config = { name, ...md.data, template: md.content.trim() }
+      const parsed = Command.safeParse(config)
+      if (parsed.success) {
+        // skill:true lets TUI filter these out of the /commands autocomplete
+        result[config.name] = { ...parsed.data, skill: true } as any
+        continue
+      }
+      throw new InvalidError({ path: item, issues: parsed.error.issues }, { cause: parsed.error })
+    }
+
     return result
   }
 
@@ -593,6 +626,7 @@ export namespace Config {
     agent: z.string().optional(),
     model: z.string().optional(),
     subtask: z.boolean().optional(),
+    skill: z.boolean().optional(),
     mcp: z.record(z.string(), Mcp).optional(),
   })
   export type Command = z.infer<typeof Command>
@@ -606,7 +640,7 @@ export namespace Config {
       tools: z.record(z.string(), z.boolean()).optional().describe("@deprecated Use 'permission' field instead"),
       disable: z.boolean().optional(),
       description: z.string().optional().describe("Description of when to use the agent"),
-      mode: z.enum(["subagent", "primary", "all"]).optional(),
+      mode: z.enum(["subagent", "primary", "all", "parallel"]).optional(),
       hidden: z
         .boolean()
         .optional()
@@ -624,6 +658,22 @@ export namespace Config {
         .optional()
         .describe("Maximum number of agentic iterations before forcing text-only response"),
       maxSteps: z.number().int().positive().optional().describe("@deprecated Use 'steps' field instead."),
+      skills: z.array(z.string()).optional().describe("Curated skill allowlist for this agent"),
+      executionPolicy: z
+        .object({
+          maxIterations: z.number().int().positive().optional(),
+          maxToolCalls: z.number().int().positive().optional(),
+          maxQuestions: z.number().int().positive().optional(),
+          maxRetries: z.number().int().nonnegative().optional(),
+          maxDelegations: z.number().int().positive().optional(),
+          budgetUsd: z.number().positive().optional(),
+        })
+        .optional()
+        .describe("Execution policy limits for the agent"),
+      spawnableAgents: z
+        .array(z.string())
+        .optional()
+        .describe("Curated subagent allowlist for this agent"),
       permission: Permission.optional(),
       mcp: z.record(z.string(), Mcp).optional(),
     })
@@ -641,6 +691,9 @@ export namespace Config {
         "color",
         "steps",
         "maxSteps",
+        "skills",
+        "executionPolicy",
+        "spawnableAgents",
         "options",
         "permission",
         "disable",
@@ -730,11 +783,10 @@ export namespace Config {
       model_cycle_favorite_reverse: z.string().optional().default("none").describe("Previous favorite model"),
       command_list: z.string().optional().default("ctrl+p").describe("List available commands"),
       agent_list: z.string().optional().default("<leader>a").describe("List agents"),
-      agent_cycle: z.string().optional().default("alt+a").describe("Next agent"),
+      agent_cycle: z.string().optional().default("none").describe("Next agent"),
       agent_cycle_reverse: z.string().optional().default("none").describe("Previous agent"),
       mode_list: z.string().optional().default("<leader>o").describe("List modes"),
       mode_cycle: z.string().optional().default("tab").describe("Next mode"),
-      mode_cycle_reverse: z.string().optional().default("none").describe("Previous mode"),
       variant_cycle: z.string().optional().default("ctrl+t").describe("Cycle model variants"),
       input_clear: z.string().optional().default("ctrl+c").describe("Clear input field"),
       input_paste: z.string().optional().default("ctrl+v").describe("Paste from clipboard"),
@@ -857,6 +909,40 @@ export namespace Config {
       ref: "ServerConfig",
     })
 
+  export const P2PConfigSchema = z
+    .object({
+      enabled: z.boolean().optional().default(true).describe("Enable P2P terminal-to-terminal communication"),
+      discovery: z
+        .object({
+          mdns: z.boolean().optional().default(true).describe("Enable mDNS peer discovery"),
+          interval: z.number().optional().default(30000).describe("Discovery refresh interval in milliseconds"),
+        })
+        .optional()
+        .describe("Peer discovery settings"),
+      security: z
+        .object({
+          requireAuth: z.boolean().optional().default(false).describe("Require authentication for P2P connections"),
+          allowedPeers: z.array(z.string()).optional().describe("Whitelist of peer IDs allowed to connect"),
+          blockedPeers: z.array(z.string()).optional().describe("Blacklist of peer IDs blocked from connecting"),
+          secret: z.string().optional().describe("Shared secret for peer authentication"),
+        })
+        .optional()
+        .describe("P2P security settings"),
+      capabilities: z
+        .object({
+          acceptTasks: z.boolean().optional().default(true).describe("Accept task delegation from other peers"),
+          shareFiles: z.boolean().optional().default(true).describe("Allow file sharing with peers"),
+          collaborate: z.boolean().optional().default(true).describe("Enable collaborative sessions"),
+        })
+        .optional()
+        .describe("P2P capabilities this instance offers"),
+    })
+    .strict()
+    .meta({
+      ref: "P2PConfig",
+    })
+  export type P2PConfigSchema = z.infer<typeof P2PConfigSchema>
+
   export const Layout = z.enum(["auto", "stretch"]).meta({
     ref: "LayoutConfig",
   })
@@ -942,6 +1028,13 @@ export namespace Config {
       logLevel: Log.Level.optional().describe("Log level"),
       tui: TUI.optional().describe("TUI specific settings"),
       server: Server.optional().describe("Server configuration for navi serve and web commands"),
+      p2p: P2PConfigSchema.optional().describe("P2P terminal-to-terminal communication settings"),
+      auto_fetch_models_on_connect: z
+        .boolean()
+        .optional()
+        .describe(
+          "Automatically refresh a provider's model list after new credentials are connected. Defaults to true.",
+        ),
       command: z
         .record(z.string(), Command)
         .optional()
@@ -1005,6 +1098,7 @@ export namespace Config {
           // subagent
           general: Agent.optional(),
           explore: Agent.optional(),
+          investigator: Agent.optional(),
           // specialized
           title: Agent.optional(),
           summary: Agent.optional(),
@@ -1086,6 +1180,14 @@ export namespace Config {
       layout: Layout.optional().describe("@deprecated Always uses stretch layout."),
       permission: Permission.optional(),
       tools: z.record(z.string(), z.boolean()).optional(),
+      sandbox: z
+        .object({
+          trusted: z
+            .array(z.string())
+            .optional()
+            .describe("List of trusted directories that bypass external directory checks"),
+        })
+        .optional(),
       enterprise: z
         .object({
           url: z.string().optional().describe("Enterprise URL"),
@@ -1139,6 +1241,29 @@ export namespace Config {
             .positive()
             .optional()
             .describe("Timeout in milliseconds for model context protocol (MCP) requests"),
+          modelRouting: z
+            .object({
+              enabled: z.boolean().optional(),
+              allowFallback: z.boolean().optional(),
+              crossProvider: z.boolean().optional(),
+              minHealthScore: z.number().int().min(0).max(100).optional(),
+            })
+            .optional()
+            .describe("Health-aware automatic model routing by agent profile"),
+          sessionTracing: z
+            .object({
+              enabled: z.boolean().optional(),
+              directory: z.string().optional(),
+            })
+            .optional()
+            .describe("Write structured per-session execution traces to disk"),
+          evaluation: z
+            .object({
+              enabled: z.boolean().optional(),
+              directory: z.string().optional(),
+            })
+            .optional()
+            .describe("Write benchmark-friendly evaluation samples to disk"),
           dynamic_context_pruning: z
             .object({
               enabled: z.boolean().optional(),
@@ -1185,12 +1310,21 @@ export namespace Config {
 
   async function loadFile(filepath: string): Promise<Info> {
     log.info("loading", { path: filepath })
+
+    // Check if file exists to prevent hang on Windows with Bun on non-existent files
+    if (!existsSync(filepath)) {
+      log.info("loadFile skipping non-existent file", { path: filepath })
+      return {}
+    }
+
     let text = await Bun.file(filepath)
       .text()
       .catch((err) => {
+        log.error("loadFile error", { path: filepath, code: err.code })
         if (err.code === "ENOENT") return
         throw new JsonError({ path: filepath }, { cause: err })
       })
+    log.info("loadFile text loaded", { path: filepath, length: text?.length })
     if (!text) return {}
     return load(text, filepath)
   }
@@ -1273,7 +1407,9 @@ export namespace Config {
           const plugin = data.plugin[i]
           try {
             data.plugin[i] = import.meta.resolve!(plugin, configFilepath)
-          } catch (err) { }
+          } catch (err) {
+            log.warn(`Failed to resolve plugin '${plugin}'`, { path: configFilepath, error: err })
+          }
         }
       }
       return data
@@ -1324,4 +1460,12 @@ export namespace Config {
   export async function directories() {
     return state().then((x) => x.directories)
   }
+
+  /**
+   * Get the config directory path (~/.navi)
+   */
+  export function getConfigDir(): string {
+    return path.join(os.homedir(), ".navi")
+  }
 }
+

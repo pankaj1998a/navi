@@ -4,8 +4,9 @@ import { map, filter, pipe, fromEntries, mapValues } from "remeda"
 import z from "zod"
 import { fn } from "@/util/fn"
 import type { AuthOuathResult, Hooks } from "@navi-ai/plugin"
-import { NamedError } from "@navi-ai/util/error"
+import { NamedError } from "@navi-ai/sdk/util/error"
 import { Auth } from "@/auth"
+import { Provider } from "./provider"
 
 export namespace ProviderAuth {
   const state = Instance.state(async () => {
@@ -108,8 +109,16 @@ export namespace ProviderAuth {
           if (result.accountId) {
             info.accountId = result.accountId
           }
+          if ((result as any).resourceUrl) {
+            ; (info as any).resourceUrl = (result as any).resourceUrl
+          }
+          if ((result as any).enterpriseUrl) {
+            ; (info as any).enterpriseUrl = (result as any).enterpriseUrl
+          }
           await Auth.set(input.providerID, info)
         }
+        // Refresh provider state and fetch the latest models for this provider when enabled.
+        await Provider.refreshProviderOnConnect(input.providerID)
         return
       }
 
@@ -127,6 +136,8 @@ export namespace ProviderAuth {
         type: "api",
         key: input.key,
       })
+      // Refresh provider state and fetch the latest models for this provider when enabled.
+      await Provider.refreshProviderOnConnect(input.providerID)
     },
   )
 
@@ -145,3 +156,4 @@ export namespace ProviderAuth {
 
   export const OauthCallbackFailed = NamedError.create("ProviderAuthOauthCallbackFailed", z.object({}))
 }
+

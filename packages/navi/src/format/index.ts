@@ -44,11 +44,11 @@ export namespace Format {
         delete formatters[name]
         continue
       }
-      const result: Formatter.Info = mergeDeep(formatters[name] ?? {}, {
+      const result: Formatter.Info = mergeDeep((formatters[name] ?? {}) as any, {
         command: [],
         extensions: [],
         ...item,
-      })
+      }) as any as Formatter.Info
 
       if (result.command.length === 0) continue
 

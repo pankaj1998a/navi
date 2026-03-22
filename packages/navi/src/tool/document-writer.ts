@@ -16,12 +16,14 @@ Supported formats:
 - Word (.docx) - From text content
 - PowerPoint (.pptx) - From text or slide objects
 - CSV (.csv) - From arrays or tables
+- Markdown (.md) - Text or documentation
+- JSON (.json) - Structured data
 - Text (.txt) - Plain text
 
 Use this to generate reports, spreadsheets, or documents.`,
         parameters: z.object({
             filePath: z.string().describe("Absolute path for the output file"),
-            format: z.enum(["xlsx", "pdf", "docx", "csv", "txt", "pptx"]).optional().describe("Output format (auto-detected from extension if not provided)"),
+            format: z.string().optional().describe("Output format (e.g., xlsx, pdf, docx, csv, txt, pptx, md, json). Auto-detected from extension if not provided."),
             content: z.any().describe("Content to write (string, array, or object)"),
             options: z.object({
                 title: z.string().optional().describe("Document title (PDF, Word)"),
@@ -36,9 +38,19 @@ Use this to generate reports, spreadsheets, or documents.`,
                 // Ensure directory exists
                 await fs.mkdir(path.dirname(filePath), { recursive: true })
 
-                // Detect format from extension if not provided
+                // Detect format from extension if not provided, and normalize
                 const ext = path.extname(filePath).toLowerCase().slice(1)
-                const format = (explicitFormat || ext) as any
+                let format = (explicitFormat?.toLowerCase().trim().replace(/^\./, "") || ext) as string
+
+                // Map common aliases
+                const mapping: Record<string, string> = {
+                    "excel": "xlsx",
+                    "word": "docx",
+                    "powerpoint": "pptx",
+                    "markdown": "md",
+                    "text": "txt"
+                }
+                if (mapping[format]) format = mapping[format]
 
                 log.info("writing document", { format, filePath })
 

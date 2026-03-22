@@ -30,7 +30,7 @@ $CURRENT_DIR = Get-Location
 $BIN_PATH = Join-Path $env:USERPROFILE "navi-launcher.ps1"
 
 $launcherContent = @"
-bun run --cwd "$CURRENT_DIR\packages\navi" --conditions=browser "src\index.ts" `$args
+& "$CURRENT_DIR\packages\navi\dist\navi-ai-agent-windows-x64\bin\navi.exe" `$args
 "@
 
 Set-Content -Path $BIN_PATH -Value $launcherContent

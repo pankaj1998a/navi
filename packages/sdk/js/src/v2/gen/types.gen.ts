@@ -4,20 +4,6 @@ export type ClientOptions = {
   baseUrl: `${string}://${string}` | (string & {})
 }
 
-export type EventInstallationUpdated = {
-  type: "installation.updated"
-  properties: {
-    version: string
-  }
-}
-
-export type EventInstallationUpdateAvailable = {
-  type: "installation.update-available"
-  properties: {
-    version: string
-  }
-}
-
 export type Project = {
   id: string
   worktree: string
@@ -38,6 +24,20 @@ export type Project = {
 export type EventProjectUpdated = {
   type: "project.updated"
   properties: Project
+}
+
+export type EventInstallationUpdated = {
+  type: "installation.updated"
+  properties: {
+    version: string
+  }
+}
+
+export type EventInstallationUpdateAvailable = {
+  type: "installation.update-available"
+  properties: {
+    version: string
+  }
 }
 
 export type EventServerInstanceDisposed = {
@@ -123,6 +123,20 @@ export type MessageAbortedError = {
   }
 }
 
+export type BudgetExceededError = {
+  name: "BudgetExceededError"
+  data: {
+    message: string
+  }
+}
+
+export type MaxTurnsExceededError = {
+  name: "MaxTurnsExceededError"
+  data: {
+    message: string
+  }
+}
+
 export type ApiError = {
   name: "APIError"
   data: {
@@ -147,7 +161,14 @@ export type AssistantMessage = {
     created: number
     completed?: number
   }
-  error?: ProviderAuthError | UnknownError | MessageOutputLengthError | MessageAbortedError | ApiError
+  error?:
+    | ProviderAuthError
+    | UnknownError
+    | MessageOutputLengthError
+    | MessageAbortedError
+    | BudgetExceededError
+    | MaxTurnsExceededError
+    | ApiError
   parentID: string
   modelID: string
   providerID: string
@@ -483,23 +504,29 @@ export type EventPermissionReplied = {
   type: "permission.replied"
   properties: {
     sessionID: string
-    requestID: string
-    reply: "once" | "always" | "reject"
+    permissionID: string
+    response: string
   }
 }
 
 export type SessionStatus =
   | {
       type: "idle"
+      permissionMode?: "safe" | "ask" | "allow-all"
+      thinkingLevel?: "off" | "think" | "max" | "adaptive"
     }
   | {
       type: "retry"
       attempt: number
       message: string
       next: number
+      permissionMode?: "safe" | "ask" | "allow-all"
+      thinkingLevel?: "off" | "think" | "max" | "adaptive"
     }
   | {
       type: "busy"
+      permissionMode?: "safe" | "ask" | "allow-all"
+      thinkingLevel?: "off" | "think" | "max" | "adaptive"
     }
 
 export type EventSessionStatus = {
@@ -591,6 +618,27 @@ export type EventSessionCompacted = {
   }
 }
 
+export type Permission = {
+  id: string
+  type: string
+  pattern?: string | Array<string>
+  sessionID: string
+  messageID: string
+  callID?: string
+  message: string
+  metadata: {
+    [key: string]: unknown
+  }
+  time: {
+    created: number
+  }
+}
+
+export type EventPermissionUpdated = {
+  type: "permission.updated"
+  properties: Permission
+}
+
 export type EventFileEdited = {
   type: "file.edited"
   properties: {
@@ -622,6 +670,175 @@ export type EventTodoUpdated = {
   properties: {
     sessionID: string
     todos: Array<Todo>
+  }
+}
+
+export type EventP2pPeerJoined = {
+  type: "p2p.peer.joined"
+  properties: {
+    peer: {
+      /**
+       * Unique peer identifier
+       */
+      id: string
+      /**
+       * Human-readable peer name
+       */
+      name: string
+      /**
+       * Hostname or IP address
+       */
+      hostname: string
+      /**
+       * Port number
+       */
+      port: number
+      /**
+       * Navi version
+       */
+      version?: string
+      /**
+       * Projects the peer is working on
+       */
+      workspaces?: Array<string>
+      /**
+       * Available capabilities
+       */
+      capabilities?: Array<string>
+      /**
+       * Last seen timestamp (ms)
+       */
+      lastSeen?: number
+      status?: "online" | "offline" | "busy"
+    }
+  }
+}
+
+export type EventP2pPeerLeft = {
+  type: "p2p.peer.left"
+  properties: {
+    peerId: string
+  }
+}
+
+export type EventP2pMessageReceived = {
+  type: "p2p.message.received"
+  properties: {
+    from: string
+    message:
+      | {
+          type: "help.request"
+          /**
+           * Unique request ID
+           */
+          id: string
+          from: string
+          /**
+           * Task description
+           */
+          task: string
+          /**
+           * Additional context
+           */
+          context?: string
+          /**
+           * Related files
+           */
+          files?: Array<{
+            path: string
+            content?: string
+          }>
+          timestamp: number
+        }
+      | {
+          type: "help.response"
+          /**
+           * Request ID being responded to
+           */
+          id: string
+          from: string
+          /**
+           * Result or response
+           */
+          result: string
+          success: boolean
+          error?: string
+          timestamp: number
+        }
+      | {
+          type: "context.share"
+          id: string
+          from: string
+          files: Array<{
+            path: string
+            content: string
+          }>
+          sessionId?: string
+          timestamp: number
+        }
+      | {
+          type: "session.sync"
+          id: string
+          from: string
+          sessionId: string
+          messages?: Array<unknown>
+          timestamp: number
+        }
+      | {
+          type: "collab.invite"
+          id: string
+          from: string
+          sessionId: string
+          projectPath: string
+          timestamp: number
+        }
+      | {
+          type: "collab.join"
+          id: string
+          from: string
+          sessionId: string
+          timestamp: number
+        }
+      | {
+          type: "collab.leave"
+          id: string
+          from: string
+          sessionId: string
+          timestamp: number
+        }
+      | {
+          type: "collab.edit"
+          id: string
+          from: string
+          sessionId: string
+          file: string
+          changes: Array<{
+            startLine: number
+            endLine: number
+            newText: string
+          }>
+          timestamp: number
+        }
+      | {
+          type: "ping"
+          id: string
+          from: string
+          timestamp: number
+        }
+      | {
+          type: "pong"
+          id: string
+          from: string
+          timestamp: number
+        }
+  }
+}
+
+export type EventP2pConnectionState = {
+  type: "p2p.connection.state"
+  properties: {
+    peerId: string
+    state: "disconnected" | "connecting" | "connected" | "error"
   }
 }
 
@@ -704,55 +921,117 @@ export type PermissionRule = {
 
 export type PermissionRuleset = Array<PermissionRule>
 
-export type Session = {
-  id: string
-  projectID: string
-  directory: string
-  parentID?: string
-  summary?: {
-    additions: number
-    deletions: number
-    files: number
-    diffs?: Array<FileDiff>
-  }
-  share?: {
-    url: string
-  }
-  title: string
-  version: string
-  time: {
-    created: number
-    updated: number
-    compacting?: number
-    archived?: number
-  }
-  permission?: PermissionRuleset
-  revert?: {
-    messageID: string
-    partID?: string
-    snapshot?: string
-    diff?: string
-  }
-}
-
 export type EventSessionCreated = {
   type: "session.created"
   properties: {
-    info: Session
+    info: {
+      id: string
+      projectID: string
+      directory: string
+      parentID?: string
+      resumeFrom?: string
+      summary?: {
+        additions: number
+        deletions: number
+        files: number
+        diffs?: Array<FileDiff>
+      }
+      share?: {
+        url: string
+      }
+      title: string
+      version: string
+      time: {
+        created: number
+        updated: number
+        compacting?: number
+        archived?: number
+      }
+      permission?: PermissionRuleset
+      revert?: {
+        messageID: string
+        partID?: string
+        snapshot?: string
+        diff?: string
+      }
+      status?: "todo" | "in_progress" | "done"
+    }
   }
 }
 
 export type EventSessionUpdated = {
   type: "session.updated"
   properties: {
-    info: Session
+    info: {
+      id: string
+      projectID: string
+      directory: string
+      parentID?: string
+      resumeFrom?: string
+      summary?: {
+        additions: number
+        deletions: number
+        files: number
+        diffs?: Array<FileDiff>
+      }
+      share?: {
+        url: string
+      }
+      title: string
+      version: string
+      time: {
+        created: number
+        updated: number
+        compacting?: number
+        archived?: number
+      }
+      permission?: PermissionRuleset
+      revert?: {
+        messageID: string
+        partID?: string
+        snapshot?: string
+        diff?: string
+      }
+      status?: "todo" | "in_progress" | "done"
+    }
   }
 }
 
 export type EventSessionDeleted = {
   type: "session.deleted"
   properties: {
-    info: Session
+    info: {
+      id: string
+      projectID: string
+      directory: string
+      parentID?: string
+      resumeFrom?: string
+      summary?: {
+        additions: number
+        deletions: number
+        files: number
+        diffs?: Array<FileDiff>
+      }
+      share?: {
+        url: string
+      }
+      title: string
+      version: string
+      time: {
+        created: number
+        updated: number
+        compacting?: number
+        archived?: number
+      }
+      permission?: PermissionRuleset
+      revert?: {
+        messageID: string
+        partID?: string
+        snapshot?: string
+        diff?: string
+      }
+      status?: "todo" | "in_progress" | "done"
+    }
   }
 }
 
@@ -768,7 +1047,14 @@ export type EventSessionError = {
   type: "session.error"
   properties: {
     sessionID?: string
-    error?: ProviderAuthError | UnknownError | MessageOutputLengthError | MessageAbortedError | ApiError
+    error?:
+      | ProviderAuthError
+      | UnknownError
+      | MessageOutputLengthError
+      | MessageAbortedError
+      | BudgetExceededError
+      | MaxTurnsExceededError
+      | ApiError
   }
 }
 
@@ -841,9 +1127,9 @@ export type EventGlobalDisposed = {
 }
 
 export type Event =
+  | EventProjectUpdated
   | EventInstallationUpdated
   | EventInstallationUpdateAvailable
-  | EventProjectUpdated
   | EventServerInstanceDisposed
   | EventLspClientDiagnostics
   | EventLspUpdated
@@ -859,8 +1145,13 @@ export type Event =
   | EventQuestionReplied
   | EventQuestionRejected
   | EventSessionCompacted
+  | EventPermissionUpdated
   | EventFileEdited
   | EventTodoUpdated
+  | EventP2pPeerJoined
+  | EventP2pPeerLeft
+  | EventP2pMessageReceived
+  | EventP2pConnectionState
   | EventTuiPromptAppend
   | EventTuiCommandExecute
   | EventTuiToastShow
@@ -1069,6 +1360,14 @@ export type KeybindsConfig = {
    * Previous agent
    */
   agent_cycle_reverse?: string
+  /**
+   * List modes
+   */
+  mode_list?: string
+  /**
+   * Next mode
+   */
+  mode_cycle?: string
   /**
    * Cycle model variants
    */
@@ -1282,178 +1581,64 @@ export type ServerConfig = {
   cors?: Array<string>
 }
 
-export type PermissionActionConfig = "ask" | "allow" | "deny"
-
-export type PermissionObjectConfig = {
-  [key: string]: PermissionActionConfig
-}
-
-export type PermissionRuleConfig = PermissionActionConfig | PermissionObjectConfig
-
-export type PermissionConfig =
-  | {
-      __originalKeys?: Array<string>
-      read?: PermissionRuleConfig
-      edit?: PermissionRuleConfig
-      glob?: PermissionRuleConfig
-      grep?: PermissionRuleConfig
-      list?: PermissionRuleConfig
-      bash?: PermissionRuleConfig
-      task?: PermissionRuleConfig
-      external_directory?: PermissionRuleConfig
-      todowrite?: PermissionActionConfig
-      todoread?: PermissionActionConfig
-      question?: PermissionActionConfig
-      webfetch?: PermissionActionConfig
-      websearch?: PermissionActionConfig
-      codesearch?: PermissionActionConfig
-      lsp?: PermissionRuleConfig
-      doom_loop?: PermissionActionConfig
-      [key: string]: PermissionRuleConfig | Array<string> | PermissionActionConfig | undefined
-    }
-  | PermissionActionConfig
-
-export type AgentConfig = {
-  model?: string
-  temperature?: number
-  top_p?: number
-  prompt?: string
+/**
+ * P2P terminal-to-terminal communication settings
+ */
+export type P2pConfig = {
   /**
-   * @deprecated Use 'permission' field instead
+   * Enable P2P terminal-to-terminal communication
    */
-  tools?: {
-    [key: string]: boolean
-  }
-  disable?: boolean
+  enabled?: boolean
   /**
-   * Description of when to use the agent
+   * Peer discovery settings
    */
-  description?: string
-  mode?: "subagent" | "primary" | "all"
-  /**
-   * Hide this subagent from the @ autocomplete menu (default: false, only applies to mode: subagent)
-   */
-  hidden?: boolean
-  options?: {
-    [key: string]: unknown
+  discovery?: {
+    /**
+     * Enable mDNS peer discovery
+     */
+    mdns?: boolean
+    /**
+     * Discovery refresh interval in milliseconds
+     */
+    interval?: number
   }
   /**
-   * Hex color code for the agent (e.g., #FF5733)
+   * P2P security settings
    */
-  color?: string
-  /**
-   * Maximum number of agentic iterations before forcing text-only response
-   */
-  steps?: number
-  /**
-   * @deprecated Use 'steps' field instead.
-   */
-  maxSteps?: number
-  permission?: PermissionConfig
-  [key: string]:
-    | unknown
-    | string
-    | number
-    | {
-        [key: string]: boolean
-      }
-    | boolean
-    | "subagent"
-    | "primary"
-    | "all"
-    | {
-        [key: string]: unknown
-      }
-    | string
-    | number
-    | PermissionConfig
-    | undefined
-}
-
-export type ProviderConfig = {
-  api?: string
-  name?: string
-  env?: Array<string>
-  id?: string
-  npm?: string
-  models?: {
-    [key: string]: {
-      id?: string
-      name?: string
-      family?: string
-      release_date?: string
-      attachment?: boolean
-      reasoning?: boolean
-      temperature?: boolean
-      tool_call?: boolean
-      interleaved?:
-        | true
-        | {
-            field: "reasoning_content" | "reasoning_details"
-          }
-      cost?: {
-        input: number
-        output: number
-        cache_read?: number
-        cache_write?: number
-        context_over_200k?: {
-          input: number
-          output: number
-          cache_read?: number
-          cache_write?: number
-        }
-      }
-      limit?: {
-        context: number
-        output: number
-      }
-      modalities?: {
-        input: Array<"text" | "audio" | "image" | "video" | "pdf">
-        output: Array<"text" | "audio" | "image" | "video" | "pdf">
-      }
-      experimental?: boolean
-      status?: "alpha" | "beta" | "deprecated"
-      options?: {
-        [key: string]: unknown
-      }
-      headers?: {
-        [key: string]: string
-      }
-      provider?: {
-        npm: string
-      }
-      /**
-       * Variant-specific configuration
-       */
-      variants?: {
-        [key: string]: {
-          /**
-           * Disable this variant for the model
-           */
-          disabled?: boolean
-          [key: string]: unknown | boolean | undefined
-        }
-      }
-    }
+  security?: {
+    /**
+     * Require authentication for P2P connections
+     */
+    requireAuth?: boolean
+    /**
+     * Whitelist of peer IDs allowed to connect
+     */
+    allowedPeers?: Array<string>
+    /**
+     * Blacklist of peer IDs blocked from connecting
+     */
+    blockedPeers?: Array<string>
+    /**
+     * Shared secret for peer authentication
+     */
+    secret?: string
   }
-  whitelist?: Array<string>
-  blacklist?: Array<string>
-  options?: {
-    apiKey?: string
-    baseURL?: string
+  /**
+   * P2P capabilities this instance offers
+   */
+  capabilities?: {
     /**
-     * GitHub Enterprise URL for copilot authentication
+     * Accept task delegation from other peers
      */
-    enterpriseUrl?: string
+    acceptTasks?: boolean
     /**
-     * Enable promptCacheKey for this provider (default false)
+     * Allow file sharing with peers
      */
-    setCacheKey?: boolean
+    shareFiles?: boolean
     /**
-     * Timeout in milliseconds for requests to this provider. Default is 300000 (5 minutes). Set to false to disable timeout.
+     * Enable collaborative sessions
      */
-    timeout?: number | false
-    [key: string]: unknown | string | boolean | number | false | undefined
+    collaborate?: boolean
   }
 }
 
@@ -1526,6 +1711,189 @@ export type McpRemoteConfig = {
   timeout?: number
 }
 
+export type PermissionActionConfig = "ask" | "allow" | "deny"
+
+export type PermissionObjectConfig = {
+  [key: string]: PermissionActionConfig
+}
+
+export type PermissionRuleConfig = PermissionActionConfig | PermissionObjectConfig
+
+export type PermissionConfig =
+  | {
+      __originalKeys?: Array<string>
+      read?: PermissionRuleConfig
+      edit?: PermissionRuleConfig
+      glob?: PermissionRuleConfig
+      grep?: PermissionRuleConfig
+      list?: PermissionRuleConfig
+      bash?: PermissionRuleConfig
+      task?: PermissionRuleConfig
+      external_directory?: PermissionRuleConfig
+      todowrite?: PermissionActionConfig
+      todoread?: PermissionActionConfig
+      question?: PermissionActionConfig
+      webfetch?: PermissionActionConfig
+      websearch?: PermissionActionConfig
+      codesearch?: PermissionActionConfig
+      lsp?: PermissionRuleConfig
+      doom_loop?: PermissionActionConfig
+      [key: string]: PermissionRuleConfig | Array<string> | PermissionActionConfig | undefined
+    }
+  | PermissionActionConfig
+
+export type AgentConfig = {
+  model?: string
+  temperature?: number
+  top_p?: number
+  prompt?: string
+  /**
+   * @deprecated Use 'permission' field instead
+   */
+  tools?: {
+    [key: string]: boolean
+  }
+  disable?: boolean
+  /**
+   * Description of when to use the agent
+   */
+  description?: string
+  mode?: "subagent" | "primary" | "all" | "parallel"
+  /**
+   * Hide this subagent from the @ autocomplete menu (default: false, only applies to mode: subagent)
+   */
+  hidden?: boolean
+  options?: {
+    [key: string]: unknown
+  }
+  /**
+   * Hex color code for the agent (e.g., #FF5733)
+   */
+  color?: string
+  /**
+   * Maximum number of agentic iterations before forcing text-only response
+   */
+  steps?: number
+  /**
+   * @deprecated Use 'steps' field instead.
+   */
+  maxSteps?: number
+  permission?: PermissionConfig
+  mcp?: {
+    [key: string]: McpLocalConfig | McpRemoteConfig
+  }
+  [key: string]:
+    | unknown
+    | string
+    | number
+    | {
+        [key: string]: boolean
+      }
+    | boolean
+    | "subagent"
+    | "primary"
+    | "all"
+    | "parallel"
+    | {
+        [key: string]: unknown
+      }
+    | string
+    | number
+    | PermissionConfig
+    | {
+        [key: string]: McpLocalConfig | McpRemoteConfig
+      }
+    | undefined
+}
+
+export type ProviderConfig = {
+  api?: string
+  name?: string
+  env?: Array<string>
+  id?: string
+  npm?: string
+  models?: {
+    [key: string]: {
+      id?: string
+      name?: string
+      family?: string
+      release_date?: string
+      attachment?: boolean
+      reasoning?: boolean
+      temperature?: boolean
+      tool_call?: boolean
+      interleaved?:
+        | true
+        | {
+            field: "reasoning_content" | "reasoning_details"
+          }
+      cost?: {
+        input: number
+        output: number
+        cache_read?: number
+        cache_write?: number
+        context_over_200k?: {
+          input: number
+          output: number
+          cache_read?: number
+          cache_write?: number
+        }
+      }
+      limit?: {
+        context: number
+        output: number
+      }
+      modalities?: {
+        input: Array<"text" | "audio" | "image" | "video" | "pdf">
+        output: Array<"text" | "audio" | "image" | "video" | "pdf">
+      }
+      experimental?: boolean
+      status?: "alpha" | "beta" | "deprecated"
+      options?: {
+        [key: string]: unknown
+      }
+      headers?: {
+        [key: string]: string
+      }
+      provider?: {
+        npm: string
+      }
+      isFree?: boolean
+      /**
+       * Variant-specific configuration
+       */
+      variants?: {
+        [key: string]: {
+          /**
+           * Disable this variant for the model
+           */
+          disabled?: boolean
+          [key: string]: unknown | boolean | undefined
+        }
+      }
+    }
+  }
+  whitelist?: Array<string>
+  blacklist?: Array<string>
+  options?: {
+    apiKey?: string
+    baseURL?: string
+    /**
+     * GitHub Enterprise URL for copilot authentication
+     */
+    enterpriseUrl?: string
+    /**
+     * Enable promptCacheKey for this provider (default false)
+     */
+    setCacheKey?: boolean
+    /**
+     * Timeout in milliseconds for requests to this provider. Default is 300000 (5 minutes). Set to false to disable timeout.
+     */
+    timeout?: number | false
+    [key: string]: unknown | string | boolean | number | false | undefined
+  }
+}
+
 /**
  * @deprecated Always uses stretch layout.
  */
@@ -1565,6 +1933,7 @@ export type Config = {
     diff_style?: "auto" | "stacked"
   }
   server?: ServerConfig
+  p2p?: P2pConfig
   /**
    * Command configuration, see https://navi.ai/docs/commands
    */
@@ -1575,6 +1944,9 @@ export type Config = {
       agent?: string
       model?: string
       subtask?: boolean
+      mcp?: {
+        [key: string]: McpLocalConfig | McpRemoteConfig
+      }
     }
   }
   watcher?: {
@@ -1646,6 +2018,28 @@ export type Config = {
     [key: string]: ProviderConfig
   }
   /**
+   * Agent categories for task delegation
+   */
+  categories?: {
+    [key: string]: {
+      model: string
+      variant?: string
+      temperature?: number
+      top_p?: number
+      maxTokens?: number
+      thinking?: {
+        type: "enabled" | "disabled"
+        budgetTokens?: number
+      }
+      reasoningEffort?: "low" | "medium" | "high"
+      textVerbosity?: "low" | "medium" | "high"
+      tools?: {
+        [key: string]: boolean
+      }
+      prompt_append?: string
+    }
+  }
+  /**
    * MCP (Model Context Protocol) server configurations
    */
   mcp?: {
@@ -1695,6 +2089,12 @@ export type Config = {
   permission?: PermissionConfig
   tools?: {
     [key: string]: boolean
+  }
+  sandbox?: {
+    /**
+     * List of trusted directories that bypass external directory checks
+     */
+    trusted?: Array<string>
   }
   enterprise?: {
     /**
@@ -1754,6 +2154,12 @@ export type Config = {
      * Timeout in milliseconds for model context protocol (MCP) requests
      */
     mcp_timeout?: number
+    dynamic_context_pruning?: {
+      enabled?: boolean
+      notification?: "off" | "minimal" | "detailed"
+    }
+    aggressive_truncation?: boolean
+    auto_resume?: boolean
   }
 }
 
@@ -1908,6 +2314,7 @@ export type Model = {
     [key: string]: string
   }
   release_date: string
+  isFree?: boolean
   variants?: {
     [key: string]: {
       [key: string]: unknown
@@ -1918,7 +2325,7 @@ export type Model = {
 export type Provider = {
   id: string
   name: string
-  source: "env" | "config" | "custom" | "api"
+  source: "env" | "config" | "custom" | "api" | "free"
   env: Array<string>
   key?: string
   options: {
@@ -1962,8 +2369,8 @@ export type FileContent = {
   content: string
   diff?: string
   patch?: {
-    oldFileName: string
-    newFileName: string
+    oldFileName?: string
+    newFileName?: string
     oldHeader?: string
     newHeader?: string
     hunks: Array<{
@@ -1987,9 +2394,12 @@ export type File = {
 }
 
 export type Agent = {
+  id?: string
   name: string
+  displayName?: string
   description?: string
-  mode: "subagent" | "primary" | "all"
+  version?: string
+  mode: "subagent" | "primary" | "all" | "parallel"
   native?: boolean
   hidden?: boolean
   topP?: number
@@ -2005,6 +2415,27 @@ export type Agent = {
     [key: string]: unknown
   }
   steps?: number
+  categories?: Array<string>
+  capabilities?: Array<string>
+  spawnableAgents?: Array<string>
+  toolNames?: Array<string>
+  inputSchema?: unknown
+  outputSchema?: unknown
+  modes?: {
+    [key: string]: {
+      model: {
+        modelID: string
+        providerID: string
+      }
+      tokens?: number
+      temperature?: number
+    }
+  }
+  author?: string
+  license?: string
+  tags?: Array<string>
+  examples?: Array<unknown>
+  handleSteps?: unknown
 }
 
 export type McpStatusConnected = {
@@ -2063,6 +2494,7 @@ export type OAuth = {
   access: string
   expires: number
   accountId?: string
+  resourceUrl?: string
   enterpriseUrl?: string
 }
 
@@ -2097,6 +2529,20 @@ export type GlobalHealthResponses = {
 }
 
 export type GlobalHealthResponse = GlobalHealthResponses[keyof GlobalHealthResponses]
+
+export type GlobalPeersData = {
+  body?: never
+  path?: never
+  query?: never
+  url: "/global/peers"
+}
+
+export type GlobalPeersResponses = {
+  /**
+   * Swarm nodes
+   */
+  200: unknown
+}
 
 export type GlobalEventData = {
   body?: never
@@ -2350,6 +2796,61 @@ export type PtyUpdateResponses = {
 }
 
 export type PtyUpdateResponse = PtyUpdateResponses[keyof PtyUpdateResponses]
+
+export type SkillListData = {
+  body?: never
+  path?: never
+  query?: {
+    directory?: string
+  }
+  url: "/skill"
+}
+
+export type SkillListResponses = {
+  /**
+   * List of skills
+   */
+  200: Array<{
+    name: string
+    description: string
+    location: string
+  }>
+}
+
+export type SkillListResponse = SkillListResponses[keyof SkillListResponses]
+
+export type SkillGetData = {
+  body?: never
+  path: {
+    skillName: string
+  }
+  query?: {
+    directory?: string
+  }
+  url: "/skill/{skillName}"
+}
+
+export type SkillGetErrors = {
+  /**
+   * Not found
+   */
+  404: NotFoundError
+}
+
+export type SkillGetError = SkillGetErrors[keyof SkillGetErrors]
+
+export type SkillGetResponses = {
+  /**
+   * Skill details
+   */
+  200: {
+    name: string
+    description: string
+    location: string
+  }
+}
+
+export type SkillGetResponse = SkillGetResponses[keyof SkillGetResponses]
 
 export type PtyConnectData = {
   body?: never
@@ -2605,7 +3106,38 @@ export type SessionListResponses = {
   /**
    * List of sessions
    */
-  200: Array<Session>
+  200: Array<{
+    id: string
+    projectID: string
+    directory: string
+    parentID?: string
+    resumeFrom?: string
+    summary?: {
+      additions: number
+      deletions: number
+      files: number
+      diffs?: Array<FileDiff>
+    }
+    share?: {
+      url: string
+    }
+    title: string
+    version: string
+    time: {
+      created: number
+      updated: number
+      compacting?: number
+      archived?: number
+    }
+    permission?: PermissionRuleset
+    revert?: {
+      messageID: string
+      partID?: string
+      snapshot?: string
+      diff?: string
+    }
+    status?: "todo" | "in_progress" | "done"
+  }>
 }
 
 export type SessionListResponse = SessionListResponses[keyof SessionListResponses]
@@ -2613,6 +3145,7 @@ export type SessionListResponse = SessionListResponses[keyof SessionListResponse
 export type SessionCreateData = {
   body?: {
     parentID?: string
+    resumeFrom?: string
     title?: string
     permission?: PermissionRuleset
   }
@@ -2636,7 +3169,38 @@ export type SessionCreateResponses = {
   /**
    * Successfully created session
    */
-  200: Session
+  200: {
+    id: string
+    projectID: string
+    directory: string
+    parentID?: string
+    resumeFrom?: string
+    summary?: {
+      additions: number
+      deletions: number
+      files: number
+      diffs?: Array<FileDiff>
+    }
+    share?: {
+      url: string
+    }
+    title: string
+    version: string
+    time: {
+      created: number
+      updated: number
+      compacting?: number
+      archived?: number
+    }
+    permission?: PermissionRuleset
+    revert?: {
+      messageID: string
+      partID?: string
+      snapshot?: string
+      diff?: string
+    }
+    status?: "todo" | "in_progress" | "done"
+  }
 }
 
 export type SessionCreateResponse = SessionCreateResponses[keyof SessionCreateResponses]
@@ -2731,7 +3295,38 @@ export type SessionGetResponses = {
   /**
    * Get session
    */
-  200: Session
+  200: {
+    id: string
+    projectID: string
+    directory: string
+    parentID?: string
+    resumeFrom?: string
+    summary?: {
+      additions: number
+      deletions: number
+      files: number
+      diffs?: Array<FileDiff>
+    }
+    share?: {
+      url: string
+    }
+    title: string
+    version: string
+    time: {
+      created: number
+      updated: number
+      compacting?: number
+      archived?: number
+    }
+    permission?: PermissionRuleset
+    revert?: {
+      messageID: string
+      partID?: string
+      snapshot?: string
+      diff?: string
+    }
+    status?: "todo" | "in_progress" | "done"
+  }
 }
 
 export type SessionGetResponse = SessionGetResponses[keyof SessionGetResponses]
@@ -2769,7 +3364,38 @@ export type SessionUpdateResponses = {
   /**
    * Successfully updated session
    */
-  200: Session
+  200: {
+    id: string
+    projectID: string
+    directory: string
+    parentID?: string
+    resumeFrom?: string
+    summary?: {
+      additions: number
+      deletions: number
+      files: number
+      diffs?: Array<FileDiff>
+    }
+    share?: {
+      url: string
+    }
+    title: string
+    version: string
+    time: {
+      created: number
+      updated: number
+      compacting?: number
+      archived?: number
+    }
+    permission?: PermissionRuleset
+    revert?: {
+      messageID: string
+      partID?: string
+      snapshot?: string
+      diff?: string
+    }
+    status?: "todo" | "in_progress" | "done"
+  }
 }
 
 export type SessionUpdateResponse = SessionUpdateResponses[keyof SessionUpdateResponses]
@@ -2802,7 +3428,38 @@ export type SessionChildrenResponses = {
   /**
    * List of children
    */
-  200: Array<Session>
+  200: Array<{
+    id: string
+    projectID: string
+    directory: string
+    parentID?: string
+    resumeFrom?: string
+    summary?: {
+      additions: number
+      deletions: number
+      files: number
+      diffs?: Array<FileDiff>
+    }
+    share?: {
+      url: string
+    }
+    title: string
+    version: string
+    time: {
+      created: number
+      updated: number
+      compacting?: number
+      archived?: number
+    }
+    permission?: PermissionRuleset
+    revert?: {
+      messageID: string
+      partID?: string
+      snapshot?: string
+      diff?: string
+    }
+    status?: "todo" | "in_progress" | "done"
+  }>
 }
 
 export type SessionChildrenResponse = SessionChildrenResponses[keyof SessionChildrenResponses]
@@ -2900,7 +3557,38 @@ export type SessionForkResponses = {
   /**
    * 200
    */
-  200: Session
+  200: {
+    id: string
+    projectID: string
+    directory: string
+    parentID?: string
+    resumeFrom?: string
+    summary?: {
+      additions: number
+      deletions: number
+      files: number
+      diffs?: Array<FileDiff>
+    }
+    share?: {
+      url: string
+    }
+    title: string
+    version: string
+    time: {
+      created: number
+      updated: number
+      compacting?: number
+      archived?: number
+    }
+    permission?: PermissionRuleset
+    revert?: {
+      messageID: string
+      partID?: string
+      snapshot?: string
+      diff?: string
+    }
+    status?: "todo" | "in_progress" | "done"
+  }
 }
 
 export type SessionForkResponse = SessionForkResponses[keyof SessionForkResponses]
@@ -2966,7 +3654,38 @@ export type SessionUnshareResponses = {
   /**
    * Successfully unshared session
    */
-  200: Session
+  200: {
+    id: string
+    projectID: string
+    directory: string
+    parentID?: string
+    resumeFrom?: string
+    summary?: {
+      additions: number
+      deletions: number
+      files: number
+      diffs?: Array<FileDiff>
+    }
+    share?: {
+      url: string
+    }
+    title: string
+    version: string
+    time: {
+      created: number
+      updated: number
+      compacting?: number
+      archived?: number
+    }
+    permission?: PermissionRuleset
+    revert?: {
+      messageID: string
+      partID?: string
+      snapshot?: string
+      diff?: string
+    }
+    status?: "todo" | "in_progress" | "done"
+  }
 }
 
 export type SessionUnshareResponse = SessionUnshareResponses[keyof SessionUnshareResponses]
@@ -2999,7 +3718,38 @@ export type SessionShareResponses = {
   /**
    * Successfully shared session
    */
-  200: Session
+  200: {
+    id: string
+    projectID: string
+    directory: string
+    parentID?: string
+    resumeFrom?: string
+    summary?: {
+      additions: number
+      deletions: number
+      files: number
+      diffs?: Array<FileDiff>
+    }
+    share?: {
+      url: string
+    }
+    title: string
+    version: string
+    time: {
+      created: number
+      updated: number
+      compacting?: number
+      archived?: number
+    }
+    permission?: PermissionRuleset
+    revert?: {
+      messageID: string
+      partID?: string
+      snapshot?: string
+      diff?: string
+    }
+    status?: "todo" | "in_progress" | "done"
+  }
 }
 
 export type SessionShareResponse = SessionShareResponses[keyof SessionShareResponses]
@@ -3308,6 +4058,45 @@ export type PartUpdateResponses = {
 
 export type PartUpdateResponse = PartUpdateResponses[keyof PartUpdateResponses]
 
+export type SessionResumeData = {
+  body?: never
+  path: {
+    /**
+     * Session ID
+     */
+    sessionID: string
+  }
+  query?: {
+    directory?: string
+  }
+  url: "/session/{sessionID}/resume"
+}
+
+export type SessionResumeErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+  /**
+   * Not found
+   */
+  404: NotFoundError
+}
+
+export type SessionResumeError = SessionResumeErrors[keyof SessionResumeErrors]
+
+export type SessionResumeResponses = {
+  /**
+   * Resumed message
+   */
+  200: {
+    info: AssistantMessage
+    parts: Array<Part>
+  }
+}
+
+export type SessionResumeResponse = SessionResumeResponses[keyof SessionResumeResponses]
+
 export type SessionPromptAsyncData = {
   body?: {
     messageID?: string
@@ -3489,7 +4278,38 @@ export type SessionRevertResponses = {
   /**
    * Updated session
    */
-  200: Session
+  200: {
+    id: string
+    projectID: string
+    directory: string
+    parentID?: string
+    resumeFrom?: string
+    summary?: {
+      additions: number
+      deletions: number
+      files: number
+      diffs?: Array<FileDiff>
+    }
+    share?: {
+      url: string
+    }
+    title: string
+    version: string
+    time: {
+      created: number
+      updated: number
+      compacting?: number
+      archived?: number
+    }
+    permission?: PermissionRuleset
+    revert?: {
+      messageID: string
+      partID?: string
+      snapshot?: string
+      diff?: string
+    }
+    status?: "todo" | "in_progress" | "done"
+  }
 }
 
 export type SessionRevertResponse = SessionRevertResponses[keyof SessionRevertResponses]
@@ -3522,7 +4342,38 @@ export type SessionUnrevertResponses = {
   /**
    * Updated session
    */
-  200: Session
+  200: {
+    id: string
+    projectID: string
+    directory: string
+    parentID?: string
+    resumeFrom?: string
+    summary?: {
+      additions: number
+      deletions: number
+      files: number
+      diffs?: Array<FileDiff>
+    }
+    share?: {
+      url: string
+    }
+    title: string
+    version: string
+    time: {
+      created: number
+      updated: number
+      compacting?: number
+      archived?: number
+    }
+    permission?: PermissionRuleset
+    revert?: {
+      messageID: string
+      partID?: string
+      snapshot?: string
+      diff?: string
+    }
+    status?: "todo" | "in_progress" | "done"
+  }
 }
 
 export type SessionUnrevertResponse = SessionUnrevertResponses[keyof SessionUnrevertResponses]
@@ -3813,6 +4664,7 @@ export type ProviderListResponses = {
           provider?: {
             npm: string
           }
+          isFree?: boolean
           variants?: {
             [key: string]: {
               [key: string]: unknown

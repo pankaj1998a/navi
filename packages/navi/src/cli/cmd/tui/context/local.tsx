@@ -12,6 +12,7 @@ import { Provider } from "@/provider/provider"
 import { useArgs } from "./args"
 import { useSDK } from "./sdk"
 import { RGBA } from "@opentui/core"
+import { Awareness } from "@/agent/awareness"
 
 export const { use: useLocal, provider: LocalProvider } = createSimpleContext({
   name: "Local",
@@ -30,6 +31,16 @@ export const { use: useLocal, provider: LocalProvider } = createSimpleContext({
         const model = modelFn()
         if (!model) continue
         if (isModelValid(model)) return model
+      }
+    }
+
+    function getRecommendedModel(agentName: string) {
+      const recommendations = Awareness.recommendModelsFromProviders(sync.data.provider, Awareness.profileForAgent(agentName), 1)
+      const recommendation = recommendations[0]?.model
+      if (!recommendation) return undefined
+      return {
+        providerID: recommendation.providerID,
+        modelID: recommendation.id,
       }
     }
 
@@ -77,6 +88,30 @@ export const { use: useLocal, provider: LocalProvider } = createSimpleContext({
           batch(() => {
             const list = all().filter((x) => !x.hidden)
             let next = list.findIndex((x) => x.name === agentStore.current) + direction
+            if (next < 0) next = list.length - 1
+            if (next >= list.length) next = 0
+            const value = list[next]
+            if (value) setAgentStore("current", value.name)
+          })
+        },
+        movePrimary(direction: 1 | -1) {
+          batch(() => {
+            const list = primary()
+            let next = list.findIndex((x) => x.name === agentStore.current)
+            if (next === -1) next = direction === 1 ? -1 : list.length
+            next += direction
+            if (next < 0) next = list.length - 1
+            if (next >= list.length) next = 0
+            const value = list[next]
+            if (value) setAgentStore("current", value.name)
+          })
+        },
+        moveSubagent(direction: 1 | -1) {
+          batch(() => {
+            const list = subagents()
+            let next = list.findIndex((x) => x.name === agentStore.current)
+            if (next === -1) next = direction === 1 ? -1 : list.length
+            next += direction
             if (next < 0) next = list.length - 1
             if (next >= list.length) next = 0
             const value = list[next]
@@ -192,6 +227,7 @@ export const { use: useLocal, provider: LocalProvider } = createSimpleContext({
           getFirstValidModel(
             () => modelStore.model[a.name],
             () => a.model,
+            () => getRecommendedModel(a.name),
             fallbackModel,
           ) ?? undefined
         )
@@ -206,6 +242,7 @@ export const { use: useLocal, provider: LocalProvider } = createSimpleContext({
             getFirstValidModel(
               () => modelStore.model[a.name],
               () => a.model,
+              () => getRecommendedModel(a.name),
               fallbackModel,
             ) ?? undefined
           )

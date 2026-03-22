@@ -12,7 +12,7 @@ import { Session } from "../session"
 import z from "zod"
 import { Provider } from "../provider/provider"
 import { filter, mapValues, sortBy, pipe } from "remeda"
-import { NamedError } from "@navi-ai/util/error"
+import { NamedError } from "@navi-ai/sdk/util/error"
 import { ModelsDev } from "../provider/models"
 import { Ripgrep } from "../file/ripgrep"
 import { Config } from "../config/config"
@@ -55,12 +55,36 @@ import { QuestionRoute } from "./question"
 import { Installation } from "@/installation"
 import { MDNS } from "./mdns"
 import { Worktree } from "../worktree"
+import { SkillRoute } from "./skill"
+import { PtyRoute } from "./pty"
+import { P2P } from "@/p2p"
+import { P2PDiscovery } from "@/p2p/discovery"
+import { P2PServer } from "@/p2p/server"
 
 // @ts-ignore This global is needed to prevent ai-sdk from logging warnings to stdout https://github.com/vercel/ai/blob/2dc67e0ef538307f21368db32d5a12345d98831b/packages/ai/src/logger/log-warnings.ts#L85
 globalThis.AI_SDK_LOG_WARNINGS = false
 
 export namespace Server {
   const log = Log.create({ service: "server" })
+
+  const CONNECT_EXTRA_PROVIDERS: Array<{ id: string; name: string }> = [
+    { id: "google-antigravity", name: "Antigravity (Google OAuth)" },
+    { id: "gemini-cli", name: "Gemini CLI" },
+    { id: "claude-code", name: "Claude Code" },
+    { id: "qwen-code", name: "Qwen Code" },
+    { id: "kilocode", name: "Kilocode" },
+    { id: "cline", name: "Cline" },
+    { id: "roocode", name: "Roo Code" },
+  ]
+
+  const CONNECT_PROVIDER_ALIASES: Record<string, string> = {
+    "claude-code": "anthropic",
+    "qwen-code": "qwen-cli",
+  }
+
+  function resolveConnectProviderID(providerID: string): string {
+    return CONNECT_PROVIDER_ALIASES[providerID] ?? providerID
+  }
 
   let _url: URL | undefined
   let _corsWhitelist: string[] = []
@@ -161,6 +185,28 @@ export namespace Server {
           async (c) => {
             return c.json({ healthy: true, version: Installation.VERSION })
           },
+        )
+        .get(
+          "/global/peers",
+          describeRoute({
+            summary: "Get swarm peers",
+            description: "Get discovered Navi nodes on the local machine or network.",
+            operationId: "global.peers",
+            responses: {
+              200: {
+                description: "Swarm nodes",
+                content: {
+                  "application/json": {
+                    schema: resolver(z.any()), // Simplifying for raw forwarding
+                  },
+                },
+              },
+            },
+          }),
+          async (c) => {
+            const peers = P2PDiscovery.getPeers()
+            return c.json({ peers })
+          }
         )
         .get(
           "/global/event",
@@ -289,128 +335,9 @@ export namespace Server {
         .use(validator("query", z.object({ directory: z.string().optional() })))
 
         .route("/project", ProjectRoute)
-
-        .get(
-          "/pty",
-          describeRoute({
-            summary: "List PTY sessions",
-            description: "Get a list of all active pseudo-terminal (PTY) sessions managed by Navi.",
-            operationId: "pty.list",
-            responses: {
-              200: {
-                description: "List of sessions",
-                content: {
-                  "application/json": {
-                    schema: resolver(Pty.Info.array()),
-                  },
-                },
-              },
-            },
-          }),
-          async (c) => {
-            return c.json(Pty.list())
-          },
-        )
-        .post(
-          "/pty",
-          describeRoute({
-            summary: "Create PTY session",
-            description: "Create a new pseudo-terminal (PTY) session for running shell commands and processes.",
-            operationId: "pty.create",
-            responses: {
-              200: {
-                description: "Created session",
-                content: {
-                  "application/json": {
-                    schema: resolver(Pty.Info),
-                  },
-                },
-              },
-              ...errors(400),
-            },
-          }),
-          validator("json", Pty.CreateInput),
-          async (c) => {
-            const info = await Pty.create(c.req.valid("json"))
-            return c.json(info)
-          },
-        )
-        .get(
-          "/pty/:ptyID",
-          describeRoute({
-            summary: "Get PTY session",
-            description: "Retrieve detailed information about a specific pseudo-terminal (PTY) session.",
-            operationId: "pty.get",
-            responses: {
-              200: {
-                description: "Session info",
-                content: {
-                  "application/json": {
-                    schema: resolver(Pty.Info),
-                  },
-                },
-              },
-              ...errors(404),
-            },
-          }),
-          validator("param", z.object({ ptyID: z.string() })),
-          async (c) => {
-            const info = Pty.get(c.req.valid("param").ptyID)
-            if (!info) {
-              throw new Storage.NotFoundError({ message: "Session not found" })
-            }
-            return c.json(info)
-          },
-        )
-        .put(
-          "/pty/:ptyID",
-          describeRoute({
-            summary: "Update PTY session",
-            description: "Update properties of an existing pseudo-terminal (PTY) session.",
-            operationId: "pty.update",
-            responses: {
-              200: {
-                description: "Updated session",
-                content: {
-                  "application/json": {
-                    schema: resolver(Pty.Info),
-                  },
-                },
-              },
-              ...errors(400),
-            },
-          }),
-          validator("param", z.object({ ptyID: z.string() })),
-          validator("json", Pty.UpdateInput),
-          async (c) => {
-            const info = await Pty.update(c.req.valid("param").ptyID, c.req.valid("json"))
-            return c.json(info)
-          },
-        )
-        .delete(
-          "/pty/:ptyID",
-          describeRoute({
-            summary: "Remove PTY session",
-            description: "Remove and terminate a specific pseudo-terminal (PTY) session.",
-            operationId: "pty.remove",
-            responses: {
-              200: {
-                description: "Session removed",
-                content: {
-                  "application/json": {
-                    schema: resolver(z.boolean()),
-                  },
-                },
-              },
-              ...errors(404),
-            },
-          }),
-          validator("param", z.object({ ptyID: z.string() })),
-          async (c) => {
-            await Pty.remove(c.req.valid("param").ptyID)
-            return c.json(true)
-          },
-        )
+        .route("/pty", PtyRoute)
+        .route("/skill", SkillRoute)
+        .route("/p2p", P2PServer.router)
         .get(
           "/pty/:ptyID/connect",
           describeRoute({
@@ -1404,6 +1331,45 @@ export namespace Server {
           },
         )
         .post(
+          "/session/:sessionID/resume",
+          describeRoute({
+            summary: "Resume session",
+            description: "Resume processing a session where it left off (e.g. if the backend encountered an issue).",
+            operationId: "session.resume",
+            responses: {
+              200: {
+                description: "Resumed message",
+                content: {
+                  "application/json": {
+                    schema: resolver(
+                      z.object({
+                        info: MessageV2.Assistant,
+                        parts: MessageV2.Part.array(),
+                      }),
+                    ),
+                  },
+                },
+              },
+              ...errors(400, 404),
+            },
+          }),
+          validator(
+            "param",
+            z.object({
+              sessionID: z.string().meta({ description: "Session ID" }),
+            }),
+          ),
+          async (c) => {
+            c.status(200)
+            c.header("Content-Type", "application/json")
+            return stream(c, async (stream) => {
+              const sessionID = c.req.valid("param").sessionID
+              const msg = await SessionPrompt.loop(sessionID)
+              stream.write(JSON.stringify(msg))
+            })
+          },
+        )
+        .post(
           "/session/:sessionID/message",
           describeRoute({
             summary: "Send message",
@@ -1752,9 +1718,38 @@ export namespace Server {
           async (c) => {
             using _ = log.time("providers")
             const providers = await Provider.list().then((x) => mapValues(x, (item) => item))
+
+            // Expose alias providers in config/providers as well so UIs that rely
+            // on this endpoint can populate model dropdowns after OAuth login.
+            // Must do this BEFORE deleting canonical IDs.
+            for (const [alias, canonical] of Object.entries(CONNECT_PROVIDER_ALIASES)) {
+              if (providers[alias] || !providers[canonical]) continue
+              providers[alias] = {
+                ...providers[canonical],
+                id: alias,
+                name: alias,
+                models: mapValues(providers[canonical].models ?? {}, (m) => ({
+                  ...m,
+                  providerID: alias,
+                })),
+              }
+            }
+
+            // Hide canonical IDs where we expose login aliases in the connect UI.
+            delete providers["qwen-cli"]
+
+            const defaults = Object.fromEntries(
+              Object.entries(providers)
+                .map(([providerID, item]) => {
+                  const first = Provider.sort(Object.values(item.models ?? {}))[0]
+                  return first ? ([providerID, first.id] as const) : undefined
+                })
+                .filter((entry): entry is readonly [string, string] => !!entry),
+            )
+
             return c.json({
               providers: Object.values(providers),
-              default: mapValues(providers, (item) => Provider.sort(Object.values(item.models))[0].id),
+              default: defaults,
             })
           },
         )
@@ -1785,12 +1780,23 @@ export namespace Server {
             const config = await Config.get()
             const disabled = new Set(config.disabled_providers ?? [])
             const enabled = config.enabled_providers ? new Set(config.enabled_providers) : undefined
+            const shouldInclude = (id: string) => (enabled ? enabled.has(id) : true) && !disabled.has(id)
 
             const allProviders = await ModelsDev.get()
             const filteredProviders: Record<string, (typeof allProviders)[string]> = {}
             for (const [key, value] of Object.entries(allProviders)) {
-              if ((enabled ? enabled.has(key) : true) && !disabled.has(key)) {
+              if (shouldInclude(key)) {
                 filteredProviders[key] = value
+              }
+            }
+
+            for (const extra of CONNECT_EXTRA_PROVIDERS) {
+              if (!shouldInclude(extra.id) || filteredProviders[extra.id]) continue
+              filteredProviders[extra.id] = {
+                id: extra.id,
+                name: extra.name,
+                env: [],
+                models: {},
               }
             }
 
@@ -1799,9 +1805,36 @@ export namespace Server {
               mapValues(filteredProviders, (x) => Provider.fromModelsDevProvider(x)),
               connected,
             )
+
+            // Mirror canonical provider models onto alias providers so UI model pickers
+            // for alias IDs (eg. qwen-code) are not empty after successful OAuth login.
+            // Must do this BEFORE deleting canonical IDs.
+            for (const [alias, canonical] of Object.entries(CONNECT_PROVIDER_ALIASES)) {
+              const aliasProvider = providers[alias]
+              const canonicalProvider = providers[canonical]
+              if (!aliasProvider || !canonicalProvider) continue
+
+              aliasProvider.models = mapValues(canonicalProvider.models ?? {}, (m) => ({
+                ...m,
+                providerID: alias,
+              }))
+            }
+
+            // Hide canonical IDs where we expose login aliases in the connect UI.
+            delete providers["qwen-cli"]
+
+            const defaults = Object.fromEntries(
+              Object.entries(providers)
+                .map(([providerID, item]) => {
+                  const first = Provider.sort(Object.values(item.models ?? {}))[0]
+                  return first ? ([providerID, first.id] as const) : undefined
+                })
+                .filter((entry): entry is readonly [string, string] => !!entry),
+            )
+
             return c.json({
               all: Object.values(providers),
-              default: mapValues(providers, (item) => Provider.sort(Object.values(item.models))[0].id),
+              default: defaults,
               connected: Object.keys(connected),
             })
           },
@@ -1824,7 +1857,15 @@ export namespace Server {
             },
           }),
           async (c) => {
-            return c.json(await ProviderAuth.methods())
+            const methods = await ProviderAuth.methods()
+
+            for (const [alias, canonical] of Object.entries(CONNECT_PROVIDER_ALIASES)) {
+              if (!methods[alias] && methods[canonical]) {
+                methods[alias] = methods[canonical]
+              }
+            }
+
+            return c.json(methods)
           },
         )
         .post(
@@ -1858,7 +1899,7 @@ export namespace Server {
             }),
           ),
           async (c) => {
-            const providerID = c.req.valid("param").providerID
+            const providerID = resolveConnectProviderID(c.req.valid("param").providerID)
             const { method } = c.req.valid("json")
             const result = await ProviderAuth.authorize({
               providerID,
@@ -1899,7 +1940,7 @@ export namespace Server {
             }),
           ),
           async (c) => {
-            const providerID = c.req.valid("param").providerID
+            const providerID = resolveConnectProviderID(c.req.valid("param").providerID)
             const { method, code } = c.req.valid("json")
             await ProviderAuth.callback({
               providerID,
@@ -2766,9 +2807,11 @@ export namespace Server {
           ),
           validator("json", Auth.Info),
           async (c) => {
-            const providerID = c.req.valid("param").providerID
+            const providerID = resolveConnectProviderID(c.req.valid("param").providerID)
             const info = c.req.valid("json")
             await Auth.set(providerID, info)
+            // Refresh provider state and fetch the latest models for this provider when enabled.
+            await Provider.refreshProviderOnConnect(providerID)
             return c.json(true)
           },
         )
@@ -2845,7 +2888,7 @@ export namespace Server {
         }) as unknown as Hono,
   )
 
-  export async function openapi() {
+  export async function openapi(): Promise<any> {
     // Cast to break excessive type recursion from long route chains
     const result = await generateSpecs(App() as Hono, {
       documentation: {
@@ -2893,12 +2936,17 @@ export namespace Server {
       log.warn("mDNS enabled but hostname is loopback; skipping mDNS publish")
     }
 
+    // Initialize P2P if enabled
+    P2P.init(server.port!)
+
     const originalStop = server.stop.bind(server)
     server.stop = async (closeActiveConnections?: boolean) => {
       if (shouldPublishMDNS) MDNS.unpublish()
+      P2P.stop()
       return originalStop(closeActiveConnections)
     }
 
     return server
   }
 }
+

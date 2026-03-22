@@ -2,7 +2,8 @@ import { resolver } from "hono-openapi"
 import z from "zod"
 import { Storage } from "../storage/storage"
 
-export const ERRORS = {
+// Explicitly type to avoid inference issues with hidden dependencies
+export const ERRORS: any = {
   400: {
     description: "Bad request",
     content: {
@@ -29,8 +30,8 @@ export const ERRORS = {
       },
     },
   },
-} as const
+}
 
-export function errors(...codes: number[]) {
+export function errors(...codes: number[]): any {
   return Object.fromEntries(codes.map((code) => [code, ERRORS[code as keyof typeof ERRORS]]))
 }

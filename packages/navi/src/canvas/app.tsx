@@ -1,29 +1,52 @@
 import { render, useTerminalDimensions } from "@opentui/solid"
-import { createSignal, onMount, Show, Switch, Match } from "solid-js"
-import { CanvasIPC, CanvasMessage } from "./ipc"
+import { createSignal, Switch, Match } from "solid-js"
+import { CanvasIPC } from "./ipc"
 import { Log } from "../util/log"
 import { TextAttributes } from "@opentui/core"
+import { Global } from "../global"
 
-function CanvasApp(props: { canvasId: string }) {
-    const dimensions = useTerminalDimensions()
-    const [content, setContent] = createSignal("")
-    const [type, setType] = createSignal<"markdown" | "code" | "dashboard">("markdown")
-    const log = Log.create({ service: `canvas-app-${props.canvasId}` })
+// Initialize signals globally so IPC can update them
+const [content, setContent] = createSignal("")
+const [type, setType] = createSignal<"markdown" | "code" | "dashboard">("markdown")
 
-    onMount(async () => {
+// Async initialization wrapper
+async function main() {
+    try {
+        await Global.init()
+        await Log.init({
+            dev: true,
+            print: false, // Don't print to stdout to avoid messing up TUI
+            level: "DEBUG"
+        })
+
+        const canvasId = process.argv[2] || "default"
+        const log = Log.create({ service: `canvas-app-${canvasId}` })
+
         try {
-            const socket = await CanvasIPC.connect(props.canvasId, (msg) => {
+            const ipc = new CanvasIPC(canvasId)
+            ipc.createServer((msg) => {
                 if (msg.type === "update") {
                     setContent(msg.content)
                     setType(msg.contentType)
                 }
             })
-
-            CanvasIPC.send(socket, { type: "ready" })
+            log.info("canvas ipc server started")
         } catch (e) {
-            log.error("failed to connect to ipc server", { error: String(e) })
+            log.error("failed to start ipc server", { error: String(e) })
         }
-    })
+
+        // Start Rendering
+        render(() => <CanvasApp canvasId={canvasId} />, {
+            targetFps: 60,
+        })
+
+    } catch (e) {
+        console.error(e)
+    }
+}
+
+function CanvasApp(props: { canvasId: string }) {
+    const dimensions = useTerminalDimensions()
 
     return (
         <box width={dimensions().width} height={dimensions().height} padding={1}>
@@ -62,7 +85,5 @@ function Document(props: { content: string, type: "markdown" | "code" }) {
     )
 }
 
-const canvasId = process.argv[2] || "default"
-render(() => <CanvasApp canvasId={canvasId} />, {
-    targetFps: 60,
-})
+// Run
+main()

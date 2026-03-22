@@ -5,6 +5,7 @@
  * - "ultrawork" / "ulw" - Activates maximum precision mode with all agents
  * - Search patterns - Activates parallel search mode
  * - Analyze patterns - Activates deep analysis mode
+ * - Workflow patterns - Injects task-specific guidance for install/test/lint/build/debug
  *
  * Ported from oh-my-navi-dev plugin
  */
@@ -21,7 +22,7 @@ const INLINE_CODE_PATTERN = /`[^`]+`/g
 /**
  * Keyword detector types
  */
-export type KeywordType = "ultrawork" | "search" | "analyze"
+export type KeywordType = "ultrawork" | "search" | "analyze" | "install" | "test" | "lint" | "build" | "debug"
 
 export interface DetectedKeyword {
     type: KeywordType
@@ -56,8 +57,8 @@ const ULTRAWORK_MESSAGE = `<ultrawork-mode>
 
 ## AGENT UTILIZATION PRINCIPLES
 - **Codebase Exploration**: Use explore agents for file patterns, project structure
-- **Documentation & References**: Use librarian agents for API references, external library docs
-- **High-IQ Reasoning**: Use oracle agent for architecture decisions, code review, strategic planning
+- **Documentation & References**: Use researcher agents for API references, external library docs
+- **High-IQ Reasoning**: Use architect agent for architecture decisions, code review, strategic planning
 - **Parallel Execution**: Fire independent agent calls simultaneously - NEVER wait sequentially
 
 ## EXECUTION RULES
@@ -88,7 +89,7 @@ const ULTRAWORK_MESSAGE = `<ultrawork-mode>
 const SEARCH_MESSAGE = `[search-mode]
 MAXIMIZE SEARCH EFFORT. Launch multiple agents IN PARALLEL:
 - explore agents (codebase patterns, file structures)
-- librarian agents (remote repos, official docs, GitHub examples)
+- researcher agents (remote repos, official docs, GitHub examples)
 Plus direct tools: grep, glob, code search
 NEVER stop at first result - be exhaustive.`
 
@@ -100,13 +101,48 @@ ANALYSIS MODE. Gather context before diving deep:
 
 CONTEXT GATHERING (parallel):
 - explore agents (codebase patterns, implementations)
-- librarian agents (if external library involved)
+- researcher agents (if external library involved)
 - Direct tools: grep, code search for targeted searches
 
 IF COMPLEX (architecture, multi-system, debugging after 2+ failures):
-- Consult oracle agent for strategic guidance
+- Consult architect agent for strategic guidance
 
 SYNTHESIZE findings before proceeding.`
+
+const INSTALL_MESSAGE = `[install-workflow]
+COMMON INSTALL WORKFLOW:
+- Inspect the package manager and lockfile before changing dependencies.
+- Prefer the repo's existing install command and avoid unrelated upgrades.
+- If installation fails, surface the exact failing package, lockfile, or registry step.
+- Keep the fix focused and explain whether the issue is dependency resolution, network, permissions, or version mismatch.`
+
+const TEST_MESSAGE = `[test-workflow]
+COMMON TEST WORKFLOW:
+- Run the smallest relevant test subset first, then expand only if needed.
+- Read the failing assertion or stack trace before editing.
+- If a test fails, report the file, line, and the next command that is most likely to validate the fix.
+- Keep the focus on one failure class at a time.`
+
+const LINT_MESSAGE = `[lint-workflow]
+COMMON LINT WORKFLOW:
+- Fix the reported rule violations directly and keep the diff minimal.
+- Prefer formatting or style-only changes when the failure is purely cosmetic.
+- If lint points to multiple files, summarize the shared root cause before editing.
+- Avoid unrelated refactors while cleaning lint errors.`
+
+const BUILD_MESSAGE = `[build-workflow]
+COMMON BUILD WORKFLOW:
+- Treat build failures as compile or packaging regressions, not as generic runtime bugs.
+- Read the first real error, then trace the smallest code path that explains it.
+- Report the exact file and symbol that most likely need attention.
+- If the failure looks cascading, identify the first root error instead of fixing every downstream symptom.`
+
+const DEBUG_MESSAGE = `[debug-workflow]
+COMMON DEBUG WORKFLOW:
+- Start from the narrowest reproduction you can derive from the failing command.
+- Gather logs, stack traces, and the specific code path before editing.
+- Prefer one hypothesis per fix cycle and verify after each change.
+- If the issue spans multiple layers, localize the first layer that diverges from expected behavior.`
 
 /**
  * Keyword patterns and their corresponding messages
@@ -128,6 +164,31 @@ const KEYWORD_DETECTORS: Array<{ type: KeywordType; pattern: RegExp; message: st
         pattern:
             /\b(analyze|analyse|investigate|examine|research|study|deep[\s-]?dive|inspect|audit|evaluate|assess|review|diagnose|scrutinize|dissect|debug|comprehend|interpret|breakdown|understand)\b|why\s+is|how\s+does|how\s+to/i,
         message: ANALYZE_MESSAGE,
+    },
+    {
+        type: "install",
+        pattern: /\b(?:bun|npm|pnpm|yarn|pip|poetry|cargo|go|mvn|gradle)\s+(?:install|add|update|upgrade)\b|\binstall(?:ing)?\b(?:.*\bdeps?\b)?/i,
+        message: INSTALL_MESSAGE,
+    },
+    {
+        type: "test",
+        pattern: /\b(?:bun|npm|pnpm|yarn)\s+(?:test|run\s+test)\b|\bpytest\b|\bcargo\s+test\b|\bgo\s+test\b|\bmvn\s+test\b/i,
+        message: TEST_MESSAGE,
+    },
+    {
+        type: "lint",
+        pattern: /\b(?:lint|eslint|prettier|ruff|flake8|tsc|typecheck)\b/i,
+        message: LINT_MESSAGE,
+    },
+    {
+        type: "build",
+        pattern: /\b(?:bun|npm|pnpm|yarn|cargo|go|mvn|gradle|make)\s+(?:build|compile|package)\b|\b(?:build|compile)\b/i,
+        message: BUILD_MESSAGE,
+    },
+    {
+        type: "debug",
+        pattern: /\bdebug\b|\btroubleshoot\b|\btrace\b|\bcrash\b|\bfailing\b/i,
+        message: DEBUG_MESSAGE,
     },
 ]
 

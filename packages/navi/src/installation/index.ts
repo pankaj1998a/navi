@@ -2,7 +2,7 @@ import { BusEvent } from "@/bus/bus-event"
 import path from "path"
 import { $ } from "bun"
 import z from "zod"
-import { NamedError } from "@navi-ai/util/error"
+import { NamedError } from "@navi-ai/sdk/util/error"
 import { Log } from "../util/log"
 import { iife } from "@/util/iife"
 import { Flag } from "../flag/flag"
@@ -62,10 +62,37 @@ export namespace Installation {
     if (process.execPath.includes(path.join(".local", "bin"))) return "curl"
     const exec = process.execPath.toLowerCase()
 
+    try {
+      if (exec.includes("npm") || exec.includes("node")) {
+        const root = (await $`npm root -g`.quiet().nothrow().text()).trim()
+        if (root && await Bun.file(path.join(root, "navi-ai-agent/package.json")).exists()) {
+          return "npm"
+        }
+      }
+    } catch { }
+
+    try {
+      if (exec.includes("bun")) {
+        const root = (await $`bun pm bin -g`.quiet().nothrow().text()).trim()
+        // bun pm bin -g returns the bin folder, not node_modules.
+        // bun global installs are in specific location.
+        // Fallback to checking existing slow method for bun if needed, or simple 'bun pm ls -g'
+        const output = await $`bun pm ls -g`.quiet().nothrow().text()
+        if (output.includes("navi-ai-agent")) return "bun"
+      }
+    } catch { }
+
+    // Fallback to checking the binary path directly if we can't detect via manager
+    // or just run the original checks but optimized?
+
     const checks = [
       {
         name: "npm" as const,
-        command: () => $`npm list -g --depth=0`.throws(false).quiet().text(),
+        // optimized npm check just in case
+        command: async () => {
+          const root = (await $`npm root -g`.quiet().nothrow().text()).trim()
+          return (root && await Bun.file(path.join(root, "navi-ai-agent/package.json")).exists()) ? "navi-ai-agent" : ""
+        }
       },
       {
         name: "yarn" as const,
@@ -94,8 +121,10 @@ export namespace Installation {
     })
 
     for (const check of checks) {
+      // logic to skip checks if we already strongly suspect another one?
+      // For now, just run them.
       const output = await check.command()
-      if (output.includes(check.name === "brew" ? "navi" : "navi-ai")) {
+      if (output.includes(check.name === "brew" ? "navi" : "navi-ai-agent")) {
         return check.name
       }
     }
@@ -128,13 +157,13 @@ export namespace Installation {
         })
         break
       case "npm":
-        cmd = $`npm install -g navi-ai@${target}`
+        cmd = $`npm install -g navi-ai-agent@${target}`
         break
       case "pnpm":
-        cmd = $`pnpm install -g navi-ai@${target}`
+        cmd = $`pnpm install -g navi-ai-agent@${target}`
         break
       case "bun":
-        cmd = $`bun install -g navi-ai@${target}`
+        cmd = $`bun install -g navi-ai-agent@${target}`
         break
       case "brew": {
         const formula = await getBrewFormula()
@@ -177,22 +206,48 @@ export namespace Installation {
             return res.json()
           })
           .then((data: any) => data.versions.stable)
+          .catch((err) => {
+            log.warn("failed to check brew version", { error: err })
+            return "local"
+          })
       }
     }
 
     if (detectedMethod === "npm" || detectedMethod === "bun" || detectedMethod === "pnpm") {
       const registry = await iife(async () => {
-        const r = (await $`npm config get registry`.quiet().nothrow().text()).trim()
-        const reg = r || "https://registry.npmjs.org"
-        return reg.endsWith("/") ? reg.slice(0, -1) : reg
+        try {
+          const r = (await $`npm config get registry`.quiet().nothrow().text()).trim()
+          const reg = r || "https://registry.npmjs.org"
+          return reg.endsWith("/") ? reg.slice(0, -1) : reg
+        } catch {
+          return "https://registry.npmjs.org"
+        }
       })
-      const channel = CHANNEL
-      return fetch(`${registry}/navi-ai/${channel}`)
+      const channel = CHANNEL === "local" || CHANNEL === "main" ? "latest" : CHANNEL
+      const url = `${registry}/navi-ai-agent`
+
+      return fetch(url, {
+        headers: {
+          Accept: "application/vnd.npm.install-v1+json; q=1.0, application/json; q=0.8, */*",
+        },
+      })
         .then((res) => {
-          if (!res.ok) throw new Error(res.statusText)
+          if (!res.ok) {
+            if (res.status === 404) return null
+            throw new Error(`${res.status} ${res.statusText}`)
+          }
           return res.json()
         })
-        .then((data: any) => data.version)
+        .then((data: any) => {
+          if (!data) return "local"
+          const distTags = data["dist-tags"] || {}
+          return distTags[channel] || distTags["latest"] || "local"
+        })
+        .catch((err) => {
+          // excessive logging here might break TUI if printed to stdout/stderr directly
+          // log.warn("failed to check npm version", { error: err, url })
+          return "local"
+        })
     }
 
     return fetch("https://api.github.com/repos/pankaj/navi/releases/latest")
@@ -201,5 +256,7 @@ export namespace Installation {
         return res.json()
       })
       .then((data: any) => data.tag_name.replace(/^v/, ""))
+      .catch(() => "local")
   }
 }
+

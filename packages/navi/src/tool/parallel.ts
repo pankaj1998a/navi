@@ -3,6 +3,7 @@ import { Tool } from "./tool"
 import z from "zod"
 import { ParallelAgent } from "../agent/parallel"
 import { Agent } from "../agent/agent"
+import { Provider } from "../provider/provider"
 import { Session } from "../session"
 import { SessionPrompt } from "../session/prompt"
 import { Identifier } from "../id/id"
@@ -33,6 +34,12 @@ export const ParallelTool = Tool.define("parallel", async (ctx) => {
                 const agent = await Agent.get(agentName)
                 if (!agent) throw new Error(`Unknown agent: ${agentName}`)
 
+                // Validate that the agent can be run in parallel
+                // Primary agents are typically interactive/stateful and shouldn't be run in parallel batches
+                if (agent.mode === "primary") {
+                    throw new Error(`Agent '${agentName}' is a primary agent and cannot be run in parallel. Use a subagent or parallel agent instead.`)
+                }
+
                 // Create a sub-session for this task
                 const session = await Session.create({
                     parentID: ctx.sessionID,
@@ -50,12 +57,18 @@ export const ParallelTool = Tool.define("parallel", async (ctx) => {
                 const result = await SessionPrompt.prompt({
                     messageID,
                     sessionID: session.id,
-                    model: agent.model ? {
+                    model: task.model ? Provider.parseModel(task.model) : agent.model ? {
                         modelID: agent.model.modelID,
                         providerID: agent.model.providerID,
                     } : undefined,
                     agent: agentName,
                     parts: promptParts,
+                }).catch((err: Error) => {
+                    const msg = err?.message ?? String(err)
+                    if (msg.includes("fetch") || msg.includes("connect") || msg.includes("ECONNREFUSED") || msg.includes("ENOTFOUND")) {
+                        throw new Error(`Parallel (${agentName}): Cannot reach AI provider. Check your model/provider configuration and internet connection. Details: ${msg}`)
+                    }
+                    throw new Error(`Parallel (${agentName}): ${msg}`)
                 })
 
                 const text = result.parts.findLast((x) => x.type === "text")?.text ?? ""

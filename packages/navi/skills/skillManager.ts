@@ -77,14 +77,20 @@ export class SkillManager {
   private async discoverBuiltinSkills(): Promise<void> {
     const __dirname = path.dirname(fileURLToPath(import.meta.url));
     const builtinDir = path.join(__dirname, 'builtin');
+    const awesomeDir = path.join(__dirname, 'awesome');
 
     const builtinSkills = await loadSkillsFromDir(builtinDir);
+    const awesomeSkills = await loadSkillsFromDir(awesomeDir);
 
     for (const skill of builtinSkills) {
       skill.isBuiltin = true;
     }
 
-    this.addSkillsWithPrecedence(builtinSkills);
+    for (const skill of awesomeSkills) {
+      skill.isBuiltin = true;
+    }
+
+    this.addSkillsWithPrecedence([...builtinSkills, ...awesomeSkills]);
   }
 
   private addSkillsWithPrecedence(newSkills: SkillDefinition[]): void {

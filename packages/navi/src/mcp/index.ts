@@ -11,7 +11,7 @@ import {
 } from "@modelcontextprotocol/sdk/types.js"
 import { Config } from "../config/config"
 import { Log } from "../util/log"
-import { NamedError } from "@navi-ai/util/error"
+import { NamedError } from "@navi-ai/sdk/util/error"
 import z from "zod/v4"
 import { Instance } from "../project/instance"
 import { Installation } from "../installation"
@@ -23,10 +23,38 @@ import { BusEvent } from "../bus/bus-event"
 import { Bus } from "@/bus"
 import { TuiEvent } from "@/cli/cmd/tui/event"
 import open from "open"
+import { existsSync } from "fs"
+import path from "path"
+import { iife } from "@/util/iife"
 
 export namespace MCP {
   const log = Log.create({ service: "mcp" })
   const DEFAULT_TIMEOUT = 30_000
+
+  /**
+   * Sensitive environment variables that should NOT be passed to MCP subprocesses.
+   * These could contain API keys, tokens, or credentials that MCP servers don't need
+   * and shouldn't have access to.
+   */
+  const BLOCKED_ENV_VARS = [
+    // Navi / Agent auth
+    "ANTHROPIC_API_KEY",
+    "CLAUDE_CODE_OAUTH_TOKEN",
+    "OPENAI_API_KEY",
+    "GOOGLE_API_KEY",
+    "EXA_API_KEY",
+
+    // AWS credentials
+    "AWS_ACCESS_KEY_ID",
+    "AWS_SECRET_ACCESS_KEY",
+    "AWS_SESSION_TOKEN",
+
+    // Common API keys/tokens
+    "GITHUB_TOKEN",
+    "GH_TOKEN",
+    "STRIPE_SECRET_KEY",
+    "NPM_TOKEN",
+  ]
 
   export const Resource = z
     .object({
@@ -104,6 +132,11 @@ export namespace MCP {
   function registerNotificationHandlers(client: MCPClient, serverName: string) {
     client.setNotificationHandler(ToolListChangedNotificationSchema, async () => {
       log.info("tools list changed notification received", { server: serverName })
+
+      const { CacheManager } = await import("../config/cache-config")
+      const cache = CacheManager.getInstance().getCache("mcpTools")
+      cache.delete(serverName)
+
       Bus.publish(ToolsChanged, { server: serverName })
     })
   }
@@ -112,19 +145,26 @@ export namespace MCP {
   async function convertMcpTool(mcpTool: MCPToolDef, client: MCPClient): Promise<Tool> {
     const inputSchema = mcpTool.inputSchema
 
-    // Spread first, then override type to ensure it's always "object"
+    // Ensure we always have a valid object schema
+    // Handle case where inputSchema might have invalid type (e.g., type: "None")
     const schema: JSONSchema7 = {
-      ...(inputSchema as JSONSchema7),
       type: "object",
-      properties: (inputSchema.properties ?? {}) as JSONSchema7["properties"],
+      properties: (inputSchema && typeof inputSchema.properties === "object" && inputSchema.properties !== null)
+        ? inputSchema.properties
+        : {},
       additionalProperties: false,
+      required: (inputSchema && Array.isArray(inputSchema.required))
+        ? inputSchema.required
+        : [],
     }
+
+
     const config = await Config.get()
 
     return tool({
       description: mcpTool.description ?? "",
       parameters: jsonSchema(schema),
-      execute: async (args: unknown) => {
+      execute: async (args: any) => {
         return client.callTool(
           {
             name: mcpTool.name,
@@ -137,7 +177,7 @@ export namespace MCP {
           },
         )
       },
-    })
+    } as any)
   }
 
   // Store transports for OAuth servers to allow finishing auth
@@ -153,29 +193,34 @@ export namespace MCP {
     return typeof entry === "object" && entry !== null && "type" in entry
   }
 
-  const BUILTIN_MCPS: Record<string, Config.Mcp> = {
-    websearch: {
-      type: "remote",
-      url: "https://mcp.exa.ai/mcp?tools=web_search_exa",
-      enabled: true,
-      headers: process.env.EXA_API_KEY ? { "x-api-key": process.env.EXA_API_KEY } : undefined,
-    },
-    context7: {
-      type: "remote",
-      url: "https://mcp.context7.com/mcp",
-      enabled: true,
-    },
-    grep_app: {
-      type: "remote",
-      url: "https://mcp.grep.app",
-      enabled: true,
-    },
-  }
+  const BUILTIN_MCPS: Record<string, Config.Mcp> = {}
 
   const state = Instance.state(
     async () => {
       const cfg = await Config.get()
-      const config = { ...BUILTIN_MCPS, ...(cfg.mcp ?? {}) }
+      const config = {
+        ...BUILTIN_MCPS,
+        "navi-rs": {
+          type: "local" as const,
+          command: [
+            iife(() => {
+              const name = process.platform === "win32" ? "navi-mcp.exe" : "navi-mcp"
+              // 1. Try relative to executable (production)
+              const prodPath = path.join(path.dirname(process.execPath), name)
+              if (existsSync(prodPath)) return prodPath
+
+              // 2. Try in source tree (development)
+              const devPath =
+                process.platform === "win32"
+                  ? path.join(Instance.worktree, "navi-rs/target/debug/navi-mcp.exe")
+                  : path.join(Instance.worktree, "navi-rs/target/debug/navi-mcp")
+              return devPath
+            }),
+          ],
+          enabled: true,
+        },
+        ...(cfg.mcp ?? {}),
+      }
 
       // Collect MCPs from commands and agents (skill-embedded MCPs)
       if (cfg.command) {
@@ -240,10 +285,20 @@ export namespace MCP {
 
   // Helper function to fetch prompts for a specific client
   async function fetchPromptsForClient(clientName: string, client: Client) {
-    const prompts = await client.listPrompts().catch((e) => {
-      log.error("failed to get prompts", { clientName, error: e.message })
-      return undefined
-    })
+    const { CacheManager } = await import("../config/cache-config")
+    const cache = CacheManager.getInstance().getCache("mcpTools")
+
+    let prompts = cache.get(clientName + ":prompts") as Awaited<ReturnType<typeof client.listPrompts>> | undefined
+
+    if (!prompts) {
+      prompts = await client.listPrompts().catch((e) => {
+        log.error("failed to get prompts", { clientName, error: e.message })
+        return undefined
+      })
+      if (prompts) {
+        cache.set(clientName + ":prompts", prompts)
+      }
+    }
 
     if (!prompts) {
       return
@@ -262,10 +317,20 @@ export namespace MCP {
   }
 
   async function fetchResourcesForClient(clientName: string, client: Client) {
-    const resources = await client.listResources().catch((e) => {
-      log.error("failed to get prompts", { clientName, error: e.message })
-      return undefined
-    })
+    const { CacheManager } = await import("../config/cache-config")
+    const cache = CacheManager.getInstance().getCache("mcpTools")
+
+    let resources = cache.get(clientName + ":resources") as Awaited<ReturnType<typeof client.listResources>> | undefined
+
+    if (!resources) {
+      resources = await client.listResources().catch((e) => {
+        log.error("failed to get resources", { clientName, error: e.message })
+        return undefined
+      })
+      if (resources) {
+        cache.set(clientName + ":resources", resources)
+      }
+    }
 
     if (!resources) {
       return
@@ -430,13 +495,22 @@ export namespace MCP {
     if (mcp.type === "local") {
       const [cmd, ...args] = mcp.command
       const cwd = Instance.directory
+
+      // Filter out sensitive environment variables to prevent leaking secrets to subprocesses
+      const filteredEnv: Record<string, string> = {}
+      for (const [key, value] of Object.entries(process.env)) {
+        if (value !== undefined && !BLOCKED_ENV_VARS.includes(key)) {
+          filteredEnv[key] = value
+        }
+      }
+
       const transport = new StdioClientTransport({
         stderr: "ignore",
         command: cmd,
         args,
         cwd,
         env: {
-          ...process.env,
+          ...filteredEnv,
           ...(cmd === "navi" ? { BUN_BE_BUN: "1" } : {}),
           ...mcp.environment,
         },
@@ -580,22 +654,32 @@ export namespace MCP {
     const s = await state()
     const clientsSnapshot = await clients()
 
+    const { CacheManager } = await import("../config/cache-config")
+    const cache = CacheManager.getInstance().getCache("mcpTools")
+
     for (const [clientName, client] of Object.entries(clientsSnapshot)) {
       // Only include tools from connected MCPs (skip disabled ones)
       if (s.status[clientName]?.status !== "connected") {
         continue
       }
 
-      const toolsResult = await client.listTools().catch((e) => {
-        log.error("failed to get tools", { clientName, error: e.message })
-        const failedStatus = {
-          status: "failed" as const,
-          error: e instanceof Error ? e.message : String(e),
+      let toolsResult = cache.get(clientName + ":tools") as Awaited<ReturnType<typeof client.listTools>> | undefined
+
+      if (!toolsResult) {
+        toolsResult = await client.listTools().catch((e) => {
+          log.error("failed to get tools", { clientName, error: e.message })
+          const failedStatus = {
+            status: "failed" as const,
+            error: e instanceof Error ? e.message : String(e),
+          }
+          s.status[clientName] = failedStatus
+          delete s.clients[clientName]
+          return undefined
+        })
+        if (toolsResult) {
+          cache.set(clientName + ":tools", toolsResult)
         }
-        s.status[clientName] = failedStatus
-        delete s.clients[clientName]
-        return undefined
-      })
+      }
       if (!toolsResult) {
         continue
       }
@@ -908,3 +992,4 @@ export namespace MCP {
     return expired ? "expired" : "authenticated"
   }
 }
+
