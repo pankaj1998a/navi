@@ -31,7 +31,7 @@ function getNetworkIPs() {
 export const WebCommand = cmd({
   command: "web",
   builder: (yargs) => withNetworkOptions(yargs),
-  describe: "start navi server and open web interface",
+  describe: "start Navi server and open web interface",
   handler: async (args) => {
     if (!Flag.NAVI_SERVER_PASSWORD) {
       UI.println(UI.Style.TEXT_WARNING_BOLD + "!  " + "NAVI_SERVER_PASSWORD is not set; server is unsecured.")
@@ -60,18 +60,23 @@ export const WebCommand = cmd({
       }
 
       if (opts.mdns) {
-        UI.println(UI.Style.TEXT_INFO_BOLD + "  mDNS:              ", UI.Style.TEXT_NORMAL, "navi.local")
+        UI.println(
+          UI.Style.TEXT_INFO_BOLD + "  mDNS:              ",
+          UI.Style.TEXT_NORMAL,
+          `${opts.mdnsDomain}:${server.port}`,
+        )
       }
 
       // Open localhost in browser
-      open(localhostUrl.toString()).catch(() => { })
+      open(localhostUrl.toString()).catch(() => {})
     } else {
       const displayUrl = server.url.toString()
       UI.println(UI.Style.TEXT_INFO_BOLD + "  Web interface:    ", UI.Style.TEXT_NORMAL, displayUrl)
-      open(displayUrl).catch(() => { })
+      open(displayUrl).catch(() => {})
     }
 
-    await new Promise(() => { })
+    await new Promise(() => {})
     await server.stop()
   },
 })
+

@@ -1,15 +1,12 @@
-import os from "os"
-import { Installation } from "@/installation"
 import { Provider } from "@/provider/provider"
 import { Log } from "@/util/log"
-import {
-  streamText,
-  type CoreMessage,
-  type StreamTextResult,
-  type Tool,
-  type ToolSet,
-} from "ai"
-import { clone, mergeDeep, pipe } from "remeda"
+import { JSONRepair } from "@/util/json-repair"
+import { Cause, Effect, Layer, Record, ServiceMap } from "effect"
+import * as Queue from "effect/Queue"
+import * as Stream from "effect/Stream"
+import { streamText, wrapLanguageModel, type ModelMessage, type Tool, tool, jsonSchema, type StreamTextResult, type TextStreamPart } from "ai"
+import { mergeDeep, pipe } from "remeda"
+import { GitLabWorkflowLanguageModel } from "gitlab-ai-provider"
 import { ProviderTransform } from "@/provider/transform"
 import { Config } from "@/config/config"
 import { Instance } from "@/project/instance"
@@ -18,33 +15,71 @@ import type { MessageV2 } from "./message-v2"
 import { Plugin } from "@/plugin"
 import { SystemPrompt } from "./system"
 import { Flag } from "@/flag/flag"
-import { PermissionNext } from "@/permission/next"
+import { Permission } from "@/permission"
 import { Auth } from "@/auth"
-import { RESPONSE_FORMAT_PROMPT } from "./response"
-
+import { Installation } from "@/installation"
+import { RulesEngine } from "./rules"
+import { MCP } from "@/mcp"
 
 export namespace LLM {
   const log = Log.create({ service: "llm" })
-
-  export const OUTPUT_TOKEN_MAX = Flag.NAVI_EXPERIMENTAL_OUTPUT_TOKEN_MAX || 32_000
+  export const OUTPUT_TOKEN_MAX = ProviderTransform.OUTPUT_TOKEN_MAX
 
   export type StreamInput = {
     user: MessageV2.User
     sessionID: string
     model: Provider.Model
     agent: Agent.Info
+    permission?: Permission.Ruleset
     system: string[]
-    abort: AbortSignal
-    messages: CoreMessage[]
+    messages: ModelMessage[]
     small?: boolean
     tools: Record<string, Tool>
     retries?: number
-    routingReasons?: string[]
+    toolChoice?: "auto" | "required" | "none"
   }
 
-  export type StreamOutput = StreamTextResult<ToolSet, unknown>
+  export type StreamRequest = StreamInput & {
+    abort: AbortSignal
+  }
 
-  export async function stream(input: StreamInput) {
+  export type Event = TextStreamPart<any>
+
+  export interface Interface {
+    readonly stream: (input: StreamInput) => Stream.Stream<Event, unknown>
+  }
+
+  export class Service extends ServiceMap.Service<Service, Interface>()("@navi/LLM") {}
+
+  export const layer = Layer.effect(
+    Service,
+    Effect.gen(function* () {
+      return Service.of({
+        stream(input) {
+          return Stream.scoped(
+            Stream.unwrap(
+              Effect.gen(function* () {
+                const ctrl = yield* Effect.acquireRelease(
+                  Effect.sync(() => new AbortController()),
+                  (ctrl) => Effect.sync(() => ctrl.abort()),
+                )
+
+                const result = yield* Effect.promise(() => LLM.stream({ ...input, abort: ctrl.signal }))
+
+                return Stream.fromAsyncIterable(result.fullStream, (e) =>
+                  e instanceof Error ? e : new Error(String(e)),
+                )
+              }),
+            ),
+          )
+        },
+      })
+    }),
+  )
+
+  export const defaultLayer = layer
+
+  export async function stream(input: StreamRequest): Promise<any> {
     const l = log
       .clone()
       .tag("providerID", input.model.providerID)
@@ -52,13 +87,22 @@ export namespace LLM {
       .tag("sessionID", input.sessionID)
       .tag("small", (input.small ?? false).toString())
       .tag("agent", input.agent.name)
+      .tag("mode", input.agent.mode)
     l.info("stream", {
       modelID: input.model.id,
       providerID: input.model.providerID,
     })
-    const [language, cfg] = await Promise.all([Provider.getLanguage(input.model), Config.get()])
+    const [language, cfg, provider, auth, rules] = await Promise.all([
+      Provider.getLanguage(input.model),
+      Config.get(),
+      Provider.getProvider(input.model.providerID),
+      Auth.get(input.model.providerID),
+      RulesEngine.getRules(),
+    ])
+    // TODO: move this to a proper hook
+    const isOpenaiOauth = provider.id === "openai" && auth?.type === "oauth"
 
-    const system = SystemPrompt.header(input.model.providerID)
+    const system: string[] = []
     system.push(
       [
         // use agent prompt otherwise provider prompt
@@ -67,21 +111,40 @@ export namespace LLM {
         ...input.system,
         // any custom prompt from last user message
         ...(input.user.system ? [input.user.system] : []),
-        // Unified response format — injected for all user-facing (non-hidden) agents
-        // Hidden agents (title, summary, compaction) produce structured output via other means.
-        ...(!input.agent.hidden ? [RESPONSE_FORMAT_PROMPT] : []),
+        // project specific rules
+        SystemPrompt.projectRules(rules),
       ]
         .filter((x) => x)
         .join("\n"),
     )
 
+    // Collect and format MCP instructions for model awareness
+    const mcpData = await Promise.all([
+      MCP.prompts().catch(() => ({})),
+      MCP.resources().catch(() => ({})),
+    ])
+
+    const [mcpPrompts, mcpResources] = mcpData as [any, any]
+    const mcpInstructions: string[] = []
+
+    if (Object.keys(mcpPrompts).length > 0) {
+      mcpInstructions.push("<mcp_prompts>", "The following external prompts are available via MCP:", ...Object.entries(mcpPrompts).map(([id, p]: [string, any]) => `- ${id}: ${p.description || "No description"}`), "</mcp_prompts>")
+    }
+
+    if (Object.keys(mcpResources).length > 0) {
+      mcpInstructions.push("<mcp_resources>", "The following external resources are available via MCP:", ...Object.entries(mcpResources).map(([id, r]: [string, any]) => `- ${id} (${r.uri}): ${r.description || "No description"}`), "</mcp_resources>")
+    }
+
+    if (mcpInstructions.length > 0) {
+      system.push(mcpInstructions.join("\n"))
+    }
 
     const header = system[0]
-    const original = clone(system)
-    await Plugin.trigger("experimental.chat.system.transform", { sessionID: input.sessionID }, { system })
-    if (system.length === 0) {
-      system.push(...original)
-    }
+    await Plugin.trigger(
+      "experimental.chat.system.transform",
+      { sessionID: input.sessionID, model: input.model },
+      { system },
+    )
     // rejoin to maintain 2-part structure for caching if header unchanged
     if (system.length > 2 && system[0] === header) {
       const rest = system.slice(1)
@@ -89,33 +152,47 @@ export namespace LLM {
       system.push(header, rest.join("\n"))
     }
 
-    const provider = await Provider.getProvider(input.model.providerID)
-    const auth = await Auth.get(input.model.providerID)
-    const isCodex = provider.id === "openai" && auth?.type === "oauth"
-
     const variant =
       !input.small && input.model.variants && input.user.variant ? input.model.variants[input.user.variant] : {}
     const base = input.small
       ? ProviderTransform.smallOptions(input.model)
-      : ProviderTransform.options(input.model, input.sessionID, provider.options)
+      : ProviderTransform.options({
+          model: input.model,
+          sessionID: input.sessionID,
+          providerOptions: provider.options,
+        })
     const options: Record<string, any> = pipe(
-      base as any,
+      base,
       mergeDeep(input.model.options),
       mergeDeep(input.agent.options),
       mergeDeep(variant),
     )
-    if (isCodex) {
-      options.instructions = SystemPrompt.instructions()
-      options.store = false
+    if (isOpenaiOauth) {
+      options.instructions = system.join("\n")
     }
+
+    const isWorkflow = language instanceof GitLabWorkflowLanguageModel
+    const messages = isOpenaiOauth
+      ? input.messages
+      : isWorkflow
+        ? input.messages
+        : [
+            ...system.map(
+              (x): ModelMessage => ({
+                role: "system",
+                content: x,
+              }),
+            ),
+            ...input.messages,
+          ]
 
     const params = await Plugin.trigger(
       "chat.params",
       {
         sessionID: input.sessionID,
-        agent: input.agent,
+        agent: input.agent.name,
         model: input.model,
-        provider: Provider.getProvider(input.model.providerID),
+        provider,
         message: input.user,
       },
       {
@@ -128,46 +205,83 @@ export namespace LLM {
       },
     )
 
-    const maxOutputTokens = isCodex
-      ? undefined
-      : ProviderTransform.maxOutputTokens(
-        input.model.api.npm,
-        params.options,
-        input.model.limit.output,
-        OUTPUT_TOKEN_MAX,
-      )
+    const { headers } = await Plugin.trigger(
+      "chat.headers",
+      {
+        sessionID: input.sessionID,
+        agent: input.agent.name,
+        model: input.model,
+        provider,
+        message: input.user,
+      },
+      {
+        headers: {},
+      },
+    )
+
+    const maxOutputTokens =
+      isOpenaiOauth || provider.id.includes("github-copilot")
+        ? undefined
+        : ProviderTransform.maxOutputTokens(input.model)
 
     const tools = await resolveTools(input)
 
-    l.info("streamText call", {
-      messageCount: input.messages.length,
-      toolCount: Object.keys(tools).length,
-      systemCount: system.length,
-    })
+    // LiteLLM and some Anthropic proxies require the tools parameter to be present
+    // when message history contains tool calls, even if no tools are being used.
+    // Add a dummy tool that is never called to satisfy this validation.
+    // This is enabled for:
+    // 1. Providers with "litellm" in their ID or API ID (auto-detected)
+    // 2. Providers with explicit "litellmProxy: true" option (opt-in for custom gateways)
+    const isLiteLLMProxy =
+      provider.options?.["litellmProxy"] === true ||
+      input.model.providerID.toLowerCase().includes("litellm") ||
+      input.model.api.id.toLowerCase().includes("litellm")
 
-    const messages: CoreMessage[] = [
-      ...(isCodex
-        ? [
-          {
-            role: "user",
-            content: system.join("\n\n"),
-          } as CoreMessage,
-        ]
-        : system.map(
-          (x, i, arr): CoreMessage => ({
-            role: "system",
-            content: x,
-            // @ts-ignore
-            experimental_providerMetadata:
-              input.model.providerID.includes("anthropic") && i === arr.length - 1
-                ? { anthropic: { cacheControl: { type: "ephemeral" } } }
-                : undefined,
-          }),
-        )),
-      ...input.messages,
-    ]
+    // LiteLLM/Bedrock rejects requests where the message history contains tool
+    // calls but no tools param is present. When there are no active tools (e.g.
+    // during compaction), inject a stub tool to satisfy the validation requirement.
+    // The stub description explicitly tells the model not to call it.
+    if (isLiteLLMProxy && Object.keys(tools).length === 0 && hasToolCalls(input.messages)) {
+      tools["_noop"] = tool({
+        description: "Do not call this tool. It exists only for API compatibility and must never be invoked.",
+        inputSchema: jsonSchema({
+          type: "object",
+          properties: {
+            reason: { type: "string", description: "Unused" },
+          },
+        }),
+        execute: async () => ({ output: "", title: "", metadata: {} }),
+      })
+    }
 
-    l.debug("streamText messages", { messages })
+    // Wire up toolExecutor for DWS workflow models so that tool calls
+    // from the workflow service are executed via Navi's tool system
+    // and results sent back over the WebSocket.
+    if (language instanceof GitLabWorkflowLanguageModel) {
+      const workflowModel = language
+      workflowModel.systemPrompt = system.join("\n")
+      workflowModel.toolExecutor = async (toolName, argsJson, _requestID) => {
+        const t = tools[toolName]
+        if (!t || !t.execute) {
+          return { result: "", error: `Unknown tool: ${toolName}` }
+        }
+        try {
+          const result = await t.execute!(JSON.parse(argsJson), {
+            toolCallId: _requestID,
+            messages: input.messages,
+            abortSignal: input.abort,
+          })
+          const output = typeof result === "string" ? result : (result?.output ?? JSON.stringify(result))
+          return {
+            result: output,
+            metadata: typeof result === "object" ? result?.metadata : undefined,
+            title: typeof result === "object" ? result?.title : undefined,
+          }
+        } catch (e: any) {
+          return { result: "", error: e.message ?? String(e) }
+        }
+      }
+    }
 
     return streamText({
       onError(error) {
@@ -187,22 +301,28 @@ export namespace LLM {
             toolName: lower,
           }
         }
-
-        // Try fuzzy matching instead of falling back to invalid
-        const toolNames = Object.keys(tools)
-        const bestMatch = toolNames.find(name =>
-          name.toLowerCase() === lower ||
-          name.includes(lower) ||
-          lower.includes(name)
-        )
-
-        if (bestMatch) {
-          l.info("fuzzy repaired tool call", { original: failed.toolCall.toolName, repaired: bestMatch })
-          return { ...failed.toolCall, toolName: bestMatch }
+        
+        // Final fallback: Attempt to repair JSON arguments
+        try {
+          const repairedArgs = JSONRepair.repair(failed.toolCall.args)
+          const parsed = JSON.parse(repairedArgs)
+          l.info("repaired tool call arguments", { tool: failed.toolCall.toolName })
+          return {
+            ...failed.toolCall,
+            args: repairedArgs
+          }
+        } catch {
+          // If repair fails, continue to default invalid handler
         }
 
-        // Return error instead of invalid tool
-        throw new Error(`Unknown tool: ${failed.toolCall.toolName}`)
+        return {
+          ...failed.toolCall,
+          input: JSON.stringify({
+            tool: failed.toolCall.toolName,
+            error: failed.error.message,
+          }),
+          toolName: "invalid",
+        }
       },
       temperature: params.temperature,
       topP: params.topP,
@@ -210,40 +330,68 @@ export namespace LLM {
       providerOptions: ProviderTransform.providerOptions(input.model, params.options),
       activeTools: Object.keys(tools).filter((x) => x !== "invalid"),
       tools,
+      toolChoice: input.toolChoice,
       maxOutputTokens,
       abortSignal: input.abort,
       headers: {
-        ...(isCodex
+        ...(input.model.providerID.startsWith("Navi")
           ? {
-            originator: "navi",
-            "User-Agent": `navi/${Installation.VERSION} (${os.platform()} ${os.release()}; ${os.arch()})`,
-            session_id: input.sessionID,
-          }
-          : undefined),
-        ...(input.model.providerID.startsWith("navi")
-          ? {
-            "x-navi-project": Instance.project.id,
-            "x-navi-session": input.sessionID,
-            "x-navi-request": input.user.id,
-            "x-navi-client": Flag.NAVI_CLIENT,
-          }
-          : undefined),
+              "x-Navi-project": Instance.project.id,
+              "x-Navi-session": input.sessionID,
+              "x-Navi-request": input.user.id,
+              "x-Navi-client": Flag.NAVI_CLIENT,
+            }
+          : {
+              "User-Agent": `Navi/${Installation.VERSION}`,
+            }),
         ...input.model.headers,
+        ...headers,
       },
       maxRetries: input.retries ?? 0,
       messages,
-      model: language,
-      experimental_telemetry: { isEnabled: cfg.experimental?.openTelemetry },
+      model: wrapLanguageModel({
+        model: language,
+        middleware: [
+          {
+            specificationVersion: "v3" as const,
+            async transformParams(args) {
+              if (args.type === "stream") {
+                // @ts-expect-error
+                args.params.prompt = ProviderTransform.message(args.params.prompt, input.model, options)
+              }
+              return args.params
+            },
+          },
+        ],
+      }),
+      experimental_telemetry: {
+        isEnabled: cfg.experimental?.openTelemetry,
+        metadata: {
+          userId: cfg.username ?? "unknown",
+          sessionID: input.sessionID,
+        },
+      },
     })
   }
 
-  async function resolveTools(input: Pick<StreamInput, "tools" | "agent" | "user">) {
-    const disabled = PermissionNext.disabled(Object.keys(input.tools), input.agent.permission)
-    for (const tool of Object.keys(input.tools)) {
-      if (input.user.tools?.[tool] === false || disabled.has(tool)) {
-        delete input.tools[tool]
+  function resolveTools(input: Pick<StreamInput, "tools" | "agent" | "permission" | "user">) {
+    const disabled = Permission.disabled(
+      Object.keys(input.tools),
+      Permission.merge(input.agent.permission, input.permission ?? []),
+    )
+    return Record.filter(input.tools, (_, k) => input.user.tools?.[k] !== false && !disabled.has(k))
+  }
+
+  // Check if messages contain any tool-call content
+  // Used to determine if a dummy tool should be added for LiteLLM proxy compatibility
+  export function hasToolCalls(messages: ModelMessage[]): boolean {
+    for (const msg of messages) {
+      if (!Array.isArray(msg.content)) continue
+      for (const part of msg.content) {
+        if (part.type === "tool-call" || part.type === "tool-result") return true
       }
     }
-    return input.tools
+    return false
   }
 }
+

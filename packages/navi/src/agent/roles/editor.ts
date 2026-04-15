@@ -24,3 +24,5 @@ const EditorAgent: AgentTemplate = {
 
 AgentRegistry.register(EditorAgent)
 export { EditorAgent }
+
+

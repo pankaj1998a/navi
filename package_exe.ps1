@@ -1,8 +1,13 @@
+# Navi AI Agent - Package Executable for Distribution
+# Creates a zip file with the built navi.exe and a README.
+# Run from anywhere — resolves paths relative to this script.
 
-$buildDir = "v:\pankaj\navi\packages\navi\dist\navi-ai-agent-windows-x64"
-$binDir = "$buildDir\bin"
-$zip = "v:\pankaj\navi_exe_dist.zip"
-$configFile = "v:\pankaj\navi\opencode.json"
+$ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
+$ProjectRoot = Resolve-Path (Join-Path $ScriptDir "..")
+$buildDir = Join-Path $ProjectRoot "packages\navi\dist\navi-ai-agent-windows-x64"
+$binDir = Join-Path $buildDir "bin"
+$zip = Join-Path $ProjectRoot "navi_exe_dist.zip"
+$configFile = Join-Path $ProjectRoot "opencode.json"
 
 Write-Host "Preparing executable distribution..."
 
@@ -13,7 +18,7 @@ if (-not (Test-Path $binDir)) {
 }
 
 # Copy opencode.json to bin directory for packaging
-Copy-Item $configFile -Destination "$binDir\opencode.json" -Force
+Copy-Item $configFile -Destination (Join-Path $binDir "opencode.json") -Force
 
 # Create README.txt
 $readmeContent = @"
@@ -34,11 +39,9 @@ Open a terminal in this folder and run:
 
 Or add this folder to your system PATH to run 'navi' from anywhere.
 "@
-Set-Content -Path "$binDir\README.txt" -Value $readmeContent
+Set-Content -Path (Join-Path $binDir "README.txt") -Value $readmeContent
 
 # Zip the contents of the bin directory
-# We want the *contents* of bin to be at the root of the zip, or inside a folder.
-# Let's simple zip the bin directory itself, so unzipping creates a folder.
 Write-Host "Compressing to $zip ..."
 if (Test-Path $zip) { Remove-Item $zip }
 
@@ -46,7 +49,7 @@ if (Test-Path $zip) { Remove-Item $zip }
 Compress-Archive -Path "$binDir\*" -DestinationPath $zip
 
 # Cleanup temporary files in build dir
-Remove-Item "$binDir\opencode.json"
-Remove-Item "$binDir\README.txt"
+Remove-Item (Join-Path $binDir "opencode.json")
+Remove-Item (Join-Path $binDir "README.txt")
 
 Write-Host "Done! Executable package created at: $zip"

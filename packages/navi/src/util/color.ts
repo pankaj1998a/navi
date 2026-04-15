@@ -17,3 +17,4 @@ export namespace Color {
     return `\x1b[38;2;${r};${g};${b}m\x1b[1m`
   }
 }
+

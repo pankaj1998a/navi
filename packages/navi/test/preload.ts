@@ -9,7 +9,11 @@ import { afterAll } from "bun:test"
 const dir = path.join(os.tmpdir(), "navi-test-data-" + process.pid)
 await fs.mkdir(dir, { recursive: true })
 afterAll(() => {
-  fsSync.rmSync(dir, { recursive: true, force: true })
+  try {
+    fsSync.rmSync(dir, { recursive: true, force: true })
+  } catch {
+    // Windows can briefly keep files open at shutdown; ignore cleanup races in tests.
+  }
 })
 // Set test home directory to isolate tests from user's actual home directory
 // This prevents tests from picking up real user configs/skills from ~/.claude/skills
@@ -27,9 +31,15 @@ process.env["XDG_STATE_HOME"] = path.join(dir, "state")
 const cacheDir = path.join(dir, "cache", "navi")
 await fs.mkdir(cacheDir, { recursive: true })
 await fs.writeFile(path.join(cacheDir, "version"), "14")
-const response = await fetch("https://models.dev/api.json")
-if (response.ok) {
+const bundledModels = path.join(import.meta.dir, "tool", "fixtures", "models-api.json")
+const response = await fetch("https://models.dev/api.json").catch(() => undefined)
+if (response?.ok) {
   await fs.writeFile(path.join(cacheDir, "models.json"), await response.text())
+} else {
+  const localModels = await fs.readFile(bundledModels, "utf8").catch(() => undefined)
+  if (localModels) {
+    await fs.writeFile(path.join(cacheDir, "models.json"), localModels)
+  }
 }
 // Disable models.dev refresh to avoid race conditions during tests
 process.env["navi_DISABLE_MODELS_FETCH"] = "true"

@@ -183,7 +183,7 @@ Use this when you want to:
       const response = await P2PClient.requestHelp({ peer, task: taskDescription, files: params.files })
       const output = `**Task Assigned to ${peer.name}**\n\nTask: ${params.task}\nPriority: ${params.priority}\n${params.deadline ? `Deadline: ${params.deadline}\n` : ''}\n**Status:** Task accepted\n\n**Result:**\n${response.result}`
 
-      return { title: `Task assigned to ${peer.name}`, output, metadata: { success: true, peerId: peer.id, peerName: peer.name, task: params.task, priority: params.priority, result: response.result, sessionId: (response as any).sessionId } } as any
+      return { title: `Task assigned to ${peer.name}`, output, metadata: { success: true, peerId: peer.id, peerName: peer.name, task: params.task, priority: params.priority, result: response.result, sessionID: (response as any).sessionID } } as any
     } catch (error) {
       return { title: "Task assignment failed", output: `${peer.name} could not accept task: ${error instanceof Error ? error.message : String(error)}`, metadata: { success: false, peerId: peer.id, error: error instanceof Error ? error.message : String(error) } } as any
     }
@@ -252,3 +252,5 @@ Use this to:
     } as any
   },
 })
+
+

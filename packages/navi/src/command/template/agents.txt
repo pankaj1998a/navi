@@ -1,0 +1,10 @@
+Help the user configure the models assigned to sub-agents and swarm tasks.
+
+Follow these steps:
+1. List all available sub-agents currently registered in the system.
+2. For each agent, show its current model assignment.
+3. Ask the user which agent they would like to reconfigure.
+4. Once an agent is selected, ask for the new model ID (in provider/model format).
+5. Use the 'configure_agent_model' tool to permanently save the change to global preferences.
+
+Be helpful and suggest common high-performance models if the user is unsure (e.g., 'anthropic/claude-3-7-sonnet', 'openai/o3-mini').

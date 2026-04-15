@@ -3,23 +3,19 @@ import { hideBin } from "yargs/helpers"
 import { RunCommand } from "./cli/cmd/run"
 import { GenerateCommand } from "./cli/cmd/generate"
 import { Log } from "./util/log"
-import { AuthCommand } from "./cli/cmd/auth"
+import { ConsoleCommand } from "./cli/cmd/account"
+import { ProvidersCommand } from "./cli/cmd/providers"
 import { AgentCommand } from "./cli/cmd/agent"
 import { UpgradeCommand } from "./cli/cmd/upgrade"
 import { UninstallCommand } from "./cli/cmd/uninstall"
 import { ModelsCommand } from "./cli/cmd/models"
 import { UI } from "./cli/ui"
 import { Installation } from "./installation"
-import { NamedError } from "@navi-ai/sdk/util/error"
+import { NamedError } from "@navi-ai/util/error"
 import { FormatError } from "./cli/error"
 import { ServeCommand } from "./cli/cmd/serve"
+import { Filesystem } from "./util/filesystem"
 import { DebugCommand } from "./cli/cmd/debug"
-import { CriticCommand } from "./cli/cmd/critic"
-import { PlanCommand } from "./cli/cmd/plan"
-import { ReviewCommand } from "./cli/cmd/review"
-import { ResearchCommand } from "./cli/cmd/research"
-import { SpecCommand } from "./cli/cmd/spec"
-import { BrowseCommand } from "./cli/cmd/browse"
 import { StatsCommand } from "./cli/cmd/stats"
 import { McpCommand } from "./cli/cmd/mcp"
 import { GithubCommand } from "./cli/cmd/github"
@@ -32,40 +28,31 @@ import { EOL } from "os"
 import { WebCommand } from "./cli/cmd/web"
 import { PrCommand } from "./cli/cmd/pr"
 import { SessionCommand } from "./cli/cmd/session"
-import { HistoryCommand } from "./cli/cmd/history"
-import { TraceCommand } from "./cli/cmd/trace"
-import { CheckpointCommand } from "./cli/cmd/checkpoint"
+import { DbCommand } from "./cli/cmd/db"
+import path from "path"
 import { Global } from "./global"
-import { InitCommand } from "./cli/cmd/init"
-import { RustCommand } from "./cli/cmd/rust"
+import { JsonMigration } from "./storage/json-migration"
+import { JsonlMigration } from "./storage/sqlite-to-jsonl"
+import { Database } from "./storage/db"
+import { errorMessage } from "./util/error"
+import { PluginCommand } from "./cli/cmd/plug"
 import { EvalCommand } from "./cli/cmd/eval"
-import { HealthCommand } from "./cli/cmd/health"
-import { KnowledgeCommand } from "./cli/cmd/knowledge"
-
-import { Registry as AgentRegistry } from "./agent/registry"
-import { Learning } from "./agent/learning"
-import { MemoryMonitor } from "./agent/memory-monitor"
-import { Snapshot } from "./snapshot"
-import { Truncate } from "./tool/truncation"
-import "./agent/roles/index" // Register programmatic agent roles
-import { PeersCommand } from "./cli/cmd/peers"
-import { CollabCommand } from "./cli/cmd/collab"
 
 process.on("unhandledRejection", (e) => {
   Log.Default.error("rejection", {
-    e: e instanceof Error ? e.message : e,
+    e: errorMessage(e),
   })
 })
 
 process.on("uncaughtException", (e) => {
   Log.Default.error("exception", {
-    e: e instanceof Error ? e.message : e,
+    e: errorMessage(e),
   })
 })
 
 const cli = yargs(hideBin(process.argv))
   .parserConfiguration({ "populate--": true })
-  .scriptName("navi")
+  .scriptName("Navi")
   .wrap(100)
   .help("help", "show help")
   .alias("help", "h")
@@ -80,8 +67,16 @@ const cli = yargs(hideBin(process.argv))
     type: "string",
     choices: ["DEBUG", "INFO", "WARN", "ERROR"],
   })
+  .option("pure", {
+    describe: "run without external plugins",
+    type: "boolean",
+  })
   .middleware(async (opts) => {
     await Global.init()
+    if (opts.pure) {
+      process.env.NAVI_PURE = "1"
+    }
+
     await Log.init({
       print: process.argv.includes("--print-logs"),
       dev: Installation.isLocal(),
@@ -91,19 +86,74 @@ const cli = yargs(hideBin(process.argv))
         return "INFO"
       })(),
     })
-    await AgentRegistry.initialize()
-    await Learning.initialize()
-
-    Truncate.init()
-
-    MemoryMonitor.start()
 
     process.env.AGENT = "1"
-    process.env.navi = "1"
+    process.env.Navi = "1"
+    process.env.NAVI_PID = String(process.pid)
 
-    Log.Default.info("navi", {
+    Log.Default.info("Navi", {
       version: Installation.VERSION,
       args: process.argv.slice(2),
+    })
+
+    const marker = Database.Path
+    if (!(await Filesystem.exists(marker))) {
+      const tty = process.stderr.isTTY
+      process.stderr.write("Performing one time database migration, may take a few minutes..." + EOL)
+      const width = 36
+      const orange = "\x1b[38;5;214m"
+      const muted = "\x1b[0;2m"
+      const reset = "\x1b[0m"
+      let last = -1
+      if (tty) process.stderr.write("\x1b[?25l")
+      try {
+        await JsonMigration.run(Database.Client().$client, {
+          progress: (event) => {
+            const percent = Math.floor((event.current / event.total) * 100)
+            if (percent === last && event.current !== event.total) return
+            last = percent
+            if (tty) {
+              const fill = Math.round((percent / 100) * width)
+              const bar = `${"■".repeat(fill)}${"･".repeat(width - fill)}`
+              process.stderr.write(
+                `\r${orange}${bar} ${percent.toString().padStart(3)}%${reset} ${muted}${event.label.padEnd(12)} ${event.current}/${event.total}${reset}`,
+              )
+              if (event.current === event.total) process.stderr.write("\n")
+            } else {
+              process.stderr.write(`sqlite-migration:${percent}${EOL}`)
+            }
+          },
+        })
+      } finally {
+        if (tty) process.stderr.write("\x1b[?25h")
+        else {
+          process.stderr.write(`sqlite-migration:done${EOL}`)
+        }
+      }
+      process.stderr.write("Database migration complete." + EOL)
+    }
+
+    const jsonlMarker = path.join(Global.Path.data, "jsonl-migration.done")
+    if (await Filesystem.exists(marker) && !(await Filesystem.exists(jsonlMarker))) {
+      process.stderr.write("Performing one time JSONL migration..." + EOL)
+      try {
+        await JsonlMigration.run(marker)
+        await Filesystem.write(jsonlMarker, "done")
+        process.stderr.write("JSONL migration complete." + EOL)
+      } catch (err) {
+        Log.Default.error("jsonl migration failed", { err: errorMessage(err) })
+        process.stderr.write("JSONL migration failed, check logs for details." + EOL)
+      }
+    }
+
+    // Initialize Hook System
+    await import("./hook/registry").then(m => m.loadHooks()).catch(err => {
+      Log.Default.warn("failed to initialize hooks", { err: errorMessage(err) })
+    })
+
+    // Initialize Auto-Updater Background Check
+    import("./util/auto-updater").then(m => m.AutoUpdater.init()).catch(err => {
+      Log.Default.warn("failed to initialize auto-updater", { err: errorMessage(err) })
     })
   })
   .usage("\n" + UI.logo())
@@ -113,44 +163,10 @@ const cli = yargs(hideBin(process.argv))
   .command(TuiThreadCommand)
   .command(AttachCommand)
   .command(RunCommand)
-  .command({
-    command: "$0 [message..]",
-    describe: "run navi with a message",
-    builder: (yargs: any) => {
-      return (RunCommand.builder as any)(yargs).positional("message", {
-        describe: "message to send",
-        type: "string",
-        array: true,
-        default: [],
-      })
-    },
-    handler: async (args: any) => {
-      // Filter out empty strings or non-string junk
-      const messageArgs = (args.message || []).filter((m: any) => typeof m === "string" && m.trim().length > 0)
-      const hasMessage = messageArgs.length > 0
-      const hasCommand = !!args.command
-
-      // Always open TUI if no message or command is provided (simple, reliable logic)
-      const shouldOpenTui = !hasMessage && !hasCommand
-
-      if (shouldOpenTui) {
-        Log.Default.info("Calling TuiThreadCommand.handler")
-        return TuiThreadCommand.handler(args)
-      }
-
-      Log.Default.info("Calling RunCommand.handler")
-      return RunCommand.handler(args)
-    },
-  })
   .command(GenerateCommand)
   .command(DebugCommand)
-  .command(CriticCommand)
-  .command(PlanCommand)
-  .command(ReviewCommand)
-  .command(ResearchCommand)
-  .command(SpecCommand)
-  .command(BrowseCommand)
-  .command(AuthCommand)
+  .command(ConsoleCommand)
+  .command(ProvidersCommand)
   .command(AgentCommand)
   .command(UpgradeCommand)
   .command(UninstallCommand)
@@ -163,16 +179,9 @@ const cli = yargs(hideBin(process.argv))
   .command(GithubCommand)
   .command(PrCommand)
   .command(SessionCommand)
-  .command(HistoryCommand)
-  .command(TraceCommand)
-  .command(CheckpointCommand)
-  .command(RustCommand)
+  .command(PluginCommand)
+  .command(DbCommand)
   .command(EvalCommand)
-  .command(HealthCommand)
-  .command(KnowledgeCommand)
-  .command(InitCommand)
-  .command(PeersCommand)
-  .command(CollabCommand)
   .fail((msg, err) => {
     if (
       msg?.startsWith("Unknown argument") ||
@@ -188,7 +197,7 @@ const cli = yargs(hideBin(process.argv))
   .strict()
 
 try {
-  await cli.parseAsync()
+  await cli.parse()
 } catch (e) {
   let data: Record<string, any> = {}
   if (e instanceof NamedError) {
@@ -207,37 +216,30 @@ try {
     })
   }
 
-  /*
-    if (e instanceof ResolveMessage) {
-      Object.assign(data, {
-        name: e.name,
-        message: e.message,
-        code: e.code,
-        specifier: e.specifier,
-        referrer: e.referrer,
-        position: e.position,
-        importKind: e.importKind,
-      })
-    }
-  */
+  if (e instanceof ResolveMessage) {
+    Object.assign(data, {
+      name: e.name,
+      message: e.message,
+      code: e.code,
+      specifier: e.specifier,
+      referrer: e.referrer,
+      position: e.position,
+      importKind: e.importKind,
+    })
+  }
   Log.Default.error("fatal", data)
   const formatted = FormatError(e)
   if (formatted) UI.error(formatted)
   if (formatted === undefined) {
     UI.error("Unexpected error, check log file at " + Log.file() + " for more details" + EOL)
-    console.error(e instanceof Error ? e.message : String(e))
+    process.stderr.write(errorMessage(e) + EOL)
   }
   process.exitCode = 1
 } finally {
   // Some subprocesses don't react properly to SIGTERM and similar signals.
   // Most notably, some docker-container-based MCP servers don't handle such signals unless
   // run using `docker run --init`.
-  // Explicitly exit to avoid any hanging subprocesses, but only for non-TUI commands
-  // to allow the TUI to clean up the terminal properly.
-  const isTui = process.argv.some(arg => arg === "tui" || arg === "attach")
-  const isDefaultCommand = !process.argv.slice(2).some(arg => !arg.startsWith("-"))
-
-  if (!isTui && !isDefaultCommand) {
-    process.exit()
-  }
+  // Explicitly exit to avoid any hanging subprocesses.
+  process.exit()
 }
+

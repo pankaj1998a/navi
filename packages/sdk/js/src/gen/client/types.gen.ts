@@ -220,3 +220,4 @@ export type OptionsLegacyParser<
         TData &
         Pick<RequestOptions<unknown, TResponseStyle, ThrowOnError>, "body">
     : OmitKeys<RequestOptions<unknown, TResponseStyle, ThrowOnError>, "url"> & TData
+

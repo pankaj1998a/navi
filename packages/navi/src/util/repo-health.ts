@@ -1,4 +1,5 @@
 import fs from "fs/promises"
+import type { Dirent } from "fs"
 import path from "path"
 
 export type RepoHealthSeverity = "info" | "warn" | "error"
@@ -118,7 +119,7 @@ async function listFiles(root: string, predicate: (file: string) => boolean): Pr
 }
 
 async function walk(dir: string, results: string[], predicate: (file: string) => boolean) {
-  let entries: fs.Dirent[]
+  let entries: Dirent[]
   try {
     entries = await fs.readdir(dir, { withFileTypes: true })
   } catch {
@@ -415,3 +416,6 @@ async function loadReferenceText(files: string[], exclude: string) {
   }
   return chunks.join("\n")
 }
+
+
+

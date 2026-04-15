@@ -46,7 +46,7 @@ export const ANTIGRAVITY_DEFAULT_PROJECT_ID = "rising-fact-p41fc"
 
 /**
  * Antigravity model definitions — matches models available via the Antigravity IDE quota.
- * Reference: https://github.com/NoeFabris/opencode-antigravity-auth
+ * Reference: https://github.com/NoeFabris/Navi-antigravity-auth
  */
 export const ANTIGRAVITY_MODELS = {
     // Gemini 3.1 Pro — High thinking (strongest reasoning)
@@ -787,3 +787,5 @@ export async function AntigravityAuthPlugin(_input: PluginInput): Promise<Hooks>
 }
 
 export default AntigravityAuthPlugin
+
+

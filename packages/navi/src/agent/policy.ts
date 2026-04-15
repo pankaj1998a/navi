@@ -19,7 +19,6 @@ export namespace AgentPolicy {
   const DEFAULTS: Record<string, Info> = {
     build: { maxIterations: 12, maxToolCalls: 18, maxRetries: 2, maxDelegations: 6, budgetUsd: 10 },
     vibemode: { maxIterations: 10, maxToolCalls: 16, maxRetries: 1, maxDelegations: 10, maxQuestions: 3, budgetUsd: 12 },
-    specs: { maxIterations: 10, maxToolCalls: 14, maxRetries: 1, maxDelegations: 6, maxQuestions: 3 },
     ask: { maxIterations: 6, maxToolCalls: 8, maxRetries: 1, maxQuestions: 2 },
     general: { maxIterations: 8, maxToolCalls: 10, maxRetries: 1, maxDelegations: 4 },
     researcher: { maxIterations: 8, maxToolCalls: 12, maxRetries: 1, maxDelegations: 5, maxQuestions: 2 },
@@ -73,3 +72,5 @@ export namespace AgentPolicy {
     return parts.filter((part) => part.type === "tool" && part.tool === "question").length
   }
 }
+
+

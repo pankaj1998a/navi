@@ -3,25 +3,74 @@ import path from "path"
 import { pathToFileURL } from "url"
 import os from "os"
 import z from "zod"
-import { Filesystem } from "../util/filesystem"
 import { ModelsDev } from "../provider/models"
 import { mergeDeep, pipe, unique } from "remeda"
 import { Global } from "../global"
-import fs from "fs/promises"
-import { lazy } from "../util/lazy"
-import { NamedError } from "@navi-ai/sdk/util/error"
+import fsNode from "fs/promises"
+import { NamedError } from "@navi-ai/util/error"
 import { Flag } from "../flag/flag"
 import { Auth } from "../auth"
-import { type ParseError as JsoncParseError, parse as parseJsonc, printParseErrorCode } from "jsonc-parser"
-import { Instance } from "../project/instance"
+import { Env } from "../env"
+import {
+  type ParseError as JsoncParseError,
+  applyEdits,
+  modify,
+  parse as parseJsonc,
+  printParseErrorCode,
+} from "jsonc-parser"
+import { Instance, type InstanceContext } from "../project/instance"
 import { LSPServer } from "../lsp/server"
 import { BunProc } from "@/bun"
 import { Installation } from "@/installation"
 import { ConfigMarkdown } from "./markdown"
-import { existsSync } from "fs"
+import { constants, existsSync } from "fs"
+import { Bus } from "@/bus"
+import { GlobalBus } from "@/bus/global"
+import { Event } from "../server/event"
+import { Glob } from "../util/glob"
+import { PackageRegistry } from "@/bun/registry"
+import { online, proxied } from "@/util/network"
+import { iife } from "@/util/iife"
+import { Account } from "@/account"
+import { isRecord } from "@/util/record"
+import { ConfigPaths } from "./paths"
+import { Filesystem } from "@/util/filesystem"
+import { Process } from "@/util/process"
+import { AppFileSystem } from "@/filesystem"
+import { InstanceState } from "@/effect/instance-state"
+import { makeRuntime } from "@/effect/run-service"
+import { Duration, Effect, Layer, Option, ServiceMap } from "effect"
+import { Flock } from "@/util/flock"
+import { isPathPluginSpec, parsePluginSpecifier, resolvePathPluginTarget } from "@/plugin/shared"
 
 export namespace Config {
+  const ModelId = z.string().meta({ $ref: "https://models.dev/model-schema.json#/$defs/Model" })
+  const PluginOptions = z.record(z.string(), z.unknown())
+  export const PluginSpec = z.union([z.string(), z.tuple([z.string(), PluginOptions])])
+
+  export type PluginOptions = z.infer<typeof PluginOptions>
+  export type PluginSpec = z.infer<typeof PluginSpec>
+
   const log = Log.create({ service: "config" })
+
+  // Managed settings directory for enterprise deployments (highest priority, admin-controlled)
+  // These settings override all user and project settings
+  function systemManagedConfigDir(): string {
+    switch (process.platform) {
+      case "darwin":
+        return "/Library/Application Support/Navi"
+      case "win32":
+        return path.join(process.env.ProgramData || "C:\\ProgramData", "Navi")
+      default:
+        return "/etc/Navi"
+    }
+  }
+
+  export function managedConfigDir() {
+    return process.env.NAVI_TEST_MANAGED_CONFIG_DIR || systemManagedConfigDir()
+  }
+
+  const managedDir = managedConfigDir()
 
   // Custom merge function that concatenates array fields instead of replacing them
   function mergeConfigConcatArrays(target: Info, source: Info): Info {
@@ -35,190 +84,144 @@ export namespace Config {
     return merged
   }
 
-  export const state = Instance.state(async () => {
-    const auth = await Auth.all()
+  export type InstallInput = {
+    signal?: AbortSignal
+    waitTick?: (input: { dir: string; attempt: number; delay: number; waited: number }) => void | Promise<void>
+  }
 
-    // Load remote/well-known config first as the base layer (lowest precedence)
-    // This allows organizations to provide default configs that users can override
-    let result: Info = {}
-    for (const [key, value] of Object.entries(auth)) {
-      if (value.type === "wellknown") {
-        process.env[value.key] = value.token
-        log.debug("fetching remote config", { url: `${key}/.well-known/navi` })
-        const response = await fetch(`${key}/.well-known/navi`)
-        if (!response.ok) {
-          throw new Error(`failed to fetch remote config from ${key}: ${response.status}`)
-        }
-        const wellknown = (await response.json()) as any
-        const remoteConfig = wellknown.config ?? {}
-        // Add $schema to prevent load() from trying to write back to a non-existent file
-        if (!remoteConfig.$schema) remoteConfig.$schema = "https://navi.ai/config.json"
-        result = mergeConfigConcatArrays(
-          result,
-          await load(JSON.stringify(remoteConfig), `${key}/.well-known/navi`),
-        )
-        log.debug("loaded remote config from well-known", { url: key })
-      }
-    }
+  export async function installDependencies(dir: string, input?: InstallInput) {
+    if (!(await needsInstall(dir))) return
 
-    // Global user config overrides remote config
-    result = mergeConfigConcatArrays(result, await global())
-
-    // Custom config path overrides global
-    if (Flag.NAVI_CONFIG) {
-      result = mergeConfigConcatArrays(result, await loadFile(Flag.NAVI_CONFIG))
-      log.debug("loaded custom config", { path: Flag.NAVI_CONFIG })
-    }
-
-    // Project config has highest precedence (overrides global and remote)
-    for (const file of ["navi.jsonc", "navi.json", "oh-my-navi.json"]) {
-      const found = await Filesystem.findUp(file, Instance.directory, Instance.worktree)
-      for (const resolved of found.toReversed()) {
-        result = mergeConfigConcatArrays(result, await loadFile(resolved))
-      }
-    }
-
-    // Inline config content has highest precedence
-    if (Flag.NAVI_CONFIG_CONTENT) {
-      result = mergeConfigConcatArrays(result, JSON.parse(Flag.NAVI_CONFIG_CONTENT))
-      log.debug("loaded custom config from NAVI_CONFIG_CONTENT")
-    }
-
-    result.agent = result.agent || {}
-    result.mode = result.mode || {}
-    result.plugin = result.plugin || []
-
-    const directories = [
-      Global.Path.config,
-      ...(await Array.fromAsync(
-        Filesystem.up({
-          targets: [".navi", ".claude"],
-          start: Instance.directory,
-          stop: Instance.worktree,
+    await using _ = await Flock.acquire(`config-install:${Filesystem.resolve(dir)}`, {
+      signal: input?.signal,
+      onWait: (tick) =>
+        input?.waitTick?.({
+          dir,
+          attempt: tick.attempt,
+          delay: tick.delay,
+          waited: tick.waited,
         }),
-      )),
-      ...(await Array.fromAsync(
-        Filesystem.up({
-          targets: [".navi", ".claude"],
-          start: Global.Path.home,
-          stop: Global.Path.home,
-        }),
-      )),
-    ]
+    })
 
-    if (Flag.NAVI_CONFIG_DIR) {
-      directories.push(Flag.NAVI_CONFIG_DIR)
-      log.debug("loading config from NAVI_CONFIG_DIR", { path: Flag.NAVI_CONFIG_DIR })
-    }
+    input?.signal?.throwIfAborted()
+    if (!(await needsInstall(dir))) return
 
-    for (const dir of unique(directories)) {
-      if (
-        dir.endsWith(".navi") ||
-        dir.endsWith(".claude") ||
-        dir === Flag.NAVI_CONFIG_DIR
-      ) {
-        for (const file of ["navi.jsonc", "navi.json", "oh-my-navi.json"]) {
-          log.debug(`loading config from ${path.join(dir, file)}`)
-          result = mergeConfigConcatArrays(result, await loadFile(path.join(dir, file)))
-          // to satisfy the type checker
-          result.agent ??= {}
-          result.mode ??= {}
-          result.plugin ??= []
-        }
-      }
-
-      const exists = existsSync(path.join(dir, "node_modules"))
-      if (!exists) await installDependencies(dir)
-
-      result.command = mergeDeep(result.command ?? {}, await loadCommand(dir))
-      result.agent = mergeDeep(result.agent, await loadAgent(dir))
-      result.agent = mergeDeep(result.agent, await loadMode(dir))
-      result.plugin.push(...(await loadPlugin(dir)))
-      result.mcp = mergeDeep(result.mcp ?? {}, await loadMcp(dir))
-    }
-
-    // Migrate deprecated mode field to agent field
-    for (const [name, mode] of Object.entries(result.mode)) {
-      result.agent = mergeDeep(result.agent ?? {}, {
-        [name]: {
-          ...mode,
-          mode: "primary" as const,
-        },
-      })
-    }
-
-    if (Flag.NAVI_PERMISSION) {
-      result.permission = mergeDeep(result.permission ?? {}, JSON.parse(Flag.NAVI_PERMISSION))
-    }
-
-    // Backwards compatibility: legacy top-level `tools` config
-    if (result.tools) {
-      const perms: Record<string, Config.PermissionAction> = {}
-      for (const [tool, enabled] of Object.entries(result.tools)) {
-        const action: Config.PermissionAction = enabled ? "allow" : "deny"
-        if (tool === "write" || tool === "edit" || tool === "patch" || tool === "multiedit") {
-          perms.edit = action
-          continue
-        }
-        perms[tool] = action
-      }
-      result.permission = mergeDeep(perms, result.permission ?? {})
-    }
-
-    if (!result.username) result.username = os.userInfo().username
-
-    // Handle migration from autoshare to share field
-    if (result.autoshare === true && !result.share) {
-      result.share = "auto"
-    }
-
-    if (!result.keybinds) result.keybinds = Info.shape.keybinds.parse({})
-
-    // Apply flag overrides for compaction settings
-    if (Flag.NAVI_DISABLE_AUTOCOMPACT) {
-      result.compaction = { ...result.compaction, auto: false }
-    }
-    if (Flag.NAVI_DISABLE_PRUNE) {
-      result.compaction = { ...result.compaction, prune: false }
-    }
-
-    result.plugin = deduplicatePlugins(result.plugin ?? [])
-
-    return {
-      config: result,
-      directories,
-    }
-  })
-
-  export async function installDependencies(dir: string) {
-    if (process.env.CI) return
     const pkg = path.join(dir, "package.json")
+    const target = Installation.isLocal() ? "*" : Installation.VERSION
 
-    if (!(await Bun.file(pkg).exists())) {
-      await Bun.write(pkg, "{}")
+    const json = await Filesystem.readJson<{ dependencies?: Record<string, string> }>(pkg).catch(() => ({
+      dependencies: {},
+    }))
+    json.dependencies = {
+      ...json.dependencies,
+      "@navi-ai/plugin": target,
     }
+    await Filesystem.writeJson(pkg, json)
 
     const gitignore = path.join(dir, ".gitignore")
-    const hasGitIgnore = await Bun.file(gitignore).exists()
-    if (!hasGitIgnore) await Bun.write(gitignore, ["node_modules", "package.json", "bun.lock", ".gitignore"].join("\n"))
+    const ignore = await Filesystem.exists(gitignore)
+    if (!ignore) {
+      await Filesystem.write(
+        gitignore,
+        ["node_modules", "package.json", "package-lock.json", "bun.lock", ".gitignore"].join("\n"),
+      )
+    }
+
+    // Bun can race cache writes on Windows when installs run in parallel across dirs.
+    // Serialize installs globally on win32, but keep parallel installs on other platforms.
+    await using __ =
+      process.platform === "win32"
+        ? await Flock.acquire("config-install:bun", {
+            signal: input?.signal,
+          })
+        : undefined
 
     await BunProc.run(
-      ["add", "@navi-ai/plugin@" + (Installation.isLocal() ? "latest" : Installation.VERSION), "--exact"],
+      [
+        "install",
+        // TODO: get rid of this case (see: https://github.com/oven-sh/bun/issues/19936)
+        ...(proxied() || process.env.CI ? ["--no-cache"] : []),
+      ],
       {
         cwd: dir,
+        abort: input?.signal,
       },
-    ).catch(() => { })
+    ).catch((err) => {
+      if (err instanceof Process.RunFailedError) {
+        const detail = {
+          dir,
+          cmd: err.cmd,
+          code: err.code,
+          stdout: err.stdout.toString(),
+          stderr: err.stderr.toString(),
+        }
+        if (Flag.NAVI_STRICT_CONFIG_DEPS) {
+          log.error("failed to install dependencies", detail)
+          throw err
+        }
+        log.warn("failed to install dependencies", detail)
+        return
+      }
 
-    // Install any additional dependencies defined in the package.json
-    // This allows local plugins and custom tools to use external packages
-    await BunProc.run(["install"], { cwd: dir }).catch(() => { })
+      if (Flag.NAVI_STRICT_CONFIG_DEPS) {
+        log.error("failed to install dependencies", { dir, error: err })
+        throw err
+      }
+      log.warn("failed to install dependencies", { dir, error: err })
+    })
+  }
+
+  async function isWritable(dir: string) {
+    try {
+      await fsNode.access(dir, constants.W_OK)
+      return true
+    } catch {
+      return false
+    }
+  }
+
+  export async function needsInstall(dir: string) {
+    // Some config dirs may be read-only.
+    // Installing deps there will fail; skip installation in that case.
+    const writable = await isWritable(dir)
+    if (!writable) {
+      log.debug("config dir is not writable, skipping dependency install", { dir })
+      return false
+    }
+
+    const mod = path.join(dir, "node_modules", "@Navi-ai", "plugin")
+    if (!existsSync(mod)) return true
+
+    const pkg = path.join(dir, "package.json")
+    const pkgExists = await Filesystem.exists(pkg)
+    if (!pkgExists) return true
+
+    const parsed = await Filesystem.readJson<{ dependencies?: Record<string, string> }>(pkg).catch(() => null)
+    const dependencies = parsed?.dependencies ?? {}
+    const depVersion = dependencies["@navi-ai/plugin"]
+    if (!depVersion) return true
+
+    const targetVersion = Installation.isLocal() ? "latest" : Installation.VERSION
+    if (targetVersion === "latest") {
+      if (!online()) return false
+      const stale = await PackageRegistry.isOutdated("@navi-ai/plugin", depVersion, dir)
+      if (!stale) return false
+      log.info("Cached version is outdated, proceeding with install", {
+        pkg: "@navi-ai/plugin",
+        cachedVersion: depVersion,
+      })
+      return true
+    }
+    if (depVersion === targetVersion) return false
+    return true
   }
 
   function rel(item: string, patterns: string[]) {
+    const normalizedItem = item.replaceAll("\\", "/")
     for (const pattern of patterns) {
-      const index = item.indexOf(pattern)
+      const index = normalizedItem.indexOf(pattern)
       if (index === -1) continue
-      return item.slice(index + pattern.length)
+      return normalizedItem.slice(index + pattern.length)
     }
   }
 
@@ -227,37 +230,28 @@ export namespace Config {
     return ext.length ? file.slice(0, -ext.length) : file
   }
 
-  const COMMAND_GLOB = new Bun.Glob("{command,commands}/**/*.md")
-  const SKILL_AS_COMMAND_GLOB = new Bun.Glob("{skill,skills}/**/*.md")
   async function loadCommand(dir: string) {
     const result: Record<string, Command> = {}
-    for await (const item of COMMAND_GLOB.scan({
-      absolute: true,
-      followSymlinks: true,
-      dot: true,
+    for (const item of await Glob.scan("{command,commands}/**/*.md", {
       cwd: dir,
+      absolute: true,
+      dot: true,
+      symlink: true,
     })) {
-      const md = await ConfigMarkdown.parse(item)
-      if (!md.data) continue
+      const md = await ConfigMarkdown.parse(item).catch(async (err) => {
+        const message = ConfigMarkdown.FrontmatterError.isInstance(err)
+          ? err.data.message
+          : `Failed to parse command ${item}`
+        const { Session } = await import("@/session")
+        Bus.publish(Session.Event.Error, { error: new NamedError.Unknown({ message }).toObject() })
+        log.error("failed to load command", { command: item, err })
+        return undefined
+      })
+      if (!md) continue
 
-      const patterns = [
-        "/.navi/command/",
-        "/.navi/commands/",
-        "/command/",
-        "/commands/",
-        "/.claude/commands/",
-      ]
+      const patterns = ["/.Navi/command/", "/.Navi/commands/", "/command/", "/commands/"]
       const file = rel(item, patterns) ?? path.basename(item)
-      let name = trim(file)
-
-      // Handle SKILL.md or SKILL/index.md patterns by using the directory name
-      if (name.endsWith("/SKILL")) {
-        name = name.slice(0, -6)
-      } else if (name.endsWith("/index")) {
-        name = name.slice(0, -6)
-      }
-      // Replace backslashes with colons for nested commands
-      name = name.replace(/[\/\\]/g, ":")
+      const name = trim(file)
 
       const config = {
         name,
@@ -271,70 +265,32 @@ export namespace Config {
       }
       throw new InvalidError({ path: item, issues: parsed.error.issues }, { cause: parsed.error })
     }
-
-    // Load skills — these are executable but marked so TUI can hide them from /commands autocomplete
-    for await (const item of SKILL_AS_COMMAND_GLOB.scan({
-      absolute: true,
-      followSymlinks: true,
-      dot: true,
-      cwd: dir,
-    })) {
-      const md = await ConfigMarkdown.parse(item)
-      if (!md.data) continue
-
-      const patterns = [
-        "/.navi/skill/",
-        "/.navi/skills/",
-        "/.claude/skills/",
-        "/skill/",
-        "/skills/",
-      ]
-      const file = rel(item, patterns) ?? path.basename(item)
-      let name = trim(file)
-
-      // Handle SKILL.md pattern — use parent directory name as command name
-      if (name.endsWith("/SKILL")) name = name.slice(0, -6)
-      else if (name.endsWith("/index")) name = name.slice(0, -6)
-      name = name.replace(/[\/\\]/g, ":")
-
-      const config = { name, ...md.data, template: md.content.trim() }
-      const parsed = Command.safeParse(config)
-      if (parsed.success) {
-        // skill:true lets TUI filter these out of the /commands autocomplete
-        result[config.name] = { ...parsed.data, skill: true } as any
-        continue
-      }
-      throw new InvalidError({ path: item, issues: parsed.error.issues }, { cause: parsed.error })
-    }
-
     return result
   }
 
-  const AGENT_GLOB = new Bun.Glob("{agent,agents}/**/*.md")
   async function loadAgent(dir: string) {
     const result: Record<string, Agent> = {}
 
-    for await (const item of AGENT_GLOB.scan({
-      absolute: true,
-      followSymlinks: true,
-      dot: true,
+    for (const item of await Glob.scan("{agent,agents}/**/*.md", {
       cwd: dir,
+      absolute: true,
+      dot: true,
+      symlink: true,
     })) {
-      const md = await ConfigMarkdown.parse(item)
-      if (!md.data) continue
+      const md = await ConfigMarkdown.parse(item).catch(async (err) => {
+        const message = ConfigMarkdown.FrontmatterError.isInstance(err)
+          ? err.data.message
+          : `Failed to parse agent ${item}`
+        const { Session } = await import("@/session")
+        Bus.publish(Session.Event.Error, { error: new NamedError.Unknown({ message }).toObject() })
+        log.error("failed to load agent", { agent: item, err })
+        return undefined
+      })
+      if (!md) continue
 
-      const patterns = [
-        "/.navi/agent/",
-        "/.navi/agents/",
-        "/agent/",
-        "/agents/",
-        "/.claude/agents/",
-      ]
+      const patterns = ["/.Navi/agent/", "/.Navi/agents/", "/agent/", "/agents/"]
       const file = rel(item, patterns) ?? path.basename(item)
-      let agentName = trim(file)
-
-      // Replace backslashes with colons for nested agents
-      agentName = agentName.replace(/[\/\\]/g, ":")
+      const agentName = trim(file)
 
       const config = {
         name: agentName,
@@ -351,17 +307,24 @@ export namespace Config {
     return result
   }
 
-  const MODE_GLOB = new Bun.Glob("{mode,modes}/*.md")
   async function loadMode(dir: string) {
     const result: Record<string, Agent> = {}
-    for await (const item of MODE_GLOB.scan({
-      absolute: true,
-      followSymlinks: true,
-      dot: true,
+    for (const item of await Glob.scan("{mode,modes}/*.md", {
       cwd: dir,
+      absolute: true,
+      dot: true,
+      symlink: true,
     })) {
-      const md = await ConfigMarkdown.parse(item)
-      if (!md.data) continue
+      const md = await ConfigMarkdown.parse(item).catch(async (err) => {
+        const message = ConfigMarkdown.FrontmatterError.isInstance(err)
+          ? err.data.message
+          : `Failed to parse mode ${item}`
+        const { Session } = await import("@/session")
+        Bus.publish(Session.Event.Error, { error: new NamedError.Unknown({ message }).toObject() })
+        log.error("failed to load mode", { mode: item, err })
+        return undefined
+      })
+      if (!md) continue
 
       const config = {
         name: path.basename(item, ".md"),
@@ -380,103 +343,63 @@ export namespace Config {
     return result
   }
 
-  const PLUGIN_GLOB = new Bun.Glob("{plugin,plugins}/*.{ts,js}")
   async function loadPlugin(dir: string) {
-    const plugins: string[] = []
+    const plugins: PluginSpec[] = []
 
-    for await (const item of PLUGIN_GLOB.scan({
-      absolute: true,
-      followSymlinks: true,
-      dot: true,
+    for (const item of await Glob.scan("{plugin,plugins}/*.{ts,js}", {
       cwd: dir,
+      absolute: true,
+      dot: true,
+      symlink: true,
     })) {
       plugins.push(pathToFileURL(item).href)
     }
     return plugins
   }
 
-  async function loadMcp(dir: string) {
-    const result: Record<string, Mcp> = {}
-    const mcpFiles = [".mcp.json", "mcp.json"]
-    for (const file of mcpFiles) {
-      const filePath = path.join(dir, file)
-      if (existsSync(filePath)) {
-        try {
-          const content = await fs.readFile(filePath, "utf-8")
-          const config = JSON.parse(content)
-          if (config.mcpServers) {
-            for (const [name, server] of Object.entries(config.mcpServers)) {
-              const s = server as any
-              if (s.disabled) continue
-
-              if (s.url) {
-                result[name] = {
-                  type: "remote",
-                  url: s.url,
-                  headers: s.headers,
-                  enabled: true,
-                }
-              } else if (s.command) {
-                result[name] = {
-                  type: "local",
-                  command: [s.command, ...(s.args ?? [])],
-                  environment: s.env,
-                  enabled: true,
-                }
-              }
-            }
-          }
-        } catch (err) {
-          log.error(`failed to load MCP config from ${filePath}`, { error: err })
-        }
-      }
-    }
-    return result
+  export function pluginSpecifier(plugin: PluginSpec): string {
+    return Array.isArray(plugin) ? plugin[0] : plugin
   }
 
-  /**
-   * Extracts a canonical plugin name from a plugin specifier.
-   * - For file:// URLs: extracts filename without extension
-   * - For npm packages: extracts package name without version
-   *
-   * @example
-   * getPluginName("file:///path/to/plugin/foo.js") // "foo"
-   * getPluginName("oh-my-navi@2.4.3") // "oh-my-navi"
-   * getPluginName("@scope/pkg@1.0.0") // "@scope/pkg"
-   */
-  export function getPluginName(plugin: string): string {
-    if (plugin.startsWith("file://")) {
-      return path.parse(new URL(plugin).pathname).name
-    }
-    const lastAt = plugin.lastIndexOf("@")
-    if (lastAt > 0) {
-      return plugin.substring(0, lastAt)
-    }
-    return plugin
+  export function pluginOptions(plugin: PluginSpec): PluginOptions | undefined {
+    return Array.isArray(plugin) ? plugin[1] : undefined
+  }
+
+  export async function resolvePluginSpec(plugin: PluginSpec, configFilepath: string): Promise<PluginSpec> {
+    const spec = pluginSpecifier(plugin)
+    if (!isPathPluginSpec(spec)) return plugin
+
+    const base = path.dirname(configFilepath)
+    const file = (() => {
+      if (spec.startsWith("file://")) return spec
+      if (path.isAbsolute(spec) || /^[A-Za-z]:[\\/]/.test(spec)) return pathToFileURL(spec).href
+      return pathToFileURL(path.resolve(base, spec)).href
+    })()
+
+    const resolved = await resolvePathPluginTarget(file).catch(() => file)
+
+    if (Array.isArray(plugin)) return [resolved, plugin[1]]
+    return resolved
   }
 
   /**
    * Deduplicates plugins by name, with later entries (higher priority) winning.
    * Priority order (highest to lowest):
    * 1. Local plugin/ directory
-   * 2. Local navi.json
+   * 2. Local Navi.json
    * 3. Global plugin/ directory
-   * 4. Global navi.json
+   * 4. Global Navi.json
    *
    * Since plugins are added in low-to-high priority order,
    * we reverse, deduplicate (keeping first occurrence), then restore order.
    */
-  export function deduplicatePlugins(plugins: string[]): string[] {
-    // seenNames: canonical plugin names for duplicate detection
-    // e.g., "oh-my-navi", "@scope/pkg"
+  export function deduplicatePlugins(plugins: PluginSpec[]): PluginSpec[] {
     const seenNames = new Set<string>()
-
-    // uniqueSpecifiers: full plugin specifiers to return
-    // e.g., "oh-my-navi@2.4.3", "file:///path/to/plugin.js"
-    const uniqueSpecifiers: string[] = []
+    const uniqueSpecifiers: PluginSpec[] = []
 
     for (const specifier of plugins.toReversed()) {
-      const name = getPluginName(specifier)
+      const spec = pluginSpecifier(specifier)
+      const name = spec.startsWith("file://") ? spec : parsePluginSpecifier(spec).pkg
       if (!seenNames.has(name)) {
         seenNames.add(name)
         uniqueSpecifiers.push(specifier)
@@ -500,9 +423,7 @@ export namespace Config {
         .int()
         .positive()
         .optional()
-        .describe(
-          "Timeout in ms for fetching tools from the MCP server. Defaults to 5000 (5 seconds) if not specified.",
-        ),
+        .describe("Timeout in ms for MCP server requests. Defaults to 5000 (5 seconds) if not specified."),
     })
     .strict()
     .meta({
@@ -541,9 +462,7 @@ export namespace Config {
         .int()
         .positive()
         .optional()
-        .describe(
-          "Timeout in ms for fetching tools from the MCP server. Defaults to 5000 (5 seconds) if not specified.",
-        ),
+        .describe("Timeout in ms for MCP server requests. Defaults to 5000 (5 seconds) if not specified."),
     })
     .strict()
     .meta({
@@ -600,16 +519,17 @@ export namespace Config {
           grep: PermissionRule.optional(),
           list: PermissionRule.optional(),
           bash: PermissionRule.optional(),
+          terminal: PermissionRule.optional(),
           task: PermissionRule.optional(),
           external_directory: PermissionRule.optional(),
           todowrite: PermissionAction.optional(),
-          todoread: PermissionAction.optional(),
           question: PermissionAction.optional(),
           webfetch: PermissionAction.optional(),
           websearch: PermissionAction.optional(),
           codesearch: PermissionAction.optional(),
           lsp: PermissionRule.optional(),
           doom_loop: PermissionAction.optional(),
+          skill: PermissionRule.optional(),
         })
         .catchall(PermissionRule)
         .or(PermissionAction),
@@ -624,33 +544,46 @@ export namespace Config {
     template: z.string(),
     description: z.string().optional(),
     agent: z.string().optional(),
-    model: z.string().optional(),
+    model: ModelId.optional(),
     subtask: z.boolean().optional(),
-    skill: z.boolean().optional(),
-    mcp: z.record(z.string(), Mcp).optional(),
   })
   export type Command = z.infer<typeof Command>
 
+  export const Skills = z.object({
+    paths: z.array(z.string()).optional().describe("Additional paths to skill folders"),
+    urls: z
+      .array(z.string())
+      .optional()
+      .describe("URLs to fetch skills from (e.g., https://example.com/.well-known/skills/)"),
+  })
+  export type Skills = z.infer<typeof Skills>
+
   export const Agent = z
     .object({
-      model: z.string().optional(),
+      model: ModelId.optional(),
+      variant: z
+        .string()
+        .optional()
+        .describe("Default model variant for this agent (applies only when using the agent's configured model)."),
       temperature: z.number().optional(),
       top_p: z.number().optional(),
       prompt: z.string().optional(),
       tools: z.record(z.string(), z.boolean()).optional().describe("@deprecated Use 'permission' field instead"),
       disable: z.boolean().optional(),
       description: z.string().optional().describe("Description of when to use the agent"),
-      mode: z.enum(["subagent", "primary", "all", "parallel"]).optional(),
+      mode: z.enum(["subagent", "primary", "all"]).optional(),
       hidden: z
         .boolean()
         .optional()
         .describe("Hide this subagent from the @ autocomplete menu (default: false, only applies to mode: subagent)"),
       options: z.record(z.string(), z.any()).optional(),
       color: z
-        .string()
-        .regex(/^#[0-9a-fA-F]{6}$/, "Invalid hex color format")
+        .union([
+          z.string().regex(/^#[0-9a-fA-F]{6}$/, "Invalid hex color format"),
+          z.enum(["primary", "secondary", "accent", "success", "warning", "error", "info"]),
+        ])
         .optional()
-        .describe("Hex color code for the agent (e.g., #FF5733)"),
+        .describe("Hex color code (e.g., #FF5733) or theme color (e.g., primary)"),
       steps: z
         .number()
         .int()
@@ -658,30 +591,14 @@ export namespace Config {
         .optional()
         .describe("Maximum number of agentic iterations before forcing text-only response"),
       maxSteps: z.number().int().positive().optional().describe("@deprecated Use 'steps' field instead."),
-      skills: z.array(z.string()).optional().describe("Curated skill allowlist for this agent"),
-      executionPolicy: z
-        .object({
-          maxIterations: z.number().int().positive().optional(),
-          maxToolCalls: z.number().int().positive().optional(),
-          maxQuestions: z.number().int().positive().optional(),
-          maxRetries: z.number().int().nonnegative().optional(),
-          maxDelegations: z.number().int().positive().optional(),
-          budgetUsd: z.number().positive().optional(),
-        })
-        .optional()
-        .describe("Execution policy limits for the agent"),
-      spawnableAgents: z
-        .array(z.string())
-        .optional()
-        .describe("Curated subagent allowlist for this agent"),
       permission: Permission.optional(),
-      mcp: z.record(z.string(), Mcp).optional(),
     })
     .catchall(z.any())
     .transform((agent, ctx) => {
       const knownKeys = new Set([
         "name",
         "model",
+        "variant",
         "prompt",
         "description",
         "temperature",
@@ -691,14 +608,10 @@ export namespace Config {
         "color",
         "steps",
         "maxSteps",
-        "skills",
-        "executionPolicy",
-        "spawnableAgents",
         "options",
         "permission",
         "disable",
         "tools",
-        "mcp",
       ])
 
       // Extract unknown properties into options
@@ -749,13 +662,23 @@ export namespace Config {
       session_list: z.string().optional().default("<leader>l").describe("List all sessions"),
       session_timeline: z.string().optional().default("<leader>g").describe("Show session timeline"),
       session_fork: z.string().optional().default("none").describe("Fork session from message"),
-      session_rename: z.string().optional().default("none").describe("Rename session"),
+      session_rename: z.string().optional().default("ctrl+r").describe("Rename session"),
+      session_delete: z.string().optional().default("ctrl+d").describe("Delete session"),
+      stash_delete: z.string().optional().default("ctrl+d").describe("Delete stash entry"),
+      model_provider_list: z.string().optional().default("ctrl+a").describe("Open provider list from model dialog"),
+      model_favorite_toggle: z.string().optional().default("ctrl+f").describe("Toggle model favorite status"),
       session_share: z.string().optional().default("none").describe("Share current session"),
       session_unshare: z.string().optional().default("none").describe("Unshare current session"),
       session_interrupt: z.string().optional().default("escape").describe("Interrupt current session"),
       session_compact: z.string().optional().default("<leader>c").describe("Compact the session"),
-      messages_page_up: z.string().optional().default("pageup").describe("Scroll messages up by one page"),
-      messages_page_down: z.string().optional().default("pagedown").describe("Scroll messages down by one page"),
+      messages_page_up: z.string().optional().default("pageup,ctrl+alt+b").describe("Scroll messages up by one page"),
+      messages_page_down: z
+        .string()
+        .optional()
+        .default("pagedown,ctrl+alt+f")
+        .describe("Scroll messages down by one page"),
+      messages_line_up: z.string().optional().default("ctrl+alt+y").describe("Scroll messages up by one line"),
+      messages_line_down: z.string().optional().default("ctrl+alt+e").describe("Scroll messages down by one line"),
       messages_half_page_up: z.string().optional().default("ctrl+alt+u").describe("Scroll messages up by half page"),
       messages_half_page_down: z
         .string()
@@ -783,10 +706,8 @@ export namespace Config {
       model_cycle_favorite_reverse: z.string().optional().default("none").describe("Previous favorite model"),
       command_list: z.string().optional().default("ctrl+p").describe("List available commands"),
       agent_list: z.string().optional().default("<leader>a").describe("List agents"),
-      agent_cycle: z.string().optional().default("none").describe("Next agent"),
-      agent_cycle_reverse: z.string().optional().default("none").describe("Previous agent"),
-      mode_list: z.string().optional().default("<leader>o").describe("List modes"),
-      mode_cycle: z.string().optional().default("tab").describe("Next mode"),
+      agent_cycle: z.string().optional().default("tab").describe("Next agent"),
+      agent_cycle_reverse: z.string().optional().default("shift+tab").describe("Previous agent"),
       variant_cycle: z.string().optional().default("ctrl+t").describe("Cycle model variants"),
       input_clear: z.string().optional().default("ctrl+c").describe("Clear input field"),
       input_paste: z.string().optional().default("ctrl+v").describe("Paste from clipboard"),
@@ -871,77 +792,33 @@ export namespace Config {
         .describe("Delete word backward in input"),
       history_previous: z.string().optional().default("up").describe("Previous history item"),
       history_next: z.string().optional().default("down").describe("Next history item"),
-      session_child_cycle: z.string().optional().default("<leader>right").describe("Next child session"),
-      session_child_cycle_reverse: z.string().optional().default("<leader>left").describe("Previous child session"),
-      session_parent: z.string().optional().default("<leader>up").describe("Go to parent session"),
+      session_child_first: z.string().optional().default("<leader>down").describe("Go to first child session"),
+      session_child_cycle: z.string().optional().default("right").describe("Go to next child session"),
+      session_child_cycle_reverse: z.string().optional().default("left").describe("Go to previous child session"),
+      session_parent: z.string().optional().default("up").describe("Go to parent session"),
       terminal_suspend: z.string().optional().default("ctrl+z").describe("Suspend terminal"),
       terminal_title_toggle: z.string().optional().default("none").describe("Toggle terminal title"),
       tips_toggle: z.string().optional().default("<leader>h").describe("Toggle tips on home screen"),
+      plugin_manager: z.string().optional().default("none").describe("Open plugin manager dialog"),
+      display_thinking: z.string().optional().default("none").describe("Toggle thinking blocks visibility"),
     })
     .strict()
     .meta({
       ref: "KeybindsConfig",
     })
 
-  export const TUI = z.object({
-    scroll_speed: z.number().min(0.001).optional().describe("TUI scroll speed"),
-    scroll_acceleration: z
-      .object({
-        enabled: z.boolean().describe("Enable scroll acceleration"),
-      })
-      .optional()
-      .describe("Scroll acceleration settings"),
-    diff_style: z
-      .enum(["auto", "stacked"])
-      .optional()
-      .describe("Control diff rendering style: 'auto' adapts to terminal width, 'stacked' always shows single column"),
-  })
-
   export const Server = z
     .object({
       port: z.number().int().positive().optional().describe("Port to listen on"),
       hostname: z.string().optional().describe("Hostname to listen on"),
       mdns: z.boolean().optional().describe("Enable mDNS service discovery"),
+      mdnsDomain: z.string().optional().describe("Custom domain name for mDNS service (default: Navi.local)"),
       cors: z.array(z.string()).optional().describe("Additional domains to allow for CORS"),
     })
     .strict()
     .meta({
       ref: "ServerConfig",
     })
-
-  export const P2PConfigSchema = z
-    .object({
-      enabled: z.boolean().optional().default(true).describe("Enable P2P terminal-to-terminal communication"),
-      discovery: z
-        .object({
-          mdns: z.boolean().optional().default(true).describe("Enable mDNS peer discovery"),
-          interval: z.number().optional().default(30000).describe("Discovery refresh interval in milliseconds"),
-        })
-        .optional()
-        .describe("Peer discovery settings"),
-      security: z
-        .object({
-          requireAuth: z.boolean().optional().default(false).describe("Require authentication for P2P connections"),
-          allowedPeers: z.array(z.string()).optional().describe("Whitelist of peer IDs allowed to connect"),
-          blockedPeers: z.array(z.string()).optional().describe("Blacklist of peer IDs blocked from connecting"),
-          secret: z.string().optional().describe("Shared secret for peer authentication"),
-        })
-        .optional()
-        .describe("P2P security settings"),
-      capabilities: z
-        .object({
-          acceptTasks: z.boolean().optional().default(true).describe("Accept task delegation from other peers"),
-          shareFiles: z.boolean().optional().default(true).describe("Allow file sharing with peers"),
-          collaborate: z.boolean().optional().default(true).describe("Enable collaborative sessions"),
-        })
-        .optional()
-        .describe("P2P capabilities this instance offers"),
-    })
-    .strict()
-    .meta({
-      ref: "P2PConfig",
-    })
-  export type P2PConfigSchema = z.infer<typeof P2PConfigSchema>
 
   export const Layout = z.enum(["auto", "stretch"]).meta({
     ref: "LayoutConfig",
@@ -991,6 +868,14 @@ export namespace Config {
             .describe(
               "Timeout in milliseconds for requests to this provider. Default is 300000 (5 minutes). Set to false to disable timeout.",
             ),
+          chunkTimeout: z
+            .number()
+            .int()
+            .positive()
+            .optional()
+            .describe(
+              "Timeout in milliseconds between streamed SSE chunks for this provider. If no chunk arrives within this window, the request is aborted.",
+            ),
         })
         .catchall(z.any())
         .optional(),
@@ -1001,51 +886,28 @@ export namespace Config {
     })
   export type Provider = z.infer<typeof Provider>
 
-  export const Category = z.object({
-    model: z.string(),
-    variant: z.string().optional(),
-    temperature: z.number().optional(),
-    top_p: z.number().optional(),
-    maxTokens: z.number().optional(),
-    thinking: z
-      .object({
-        type: z.enum(["enabled", "disabled"]),
-        budgetTokens: z.number().optional(),
-      })
-      .optional(),
-    reasoningEffort: z.enum(["low", "medium", "high"]).optional(),
-    textVerbosity: z.enum(["low", "medium", "high"]).optional(),
-    tools: z.record(z.string(), z.boolean()).optional(),
-    prompt_append: z.string().optional(),
-  })
-  export type Category = z.infer<typeof Category>
-
   export const Info = z
     .object({
       $schema: z.string().optional().describe("JSON schema reference for configuration validation"),
-      theme: z.string().optional().describe("Theme name to use for the interface"),
-      keybinds: Keybinds.optional().describe("Custom keybind configurations"),
       logLevel: Log.Level.optional().describe("Log level"),
-      tui: TUI.optional().describe("TUI specific settings"),
-      server: Server.optional().describe("Server configuration for navi serve and web commands"),
-      p2p: P2PConfigSchema.optional().describe("P2P terminal-to-terminal communication settings"),
-      auto_fetch_models_on_connect: z
-        .boolean()
-        .optional()
-        .describe(
-          "Automatically refresh a provider's model list after new credentials are connected. Defaults to true.",
-        ),
+      server: Server.optional().describe("Server configuration for Navi serve and web commands"),
       command: z
         .record(z.string(), Command)
         .optional()
-        .describe("Command configuration, see https://navi.ai/docs/commands"),
+        .describe("Command configuration, see https://Navi.ai/docs/commands"),
+      skills: Skills.optional().describe("Additional skill folder paths"),
       watcher: z
         .object({
           ignore: z.array(z.string()).optional(),
         })
         .optional(),
-      plugin: z.string().array().optional(),
-      snapshot: z.boolean().optional(),
+      snapshot: z
+        .boolean()
+        .optional()
+        .describe(
+          "Enable or disable snapshot tracking. When false, filesystem snapshots are not recorded and undoing or reverting will not undo/redo file changes. Defaults to true.",
+        ),
+      plugin: PluginSpec.array().optional(),
       share: z
         .enum(["manual", "auto", "disabled"])
         .optional()
@@ -1067,11 +929,10 @@ export namespace Config {
         .array(z.string())
         .optional()
         .describe("When set, ONLY these providers will be enabled. All other providers will be ignored"),
-      model: z.string().describe("Model to use in the format of provider/model, eg anthropic/claude-2").optional(),
-      small_model: z
-        .string()
-        .describe("Small model to use for tasks like title generation in the format of provider/model")
-        .optional(),
+      model: ModelId.describe("Model to use in the format of provider/model, eg anthropic/claude-2").optional(),
+      small_model: ModelId.describe(
+        "Small model to use for tasks like title generation in the format of provider/model",
+      ).optional(),
       default_agent: z
         .string()
         .optional()
@@ -1098,7 +959,6 @@ export namespace Config {
           // subagent
           general: Agent.optional(),
           explore: Agent.optional(),
-          investigator: Agent.optional(),
           // specialized
           title: Agent.optional(),
           summary: Agent.optional(),
@@ -1106,12 +966,11 @@ export namespace Config {
         })
         .catchall(Agent)
         .optional()
-        .describe("Agent configuration, see https://navi.ai/docs/agent"),
+        .describe("Agent configuration, see https://Navi.ai/docs/agents"),
       provider: z
         .record(z.string(), Provider)
         .optional()
         .describe("Custom provider configurations and model overrides"),
-      categories: z.record(z.string(), Category).optional().describe("Agent categories for task delegation"),
       mcp: z
         .record(
           z.string(),
@@ -1180,14 +1039,6 @@ export namespace Config {
       layout: Layout.optional().describe("@deprecated Always uses stretch layout."),
       permission: Permission.optional(),
       tools: z.record(z.string(), z.boolean()).optional(),
-      sandbox: z
-        .object({
-          trusted: z
-            .array(z.string())
-            .optional()
-            .describe("List of trusted directories that bypass external directory checks"),
-        })
-        .optional(),
       enterprise: z
         .object({
           url: z.string().optional().describe("Enterprise URL"),
@@ -1197,33 +1048,16 @@ export namespace Config {
         .object({
           auto: z.boolean().optional().describe("Enable automatic compaction when context is full (default: true)"),
           prune: z.boolean().optional().describe("Enable pruning of old tool outputs (default: true)"),
+          reserved: z
+            .number()
+            .int()
+            .min(0)
+            .optional()
+            .describe("Token buffer for compaction. Leaves enough window to avoid overflow during compaction."),
         })
         .optional(),
       experimental: z
         .object({
-          hook: z
-            .object({
-              file_edited: z
-                .record(
-                  z.string(),
-                  z
-                    .object({
-                      command: z.string().array(),
-                      environment: z.record(z.string(), z.string()).optional(),
-                    })
-                    .array(),
-                )
-                .optional(),
-              session_completed: z
-                .object({
-                  command: z.string().array(),
-                  environment: z.record(z.string(), z.string()).optional(),
-                })
-                .array()
-                .optional(),
-            })
-            .optional(),
-          chatMaxRetries: z.number().optional().describe("Number of retries for chat completions on failure"),
           disable_paste_summary: z.boolean().optional(),
           batch_tool: z.boolean().optional().describe("Enable the batch tool"),
           openTelemetry: z
@@ -1241,37 +1075,6 @@ export namespace Config {
             .positive()
             .optional()
             .describe("Timeout in milliseconds for model context protocol (MCP) requests"),
-          modelRouting: z
-            .object({
-              enabled: z.boolean().optional(),
-              allowFallback: z.boolean().optional(),
-              crossProvider: z.boolean().optional(),
-              minHealthScore: z.number().int().min(0).max(100).optional(),
-            })
-            .optional()
-            .describe("Health-aware automatic model routing by agent profile"),
-          sessionTracing: z
-            .object({
-              enabled: z.boolean().optional(),
-              directory: z.string().optional(),
-            })
-            .optional()
-            .describe("Write structured per-session execution traces to disk"),
-          evaluation: z
-            .object({
-              enabled: z.boolean().optional(),
-              directory: z.string().optional(),
-            })
-            .optional()
-            .describe("Write benchmark-friendly evaluation samples to disk"),
-          dynamic_context_pruning: z
-            .object({
-              enabled: z.boolean().optional(),
-              notification: z.enum(["off", "minimal", "detailed"]).optional(),
-            })
-            .optional(),
-          aggressive_truncation: z.boolean().optional(),
-          auto_resume: z.boolean().optional(),
         })
         .optional(),
     })
@@ -1282,95 +1085,52 @@ export namespace Config {
 
   export type Info = z.output<typeof Info>
 
-  export const global = lazy(async () => {
-    let result: Info = pipe(
-      {},
-      mergeDeep(await loadFile(path.join(Global.Path.config, "config.json"))),
-      mergeDeep(await loadFile(path.join(Global.Path.config, "navi.json"))),
-      mergeDeep(await loadFile(path.join(Global.Path.config, "navi.jsonc"))),
-    )
-
-    await import(path.join(Global.Path.config, "config"), {
-      with: {
-        type: "toml",
-      },
-    })
-      .then(async (mod) => {
-        const { provider, model, ...rest } = mod.default
-        if (provider && model) result.model = `${provider}/${model}`
-        result["$schema"] = "https://navi.ai/config.json"
-        result = mergeDeep(result, rest)
-        await Bun.write(path.join(Global.Path.config, "config.json"), JSON.stringify(result, null, 2))
-        await fs.unlink(path.join(Global.Path.config, "config"))
-      })
-      .catch(() => { })
-
-    return result
-  })
-
-  async function loadFile(filepath: string): Promise<Info> {
-    log.info("loading", { path: filepath })
-
-    // Check if file exists to prevent hang on Windows with Bun on non-existent files
-    if (!existsSync(filepath)) {
-      log.info("loadFile skipping non-existent file", { path: filepath })
-      return {}
-    }
-
-    let text = await Bun.file(filepath)
-      .text()
-      .catch((err) => {
-        log.error("loadFile error", { path: filepath, code: err.code })
-        if (err.code === "ENOENT") return
-        throw new JsonError({ path: filepath }, { cause: err })
-      })
-    log.info("loadFile text loaded", { path: filepath, length: text?.length })
-    if (!text) return {}
-    return load(text, filepath)
+  type State = {
+    config: Info
+    directories: string[]
+    deps: Promise<void>[]
   }
 
-  async function load(text: string, configFilepath: string) {
-    text = text.replace(/\{env:([^}]+)\}/g, (_, varName) => {
-      return process.env[varName] || ""
-    })
+  export interface Interface {
+    readonly get: () => Effect.Effect<Info>
+    readonly getGlobal: () => Effect.Effect<Info>
+    readonly update: (config: Info) => Effect.Effect<void>
+    readonly updateGlobal: (config: Info) => Effect.Effect<Info>
+    readonly invalidate: (wait?: boolean) => Effect.Effect<void>
+    readonly directories: () => Effect.Effect<string[]>
+    readonly waitForDependencies: () => Effect.Effect<void>
+  }
 
-    const fileMatches = text.match(/\{file:[^}]+\}/g)
-    if (fileMatches) {
-      const configDir = path.dirname(configFilepath)
-      const lines = text.split("\n")
+  export class Service extends ServiceMap.Service<Service, Interface>()("@navi/Config") {}
 
-      for (const match of fileMatches) {
-        const lineIndex = lines.findIndex((line) => line.includes(match))
-        if (lineIndex !== -1 && lines[lineIndex].trim().startsWith("//")) {
-          continue // Skip if line is commented
-        }
-        let filePath = match.replace(/^\{file:/, "").replace(/\}$/, "")
-        if (filePath.startsWith("~/")) {
-          filePath = path.join(os.homedir(), filePath.slice(2))
-        }
-        const resolvedPath = path.isAbsolute(filePath) ? filePath : path.resolve(configDir, filePath)
-        const fileContent = (
-          await Bun.file(resolvedPath)
-            .text()
-            .catch((error) => {
-              const errMsg = `bad file reference: "${match}"`
-              if (error.code === "ENOENT") {
-                throw new InvalidError(
-                  {
-                    path: configFilepath,
-                    message: errMsg + ` ${resolvedPath} does not exist`,
-                  },
-                  { cause: error },
-                )
-              }
-              throw new InvalidError({ path: configFilepath, message: errMsg }, { cause: error })
-            })
-        ).trim()
-        // escape newlines/quotes, strip outer quotes
-        text = text.replace(match, JSON.stringify(fileContent).slice(1, -1))
-      }
+  function globalConfigFile() {
+    const candidates = ["Navi.jsonc", "Navi.json", "config.json"].map((file) =>
+      path.join(Global.Path.config, file),
+    )
+    for (const file of candidates) {
+      if (existsSync(file)) return file
+    }
+    return candidates[0]
+  }
+
+  function patchJsonc(input: string, patch: unknown, path: string[] = []): string {
+    if (!isRecord(patch)) {
+      const edits = modify(input, path, patch, {
+        formattingOptions: {
+          insertSpaces: true,
+          tabSize: 2,
+        },
+      })
+      return applyEdits(input, edits)
     }
 
+    return Object.entries(patch).reduce((result, [key, value]) => {
+      if (value === undefined) return result
+      return patchJsonc(result, value, [...path, key])
+    }, input)
+  }
+
+  function parseConfig(text: string, filepath: string): Info {
     const errors: JsoncParseError[] = []
     const data = parseJsonc(text, errors, { allowTrailingComma: true })
     if (errors.length) {
@@ -1390,43 +1150,21 @@ export namespace Config {
         .join("\n")
 
       throw new JsonError({
-        path: configFilepath,
+        path: filepath,
         message: `\n--- JSONC Input ---\n${text}\n--- Errors ---\n${errorDetails}\n--- End ---`,
       })
     }
 
     const parsed = Info.safeParse(data)
-    if (parsed.success) {
-      if (!parsed.data.$schema) {
-        parsed.data.$schema = "https://navi.ai/config.json"
-        await Bun.write(configFilepath, JSON.stringify(parsed.data, null, 2)).catch(() => { })
-      }
-      const data = parsed.data
-      if (data.plugin) {
-        for (let i = 0; i < data.plugin.length; i++) {
-          const plugin = data.plugin[i]
-          try {
-            data.plugin[i] = import.meta.resolve!(plugin, configFilepath)
-          } catch (err) {
-            log.warn(`Failed to resolve plugin '${plugin}'`, { path: configFilepath, error: err })
-          }
-        }
-      }
-      return data
-    }
+    if (parsed.success) return parsed.data
 
     throw new InvalidError({
-      path: configFilepath,
+      path: filepath,
       issues: parsed.error.issues,
     })
   }
-  export const JsonError = NamedError.create(
-    "ConfigJsonError",
-    z.object({
-      path: z.string(),
-      message: z.string().optional(),
-    }),
-  )
+
+  export const { JsonError, InvalidError } = ConfigPaths
 
   export const ConfigDirectoryTypoError = NamedError.create(
     "ConfigDirectoryTypoError",
@@ -1437,35 +1175,408 @@ export namespace Config {
     }),
   )
 
-  export const InvalidError = NamedError.create(
-    "ConfigInvalidError",
-    z.object({
-      path: z.string(),
-      issues: z.custom<z.core.$ZodIssue[]>().optional(),
-      message: z.string().optional(),
-    }),
+  export const layer: Layer.Layer<Service, never, AppFileSystem.Service | Auth.Service | Account.Service> =
+    Layer.effect(
+      Service,
+      Effect.gen(function* () {
+        const fs = yield* AppFileSystem.Service
+        const authSvc = yield* Auth.Service
+        const accountSvc = yield* Account.Service
+
+        const readConfigFile = Effect.fnUntraced(function* (filepath: string) {
+          return yield* fs.readFileString(filepath).pipe(
+            Effect.catchIf(
+              (e) => e.reason._tag === "NotFound",
+              () => Effect.succeed(undefined),
+            ),
+            Effect.orDie,
+          )
+        })
+
+        const loadConfig = Effect.fnUntraced(function* (
+          text: string,
+          options: { path: string } | { dir: string; source: string },
+        ) {
+          const original = text
+          const source = "path" in options ? options.path : options.source
+          const isFile = "path" in options
+          const data = yield* Effect.promise(() =>
+            ConfigPaths.parseText(
+              text,
+              "path" in options ? options.path : { source: options.source, dir: options.dir },
+            ),
+          )
+
+          const normalized = (() => {
+            if (!data || typeof data !== "object" || Array.isArray(data)) return data
+            const copy = { ...(data as Record<string, unknown>) }
+            const hadLegacy = "theme" in copy || "keybinds" in copy || "tui" in copy
+            if (!hadLegacy) return copy
+            delete copy.theme
+            delete copy.keybinds
+            delete copy.tui
+            log.warn("tui keys in Navi config are deprecated; move them to tui.json", { path: source })
+            return copy
+          })()
+
+          const parsed = Info.safeParse(normalized)
+          if (parsed.success) {
+            if (!parsed.data.$schema && isFile) {
+              parsed.data.$schema = "https://Navi.ai/config.json"
+              const updated = original.replace(/^\s*\{/, '{\n  "$schema": "https://Navi.ai/config.json",')
+              yield* fs.writeFileString(options.path, updated).pipe(Effect.catch(() => Effect.void))
+            }
+            const data = parsed.data
+            if (data.plugin && isFile) {
+              const list = data.plugin
+              for (let i = 0; i < list.length; i++) {
+                list[i] = yield* Effect.promise(() => resolvePluginSpec(list[i], options.path))
+              }
+            }
+            return data
+          }
+
+          throw new InvalidError({
+            path: source,
+            issues: parsed.error.issues,
+          })
+        })
+
+        const loadFile = Effect.fnUntraced(function* (filepath: string) {
+          log.info("loading", { path: filepath })
+          const text = yield* readConfigFile(filepath)
+          if (!text) return {} as Info
+          return yield* loadConfig(text, { path: filepath })
+        })
+
+        const loadGlobal = Effect.fnUntraced(function* () {
+          let result: Info = pipe(
+            {},
+            mergeDeep(yield* loadFile(path.join(Global.Path.config, "config.json"))),
+            mergeDeep(yield* loadFile(path.join(Global.Path.config, "Navi.json"))),
+            mergeDeep(yield* loadFile(path.join(Global.Path.config, "Navi.jsonc"))),
+          )
+
+          const legacy = path.join(Global.Path.config, "config")
+          if (existsSync(legacy)) {
+            yield* Effect.promise(() =>
+              import(pathToFileURL(legacy).href, { with: { type: "toml" } })
+                .then(async (mod) => {
+                  const { provider, model, ...rest } = mod.default
+                  if (provider && model) result.model = `${provider}/${model}`
+                  result["$schema"] = "https://Navi.ai/config.json"
+                  result = mergeDeep(result, rest)
+                  await fsNode.writeFile(path.join(Global.Path.config, "config.json"), JSON.stringify(result, null, 2))
+                  await fsNode.unlink(legacy)
+                })
+                .catch(() => {}),
+            )
+          }
+
+          return result
+        })
+
+        const [cachedGlobal, invalidateGlobal] = yield* Effect.cachedInvalidateWithTTL(
+          loadGlobal().pipe(
+            Effect.tapError((error) =>
+              Effect.sync(() => log.error("failed to load global config, using defaults", { error: String(error) })),
+            ),
+            Effect.orElseSucceed((): Info => ({})),
+          ),
+          Duration.infinity,
+        )
+
+        const getGlobal = Effect.fn("Config.getGlobal")(function* () {
+          return yield* cachedGlobal
+        })
+
+        const loadInstanceState = Effect.fnUntraced(function* (ctx: InstanceContext) {
+          const auth = yield* authSvc.all().pipe(Effect.orDie)
+
+          let result: Info = {}
+          for (const [key, value] of Object.entries(auth)) {
+            if (value.type === "wellknown") {
+              const url = key.replace(/\/+$/, "")
+              process.env[value.key] = value.token
+              log.debug("fetching remote config", { url: `${url}/.well-known/Navi` })
+              const response = yield* Effect.promise(() => fetch(`${url}/.well-known/Navi`))
+              if (!response.ok) {
+                throw new Error(`failed to fetch remote config from ${url}: ${response.status}`)
+              }
+              const wellknown = (yield* Effect.promise(() => response.json())) as any
+              const remoteConfig = wellknown.config ?? {}
+              if (!remoteConfig.$schema) remoteConfig.$schema = "https://Navi.ai/config.json"
+              result = mergeConfigConcatArrays(
+                result,
+                yield* loadConfig(JSON.stringify(remoteConfig), {
+                  dir: path.dirname(`${url}/.well-known/Navi`),
+                  source: `${url}/.well-known/Navi`,
+                }),
+              )
+              log.debug("loaded remote config from well-known", { url })
+            }
+          }
+
+          result = mergeConfigConcatArrays(result, yield* getGlobal())
+
+          if (Flag.NAVI_CONFIG) {
+            result = mergeConfigConcatArrays(result, yield* loadFile(Flag.NAVI_CONFIG))
+            log.debug("loaded custom config", { path: Flag.NAVI_CONFIG })
+          }
+
+          if (!Flag.NAVI_DISABLE_PROJECT_CONFIG) {
+            for (const file of yield* Effect.promise(() =>
+              ConfigPaths.projectFiles("Navi", ctx.directory, ctx.worktree),
+            )) {
+              result = mergeConfigConcatArrays(result, yield* loadFile(file))
+            }
+          }
+
+          result.agent = result.agent || {}
+          result.mode = result.mode || {}
+          result.plugin = result.plugin || []
+
+          const directories = yield* Effect.promise(() => ConfigPaths.directories(ctx.directory, ctx.worktree))
+
+          if (Flag.NAVI_CONFIG_DIR) {
+            log.debug("loading config from NAVI_CONFIG_DIR", { path: Flag.NAVI_CONFIG_DIR })
+          }
+
+          const deps: Promise<void>[] = []
+
+          for (const dir of unique(directories)) {
+            if (dir.endsWith(".Navi") || dir === Flag.NAVI_CONFIG_DIR) {
+              for (const file of ["Navi.jsonc", "Navi.json"]) {
+                log.debug(`loading config from ${path.join(dir, file)}`)
+                result = mergeConfigConcatArrays(result, yield* loadFile(path.join(dir, file)))
+                result.agent ??= {}
+                result.mode ??= {}
+                result.plugin ??= []
+              }
+            }
+
+            const dep = iife(async () => {
+              const stale = await needsInstall(dir)
+              if (stale) await installDependencies(dir)
+            })
+            void dep.catch((err) => {
+              log.warn("background dependency install failed", { dir, error: err })
+            })
+            deps.push(dep)
+
+            result.command = mergeDeep(result.command ?? {}, yield* Effect.promise(() => loadCommand(dir)))
+            result.agent = mergeDeep(result.agent, yield* Effect.promise(() => loadAgent(dir)))
+            result.agent = mergeDeep(result.agent, yield* Effect.promise(() => loadMode(dir)))
+            result.plugin.push(...(yield* Effect.promise(() => loadPlugin(dir))))
+          }
+
+          if (process.env.NAVI_CONFIG_CONTENT) {
+            result = mergeConfigConcatArrays(
+              result,
+              yield* loadConfig(process.env.NAVI_CONFIG_CONTENT, {
+                dir: ctx.directory,
+                source: "NAVI_CONFIG_CONTENT",
+              }),
+            )
+            log.debug("loaded custom config from NAVI_CONFIG_CONTENT")
+          }
+
+          const active = Option.getOrUndefined(yield* accountSvc.active().pipe(Effect.orDie))
+          if (active?.active_org_id) {
+            yield* Effect.gen(function* () {
+              const [configOpt, tokenOpt] = yield* Effect.all(
+                [accountSvc.config(active.id, active.active_org_id!), accountSvc.token(active.id)],
+                { concurrency: 2 },
+              )
+              const token = Option.getOrUndefined(tokenOpt)
+              if (token) {
+                process.env["NAVI_CONSOLE_TOKEN"] = token
+                Env.set("NAVI_CONSOLE_TOKEN", token)
+              }
+
+              const config = Option.getOrUndefined(configOpt)
+              if (config) {
+                result = mergeConfigConcatArrays(
+                  result,
+                  yield* loadConfig(JSON.stringify(config), {
+                    dir: path.dirname(`${active.url}/api/config`),
+                    source: `${active.url}/api/config`,
+                  }),
+                )
+              }
+            }).pipe(
+              Effect.catch((err) => {
+                log.debug("failed to fetch remote account config", {
+                  error: err instanceof Error ? err.message : String(err),
+                })
+                return Effect.void
+              }),
+            )
+          }
+
+          if (existsSync(managedDir)) {
+            for (const file of ["Navi.jsonc", "Navi.json"]) {
+              result = mergeConfigConcatArrays(result, yield* loadFile(path.join(managedDir, file)))
+            }
+          }
+
+          for (const [name, mode] of Object.entries(result.mode ?? {})) {
+            result.agent = mergeDeep(result.agent ?? {}, {
+              [name]: {
+                ...mode,
+                mode: "primary" as const,
+              },
+            })
+          }
+
+          if (Flag.NAVI_PERMISSION) {
+            result.permission = mergeDeep(result.permission ?? {}, JSON.parse(Flag.NAVI_PERMISSION))
+          }
+
+          if (result.tools) {
+            const perms: Record<string, Config.PermissionAction> = {}
+            for (const [tool, enabled] of Object.entries(result.tools)) {
+              const action: Config.PermissionAction = enabled ? "allow" : "deny"
+              if (tool === "write" || tool === "edit" || tool === "patch" || tool === "multiedit") {
+                perms.edit = action
+                continue
+              }
+              perms[tool] = action
+            }
+            result.permission = mergeDeep(perms, result.permission ?? {})
+          }
+
+          if (!result.username) result.username = os.userInfo().username
+
+          if (result.autoshare === true && !result.share) {
+            result.share = "auto"
+          }
+
+          if (Flag.NAVI_DISABLE_AUTOCOMPACT) {
+            result.compaction = { ...result.compaction, auto: false }
+          }
+          if (Flag.NAVI_DISABLE_PRUNE) {
+            result.compaction = { ...result.compaction, prune: false }
+          }
+
+          result.plugin = deduplicatePlugins(result.plugin ?? [])
+
+          return {
+            config: result,
+            directories,
+            deps,
+          }
+        })
+
+        const state = yield* InstanceState.make<State>(
+          Effect.fn("Config.state")(function* (ctx) {
+            return yield* loadInstanceState(ctx)
+          }),
+        )
+
+        const get = Effect.fn("Config.get")(function* () {
+          return yield* InstanceState.use(state, (s) => s.config)
+        })
+
+        const directories = Effect.fn("Config.directories")(function* () {
+          return yield* InstanceState.use(state, (s) => s.directories)
+        })
+
+        const waitForDependencies = Effect.fn("Config.waitForDependencies")(function* () {
+          yield* InstanceState.useEffect(state, (s) => Effect.promise(() => Promise.all(s.deps).then(() => undefined)))
+        })
+
+        const update = Effect.fn("Config.update")(function* (config: Info) {
+          const dir = yield* InstanceState.directory
+          const file = path.join(dir, "config.json")
+          const existing = yield* loadFile(file)
+          yield* fs.writeFileString(file, JSON.stringify(mergeDeep(existing, config), null, 2)).pipe(Effect.orDie)
+          yield* Effect.promise(() => Instance.dispose())
+        })
+
+        const invalidate = Effect.fn("Config.invalidate")(function* (wait?: boolean) {
+          yield* invalidateGlobal
+          const task = Instance.disposeAll()
+            .catch(() => undefined)
+            .finally(() =>
+              GlobalBus.emit("event", {
+                directory: "global",
+                payload: {
+                  type: Event.Disposed.type,
+                  properties: {},
+                },
+              }),
+            )
+          if (wait) yield* Effect.promise(() => task)
+          else void task
+        })
+
+        const updateGlobal = Effect.fn("Config.updateGlobal")(function* (config: Info) {
+          const file = globalConfigFile()
+          const before = (yield* readConfigFile(file)) ?? "{}"
+
+          let next: Info
+          if (!file.endsWith(".jsonc")) {
+            const existing = parseConfig(before, file)
+            const merged = mergeDeep(existing, config)
+            yield* fs.writeFileString(file, JSON.stringify(merged, null, 2)).pipe(Effect.orDie)
+            next = merged
+          } else {
+            const updated = patchJsonc(before, config)
+            next = parseConfig(updated, file)
+            yield* fs.writeFileString(file, updated).pipe(Effect.orDie)
+          }
+
+          yield* invalidate()
+          return next
+        })
+
+        return Service.of({
+          get,
+          getGlobal,
+          update,
+          updateGlobal,
+          invalidate,
+          directories,
+          waitForDependencies,
+        })
+      }),
+    )
+
+  export const defaultLayer = layer.pipe(
+    Layer.provide(AppFileSystem.defaultLayer),
+    Layer.provide(Auth.defaultLayer),
+    Layer.provide(Account.defaultLayer),
   )
 
+  const { runPromise } = makeRuntime(Service, defaultLayer)
+
   export async function get() {
-    return state().then((x) => x.config)
+    return runPromise((svc) => svc.get())
+  }
+
+  export async function getGlobal() {
+    return runPromise((svc) => svc.getGlobal())
   }
 
   export async function update(config: Info) {
-    const filepath = path.join(Instance.directory, "config.json")
-    const existing = await loadFile(filepath)
-    await Bun.write(filepath, JSON.stringify(mergeDeep(existing, config), null, 2))
-    await Instance.dispose()
+    return runPromise((svc) => svc.update(config))
+  }
+
+  export async function updateGlobal(config: Info) {
+    return runPromise((svc) => svc.updateGlobal(config))
+  }
+
+  export async function invalidate(wait = false) {
+    return runPromise((svc) => svc.invalidate(wait))
   }
 
   export async function directories() {
-    return state().then((x) => x.directories)
+    return runPromise((svc) => svc.directories())
   }
 
-  /**
-   * Get the config directory path (~/.navi)
-   */
-  export function getConfigDir(): string {
-    return path.join(os.homedir(), ".navi")
+  export async function waitForDependencies() {
+    return runPromise((svc) => svc.waitForDependencies())
   }
 }
 

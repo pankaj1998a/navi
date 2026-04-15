@@ -15,7 +15,7 @@ const log = Log.create({ service: "intelligent-recovery" });
  */
 export interface RecoveryContext {
     /** Session ID */
-    sessionId: string;
+    sessionID: string;
     /** Summary of what was being worked on */
     summary: string;
     /** Key files mentioned or edited */
@@ -38,7 +38,7 @@ export function analyzeSessionForRecovery(
     maxTokens: number = 8000
 ): RecoveryContext {
     const context: RecoveryContext = {
-        sessionId: "",
+        sessionID: "",
         summary: "",
         keyFiles: [],
         tasksInProgress: [],
@@ -54,18 +54,17 @@ export function analyzeSessionForRecovery(
 
     for (const message of messages) {
         const content = message.parts
-            .filter(p => p.type === 'text')
-            .map(p => (p as any).text)
+            .filter((p): p is MessageV2.TextPart => p.type === 'text')
+            .map(p => p.text)
             .join('\n');
 
         // Extract file paths
-        const files = content.match(filePattern);
-        if (files) {
-            for (const file of files) {
-                if (file.length > 3 && !file.includes("http") && !file.includes("://")) {
-                    if (!context.keyFiles.includes(file)) {
-                        context.keyFiles.push(file);
-                    }
+        const fileMatches = content.matchAll(filePattern);
+        for (const match of fileMatches) {
+            const file = match[1];
+            if (file.length > 3 && !file.includes("http") && !file.includes("://")) {
+                if (!context.keyFiles.includes(file)) {
+                    context.keyFiles.push(file);
                 }
             }
         }
@@ -121,10 +120,12 @@ export function analyzeSessionForRecovery(
  * Extract sentence containing keyword
  */
 function extractSentence(text: string, keyword: string): string | null {
-    const sentences = text.split(/[.!?]+/);
+    // Better sentence splitting that respects common abbreviations and quoted text
+    const sentences = text.match(/[^.!?]+[.!?]+/g) || [text];
     for (const sentence of sentences) {
-        if (sentence.toLowerCase().includes(keyword)) {
-            return sentence.trim();
+        const trimmed = sentence.trim();
+        if (trimmed.toLowerCase().includes(keyword.toLowerCase())) {
+            return trimmed;
         }
     }
     return null;
@@ -170,7 +171,7 @@ export function mergeRecoveryContexts(
     newContext: RecoveryContext
 ): RecoveryContext {
     const merged: RecoveryContext = {
-        sessionId: newContext.sessionId || oldContext.sessionId,
+        sessionID: newContext.sessionID || oldContext.sessionID,
         summary: newContext.summary || oldContext.summary,
         keyFiles: [...new Set([...oldContext.keyFiles, ...newContext.keyFiles])],
         tasksInProgress: [...new Set([...oldContext.tasksInProgress, ...newContext.tasksInProgress])],
@@ -261,3 +262,6 @@ export function suggestRecoveryActions(context: RecoveryContext): Array<{ action
 
     return suggestions;
 }
+
+
+

@@ -96,7 +96,7 @@ The tool will:
       return {
         title: `Response from ${peer.name}`,
         output: response.result,
-        metadata: { success: true, peerId: peer.id, peerName: peer.name, sessionId: (response as any).sessionId },
+        metadata: { success: true, peerId: peer.id, peerName: peer.name, sessionID: (response as any).sessionID },
       } as any
     } catch (error) {
       log.error("Failed to delegate task", { error, peerId: peer.id })
@@ -202,3 +202,5 @@ export const ListPeersTool = Tool.define("list_peers", {
     } as any
   },
 })
+
+

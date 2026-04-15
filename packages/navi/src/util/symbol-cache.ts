@@ -15,25 +15,37 @@ export interface SymbolInfo {
 export namespace SymbolCache {
     let cache: SymbolInfo[] | null = null
     let lastUpdate = 0
+    let updating = false
     const CACHE_TTL = 1000 * 60 * 5 // 5 minutes
 
-    export async function getSymbols(): Promise<SymbolInfo[]> {
+    export async function getSymbols(directory?: string): Promise<SymbolInfo[]> {
         if (cache && (Date.now() - lastUpdate < CACHE_TTL)) {
             return cache
         }
-        await update()
+        await update(directory)
         return cache || []
     }
 
-    export async function update() {
+    export async function update(directory?: string) {
+        if (updating) return
+        updating = true
         log.info("updating symbol cache")
         const symbols: SymbolInfo[] = []
 
         try {
+            // Priority: provided directory > Instance.directory > cwd
+            let dir = directory
+            if (!dir) {
+                try {
+                    dir = Instance.directory
+                } catch {
+                    dir = process.cwd()
+                }
+            }
+
             // Use ripgrep to quickly find common definitions
-            // This is a fast fallback for a full parser
-            const result = await $`rg --line-number --json -e "^(export\s+)?(class|function|interface|const|let|var)\s+([a-zA-Z0-9_]+)"`
-                .cwd(Instance.directory)
+            const result = await $`rg --line-number --json -e "^(export\\s+)?(class|function|interface|const|let|var)\\s+([a-zA-Z0-9_]+)"`
+                .cwd(dir)
                 .nothrow()
                 .quiet()
                 .text()
@@ -48,7 +60,6 @@ export namespace SymbolCache {
                             const lineNumber = data.data.line_number
                             const content = data.data.lines.text
 
-                            // Basic extraction logic
                             const match = content.match(/(class|function|interface|const|let|var)\s+([a-zA-Z0-9_]+)/)
                             if (match) {
                                 symbols.push({
@@ -56,26 +67,59 @@ export namespace SymbolCache {
                                     type: (match[1] === "class" ? "class" :
                                         match[1] === "interface" ? "interface" : "function") as any,
                                     line: lineNumber,
-                                    file: path.join(Instance.directory, filePath)
+                                    file: path.join(dir, filePath)
                                 })
                             }
                         }
                     } catch (e) {
-                        // Skip malformed JSON
+                        // Ignore individual line parse errors
                     }
                 }
             }
-
             cache = symbols
             lastUpdate = Date.now()
-            log.info(`cached ${symbols.length} symbols`)
-        } catch (error) {
-            log.error("failed to update symbol cache", { error })
+        } catch (e) {
+            log.error("failed to update symbol cache", { error: e })
+        } finally {
+            updating = false
         }
     }
-
-    export async function findSymbol(name: string): Promise<SymbolInfo | null> {
-        const symbols = await getSymbols()
-        return symbols.find(s => s.name === name) || null
-    }
 }
+
+export interface CodebaseMapSummary {
+    symbolCount: number
+    hotspots: Array<{
+        file: string
+        symbolCount: number
+    }>
+}
+
+/**
+ * Summarizes the symbol distribution to provide a high-level map of the codebase.
+ */
+export function summarizeSymbols(symbols: SymbolInfo[], cwd: string, limit: number = 5): string {
+    if (!symbols || symbols.length === 0) return "No symbols found."
+
+    const fileCounts = new Map<string, number>()
+    symbols.forEach((s) => {
+        const rel = path.relative(cwd, s.file)
+        const parts = rel.split(path.sep)
+        // Group by top-level directory or file
+        const key = parts.length > 1 ? parts[0] : (parts[0] || "root")
+        fileCounts.set(key, (fileCounts.get(key) || 0) + 1)
+    })
+
+    const sorted = Array.from(fileCounts.entries())
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, limit)
+
+    let output = `Codebase Map (${symbols.length} symbols):\n`
+    sorted.forEach(([dir, count]) => {
+        output += `  • ${dir}: ${count} symbols\n`
+    })
+
+    return output.trim()
+}
+
+
+

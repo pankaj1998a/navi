@@ -301,3 +301,5 @@ const openaiResponsesReasoningProviderOptionsSchema = z.object({
 })
 
 export type OpenAIResponsesReasoningProviderOptions = z.infer<typeof openaiResponsesReasoningProviderOptionsSchema>
+
+

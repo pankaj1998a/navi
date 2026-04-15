@@ -3,10 +3,11 @@ import { UI } from "../ui"
 import * as prompts from "@clack/prompts"
 import { Installation } from "../../installation"
 import { Global } from "../../global"
-import { $ } from "bun"
 import fs from "fs/promises"
 import path from "path"
 import os from "os"
+import { Filesystem } from "../../util/filesystem"
+import { Process } from "../../util/process"
 
 interface UninstallArgs {
   keepConfig: boolean
@@ -23,7 +24,7 @@ interface RemovalTargets {
 
 export const UninstallCommand = {
   command: "uninstall",
-  describe: "uninstall navi and remove all related files",
+  describe: "uninstall Navi and remove all related files",
   builder: (yargs: Argv) =>
     yargs
       .option("keep-config", {
@@ -128,11 +129,13 @@ async function showRemovalSummary(targets: RemovalTargets, method: Installation.
 
   if (method !== "curl" && method !== "unknown") {
     const cmds: Record<string, string> = {
-      npm: "npm uninstall -g navi-ai",
-      pnpm: "pnpm uninstall -g navi-ai",
-      bun: "bun remove -g navi-ai",
-      yarn: "yarn global remove navi-ai",
-      brew: "brew uninstall navi",
+      npm: "npm uninstall -g Navi-ai",
+      pnpm: "pnpm uninstall -g Navi-ai",
+      bun: "bun remove -g Navi-ai",
+      yarn: "yarn global remove Navi-ai",
+      brew: "brew uninstall Navi",
+      choco: "choco uninstall Navi",
+      scoop: "scoop uninstall Navi",
     }
     prompts.log.info(`  ✓ Package: ${cmds[method] || method}`)
   }
@@ -177,21 +180,29 @@ async function executeUninstall(method: Installation.Method, targets: RemovalTar
 
   if (method !== "curl" && method !== "unknown") {
     const cmds: Record<string, string[]> = {
-      npm: ["npm", "uninstall", "-g", "navi-ai"],
-      pnpm: ["pnpm", "uninstall", "-g", "navi-ai"],
-      bun: ["bun", "remove", "-g", "navi-ai"],
-      yarn: ["yarn", "global", "remove", "navi-ai"],
-      brew: ["brew", "uninstall", "navi"],
+      npm: ["npm", "uninstall", "-g", "Navi-ai"],
+      pnpm: ["pnpm", "uninstall", "-g", "Navi-ai"],
+      bun: ["bun", "remove", "-g", "Navi-ai"],
+      yarn: ["yarn", "global", "remove", "Navi-ai"],
+      brew: ["brew", "uninstall", "Navi"],
+      choco: ["choco", "uninstall", "Navi"],
+      scoop: ["scoop", "uninstall", "Navi"],
     }
 
     const cmd = cmds[method]
     if (cmd) {
       spinner.start(`Running ${cmd.join(" ")}...`)
-      const result = await $`${cmd}`.quiet().nothrow()
-      if (result.exitCode !== 0) {
-        spinner.stop(`Package manager uninstall failed`, 1)
-        prompts.log.warn(`You may need to run manually: ${cmd.join(" ")}`)
-        errors.push(`Package manager: exit code ${result.exitCode}`)
+      const result = await Process.run(method === "choco" ? ["choco", "uninstall", "Navi", "-y", "-r"] : cmd, {
+        nothrow: true,
+      })
+      if (result.code !== 0) {
+        spinner.stop(`Package manager uninstall failed: exit code ${result.code}`, 1)
+        const text = `${result.stdout.toString("utf8")}\n${result.stderr.toString("utf8")}`
+        if (method === "choco" && text.includes("not running from an elevated command shell")) {
+          prompts.log.warn(`You may need to run '${cmd.join(" ")}' from an elevated command shell`)
+        } else {
+          prompts.log.warn(`You may need to run manually: ${cmd.join(" ")}`)
+        }
       } else {
         spinner.stop("Package removed")
       }
@@ -204,7 +215,7 @@ async function executeUninstall(method: Installation.Method, targets: RemovalTar
     prompts.log.info(`  rm "${targets.binary}"`)
 
     const binDir = path.dirname(targets.binary)
-    if (binDir.includes(".navi")) {
+    if (binDir.includes(".Navi")) {
       prompts.log.info(`  rmdir "${binDir}" 2>/dev/null`)
     }
   }
@@ -254,10 +265,8 @@ async function getShellConfigFile(): Promise<string | null> {
       .catch(() => false)
     if (!exists) continue
 
-    const content = await Bun.file(file)
-      .text()
-      .catch(() => "")
-    if (content.includes("# navi") || content.includes(".navi/bin")) {
+    const content = await Filesystem.readText(file).catch(() => "")
+    if (content.includes("# Navi") || content.includes(".Navi/bin")) {
       return file
     }
   }
@@ -266,7 +275,7 @@ async function getShellConfigFile(): Promise<string | null> {
 }
 
 async function cleanShellConfig(file: string) {
-  const content = await Bun.file(file).text()
+  const content = await Filesystem.readText(file)
   const lines = content.split("\n")
 
   const filtered: string[] = []
@@ -275,21 +284,21 @@ async function cleanShellConfig(file: string) {
   for (const line of lines) {
     const trimmed = line.trim()
 
-    if (trimmed === "# navi") {
+    if (trimmed === "# Navi") {
       skip = true
       continue
     }
 
     if (skip) {
       skip = false
-      if (trimmed.includes(".navi/bin") || trimmed.includes("fish_add_path")) {
+      if (trimmed.includes(".Navi/bin") || trimmed.includes("fish_add_path")) {
         continue
       }
     }
 
     if (
-      (trimmed.startsWith("export PATH=") && trimmed.includes(".navi/bin")) ||
-      (trimmed.startsWith("fish_add_path") && trimmed.includes(".navi"))
+      (trimmed.startsWith("export PATH=") && trimmed.includes(".Navi/bin")) ||
+      (trimmed.startsWith("fish_add_path") && trimmed.includes(".Navi"))
     ) {
       continue
     }
@@ -302,7 +311,7 @@ async function cleanShellConfig(file: string) {
   }
 
   const output = filtered.join("\n") + "\n"
-  await Bun.write(file, output)
+  await Filesystem.write(file, output)
 }
 
 async function getDirectorySize(dir: string): Promise<number> {
@@ -342,3 +351,4 @@ function shortenPath(p: string): string {
   }
   return p
 }
+

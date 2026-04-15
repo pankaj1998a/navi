@@ -482,3 +482,5 @@ function collectDependencies(pkg: Record<string, any>) {
     }
     return deps
 }
+
+

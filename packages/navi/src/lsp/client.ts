@@ -5,10 +5,11 @@ import { pathToFileURL, fileURLToPath } from "url"
 import { createMessageConnection, StreamMessageReader, StreamMessageWriter } from "vscode-jsonrpc/node"
 import type { Diagnostic as VSCodeDiagnostic } from "vscode-languageserver-types"
 import { Log } from "../util/log"
+import { Process } from "../util/process"
 import { LANGUAGE_EXTENSIONS } from "./language"
 import z from "zod"
 import type { LSPServer } from "./server"
-import { NamedError } from "@navi-ai/sdk/util/error"
+import { NamedError } from "@navi-ai/util/error"
 import { withTimeout } from "../util/timeout"
 import { Instance } from "../project/instance"
 import { Filesystem } from "../util/filesystem"
@@ -68,8 +69,8 @@ export namespace LSPClient {
       // Return server initialization options
       return [input.server.initialization ?? {}]
     })
-    connection.onRequest("client/registerCapability", async () => { })
-    connection.onRequest("client/unregisterCapability", async () => { })
+    connection.onRequest("client/registerCapability", async () => {})
+    connection.onRequest("client/unregisterCapability", async () => {})
     connection.onRequest("workspace/workspaceFolders", async () => [
       {
         name: "workspace",
@@ -110,16 +111,6 @@ export namespace LSPClient {
             publishDiagnostics: {
               versionSupport: true,
             },
-            rename: {
-              prepareSupport: true,
-            },
-            codeAction: {
-              codeActionLiteralSupport: {
-                codeActionKind: {
-                  valueSet: ["quickfix", "refactor", "refactor.extract", "refactor.inline", "refactor.rewrite", "source", "source.organizeImports"],
-                },
-              },
-            },
           },
         },
       }),
@@ -157,8 +148,7 @@ export namespace LSPClient {
       notify: {
         async open(input: { path: string }) {
           input.path = path.isAbsolute(input.path) ? input.path : path.resolve(Instance.directory, input.path)
-          const file = Bun.file(input.path)
-          const text = await file.text()
+          const text = await Filesystem.readText(input.path)
           const extension = path.extname(input.path)
           const languageId = LANGUAGE_EXTENSIONS[extension] ?? "plaintext"
 
@@ -240,7 +230,7 @@ export namespace LSPClient {
           }),
           3000,
         )
-          .catch(() => { })
+          .catch(() => {})
           .finally(() => {
             if (debounceTimer) clearTimeout(debounceTimer)
             unsub?.()
@@ -250,7 +240,7 @@ export namespace LSPClient {
         l.info("shutting down")
         connection.end()
         connection.dispose()
-        input.server.process.kill()
+        await Process.stop(input.server.process)
         l.info("shutdown")
       },
     }

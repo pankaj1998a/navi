@@ -29,11 +29,13 @@ export const NaviProvider: ProviderLoader.Info = {
       options: {
         ...(hasKey ? {} : { apiKey: "public" }),
         headers: {
-          "HTTP-Referer": "https://opencode.ai/",
-          "X-Title": "OpenCode",
+          "HTTP-Referer": "https://Navi.ai/",
+          "X-Title": "Navi",
         },
       },
       models,
     }
   },
 }
+
+

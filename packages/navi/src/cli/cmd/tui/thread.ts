@@ -3,16 +3,22 @@ import { tui } from "./app"
 import { Rpc } from "@/util/rpc"
 import { type rpc } from "./worker"
 import path from "path"
+import { fileURLToPath } from "url"
 import { UI } from "@/cli/ui"
-import { iife } from "@/util/iife"
 import { Log } from "@/util/log"
+import { errorMessage } from "@/util/error"
+import { withTimeout } from "@/util/timeout"
 import { withNetworkOptions, resolveNetworkOptions } from "@/cli/network"
+import { Filesystem } from "@/util/filesystem"
 import type { Event } from "@navi-ai/sdk/v2"
 import type { EventSource } from "./context/sdk"
-import { render } from "@opentui/solid"
+import { win32DisableProcessedInput, win32InstallCtrlCGuard } from "./win32"
+import { TuiConfig } from "@/config/tui"
+import { Instance } from "@/project/instance"
+import { writeHeapSnapshot } from "v8"
 
 declare global {
-  const navi_WORKER_PATH: string
+  const NAVI_WORKER_PATH: string
 }
 
 type RpcClient = ReturnType<typeof Rpc.client<typeof rpc>>
@@ -38,17 +44,34 @@ function createWorkerFetch(client: RpcClient): typeof fetch {
 function createEventSource(client: RpcClient): EventSource {
   return {
     on: (handler) => client.on<Event>("event", handler),
+    setWorkspace: (workspaceID) => {
+      void client.call("setWorkspace", { workspaceID })
+    },
   }
 }
 
+async function target() {
+  if (typeof NAVI_WORKER_PATH !== "undefined") return NAVI_WORKER_PATH
+  const dist = new URL("./cli/cmd/tui/worker.js", import.meta.url)
+  if (await Filesystem.exists(fileURLToPath(dist))) return dist
+  return new URL("./worker.ts", import.meta.url)
+}
+
+async function input(value?: string) {
+  const piped = process.stdin.isTTY ? undefined : await Bun.stdin.text()
+  if (!value) return piped
+  if (!piped) return value
+  return piped + "\n" + value
+}
+
 export const TuiThreadCommand = cmd({
-  command: "tui [project]",
-  describe: "start navi tui",
+  command: "$0 [project]",
+  describe: "start Navi tui",
   builder: (yargs) =>
     withNetworkOptions(yargs)
       .positional("project", {
         type: "string",
-        describe: "path to start navi in",
+        describe: "path to start Navi in",
       })
       .option("model", {
         type: "string",
@@ -65,6 +88,10 @@ export const TuiThreadCommand = cmd({
         type: "string",
         describe: "session id to continue",
       })
+      .option("fork", {
+        type: "boolean",
+        describe: "fork the session when continuing (use with --continue or --session)",
+      })
       .option("prompt", {
         type: "string",
         describe: "prompt to use",
@@ -72,201 +99,135 @@ export const TuiThreadCommand = cmd({
       .option("agent", {
         type: "string",
         describe: "agent to use",
-      })
-      .option("theme-mode", {
-        type: "string",
-        choices: ["dark", "light"],
-        describe: "force TUI theme mode",
-      })
-      .option("mode", {
-        type: "string",
-        choices: ["plan", "build"],
-        describe: "initial mode to start in",
       }),
   handler: async (args) => {
-
-    // Resolve relative paths against PWD to preserve behavior when using --cwd flag
-    const baseCwd = process.env.PWD ?? process.cwd()
-    const cwd = args.project ? path.resolve(baseCwd, args.project) : process.cwd()
-    const localWorker = new URL("./worker.ts", import.meta.url)
-    const distWorker = new URL("./cli/cmd/tui/worker.js", import.meta.url)
-    const distWorkerExe = new URL("./cli/cmd/tui/worker.exe", import.meta.url)
-    Log.Default.info("TUI worker paths", {
-      localWorker: localWorker.toString(),
-      distWorker: distWorker.toString(),
-      distWorkerExe: distWorkerExe.toString(),
-      navi_WORKER_PATH: typeof navi_WORKER_PATH !== "undefined" ? navi_WORKER_PATH : "undefined",
-    })
-    const workerPath = await iife(async () => {
-      if (typeof navi_WORKER_PATH !== "undefined") {
-        const execDir = path.dirname(process.execPath)
-        const resolvedPath = path.resolve(execDir, navi_WORKER_PATH)
-        Log.Default.info("Using navi_WORKER_PATH", {
-          raw: navi_WORKER_PATH,
-          execPath: process.execPath,
-          resolved: resolvedPath,
-        })
-
-        if (process.platform === "win32") {
-          if (await Bun.file(resolvedPath).exists()) {
-            return resolvedPath
-          }
-          const exePath = resolvedPath + ".exe"
-          if (await Bun.file(exePath).exists()) {
-            Log.Default.info("Using .exe worker path on Windows", { path: exePath })
-            return exePath
-          }
-        }
-
-        return resolvedPath
-      }
-      const distExists = await Bun.file(distWorker).exists()
-      Log.Default.info("distWorker exists check", { exists: distExists, path: distWorker.toString() })
-      if (distExists) return distWorker
-      const distExeExists = await Bun.file(distWorkerExe).exists()
-      Log.Default.info("distWorkerExe exists check", { exists: distExeExists, path: distWorkerExe.toString() })
-      if (distExeExists) return distWorkerExe
-      Log.Default.info("Using localWorker", { path: localWorker.toString() })
-      return localWorker
-    })
-    Log.Default.info("TUI worker path selected", { workerPath: workerPath.toString() })
+    // Keep ENABLE_PROCESSED_INPUT cleared even if other code flips it.
+    // (Important when running under `bun run` wrappers on Windows.)
+    const unguard = win32InstallCtrlCGuard()
     try {
-      process.chdir(cwd)
-    } catch (e) {
-      UI.error("Failed to change directory to " + cwd)
-      return
-    }
+      // Must be the very first thing — disables CTRL_C_EVENT before any Worker
+      // spawn or async work so the OS cannot kill the process group.
+      win32DisableProcessedInput()
 
-    const worker = new Worker(workerPath, {
-      env: Object.fromEntries(
-        Object.entries(process.env).filter((entry): entry is [string, string] => entry[1] !== undefined),
-      ),
-    })
-    worker.onerror = (e) => {
-      Log.Default.error("Worker error", {
-        message: e.message,
-        filename: e.filename,
-        lineno: e.lineno,
-        colno: e.colno,
-        error: e.error?.message || e.error,
+      if (args.fork && !args.continue && !args.session) {
+        UI.error("--fork requires --continue or --session")
+        process.exitCode = 1
+        return
+      }
+
+      // Resolve relative --project paths from PWD, then use the real cwd after
+      // chdir so the thread and worker share the same directory key.
+      const root = Filesystem.resolve(process.env.PWD ?? process.cwd())
+      const next = args.project
+        ? Filesystem.resolve(path.isAbsolute(args.project) ? args.project : path.join(root, args.project))
+        : Filesystem.resolve(process.cwd())
+      const file = await target()
+      try {
+        process.chdir(next)
+      } catch {
+        UI.error("Failed to change directory to " + next)
+        return
+      }
+      const cwd = Filesystem.resolve(process.cwd())
+
+      const worker = new Worker(file, {
+        env: Object.fromEntries(
+          Object.entries(process.env).filter((entry): entry is [string, string] => entry[1] !== undefined),
+        ),
+      })
+      worker.onerror = (e) => {
+        Log.Default.error(e)
+      }
+
+      const client = Rpc.client<typeof rpc>(worker)
+      const error = (e: unknown) => {
+        Log.Default.error(e)
+      }
+      const reload = () => {
+        client.call("reload", undefined).catch((err) => {
+          Log.Default.warn("worker reload failed", {
+            error: errorMessage(err),
+          })
+        })
+      }
+      process.on("uncaughtException", error)
+      process.on("unhandledRejection", error)
+      process.on("SIGUSR2", reload)
+
+      let stopped = false
+      const stop = async () => {
+        if (stopped) return
+        stopped = true
+        process.off("uncaughtException", error)
+        process.off("unhandledRejection", error)
+        process.off("SIGUSR2", reload)
+        await withTimeout(client.call("shutdown", undefined), 5000).catch((error) => {
+          Log.Default.warn("worker shutdown failed", {
+            error: errorMessage(error),
+          })
+        })
+        worker.terminate()
+      }
+
+      const prompt = await input(args.prompt)
+      const config = await Instance.provide({
+        directory: cwd,
+        fn: () => TuiConfig.get(),
       })
 
-    }
-    const client = Rpc.client<typeof rpc>(worker)
-    process.on("uncaughtException", (e) => {
-      Log.Default.error(e)
+      const network = await resolveNetworkOptions(args)
+      const external =
+        process.argv.includes("--port") ||
+        process.argv.includes("--hostname") ||
+        process.argv.includes("--mdns") ||
+        network.mdns ||
+        network.port !== 0 ||
+        network.hostname !== "127.0.0.1"
 
-    })
-    process.on("unhandledRejection", (e) => {
-      Log.Default.error(e)
-
-    })
-    process.on("SIGUSR2", async () => {
-      await client.call("reload", undefined)
-    })
-
-    const prompt = await iife(async () => {
-      // Only read from stdin if it's definitely piped (not a TTY) and we're not running interactively
-      // On Windows, stdin.isTTY can be undefined even in interactive mode
-      const isInteractive = process.stdin.isTTY || process.stdout.isTTY
-      const piped = !isInteractive ? await Bun.stdin.text().catch(() => undefined) : undefined
-      if (!args.prompt) return piped
-      return piped ? piped + "\n" + args.prompt : args.prompt
-    })
-
-    // Check if server should be started (port or hostname explicitly set in CLI or config)
-    const networkOpts = await resolveNetworkOptions(args)
-
-    // Only start HTTP server if networking options are explicitly set
-    const shouldStartServer =
-      process.argv.includes("--port") ||
-      process.argv.includes("--hostname") ||
-      process.argv.includes("--mdns") ||
-      networkOpts.mdns === true ||
-      (networkOpts.port !== undefined && networkOpts.port !== 0) ||
-      (networkOpts.hostname !== undefined && networkOpts.hostname !== "127.0.0.1")
-
-    // Probe local port 4096 to see if another Navi instance is already hosting a server.
-    // If it is, and we aren't explicitly requested to bind a specific port, we can attach to it.
-    let url: string = "http://navi.internal"
-    let customFetch: typeof fetch | undefined
-    let events: EventSource | undefined
-    let attachedToExisting = false
-
-    if (!shouldStartServer) {
-      try {
-        const controller = new AbortController()
-        const id = setTimeout(() => controller.abort(), 500)
-        const probeRes = await fetch("http://127.0.0.1:4096/global/health", { signal: controller.signal })
-        clearTimeout(id)
-        if (probeRes.ok) {
-          const data = await probeRes.json()
-          if (data.healthy) {
-            Log.Default.info("Found existing Navi server on 4096, attaching to it")
-            url = "http://127.0.0.1:4096"
-            attachedToExisting = true
-            worker.terminate()
+      const transport = external
+        ? {
+            url: (await client.call("server", network)).url,
+            fetch: undefined,
+            events: undefined,
           }
-        }
-      } catch (e) {
-        // No existing server found, continue with isolated worker
+        : {
+            url: "http://Navi.internal",
+            fetch: createWorkerFetch(client),
+            events: createEventSource(client),
+          }
+
+      setTimeout(() => {
+        client.call("checkUpgrade", { directory: cwd }).catch(() => {})
+      }, 1000).unref?.()
+
+      try {
+        await tui({
+          url: transport.url,
+          async onSnapshot() {
+            const tui = writeHeapSnapshot("tui.heapsnapshot")
+            const server = await client.call("snapshot", undefined)
+            return [tui, server]
+          },
+          config,
+          directory: cwd,
+          fetch: transport.fetch,
+          events: transport.events,
+          args: {
+            continue: args.continue,
+            sessionID: args.session,
+            agent: args.agent,
+            model: args.model,
+            prompt,
+            fork: args.fork,
+          },
+        })
+      } finally {
+        await stop()
       }
+    } finally {
+      unguard?.()
     }
-
-    if (shouldStartServer && !attachedToExisting) {
-      // Start HTTP server for external access
-      const server = await client.call("server", networkOpts)
-      url = server.url
-    } else if (!attachedToExisting) {
-      // Use direct RPC communication (no HTTP)
-      url = "http://navi.internal"
-      customFetch = createWorkerFetch(client)
-      events = createEventSource(client)
-    }
-
-    const tuiPromise = tui({
-      url,
-      fetch: customFetch,
-      events,
-      args: {
-        continue: args.continue,
-        sessionID: args.session,
-        agent: args.agent,
-        model: args.model,
-        mode: args.mode as "plan" | "build",
-        prompt,
-        themeMode: args["theme-mode"] as "dark" | "light",
-      },
-      onExit: async () => {
-        if (!attachedToExisting) {
-          await client.call("shutdown", undefined)
-        }
-      },
-      directory: cwd, // I missed directory in original tui call above? No, checking original.
-      // Original: 
-      /*
-          const tuiPromise = tui({
-      url,
-      fetch: customFetch,
-      events,
-      args: { ... },
-      onExit: async () => {
-        await client.call("shutdown", undefined)
-      },
-    })
-      */
-      // Directory? `tui` signature accepts directory.
-      // Original code did NOT pass directory? 
-      // Checking Step 61...
-      // `tui({ url, fetch, events, args: {...}, onExit: ... })`
-      // It did NOT pass directory.
-    })
-
-    setTimeout(() => {
-      client.call("checkUpgrade", { directory: cwd }).catch(() => { })
-    }, 1000)
-
-    await tuiPromise
-
+    process.exit(0)
   },
 })
+

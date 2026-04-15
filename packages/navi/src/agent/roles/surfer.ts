@@ -64,3 +64,5 @@ const SurferAgent: AgentTemplate = {
 AgentRegistry.register(SurferAgent)
 export { SurferAgent }
 export default SurferAgent
+
+

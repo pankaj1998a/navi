@@ -115,51 +115,53 @@ export function parseThinkingLevel(level: string): ThinkingLevel | null {
  * Thinking Level Manager
  */
 export interface ThinkingState {
-    sessionId: string;
+    sessionID: string;
     thinkingLevel: ThinkingLevel;
 }
 
 class ThinkingLevelManager {
     private states: Map<string, ThinkingState> = new Map();
 
-    getState(sessionId: string): ThinkingState {
-        let state = this.states.get(sessionId);
+    getState(sessionID: string): ThinkingState {
+        let state = this.states.get(sessionID);
         if (!state) {
             state = {
-                sessionId,
+                sessionID,
                 thinkingLevel: DEFAULT_THINKING_LEVEL,
             };
-            this.states.set(sessionId, state);
+            this.states.set(sessionID, state);
         }
         return state;
     }
 
-    setThinkingLevel(sessionId: string, level: ThinkingLevel): void {
-        this.states.set(sessionId, { sessionId, thinkingLevel: level });
+    setThinkingLevel(sessionID: string, level: ThinkingLevel): void {
+        this.states.set(sessionID, { sessionID, thinkingLevel: level });
     }
 
-    cycleThinkingLevel(sessionId: string): ThinkingLevel {
-        const current = this.getState(sessionId).thinkingLevel;
+    cycleThinkingLevel(sessionID: string): ThinkingLevel {
+        const current = this.getState(sessionID).thinkingLevel;
         const next = cycleThinkingLevel(current);
-        this.setThinkingLevel(sessionId, next);
+        this.setThinkingLevel(sessionID, next);
         return next;
     }
 
-    cleanupSession(sessionId: string): void {
-        this.states.delete(sessionId);
+    cleanupSession(sessionID: string): void {
+        this.states.delete(sessionID);
     }
 }
 
 export const thinkingLevelManager = new ThinkingLevelManager();
 
-export function getThinkingLevel(sessionId: string): ThinkingLevel {
-    return thinkingLevelManager.getState(sessionId).thinkingLevel;
+export function getThinkingLevel(sessionID: string): ThinkingLevel {
+    return thinkingLevelManager.getState(sessionID).thinkingLevel;
 }
 
-export function setThinkingLevel(sessionId: string, level: ThinkingLevel): void {
-    thinkingLevelManager.setThinkingLevel(sessionId, level);
+export function setThinkingLevel(sessionID: string, level: ThinkingLevel): void {
+    thinkingLevelManager.setThinkingLevel(sessionID, level);
 }
 
-export function cycleThinkingLevelForSession(sessionId: string): ThinkingLevel {
-    return thinkingLevelManager.cycleThinkingLevel(sessionId);
+export function cycleThinkingLevelForSession(sessionID: string): ThinkingLevel {
+    return thinkingLevelManager.cycleThinkingLevel(sessionID);
 }
+
+

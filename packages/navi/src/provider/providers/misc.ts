@@ -47,7 +47,10 @@ export const OpenrouterProvider: ProviderLoader.Info = {
             if (apiKey) {
                 fetchHeaders["Authorization"] = `Bearer ${apiKey}`
             }
-            const res = await fetch("https://openrouter.ai/api/v1/models", { headers: fetchHeaders })
+            const res = await fetch("https://openrouter.ai/api/v1/models", {
+                headers: fetchHeaders,
+                signal: AbortSignal.timeout(8_000),
+            })
             if (res.ok) {
                 const data = (await res.json()) as any
                 if (data && data.data && Array.isArray(data.data)) {
@@ -212,7 +215,10 @@ export const AihubmixProvider: ProviderLoader.Info = {
             if (apiKey) {
                 fetchHeaders["Authorization"] = `Bearer ${apiKey}`
             }
-            const res = await fetch("https://aihubmix.com/api/v1/models", { headers: fetchHeaders })
+            const res = await fetch("https://aihubmix.com/api/v1/models", {
+                headers: fetchHeaders,
+                signal: AbortSignal.timeout(8_000),
+            })
             if (res.ok) {
                 const data = (await res.json()) as any
                 if (data && data.data && Array.isArray(data.data)) {
@@ -317,5 +323,7 @@ export const AihubmixProvider: ProviderLoader.Info = {
         }
     },
 }
+
+
 
 

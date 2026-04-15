@@ -68,3 +68,6 @@ export const HealthCommand = {
     if (errors > 0) process.exitCode = 1
   },
 } satisfies CommandModule
+
+
+

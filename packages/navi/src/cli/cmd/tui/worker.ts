@@ -6,16 +6,19 @@ import { InstanceBootstrap } from "@/project/bootstrap"
 import { Rpc } from "@/util/rpc"
 import { upgrade } from "@/cli/upgrade"
 import { Config } from "@/config/config"
+import { Bus } from "@/bus"
 import { GlobalBus } from "@/bus/global"
-import { createNaviClient, type Event } from "@navi-ai/sdk/v2"
-import type { BunWebSocketData } from "hono/bun"
-import { P2P, P2PDiscovery } from "@/p2p"
+import type { Event } from "@navi-ai/sdk/v2"
+import { Flag } from "@/flag/flag"
+import { setTimeout as sleep } from "node:timers/promises"
+import { writeHeapSnapshot } from "node:v8"
+import { WorkspaceID } from "@/control-plane/schema"
 
 await Log.init({
-  print: process.env.NAVI_DEBUG === "1" || process.argv.includes("--print-logs"),
-  dev: process.env.NAVI_DEBUG === "1" || Installation.isLocal(),
+  print: process.argv.includes("--print-logs"),
+  dev: Installation.isLocal(),
   level: (() => {
-    if (process.env.NAVI_DEBUG === "1" || Installation.isLocal()) return "DEBUG"
+    if (Installation.isLocal()) return "DEBUG"
     return "INFO"
   })(),
 })
@@ -34,123 +37,92 @@ process.on("uncaughtException", (e) => {
 
 // Subscribe to global events and forward them via RPC
 GlobalBus.on("event", (event) => {
-  Rpc.emit("event", event.payload)
+  Rpc.emit("global.event", event)
 })
 
-let server: Bun.Server<BunWebSocketData> | undefined
+let server: Awaited<ReturnType<typeof Server.listen>> | undefined
 
 const eventStream = {
   abort: undefined as AbortController | undefined,
 }
 
-const startEventStream = (directory: string) => {
+const startEventStream = (input: { directory: string; workspaceID?: string }) => {
   if (eventStream.abort) eventStream.abort.abort()
   const abort = new AbortController()
   eventStream.abort = abort
   const signal = abort.signal
 
-  const fetchFn = (async (input: RequestInfo | URL, init?: RequestInit) => {
-    const request = new Request(input, init)
-    return Server.App().fetch(request)
-  }) as typeof globalThis.fetch
+  ;(async () => {
+    while (!signal.aborted) {
+      const shouldReconnect = await Instance.provide({
+        directory: input.directory,
+        init: InstanceBootstrap,
+        fn: () =>
+          new Promise<boolean>((resolve) => {
+            Rpc.emit("event", {
+              type: "server.connected",
+              properties: {},
+            } satisfies Event)
 
-  const sdk = createNaviClient({
-    baseUrl: "http://navi.internal",
-    directory,
-    fetch: fetchFn,
-    signal,
-  })
+            let settled = false
+            const settle = (value: boolean) => {
+              if (settled) return
+              settled = true
+              signal.removeEventListener("abort", onAbort)
+              unsub()
+              resolve(value)
+            }
 
-    ; (async () => {
-      while (!signal.aborted) {
-        const events = await Promise.resolve(
-          sdk.event.subscribe(
-            {},
-            {
-              signal,
-            },
-          ),
-        ).catch(() => undefined)
+            const unsub = Bus.subscribeAll((event) => {
+              Rpc.emit("event", event as Event)
+              if (event.type === Bus.InstanceDisposed.type) {
+                settle(true)
+              }
+            })
 
-        if (!events) {
-          await Bun.sleep(250)
-          continue
-        }
+            const onAbort = () => {
+              settle(false)
+            }
 
-        for await (const event of events.stream) {
-          Rpc.emit("event", event as Event)
-        }
-
-        if (!signal.aborted) {
-          await Bun.sleep(250)
-        }
-      }
-    })().catch((error) => {
-      Log.Default.error("event stream error", {
-        error: error instanceof Error ? error.message : error,
+            signal.addEventListener("abort", onAbort, { once: true })
+          }),
+      }).catch((error) => {
+        Log.Default.error("event stream subscribe error", {
+          error: error instanceof Error ? error.message : error,
+        })
+        return false
       })
-    })
-}
 
-startEventStream(process.cwd())
+      if (!shouldReconnect || signal.aborted) {
+        break
+      }
 
-// Auto-start internal server for P2P (on random port)
-let internalServer: Bun.Server<BunWebSocketData> | undefined
-
-// Helper to get local network IP
-function getLocalIP(): string {
-  const nets = require("os").networkInterfaces()
-  for (const name of Object.keys(nets)) {
-    const net = nets[name]
-    if (!net) continue
-    for (const netInfo of net) {
-      // Skip internal and non-IPv4 addresses
-      if (netInfo.internal || netInfo.family !== "IPv4") continue
-      // Skip Docker bridge networks
-      if (netInfo.address.startsWith("172.")) continue
-      return netInfo.address
+      if (!signal.aborted) {
+        await sleep(250)
+      }
     }
-  }
-  return "127.0.0.1"
-}
-
-async function startInternalServer() {
-  // Get local IP for P2P communication
-  const localIP = getLocalIP()
-  
-  // Start internal server on random port, accessible from network
-  internalServer = Server.listen({ port: 0, hostname: "0.0.0.0" })
-  
-  // Initialize P2P with the internal server port (using defaults)
-  // The config will be read from navi.json if present
-  P2P.init(internalServer.port!)
-  
-  // Update self info with the correct network IP
-  const selfInfo = P2PDiscovery.getSelfInfo()
-  if (selfInfo) {
-    P2PDiscovery.updateSelfInfo({ hostname: localIP })
-  }
-  
-  Log.Default.info("P2P auto-started", { 
-    port: internalServer.port,
-    hostname: localIP,
-    peerId: P2PDiscovery.getSelfInfo()?.id 
+  })().catch((error) => {
+    Log.Default.error("event stream error", {
+      error: error instanceof Error ? error.message : error,
+    })
   })
 }
 
-// Auto-start P2P on worker init
-startInternalServer().catch((err) => {
-  Log.Default.error("Failed to start P2P", { error: err })
-})
+startEventStream({ directory: process.cwd() })
 
 export const rpc = {
   async fetch(input: { url: string; method: string; headers: Record<string, string>; body?: string }) {
+    const headers = { ...input.headers }
+    const auth = getAuthorizationHeader()
+    if (auth && !headers["authorization"] && !headers["Authorization"]) {
+      headers["Authorization"] = auth
+    }
     const request = new Request(input.url, {
       method: input.method,
-      headers: input.headers,
+      headers,
       body: input.body,
     })
-    const response = await Server.App().fetch(request)
+    const response = await Server.Default().fetch(request)
     const body = await response.text()
     return {
       status: response.status,
@@ -158,9 +130,13 @@ export const rpc = {
       body,
     }
   },
+  snapshot() {
+    const result = writeHeapSnapshot("server.heapsnapshot")
+    return result
+  },
   async server(input: { port: number; hostname: string; mdns?: boolean; cors?: string[] }) {
     if (server) await server.stop(true)
-    server = Server.listen(input)
+    server = await Server.listen(input)
     return { url: server.url.toString() }
   },
   async checkUpgrade(input: { directory: string }) {
@@ -168,22 +144,30 @@ export const rpc = {
       directory: input.directory,
       init: InstanceBootstrap,
       fn: async () => {
-        await upgrade().catch(() => { })
+        await upgrade().catch(() => {})
       },
     })
   },
   async reload() {
-    Config.global.reset()
-    await Instance.disposeAll()
+    await Config.invalidate(true)
+  },
+  async setWorkspace(input: { workspaceID?: string }) {
+    startEventStream({ directory: process.cwd(), workspaceID: input.workspaceID })
   },
   async shutdown() {
     Log.Default.info("worker shutting down")
     if (eventStream.abort) eventStream.abort.abort()
-    P2P.stop()
     await Instance.disposeAll()
-    if (internalServer) internalServer.stop(true)
-    if (server) server.stop(true)
+    if (server) await server.stop(true)
   },
 }
 
 Rpc.listen(rpc)
+
+function getAuthorizationHeader(): string | undefined {
+  const password = Flag.NAVI_SERVER_PASSWORD
+  if (!password) return undefined
+  const username = Flag.NAVI_SERVER_USERNAME ?? "Navi"
+  return `Basic ${btoa(`${username}:${password}`)}`
+}
+

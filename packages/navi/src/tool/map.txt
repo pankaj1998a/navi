@@ -1,0 +1,1 @@
+Useful for getting the structural overview of a file (classes, functions, exports) without reading its entire content. This saves significant context/tokens. Use this before reading a large file to identify which parts are relevant to your task.

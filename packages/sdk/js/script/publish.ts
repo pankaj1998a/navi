@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 
-import { Script } from "@navi-ai/script"
+import { Script } from "../../../../script/info"
 import { $ } from "bun"
 
 const dir = new URL("..", import.meta.url).pathname

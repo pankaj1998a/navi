@@ -44,7 +44,7 @@ Use this to understand system-wide dependencies, locate entry points, and produc
 
       const output = matches.map(s =>
         `- **${s.name}** (${s.type})
-  File: ${path.relative(Instance.worktree, s.file)}:${s.line}`
+  File: ${path.relative(Instance.worktree ?? Instance.directory ?? process.cwd(), s.file)}:${s.line}`
       ).join("\n")
 
       return {
@@ -60,7 +60,7 @@ ${output}`,
       // Basic architecture mapping: find all symbols in a directory
       await SymbolCache.update().catch(() => undefined)
       const symbols = await SymbolCache.getSymbols()
-      const dirPath = path.isAbsolute(params.query) ? params.query : path.join(Instance.directory, params.query)
+      const dirPath = path.isAbsolute(params.query) ? params.query : path.join(Instance.directory ?? process.cwd(), params.query)
       const matches = symbols.filter(s => s.file.startsWith(dirPath))
 
       if (matches.length === 0) {
@@ -86,3 +86,5 @@ ${output}`,
     throw new Error(`Unknown action: ${params.action}`)
   },
 })
+
+

@@ -1099,6 +1099,20 @@ We recommend signing up for [ChatGPT Plus or Pro](https://chatgpt.com/pricing).
 
 If you already have an API key, you can select **Manually enter API Key** and paste it in your terminal.
 
+##### Current OpenAI model guidance
+
+OpenAI now recommends the GPT-5.4 family for most coding and agentic work:
+
+- `gpt-5.4` for the strongest general-purpose coding and agentic tasks
+- `gpt-5.4-pro` for harder problems that benefit from more compute
+- `gpt-5.4-mini` for faster, lower-cost interactive work
+- `gpt-5.4-nano` for lightweight classification and subagent tasks
+- `gpt-5.2-codex` and `gpt-5.1-codex` for coding-focused workflows where your account exposes them
+- `gpt-4.1` when you want a strong non-reasoning model
+- `gpt-oss-120b` and `gpt-oss-20b` for open-weight workflows where your provider exposes them
+
+Navi loads the live OpenAI model list at runtime from OpenAI's models API, so the `/models` picker stays aligned with new releases without manual updates as long as your OpenAI credentials are valid.
+
 ---
 
 ### Navi Zen

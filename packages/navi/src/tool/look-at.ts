@@ -56,7 +56,7 @@ export const LookAtTool = Tool.define("look_at", {
         goal: z.string().describe("What specific information to extract from the file"),
     }),
     execute: async (args, ctx) => {
-        const filePath = path.isAbsolute(args.file_path) ? args.file_path : path.resolve(Instance.directory, args.file_path)
+        const filePath = path.isAbsolute(args.file_path) ? args.file_path : path.resolve(Instance.directory ?? process.cwd(), args.file_path)
         const mimeType = inferMimeType(filePath)
         const filename = path.basename(filePath)
 
@@ -102,3 +102,5 @@ If the requested information is not found, clearly state what is missing.`
         }
     },
 })
+
+

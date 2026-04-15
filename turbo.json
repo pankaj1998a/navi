@@ -13,6 +13,10 @@
         "*.node"
       ]
     },
+    "dev": {
+      "cache": false,
+      "persistent": true
+    },
     "build:rs": {
       "dependsOn": [
         "^build:rs"

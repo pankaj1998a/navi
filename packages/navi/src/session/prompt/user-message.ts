@@ -9,11 +9,28 @@ import { MCP } from "../../mcp"
 import { Instance } from "../../project/instance"
 import { Session } from ".."
 import { Plugin } from "../../plugin"
+import {
+    collectPromptTaskText,
+    formatBuildAdvisorNote,
+    recommendAgentMode,
+    shouldInjectBuildAdvisor,
+} from "../../agent/mode-advisor"
+import { analyzeTaskComplexity } from "../../agent/adaptive-thinking"
 
 const log = Log.create({ service: "session.prompt.user-message" })
 
 export async function createUserMessage(input: any & { lastModel: (sessionID: string) => Promise<any> }) {
     const agent = await Agent.get(input.agent ?? (await Agent.defaultAgent()))
+    const taskText = collectPromptTaskText({
+        input: input.input,
+        parts: input.parts,
+    })
+    const recommendation = taskText
+        ? recommendAgentMode({
+            task: taskText,
+            currentAgent: agent.name,
+        })
+        : undefined
     const info: MessageV2.Info = {
         id: input.messageID ?? Identifier.ascending("message"),
         role: "user",
@@ -26,6 +43,21 @@ export async function createUserMessage(input: any & { lastModel: (sessionID: st
         model: input.model ?? agent.model ?? (await input.lastModel(input.sessionID)),
         system: input.system,
         variant: input.variant,
+    }
+
+    // Apply adaptive thinking if variant not explicitly set
+    if (!info.variant && taskText) {
+        const analysis = analyzeTaskComplexity(taskText)
+        if (analysis.recommendation === "think" || analysis.recommendation === "max") {
+            log.info("adaptive thinking suggestion", { recommendation: analysis.recommendation, score: analysis.score })
+            info.variant = analysis.recommendation
+        }
+    }
+
+    if (agent.name === "build" && recommendation && shouldInjectBuildAdvisor(recommendation)) {
+        info.system = [info.system, formatBuildAdvisorNote(recommendation, taskText)]
+            .filter(Boolean)
+            .join("\n\n")
     }
 
     const parts = await Promise.all(
@@ -194,4 +226,7 @@ export async function createUserMessage(input: any & { lastModel: (sessionID: st
         parts,
     }
 }
+
+
+
 

@@ -140,3 +140,5 @@ export async function KilocodeAuthPlugin(_input: PluginInput): Promise<Hooks> {
 }
 
 export default KilocodeAuthPlugin
+
+

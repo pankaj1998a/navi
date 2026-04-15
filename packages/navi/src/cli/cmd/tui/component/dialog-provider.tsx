@@ -8,53 +8,27 @@ import { DialogPrompt } from "../ui/dialog-prompt"
 import { Link } from "../ui/link"
 import { useTheme } from "../context/theme"
 import { TextAttributes } from "@opentui/core"
-import type { ProviderAuthAuthorization } from "@navi-ai/sdk/v2"
+import type { ProviderAuthAuthorization, ProviderAuthMethod } from "@navi-ai/sdk/v2"
 import { DialogModel } from "./dialog-model"
 import { useKeyboard } from "@opentui/solid"
 import { Clipboard } from "@tui/util/clipboard"
 import { useToast } from "../ui/toast"
-import { ProviderHealth } from "@/provider/health"
 
 const PROVIDER_PRIORITY: Record<string, number> = {
-  navi: 0,
-  anthropic: 1,
-  "github-copilot": 2,
-  openai: 3,
-  "google-antigravity": 4,
+  Navi: 0,
+  "Navi-go": 1,
+  openai: 2,
+  "github-copilot": 3,
+  anthropic: 4,
   google: 5,
-  kilocode: 6,
-  opencode: 7,
-}
-
-function formatProviderAuth(provider: { source: string }) {
-  switch (provider.source) {
-    case "env":
-      return "connected"
-    case "api":
-      return "connected"
-    case "config":
-      return "configured"
-    case "free":
-      return "free"
-    default:
-      return provider.source
-  }
+  "qwen-cli": 6,
 }
 
 export function createDialogProviderOptions() {
   const sync = useSync()
   const dialog = useDialog()
   const sdk = useSDK()
-  function formatCatalogAge(ageMs?: number) {
-    if (ageMs === undefined) return "freshness unknown"
-    const seconds = Math.floor(ageMs / 1000)
-    if (seconds < 60) return `${seconds}s old`
-    const minutes = Math.floor(seconds / 60)
-    if (minutes < 60) return `${minutes}m old`
-    const hours = Math.floor(minutes / 60)
-    if (hours < 24) return `${hours}h old`
-    return `${Math.floor(hours / 24)}d old`
-  }
+  const toast = useToast()
   const options = createMemo(() => {
     return pipe(
       sync.data.provider_next.all,
@@ -62,25 +36,13 @@ export function createDialogProviderOptions() {
       map((provider) => ({
         title: provider.name,
         value: provider.id,
-        description: (() => {
-          const health = ProviderHealth.summarizeProvider(provider)
-          const base = {
-            navi: "(Recommended)",
-            anthropic: "(Claude Max or API key)",
-            openai: "(ChatGPT Plus/Pro or API key)",
-            "google-antigravity": "(Gemini 3 & Claude 4.5 via Google OAuth)",
-            kilocode: "(Free models)",
-            opencode: "(Free models)",
-          }[provider.id]
-          const freshness = formatCatalogAge(provider.catalog?.ageMs)
-          return [
-            base,
-            `${formatProviderAuth(provider)} · ${health.status} · ${health.activeModels} active`,
-            provider.catalog ? freshness : undefined,
-          ]
-            .filter(Boolean)
-            .join(" · ")
-        })(),
+        description: {
+          Navi: "(Recommended)",
+          anthropic: "(API key)",
+          openai: "(ChatGPT Plus/Pro or API key)",
+          "Navi-go": "Low cost subscription for everyone",
+          "qwen-cli": "Alibaba Qwen models (OAuth login)",
+        }[provider.id],
         category: provider.id in PROVIDER_PRIORITY ? "Popular" : "Other",
         async onSelect() {
           const methods = sync.data.provider_auth[provider.id] ?? [
@@ -110,10 +72,29 @@ export function createDialogProviderOptions() {
           if (index == null) return
           const method = methods[index]
           if (method.type === "oauth") {
+            let inputs: Record<string, string> | undefined
+            if (method.prompts?.length) {
+              const value = await PromptsMethod({
+                dialog,
+                prompts: method.prompts,
+              })
+              if (!value) return
+              inputs = value
+            }
+
             const result = await sdk.client.provider.oauth.authorize({
               providerID: provider.id,
               method: index,
+              inputs,
             })
+            if (result.error) {
+              toast.show({
+                variant: "error",
+                message: JSON.stringify(result.error),
+              })
+              dialog.clear()
+              return
+            }
             if (result.data?.method === "code") {
               dialog.replace(() => (
                 <CodeMethod providerID={provider.id} title={method.label} index={index} authorization={result.data!} />
@@ -155,7 +136,7 @@ function AutoMethod(props: AutoMethodProps) {
 
   useKeyboard((evt) => {
     if (evt.name === "c" && !evt.ctrl && !evt.meta) {
-      const code = props.authorization.instructions.match(/[A-Z0-9]{4}-[A-Z0-9]{4}/)?.[0] ?? props.authorization.url
+      const code = props.authorization.instructions.match(/[A-Z0-9]{4}-[A-Z0-9]{4,5}/)?.[0] ?? props.authorization.url
       Clipboard.copy(code)
         .then(() => toast.show({ message: "Copied to clipboard", variant: "info" }))
         .catch(toast.error)
@@ -182,16 +163,19 @@ function AutoMethod(props: AutoMethodProps) {
         <text attributes={TextAttributes.BOLD} fg={theme.text}>
           {props.title}
         </text>
-        <text fg={theme.textMuted}>esc</text>
+        <text fg={theme.textMuted} onMouseUp={() => dialog.clear()}>
+          esc
+        </text>
       </box>
       <box gap={1}>
         <Link href={props.authorization.url} fg={theme.primary} />
         <text fg={theme.textMuted}>{props.authorization.instructions}</text>
       </box>
       <text fg={theme.textMuted}>Waiting for authorization...</text>
-      <text fg={theme.text}>
-        c <span style={{ fg: theme.textMuted }}>copy</span>
-      </text>
+      <box flexDirection="row" gap={1}>
+        <text fg={theme.text}>c</text>
+        <text fg={theme.textMuted}>copy</text>
+      </box>
     </box>
   )
 }
@@ -255,16 +239,34 @@ function ApiMethod(props: ApiMethodProps) {
       title={props.title}
       placeholder="API key"
       description={
-        props.providerID === "navi" ? (
-          <box gap={1}>
-            <text fg={theme.textMuted}>
-              {/* Navi Zen gives you access to all the best coding models at the cheapest prices with a single API key. */}
-            </text>
-            <text fg={theme.text}>
-              Go to <span style={{ fg: theme.primary }}>https://navi.ai/zen</span> to get a key
-            </text>
-          </box>
-        ) : undefined
+        {
+          Navi: (
+            <box gap={1}>
+              <text fg={theme.textMuted}>
+                Navi Zen gives you access to all the best coding models at the cheapest prices with a single API
+                key.
+              </text>
+              <box flexDirection="row" gap={1}>
+                <text fg={theme.text}>Go to</text>
+                <text fg={theme.primary}>https://Navi.ai/zen</text>
+                <text fg={theme.text}>to get a key</text>
+              </box>
+            </box>
+          ),
+          "Navi-go": (
+            <box gap={1}>
+              <text fg={theme.textMuted}>
+                Navi Go is a $10 per month subscription that provides reliable access to popular open coding models
+                with generous usage limits.
+              </text>
+              <box flexDirection="row" gap={1}>
+                <text fg={theme.text}>Go to</text>
+                <text fg={theme.primary}>https://Navi.ai/zen</text>
+                <text fg={theme.text}>and enable Navi Go</text>
+              </box>
+            </box>
+          ),
+        }[props.providerID] ?? undefined
       }
       onConfirm={async (value) => {
         if (!value) return
@@ -282,3 +284,54 @@ function ApiMethod(props: ApiMethodProps) {
     />
   )
 }
+
+interface PromptsMethodProps {
+  dialog: ReturnType<typeof useDialog>
+  prompts: NonNullable<ProviderAuthMethod["prompts"]>[number][]
+}
+async function PromptsMethod(props: PromptsMethodProps) {
+  const inputs: Record<string, string> = {}
+  for (const prompt of props.prompts) {
+    if (prompt.when) {
+      const value = inputs[prompt.when.key]
+      if (value === undefined) continue
+      const matches = prompt.when.op === "eq" ? value === prompt.when.value : value !== prompt.when.value
+      if (!matches) continue
+    }
+
+    if (prompt.type === "select") {
+      const value = await new Promise<string | null>((resolve) => {
+        props.dialog.replace(
+          () => (
+            <DialogSelect
+              title={prompt.message}
+              options={prompt.options.map((x) => ({
+                title: x.label,
+                value: x.value,
+                description: x.hint,
+              }))}
+              onSelect={(option) => resolve(option.value)}
+            />
+          ),
+          () => resolve(null),
+        )
+      })
+      if (value === null) return null
+      inputs[prompt.key] = value
+      continue
+    }
+
+    const value = await new Promise<string | null>((resolve) => {
+      props.dialog.replace(
+        () => (
+          <DialogPrompt title={prompt.message} placeholder={prompt.placeholder} onConfirm={(value) => resolve(value)} />
+        ),
+        () => resolve(null),
+      )
+    })
+    if (value === null) return null
+    inputs[prompt.key] = value
+  }
+  return inputs
+}
+

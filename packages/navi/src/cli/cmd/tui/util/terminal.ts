@@ -112,3 +112,4 @@ export namespace Terminal {
     return luminance > 0.5 ? "light" : "dark"
   }
 }
+

@@ -31,7 +31,7 @@ export async function createNaviServer(options?: ServerOptions) {
   const args = [`serve`, `--hostname=${options.hostname}`, `--port=${options.port}`]
   if (options.config?.logLevel) args.push(`--log-level=${options.config.logLevel}`)
 
-  const proc = spawn(`navi`, args, {
+  const proc = spawn(`Navi`, args, {
     signal: options.signal,
     env: {
       ...process.env,
@@ -48,7 +48,7 @@ export async function createNaviServer(options?: ServerOptions) {
       output += chunk.toString()
       const lines = output.split("\n")
       for (const line of lines) {
-        if (line.startsWith("navi server listening")) {
+        if (line.startsWith("Navi server listening")) {
           const match = line.match(/on\s+(https?:\/\/[^\s]+)/)
           if (!match) {
             throw new Error(`Failed to parse server url from output: ${line}`)
@@ -90,8 +90,6 @@ export async function createNaviServer(options?: ServerOptions) {
   }
 }
 
-export const createnaviServer = createNaviServer
-
 export function createNaviTui(options?: TuiOptions) {
   const args = []
 
@@ -108,7 +106,7 @@ export function createNaviTui(options?: TuiOptions) {
     args.push(`--agent=${options.agent}`)
   }
 
-  const proc = spawn(`navi`, args, {
+  const proc = spawn(`Navi`, args, {
     signal: options?.signal,
     stdio: "inherit",
     env: {
@@ -124,4 +122,3 @@ export function createNaviTui(options?: TuiOptions) {
   }
 }
 
-export const createnaviTui = createNaviTui

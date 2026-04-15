@@ -3,7 +3,7 @@ import { Env } from "../../env"
 import { Auth } from "../../auth"
 import { Config } from "../../config/config"
 
-export const OpencodeProvider: ProviderLoader.Info = {
+export const NaviProvider: ProviderLoader.Info = {
     async load(input) {
         if (!input) return { autoload: false, options: {} }
 
@@ -12,7 +12,7 @@ export const OpencodeProvider: ProviderLoader.Info = {
             const keys: string[] = []
 
             // Check comma-separated env vars
-            const envKeys = Env.get("OPENCODE_API_KEYS") ?? Env.get("OPENCODE_API_KEY")
+            const envKeys = Env.get("NAVI_API_KEYS") ?? Env.get("NAVI_API_KEY")
             if (envKeys) {
                 keys.push(...envKeys.split(",").map(k => k.trim()).filter(Boolean))
             }
@@ -25,7 +25,7 @@ export const OpencodeProvider: ProviderLoader.Info = {
 
             // Check Config
             const config = await Config.get()
-            const configKey = config.provider?.["opencode"]?.options?.apiKey
+            const configKey = config.provider?.["Navi"]?.options?.apiKey
             if (configKey) {
                 keys.push(configKey)
             }
@@ -67,10 +67,10 @@ export const OpencodeProvider: ProviderLoader.Info = {
 
                 const headers = new Headers(init?.headers)
                 headers.set("Authorization", `Bearer ${key}`)
-                // Always overwrite these headers to mimic OpenCode CLI
-                headers.set("HTTP-Referer", "https://opencode.ai/")
-                headers.set("X-Title", "OpenCode")
-                if (!headers.has("User-Agent")) headers.set("User-Agent", "opencode/1.0")
+                // Always overwrite these headers to mimic Navi CLI
+                headers.set("HTTP-Referer", "https://Navi.ai/")
+                headers.set("X-Title", "Navi")
+                if (!headers.has("User-Agent")) headers.set("User-Agent", "Navi/1.0")
 
                 let currentInit = { ...init, headers }
 
@@ -84,7 +84,7 @@ export const OpencodeProvider: ProviderLoader.Info = {
 
                 if (i === maxRetries - 1 && bodyObj && bodyObj.model && FALLBACKS[bodyObj.model]) {
                     const newModel = FALLBACKS[bodyObj.model]
-                    // console.warn(`[Opencode] Rate limit hit. Falling back from ${bodyObj.model} to ${newModel}`)
+                    // console.warn(`[Navi] Rate limit hit. Falling back from ${bodyObj.model} to ${newModel}`)
                     bodyObj.model = newModel
                     currentInit = { ...currentInit, body: JSON.stringify(bodyObj) }
                 }
@@ -120,3 +120,5 @@ export const OpencodeProvider: ProviderLoader.Info = {
         }
     },
 }
+
+

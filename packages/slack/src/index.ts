@@ -1,5 +1,5 @@
 import { App } from "@slack/bolt"
-import { createnavi, type ToolPart } from "@navi-ai/sdk"
+import { createNavi, type ToolPart } from "@navi-ai/sdk"
 
 const app = new App({
   token: process.env.SLACK_BOT_TOKEN,
@@ -14,7 +14,7 @@ console.log("- Signing secret present:", !!process.env.SLACK_SIGNING_SECRET)
 console.log("- App token present:", !!process.env.SLACK_APP_TOKEN)
 
 console.log("🚀 Starting navi server...")
-const navi = await createnavi({
+const navi = await createNavi({
   port: 0,
 })
 console.log("✅ navi server ready")

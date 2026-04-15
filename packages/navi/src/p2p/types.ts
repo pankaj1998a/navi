@@ -74,7 +74,7 @@ export const P2PMessage = z.discriminatedUnion("type", [
       path: z.string(),
       content: z.string(),
     })),
-    sessionId: z.string().optional(),
+    sessionID: z.string().optional(),
     timestamp: z.number(),
   }),
   // Sync session
@@ -82,7 +82,7 @@ export const P2PMessage = z.discriminatedUnion("type", [
     type: z.literal("session.sync"),
     id: z.string(),
     from: PeerId,
-    sessionId: z.string(),
+    sessionID: z.string(),
     messages: z.array(z.any()).optional(),
     timestamp: z.number(),
   }),
@@ -91,7 +91,7 @@ export const P2PMessage = z.discriminatedUnion("type", [
     type: z.literal("collab.invite"),
     id: z.string(),
     from: PeerId,
-    sessionId: z.string(),
+    sessionID: z.string(),
     projectPath: z.string(),
     timestamp: z.number(),
   }),
@@ -99,21 +99,21 @@ export const P2PMessage = z.discriminatedUnion("type", [
     type: z.literal("collab.join"),
     id: z.string(),
     from: PeerId,
-    sessionId: z.string(),
+    sessionID: z.string(),
     timestamp: z.number(),
   }),
   z.object({
     type: z.literal("collab.leave"),
     id: z.string(),
     from: PeerId,
-    sessionId: z.string(),
+    sessionID: z.string(),
     timestamp: z.number(),
   }),
   z.object({
     type: z.literal("collab.edit"),
     id: z.string(),
     from: PeerId,
-    sessionId: z.string(),
+    sessionID: z.string(),
     file: z.string(),
     changes: z.array(z.object({
       startLine: z.number(),
@@ -176,3 +176,4 @@ export namespace P2PEvent {
     state: ConnectionState,
   }))
 }
+

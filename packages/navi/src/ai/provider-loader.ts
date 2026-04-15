@@ -58,6 +58,9 @@ export class ProviderLoader {
                 case 'xai':
                     providerModule = await import('@ai-sdk/xai')
                     break
+                case 'qwen':
+                    providerModule = await import('@ai-sdk/openai-compatible')
+                    break
                 default:
                     throw new Error(`Unknown provider: ${providerId}`)
             }
@@ -71,3 +74,4 @@ export class ProviderLoader {
 }
 
 export const providerLoader = new ProviderLoader()
+

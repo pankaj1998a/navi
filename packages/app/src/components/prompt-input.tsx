@@ -178,6 +178,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
     dragging: boolean
     mode: "normal" | "shell"
     applyingHistory: boolean
+    isRecording: boolean
   }>({
     popover: null,
     historyIndex: -1,
@@ -186,6 +187,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
     dragging: false,
     mode: "normal",
     applyingHistory: false,
+    isRecording: false,
   })
 
   const MAX_HISTORY = 100
@@ -347,15 +349,25 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
     }
   }
 
+  const handleGlobalKeyDown = (event: KeyboardEvent) => {
+    if (event.altKey && event.key.toLowerCase() === "v" && !event.ctrlKey && !event.metaKey) {
+      console.log("Navi: Voice shortcut triggered")
+      event.preventDefault()
+      toggleVoice()
+    }
+  }
+
   onMount(() => {
     document.addEventListener("dragover", handleGlobalDragOver)
     document.addEventListener("dragleave", handleGlobalDragLeave)
     document.addEventListener("drop", handleGlobalDrop)
+    window.addEventListener("keydown", handleGlobalKeyDown)
   })
   onCleanup(() => {
     document.removeEventListener("dragover", handleGlobalDragOver)
     document.removeEventListener("dragleave", handleGlobalDragLeave)
     document.removeEventListener("drop", handleGlobalDrop)
+    window.removeEventListener("keydown", handleGlobalKeyDown)
   })
 
   createEffect(() => {
@@ -422,12 +434,28 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
       type: "custom" as const,
     }))
 
-    return [...custom, ...builtin]
+    const voice = {
+      id: "builtin.voice",
+      trigger: "voice",
+      title: "Voice mode",
+      description: "Start or stop voice recording",
+      keybind: "Alt+V",
+      type: "builtin" as const,
+    }
+
+    return [voice, ...custom, ...builtin]
   })
 
   const handleSlashSelect = (cmd: SlashCommand | undefined) => {
     if (!cmd) return
     setStore("popover", null)
+
+    if (cmd.id === "builtin.voice") {
+      editorRef.innerHTML = ""
+      prompt.set([{ type: "text", content: "", start: 0, end: 0 }], 0)
+      toggleVoice()
+      return
+    }
 
     if (cmd.type === "custom") {
       const text = `/${cmd.trigger} `
@@ -955,6 +983,39 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
         setStore("popover", null)
       } else if (working()) {
         abort()
+      }
+    }
+  }
+
+  const toggleVoice = async () => {
+    if (store.isRecording) {
+      setStore("isRecording", false)
+      try {
+        // @ts-ignore
+        const res = await sdk.client.$post("/voice/stop")
+        if (!res.error && res.data) {
+          const text = (res.data as any).text
+          if (text) {
+            addPart({ type: "text", content: text + " ", start: 0, end: 0 })
+          }
+        }
+      } catch (e) {
+        showToast({
+          title: "Voice transcription failed",
+          description: e instanceof Error ? e.message : String(e),
+        })
+      }
+    } else {
+      try {
+        setStore("isRecording", true)
+        // @ts-ignore
+        await sdk.client.$post("/voice/start")
+      } catch (e) {
+        setStore("isRecording", false)
+        showToast({
+          title: "Failed to start recording",
+          description: e instanceof Error ? e.message : String(e),
+        })
       }
     }
   }
@@ -1531,7 +1592,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
             <div class="absolute top-0 inset-x-0 px-5 py-3 pr-12 text-14-regular text-text-weak pointer-events-none whitespace-nowrap truncate">
               {store.mode === "shell"
                 ? "Enter shell command..."
-                : `Ask anything... "${PLACEHOLDERS[store.placeholder]}"`}
+                : `Ask anything (Alt+V for voice)... "${PLACEHOLDERS[store.placeholder]}"`}
             </div>
           </Show>
         </div>
@@ -1634,6 +1695,17 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
                 <Tooltip placement="top" value="Attach file">
                   <Button type="button" variant="ghost" class="size-6" onClick={() => fileInputRef.click()}>
                     <Icon name="photo" class="size-4.5" />
+                  </Button>
+                </Tooltip>
+                <Tooltip placement="top" value={store.isRecording ? "Stop recording (Alt+V)" : "Voice mode (Alt+V)"}>
+                  <Button 
+                    type="button" 
+                    variant="ghost" 
+                    class="size-6" 
+                    onClick={toggleVoice}
+                    classList={{ "text-icon-danger-base animate-pulse": store.isRecording }}
+                  >
+                    <Icon name="mic" class="size-4.5" />
                   </Button>
                 </Tooltip>
               </Show>

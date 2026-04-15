@@ -25,3 +25,36 @@ export namespace SharedMemory {
         }
     }
 }
+
+export namespace RoleMemory {
+    /**
+     * Get memory scoped to a specific agent role (e.g. "architect", "reviewer")
+     */
+    export async function get(role: string, key: string): Promise<any> {
+        return SharedMemory.get(key, `role_memory_${role}`)
+    }
+
+    /**
+     * Set memory scoped to an agent role
+     */
+    export async function set(role: string, key: string, value: any): Promise<void> {
+        return SharedMemory.set(key, value, `role_memory_${role}`)
+    }
+
+    /**
+     * Format the agent's role-specific context to inject into their system prompt
+     */
+    export async function formatPromptContext(role: string): Promise<string> {
+        const data = await SharedMemory.list(`role_memory_${role}`)
+        if (data.length === 0) return ""
+        
+        let output = "\\n\\n# Role-Specific Context:\\n"
+        for (const key of data) {
+            const val = await get(role, key)
+            output += `- **${key}**: ${JSON.stringify(val)}\\n`
+        }
+        return output
+    }
+}
+
+

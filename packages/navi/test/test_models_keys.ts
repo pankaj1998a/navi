@@ -1,4 +1,4 @@
-import { ModelsDev } from "./src/provider/models.ts"
+import { ModelsDev } from "../src/provider/models"
 
 async function main() {
     const modelsDev = await ModelsDev.get()

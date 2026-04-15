@@ -1,5 +1,4 @@
 import { cmd } from "./cmd"
-import { AgentStore } from "../../agent/store"
 import * as prompts from "@clack/prompts"
 import { UI } from "../ui"
 import { Global } from "../../global"
@@ -7,28 +6,15 @@ import { Agent } from "../../agent/agent"
 import { Provider } from "../../provider/provider"
 import path from "path"
 import fs from "fs/promises"
+import { Filesystem } from "../../util/filesystem"
 import matter from "gray-matter"
 import { Instance } from "../../project/instance"
 import { EOL } from "os"
 import type { Argv } from "yargs"
-import { AgentScorecard } from "../../agent/scorecard"
-import { buildAgentContract, renderSubagentContractSection } from "../../agent/contract"
 
 type AgentMode = "all" | "primary" | "subagent"
 
-const AVAILABLE_TOOLS = [
-  "bash",
-  "read",
-  "write",
-  "edit",
-  "list",
-  "glob",
-  "grep",
-  "webfetch",
-  "task",
-  "todowrite",
-  "todoread",
-]
+const AVAILABLE_TOOLS = ["bash", "read", "write", "edit", "list", "glob", "grep", "webfetch", "task", "todowrite"]
 
 const AgentCreateCommand = cmd({
   command: "create",
@@ -101,7 +87,7 @@ const AgentCreateCommand = cmd({
             scope = scopeResult
           }
           targetPath = path.join(
-            scope === "global" ? Global.Path.config : path.join(Instance.worktree, ".navi"),
+            scope === "global" ? Global.Path.config : path.join(Instance.worktree, ".Navi"),
             "agent",
           )
         }
@@ -124,7 +110,7 @@ const AgentCreateCommand = cmd({
         const spinner = prompts.spinner()
         spinner.start("Generating agent configuration...")
         const model = args.model ? Provider.parseModel(args.model) : undefined
-        const generated = await Agent.generate({ description, model }).catch((error) => {
+        const generated = await Agent.generate({ description, model }).catch((error: Error) => {
           spinner.stop(`LLM failed to generate agent: ${error.message}`, 1)
           if (isFullyNonInteractive) process.exit(1)
           throw new UI.CancelledError()
@@ -137,7 +123,7 @@ const AgentCreateCommand = cmd({
           selectedTools = cliTools ? cliTools.split(",").map((t) => t.trim()) : AVAILABLE_TOOLS
         } else {
           const result = await prompts.multiselect({
-            message: "Select tools to enable",
+            message: "Select tools to enable (Space to toggle)",
             options: AVAILABLE_TOOLS.map((tool) => ({
               label: tool,
               value: tool,
@@ -205,8 +191,7 @@ const AgentCreateCommand = cmd({
 
         await fs.mkdir(targetPath, { recursive: true })
 
-        const file = Bun.file(filePath)
-        if (await file.exists()) {
+        if (await Filesystem.exists(filePath)) {
           if (isFullyNonInteractive) {
             console.error(`Error: Agent file already exists: ${filePath}`)
             process.exit(1)
@@ -215,7 +200,7 @@ const AgentCreateCommand = cmd({
           throw new UI.CancelledError()
         }
 
-        await Bun.write(filePath, content)
+        await Filesystem.write(filePath, content)
 
         if (isFullyNonInteractive) {
           console.log(filePath)
@@ -252,166 +237,64 @@ const AgentListCommand = cmd({
   },
 })
 
-const AgentScorecardsCommand = cmd({
-  command: "scorecards [task]",
-  describe: "show agent scorecards grouped by task class",
-  builder: (yargs: Argv) =>
-    yargs.option("json", {
-      type: "boolean",
-      describe: "print scorecards as JSON",
-    }),
-  async handler(args) {
+const AgentConfigureCommand = cmd({
+  command: "configure",
+  describe: "configure model settings for agents",
+  async handler() {
     await Instance.provide({
       directory: process.cwd(),
       async fn() {
-        const taskClass = typeof args.task === "string" ? args.task : undefined
-        const scorecards = await AgentScorecard.list(taskClass)
-
-        if (args.json) {
-          process.stdout.write(JSON.stringify(scorecards, null, 2) + EOL)
-          return
-        }
-
-        if (!scorecards.length) {
-          process.stdout.write("No agent scorecards recorded yet." + EOL)
-          return
-        }
-
-        let currentTaskClass: string | undefined
-        for (const scorecard of scorecards) {
-          if (scorecard.taskClass !== currentTaskClass) {
-            currentTaskClass = scorecard.taskClass
-            process.stdout.write(EOL + currentTaskClass + EOL)
-          }
-
-          process.stdout.write(
-            `  ${scorecard.agentName}  score=${scorecard.score.toFixed(1)}  success=${(scorecard.successRate * 100).toFixed(1)}%  samples=${scorecard.samples}` +
-              EOL,
-          )
-          process.stdout.write(
-            `    latency=${Math.round(scorecard.avgLatencyMs)}ms  cost=${scorecard.avgCost.toFixed(4)}  toolCalls=${scorecard.avgToolCalls.toFixed(1)}  questions=${scorecard.avgQuestions.toFixed(1)}` +
-              EOL,
-          )
-        }
-      },
-    })
-  },
-})
-
-const AgentContractCommand = cmd({
-  command: "contract [name]",
-  describe: "show explicit subagent contracts",
-  builder: (yargs: Argv) =>
-    yargs.option("json", {
-      type: "boolean",
-      describe: "print contracts as JSON",
-    }),
-  async handler(args) {
-    await Instance.provide({
-      directory: process.cwd(),
-      async fn() {
-        const name = typeof args.name === "string" ? args.name : undefined
-        const agents = name ? [await Agent.get(name)] : (await Agent.list()).filter((agent) => agent.mode === "subagent")
-        const contracts = agents.flatMap((agent) =>
-          agent
-            ? [{
-                name: agent.name,
-                contract: agent.contract ?? buildAgentContract(agent),
-              }]
-            : [],
+        UI.empty()
+        prompts.intro("Configure Agents")
+        
+        const agents = await Agent.list()
+        const agentResult = await prompts.select({
+          message: "Select an agent to configure",
+          options: agents.map(a => ({
+            label: `${a.displayName} (${a.name})`,
+            value: a.name,
+            hint: `Current model: ${a.model?.providerID}/${a.model?.modelID}`
+          }))
+        })
+        
+        if (prompts.isCancel(agentResult)) throw new UI.CancelledError()
+        const agentName = agentResult as string
+        
+        const providers = await Provider.list()
+        // Build a flat list of all models from all providers
+        let allModels = Object.values(providers).flatMap((p: any) => 
+          Object.values(p.models).map((m: any) => ({
+            label: `${p.id}/${m.id} (${m.name})`,
+            value: `${p.id}/${m.id}`
+          }))
         )
+        allModels = allModels.sort((a, b) => a.label.localeCompare(b.label))
 
-        if (args.json) {
-          process.stdout.write(JSON.stringify(contracts, null, 2) + EOL)
-          return
-        }
-
-        if (!contracts.length) {
-          process.stdout.write("No subagent contracts found." + EOL)
-          return
-        }
-
-        for (const entry of contracts) {
-          process.stdout.write(renderSubagentContractSection(entry.name, entry.contract) + EOL)
-        }
-      },
+        const modelResult = await prompts.select({
+          message: `Select new model for '${agentName}'`,
+          options: allModels,
+        })
+        
+        if (prompts.isCancel(modelResult)) throw new UI.CancelledError()
+        const selectedModel = modelResult as string
+        
+        const { updatePreferences, loadPreferences } = await import("../../config/preferences")
+        const current = loadPreferences()
+        const agentModels = { ...current.agentModels, [agentName]: selectedModel }
+        
+        updatePreferences({ agentModels })
+        
+        prompts.log.success(`Updated ${agentName} to use ${selectedModel}`)
+        prompts.outro("Done")
+      }
     })
-  },
-})
-
-const AgentStoreCommand = cmd({
-  command: "store",
-  describe: "browse agent store",
-  builder: (yargs) =>
-    yargs
-      .command({
-        command: "list",
-        describe: "list available agents in the registry",
-        handler: async () => {
-          console.log("Available agents (mock):")
-          console.log("- navi/demo (A helpful demo agent)")
-        },
-      })
-      .command({
-        command: "search <query>",
-        describe: "search for agents",
-        handler: async (args: any) => {
-          console.log(`Searching for "${args.query}"...`)
-          if ("navi/demo".includes(args.query)) {
-            console.log("- navi/demo (A helpful demo agent)")
-          } else {
-            console.log("No agents found.")
-          }
-        }
-      }),
-  async handler() { },
-})
-
-const AgentInstallCommand = cmd({
-  command: "install <source>",
-  describe: "install an agent from store or URL",
-  async handler(args) {
-    const spinner = prompts.spinner()
-    spinner.start(`Fetching agent from ${args.source}...`)
-    try {
-      const manifest = await AgentStore.fetch(args.source as string)
-      await AgentStore.install(manifest)
-      spinner.stop(`Successfully installed ${manifest.name} v${manifest.version}`)
-    } catch (e: any) {
-      spinner.stop(`Failed to install: ${e.message}`, 1)
-      process.exit(1)
-    }
-  },
-})
-
-const AgentUninstallCommand = cmd({
-  command: "uninstall <name>",
-  describe: "uninstall an agent",
-  async handler(args) {
-    const spinner = prompts.spinner()
-    spinner.start(`Uninstalling ${args.name}...`)
-    const success = await AgentStore.uninstall(args.name as string)
-    if (success) {
-      spinner.stop(`Uninstalled ${args.name}`)
-    } else {
-      spinner.stop(`Agent ${args.name} not found`, 1)
-      process.exit(1)
-    }
-  },
+  }
 })
 
 export const AgentCommand = cmd({
   command: "agent",
   describe: "manage agents",
-  builder: (yargs) =>
-    yargs
-      .command(AgentCreateCommand)
-      .command(AgentListCommand)
-      .command(AgentScorecardsCommand)
-      .command(AgentContractCommand)
-      .command(AgentStoreCommand)
-      .command(AgentInstallCommand)
-      .command(AgentUninstallCommand)
-      .demandCommand(),
-  async handler() { },
+  builder: (yargs) => yargs.command(AgentCreateCommand).command(AgentListCommand).command(AgentConfigureCommand).demandCommand(),
+  async handler() {},
 })
+

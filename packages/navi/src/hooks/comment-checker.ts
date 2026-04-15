@@ -298,3 +298,4 @@ export function createCommentCheckerHook(options?: CommentCheckerOptions) {
 }
 
 export default createCommentCheckerHook
+

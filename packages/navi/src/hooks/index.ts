@@ -41,3 +41,4 @@ export type { DirectoryAgentsInjectorOptions } from "./directory-agents-injector
 
 export { createPreemptiveCompactionHook } from "./preemptive-compaction"
 export type { PreemptiveCompactionOptions } from "./preemptive-compaction"
+

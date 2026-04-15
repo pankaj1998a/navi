@@ -406,3 +406,4 @@ export namespace P2PDiscovery {
     return caps
   }
 }
+

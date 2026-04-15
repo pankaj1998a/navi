@@ -8,7 +8,7 @@
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from "fs";
 import { join } from "path";
 import { Log } from "../util/log";
-import { Config } from "./config";
+import { Global } from "@/global"
 
 const log = Log.create({ service: "preferences" });
 
@@ -73,13 +73,15 @@ export interface UserPreferences {
     thinkingPattern?: ThinkingPattern;
     /** Learned patterns from feedback */
     learningPatterns?: LearningPattern[];
+    /** Custom models for specific agents (e.g., {"build": "openai/o1"}) */
+    agentModels?: Record<string, string>;
 }
 
 /**
  * Get path to preferences file
  */
 export function getPreferencesPath(): string {
-    return join(Config.getConfigDir(), "preferences.json");
+    return join(Global.Path.config, "preferences.json");
 }
 
 /**
@@ -107,7 +109,7 @@ export function loadPreferences(): UserPreferences {
  * Save user preferences to disk
  */
 export function savePreferences(preferences: UserPreferences): void {
-    const configDir = Config.getConfigDir();
+    const configDir = Global.Path.config;
 
     // Ensure config directory exists
     if (!existsSync(configDir)) {
@@ -190,3 +192,6 @@ export function clearPreferences(): void {
         }
     }
 }
+
+
+

@@ -2,10 +2,32 @@ export * from "./gen/types.gen.js"
 
 import { createClient } from "./gen/client/client.gen.js"
 import { type Config } from "./gen/client/types.gen.js"
-import { naviClient as NaviClient } from "./gen/sdk.gen.js"
+import { NaviClient } from "./gen/sdk.gen.js"
 export { type Config as NaviClientConfig, NaviClient }
-// Backward compatibility
-export { type Config as naviClientConfig, NaviClient as naviClient }
+
+function pick(value: string | null, fallback?: string) {
+  if (!value) return
+  if (!fallback) return value
+  if (value === fallback) return fallback
+  if (value === encodeURIComponent(fallback)) return fallback
+  return value
+}
+
+function rewrite(request: Request, directory?: string) {
+  if (request.method !== "GET" && request.method !== "HEAD") return request
+
+  const value = pick(request.headers.get("x-Navi-directory"), directory)
+  if (!value) return request
+
+  const url = new URL(request.url)
+  if (!url.searchParams.has("directory")) {
+    url.searchParams.set("directory", value)
+  }
+
+  const next = new Request(url, request)
+  next.headers.delete("x-Navi-directory")
+  return next
+}
 
 export function createNaviClient(config?: Config & { directory?: string }) {
   if (!config?.fetch) {
@@ -23,12 +45,12 @@ export function createNaviClient(config?: Config & { directory?: string }) {
   if (config?.directory) {
     config.headers = {
       ...config.headers,
-      "x-navi-directory": config.directory,
+      "x-Navi-directory": encodeURIComponent(config.directory),
     }
   }
 
   const client = createClient(config)
+  client.interceptors.request.use((request) => rewrite(request, config?.directory))
   return new NaviClient({ client })
 }
 
-export const createnaviClient = createNaviClient

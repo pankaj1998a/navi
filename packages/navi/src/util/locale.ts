@@ -79,3 +79,4 @@ export namespace Locale {
     return template.replace("{}", count.toString())
   }
 }
+

@@ -2,6 +2,16 @@ import { ulid } from "ulid"
 import { AgentInfo } from "./info"
 import { Validator, ValidationResult } from "./validator"
 import { AgentRunner } from "./agent-runner"
+import { VerificationAgent } from "./VerificationAgent"
+import { AutoDreamService } from "./AutoDreamService"
+import { SentryService } from "./SentryService"
+import { SpeculationEngine } from "./SpeculationEngine"
+import { DocDiscovery } from "./DocDiscovery"
+import { iife } from "@/util/iife"
+import { Log } from "../util/log"
+import path from "path"
+
+const log = Log.create({ service: "orchestrator" })
 
 export type AgentType =
     | 'orchestrator'
@@ -10,10 +20,30 @@ export type AgentType =
     | 'editor'
     | 'reviewer'
     | 'researcher'
+    | 'coordinator'
+    | 'tester'
+    | 'fixer'
     | 'commander'
     | 'code-searcher'
     | 'context-pruner'
     | 'thinker'
+    | 'architect'
+    | 'investigator'
+    | 'explore'
+    | 'surfer'
+    | 'analyst'
+    | 'security'
+    | 'qa'
+    | 'spec-writer'
+    | 'database-doctor'
+    | 'api-architect'
+    | 'test-engineer'
+    | 'frontend-sage'
+    | 'security-sentinel'
+    | 'devops-dynamo'
+    | 'performance-pilot'
+    | 'bug-buster'
+    | 'doc-architect'
 
 export interface AgentTask {
     id: string
@@ -85,13 +115,54 @@ export class Orchestrator {
     private agents: Map<string, AgentInfo> = new Map()
     private runner: AgentRunner = new AgentRunner()
     private results: Map<string, AgentResult> = new Map()
+    private verificationAgent: VerificationAgent
+    private autoDreamService: AutoDreamService
+    private sentryService: SentryService
 
-    constructor() { }
+    constructor() { 
+        iife(async () => {
+            const docDiscovery = await DocDiscovery.discover(process.cwd())
+            const docsText = DocDiscovery.formatForAgent(docDiscovery)
+            log.info("Magic docs pre-loaded", { count: docDiscovery.length })
+        })
+        
+        // Initialize Speculation
+        const speculation = SpeculationEngine.speculate([])
+        
+        this.verificationAgent = new VerificationAgent(this)
+        this.autoDreamService = new AutoDreamService(this)
+        this.autoDreamService.start()
+        this.sentryService = new SentryService(this)
+        this.sentryService.start()
 
-    async spawnAgent(agentType: AgentType, task: AgentTask): Promise<AgentResult> {
+        // Hook LiveDoc into the environment
+        import("./live-doc").then(module => {
+            log.info("LiveDoc generator injected.", { status: "active" })
+        })
+    }
+
+    async spawnAgent(agentType: AgentType, task: AgentTask, options: { autoVerify?: boolean, sessionID?: string } = {}): Promise<AgentResult> {
         const start = Date.now()
-        const results = await this.runner.runParallel([task])
-        const result = results[0]
+
+        // 1. Check for available distributed workers
+        const { WorkerPool } = await import("./worker-pool")
+        const remoteWorker = WorkerPool.getAvailableWorker(agentType)
+        
+        let result: AgentResult
+        if (remoteWorker) {
+            log.info("delegating to remote worker", { workerID: remoteWorker.id, type: agentType })
+            result = await WorkerPool.dispatch(remoteWorker.id, task)
+        } else {
+            // 2. Local execution fallback
+            const results = await this.runner.runParallel([task])
+            result = results[0]
+        }
+        
+        if (result && options.sessionID && (options.autoVerify ?? (agentType === 'editor' || agentType === 'commander'))) {
+            // Claude-style Verification Hook
+            result = await this.verificationAgent.verify(options.sessionID, task, result)
+        }
+
         if (result) {
             result.metrics = { ...result.metrics, duration: Date.now() - start, tokens: result.metrics?.tokens ?? 0 }
             this.results.set(task.id, result)
@@ -192,7 +263,7 @@ export class Orchestrator {
     async *generatorWorkflow(goal: string, cwd: string): AsyncGenerator<AgentResult | ValidationResult> {
         this.status = 'running'
 
-        // Planning
+        // Phase 1: Planning
         yield await this.spawnAgent('planner', {
             id: ulid(),
             type: 'planner',
@@ -236,6 +307,141 @@ export class Orchestrator {
         this.status = 'completed'
     }
 
+    /**
+     * VIBEMODE Protocol (v3.1)
+     * Implements 6-Agent Discussion and Quorum Validation
+     */
+    async *vibeWorkflow(goal: string): AsyncGenerator<AgentResult | string> {
+        this.status = 'running'
+        yield "🚀 Initializing VibeMode 3.1 Orchestration..."
+
+        // Step 1: Research Swarm
+        yield "📡 Broadcasting to Research Swarm (6 Agents)..."
+        const researchAgents = ['researcher', 'investigator', 'explore', 'surfer', 'analyst', 'architect']
+        const swarmTasks = researchAgents.map(agent => ({
+            id: ulid(),
+            type: agent as AgentType,
+            description: `Research and analyze requirements for: ${goal}`,
+        }))
+
+        const researchResults = await Promise.all(swarmTasks.map(t => this.spawnAgent(t.type, t)))
+        yield "✅ Swarm research collected. Applying Quorum Validation..."
+
+        // Step 2: Consensus Synthesis
+        const synthesisPrompt = `Synthesize these 6 research reports into a unified blueprint for "${goal}":
+        ${researchResults.map((r, i) => `REP ${i+1} (${swarmTasks[i].type}): ${r.output}`).join('\n\n')}`
+        
+        const synthesisResult = await this.spawnAgent('architect', {
+            id: ulid(),
+            type: 'architect',
+            description: synthesisPrompt,
+        })
+        yield synthesisResult
+
+        // Step 3: Execution with Quality Gates
+        yield "🛠️ Beginning Phase 3: High-Fidelity Execution..."
+        const buildResult = await this.spawnAgent('editor', {
+            id: ulid(),
+            type: 'editor',
+            description: `Implement the synthesized blueprint: ${synthesisResult.output}`,
+        })
+        yield buildResult
+
+        // Step 4: Verification 
+        yield "🛡️ Checking Quality Gates (Code Review + Security + Tests)..."
+        const reviewResult = await this.spawnAgent('reviewer', {
+            id: ulid(),
+            type: 'reviewer',
+            description: `Review the implemented changes for: ${goal}`,
+        })
+        yield reviewResult
+
+        this.status = 'completed'
+        yield "✨ VibeMode Execution Finished."
+    }
+
+    /**
+     * WATERFALL Protocol (v1.0)
+     * Implements Structured 5-Phase Development: Analyze -> DB -> Interface -> Test -> Realize
+     */
+    async *waterfallWorkflow(goal: string): AsyncGenerator<AgentResult | string> {
+        this.status = 'running'
+        yield "🌊 Initializing Waterfall Orchestration..."
+
+        // Phase 1: Analyze
+        yield "📋 Phase 1: Requirements Analysis..."
+        const analyzeResult = await this.spawnAgent('spec-writer', {
+            id: ulid(),
+            type: 'spec-writer',
+            description: `Analyze requirements for: ${goal}`,
+        })
+        yield analyzeResult
+        if (!analyzeResult.success) {
+            yield "❌ Phase 1 failed. Aborting waterfall."
+            this.status = 'failed'
+            return
+        }
+
+        // Phase 2: Database
+        yield "🗄️ Phase 2: Database Design..."
+        const dbResult = await this.spawnAgent('database-doctor', {
+            id: ulid(),
+            type: 'database-doctor',
+            description: `Design database schema based on: ${analyzeResult.output}`,
+        })
+        yield dbResult
+        if (!dbResult.success) {
+            yield "❌ Phase 2 failed. Aborting waterfall."
+            this.status = 'failed'
+            return
+        }
+
+        // Phase 3: Interface
+        yield "🔌 Phase 3: API Interface Design..."
+        const apiResult = await this.spawnAgent('api-architect', {
+            id: ulid(),
+            type: 'api-architect',
+            description: `Design API interfaces based on specs and DB: ${analyzeResult.output}\n${dbResult.output}`,
+        })
+        yield apiResult
+        if (!apiResult.success) {
+            yield "❌ Phase 3 failed. Aborting waterfall."
+            this.status = 'failed'
+            return
+        }
+
+        // Phase 4: Test
+        yield "🧪 Phase 4: Test Generation (TDD)..."
+        const testResult = await this.spawnAgent('test-engineer', {
+            id: ulid(),
+            type: 'test-engineer',
+            description: `Generate tests for interfaces: ${apiResult.output}`,
+        })
+        yield testResult
+        if (!testResult.success) {
+            yield "❌ Phase 4 failed. Aborting waterfall."
+            this.status = 'failed'
+            return
+        }
+
+        // Phase 5: Realize
+        yield "🔨 Phase 5: Implementation (Realize)..."
+        const buildResult = await this.spawnAgent('editor', {
+            id: ulid(),
+            type: 'editor',
+            description: `Implement the full system based on:
+            Spec: ${analyzeResult.output}
+            DB: ${dbResult.output}
+            API: ${apiResult.output}
+            Tests: ${testResult.output}`,
+        })
+        yield buildResult
+
+        this.status = buildResult.success ? 'completed' : 'failed'
+        yield buildResult.success ? "✨ Waterfall Execution Finished Successfully." : "❌ Phase 5 failed."
+    }
+
+
     // Expose LSP as sub-agent tools
     async useLSP(method: 'definition' | 'references' | 'typeDefinition', symbol: string, file: string): Promise<Record<string, unknown>> {
         return {
@@ -255,3 +461,5 @@ export class Orchestrator {
         return this.status
     }
 }
+
+

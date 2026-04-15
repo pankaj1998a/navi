@@ -44,3 +44,4 @@ export const MultiEditTool = Tool.define("multiedit", {
     }
   },
 })
+

@@ -69,3 +69,6 @@ export const Performance = {
         return Promise.race([fn(), timeout])
     }
 }
+
+
+

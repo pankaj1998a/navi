@@ -66,6 +66,12 @@ export const { use: useLayout, provider: LayoutProvider } = createSimpleContext(
         mobileSidebar: {
           opened: false,
         },
+        canvas: {
+          opened: false,
+          width: 450,
+          content: "",
+          type: "markdown" as "markdown" | "code" | "dashboard",
+        },
         sessionTabs: {} as Record<string, SessionTabs>,
         sessionView: {} as Record<string, SessionView>,
       }),
@@ -257,6 +263,33 @@ export const { use: useLayout, provider: LayoutProvider } = createSimpleContext(
 
     const enriched = createMemo(() => server.projects.list().flatMap(enrich))
     const list = createMemo(() => enriched().flatMap(colorize))
+
+    createEffect(() => {
+      const unsub = globalSdk.event.listen((e: any) => {
+        const payload = e.details?.payload;
+        if (!payload || !payload.type) return;
+
+        switch (payload.type) {
+          case "canvas.opened":
+            setStore("canvas", produce((c: any) => {
+               c.opened = true;
+               c.content = payload.content ?? "";
+               c.type = payload.contentType ?? "markdown";
+            }));
+            break;
+          case "canvas.updated":
+            setStore("canvas", produce((c: any) => {
+               c.content = payload.content;
+               if (payload.contentType) c.type = payload.contentType;
+            }));
+            break;
+          case "canvas.closed":
+            setStore("canvas", "opened", false);
+            break;
+        }
+      });
+      onCleanup(unsub);
+    });
 
     onMount(() => {
       Promise.all(
@@ -514,6 +547,34 @@ export const { use: useLayout, provider: LayoutProvider } = createSimpleContext(
             )
           },
         }
+      },
+      canvas: {
+        opened: createMemo(() => store.canvas?.opened ?? false),
+        content: createMemo(() => store.canvas?.content ?? ""),
+        type: createMemo(() => store.canvas?.type ?? "markdown"),
+        width: createMemo(() => store.canvas?.width ?? 450),
+        open(content?: string, type?: "markdown" | "code" | "dashboard") {
+          setStore("canvas", produce(c => {
+            c.opened = true;
+            if (content !== undefined) c.content = content;
+            if (type !== undefined) c.type = type;
+          }));
+        },
+        close() {
+          setStore("canvas", "opened", false);
+        },
+        toggle() {
+          setStore("canvas", "opened", (x) => !x);
+        },
+        update(content: string, type?: "markdown" | "code" | "dashboard") {
+          setStore("canvas", produce(c => {
+            c.content = content;
+            if (type !== undefined) c.type = type;
+          }));
+        },
+        resize(width: number) {
+          setStore("canvas", "width", width);
+        },
       },
     }
   },

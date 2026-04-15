@@ -33,3 +33,4 @@ declare module 'diff' {
     // Catch-all
     // export function [name: string]: any;
 }
+

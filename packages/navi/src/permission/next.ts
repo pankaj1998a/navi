@@ -95,7 +95,7 @@ export namespace PermissionNext {
   }
 
   const state = Instance.state(async () => {
-    const projectID = Instance.project.id
+    const projectID = Instance.project?.id ?? "default"
     const stored = await Storage.read<Ruleset>(["permission", projectID]).catch(() => [] as Ruleset)
 
     const pending: Record<
@@ -110,8 +110,27 @@ export namespace PermissionNext {
     return {
       pending,
       approved: stored,
+      trusted: {} as Record<string, number>,
     }
   })
+
+  /**
+   * Temporarily grant auto-approval to a session for a specific duration.
+   */
+  export async function trust(sessionID: string, durationMs: number = 600_000) {
+    const s = await state()
+    s.trusted[sessionID] = Date.now() + durationMs
+    log.info("Session granted temporary trust", { sessionID, durationMs })
+  }
+
+  /**
+   * Check if a session currently has autonomous trust.
+   */
+  export async function isTrusted(sessionID: string): Promise<boolean> {
+    const s = await state()
+    const expiry = s.trusted[sessionID]
+    return !!expiry && expiry > Date.now()
+  }
 
   export const ask = fn(
     Request.partial({ id: true }).extend({
@@ -126,6 +145,12 @@ export namespace PermissionNext {
         if (rule.action === "deny")
           throw new DeniedError(ruleset.filter((r) => Wildcard.match(request.permission, r.permission)))
         if (rule.action === "ask") {
+          // Skip asking if the session is in Autonomous Trust Mode
+          if (await isTrusted(request.sessionID)) {
+            log.info("Skipping permission prompt (Trust Mode active)", { sessionID: request.sessionID, permission: request.permission })
+            continue
+          }
+
           const id = input.id ?? Identifier.ascending("permission")
           return new Promise<void>((resolve, reject) => {
             const info: Request = {
@@ -267,3 +292,6 @@ export namespace PermissionNext {
     return state().then((x) => Object.values(x.pending).map((x) => x.info))
   }
 }
+
+
+

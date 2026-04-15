@@ -8,3 +8,4 @@ export function dummyFunction(): void {
 export function randomHelper(): boolean {
   return Math.random() > 0.5
 }
+

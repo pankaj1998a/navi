@@ -24,3 +24,5 @@ export const AntigravityAuthPlugin: Plugin = async (_ctx) => {
 export { AntigravityAuthHook, getAntigravityProviderConfig, ANTIGRAVITY_MODELS }
 
 export default AntigravityAuthPlugin
+
+

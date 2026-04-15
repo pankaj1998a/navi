@@ -52,3 +52,4 @@ export abstract class NamedError extends Error {
     }),
   )
 }
+

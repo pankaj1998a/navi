@@ -6,6 +6,7 @@ import DESCRIPTION from "./lsp.txt"
 import { Instance } from "../project/instance"
 import { pathToFileURL } from "url"
 import { assertExternalDirectory } from "./external-directory"
+import { Filesystem } from "../util/filesystem"
 
 const operations = [
   "goToDefinition",
@@ -17,10 +18,6 @@ const operations = [
   "prepareCallHierarchy",
   "incomingCalls",
   "outgoingCalls",
-  "diagnostics",
-  "prepareRename",
-  "rename",
-  "codeAction",
 ] as const
 
 export const LspTool = Tool.define("lsp", {
@@ -30,7 +27,6 @@ export const LspTool = Tool.define("lsp", {
     filePath: z.string().describe("The absolute or relative path to the file"),
     line: z.number().int().min(1).describe("The line number (1-based, as shown in editors)"),
     character: z.number().int().min(1).describe("The character offset (1-based, as shown in editors)"),
-    newName: z.string().optional().describe("The new name for rename operation"),
   }),
   execute: async (args, ctx) => {
     const file = path.isAbsolute(args.filePath) ? args.filePath : path.join(Instance.directory, args.filePath)
@@ -52,7 +48,7 @@ export const LspTool = Tool.define("lsp", {
     const relPath = path.relative(Instance.worktree, file)
     const title = `${args.operation} ${relPath}:${args.line}:${args.character}`
 
-    const exists = await Bun.file(file).exists()
+    const exists = await Filesystem.exists(file)
     if (!exists) {
       throw new Error(`File not found: ${file}`)
     }
@@ -64,7 +60,7 @@ export const LspTool = Tool.define("lsp", {
 
     await LSP.touchFile(file, true)
 
-    const result: unknown = await (async () => {
+    const result: unknown[] = await (async () => {
       switch (args.operation) {
         case "goToDefinition":
           return LSP.definition(position)
@@ -84,33 +80,11 @@ export const LspTool = Tool.define("lsp", {
           return LSP.incomingCalls(position)
         case "outgoingCalls":
           return LSP.outgoingCalls(position)
-        case "diagnostics":
-          return LSP.diagnostics()
-        case "prepareRename":
-          return LSP.prepareRename(position)
-        case "rename": {
-          if (!args.newName) throw new Error("newName is required for rename operation")
-          const edit = await LSP.rename({ ...position, newName: args.newName })
-          if (edit) {
-            const applyResults = await LSP.applyWorkspaceEdit(edit as any)
-            return { edit, applyResults }
-          }
-          return null
-        }
-        case "codeAction":
-          return LSP.codeAction({
-            file,
-            range: {
-              start: { line: args.line - 1, character: args.character - 1 },
-              end: { line: args.line - 1, character: args.character - 1 },
-            },
-          })
       }
     })()
 
     const output = (() => {
-      if (!result) return `No results found for ${args.operation}`
-      if (Array.isArray(result) && result.length === 0) return `No results found for ${args.operation}`
+      if (result.length === 0) return `No results found for ${args.operation}`
       return JSON.stringify(result, null, 2)
     })()
 
@@ -121,3 +95,4 @@ export const LspTool = Tool.define("lsp", {
     }
   },
 })
+

@@ -10,7 +10,9 @@ import { LSP } from "../lsp"
 import { createTwoFilesPatch, diffLines } from "diff"
 import DESCRIPTION from "./edit.txt"
 import { File } from "../file"
+import { FileWatcher } from "../file/watcher"
 import { Bus } from "../bus"
+import { Format } from "../format"
 import { FileTime } from "../file/time"
 import { Filesystem } from "../util/filesystem"
 import { Instance } from "../project/instance"
@@ -23,6 +25,108 @@ function normalizeLineEndings(text: string): string {
   return text.replaceAll("\r\n", "\n")
 }
 
+function detectLineEnding(text: string): "\n" | "\r\n" {
+  return text.includes("\r\n") ? "\r\n" : "\n"
+}
+
+function convertToLineEnding(text: string, ending: "\n" | "\r\n"): string {
+  if (ending === "\n") return text
+  return text.replaceAll("\n", "\r\n")
+}
+
+// -----------------------------------------------------------------------------
+// Robust String Matching Helpers (from Claude Code)
+// -----------------------------------------------------------------------------
+
+const LEFT_SINGLE_CURLY_QUOTE = "‘"
+const RIGHT_SINGLE_CURLY_QUOTE = "’"
+const LEFT_DOUBLE_CURLY_QUOTE = "“"
+const RIGHT_DOUBLE_CURLY_QUOTE = "”"
+
+function normalizeQuotes(str: string): string {
+  return str
+    .replaceAll(LEFT_SINGLE_CURLY_QUOTE, "'")
+    .replaceAll(RIGHT_SINGLE_CURLY_QUOTE, "'")
+    .replaceAll(LEFT_DOUBLE_CURLY_QUOTE, '"')
+    .replaceAll(RIGHT_DOUBLE_CURLY_QUOTE, '"')
+}
+
+function findActualString(fileContent: string, searchString: string): string | null {
+  if (fileContent.includes(searchString)) {
+    return searchString
+  }
+  const normalizedSearch = normalizeQuotes(searchString)
+  const normalizedFile = normalizeQuotes(fileContent)
+  const searchIndex = normalizedFile.indexOf(normalizedSearch)
+  if (searchIndex !== -1) {
+    return fileContent.substring(searchIndex, searchIndex + searchString.length)
+  }
+  return null
+}
+
+function isOpeningContext(chars: string[], index: number): boolean {
+  if (index === 0) return true
+  const prev = chars[index - 1]
+  return (
+    prev === " " ||
+    prev === "\t" ||
+    prev === "\n" ||
+    prev === "\r" ||
+    prev === "(" ||
+    prev === "[" ||
+    prev === "{" ||
+    prev === "\u2014" || // em dash
+    prev === "\u2013" // en dash
+  )
+}
+
+function applyCurlyDoubleQuotes(str: string): string {
+  const chars = [...str]
+  const result: string[] = []
+  for (let i = 0; i < chars.length; i++) {
+    if (chars[i] === '"') {
+      result.push(isOpeningContext(chars, i) ? LEFT_DOUBLE_CURLY_QUOTE : RIGHT_DOUBLE_CURLY_QUOTE)
+    } else {
+      result.push(chars[i]!)
+    }
+  }
+  return result.join("")
+}
+
+function applyCurlySingleQuotes(str: string): string {
+  const chars = [...str]
+  const result: string[] = []
+  for (let i = 0; i < chars.length; i++) {
+    if (chars[i] === "'") {
+      const prev = i > 0 ? chars[i - 1] : undefined
+      const next = i < chars.length - 1 ? chars[i + 1] : undefined
+      const prevIsLetter = prev !== undefined && /\p{L}/u.test(prev)
+      const nextIsLetter = next !== undefined && /\p{L}/u.test(next)
+      if (prevIsLetter && nextIsLetter) {
+        result.push(RIGHT_SINGLE_CURLY_QUOTE)
+      } else {
+        result.push(isOpeningContext(chars, i) ? LEFT_SINGLE_CURLY_QUOTE : RIGHT_SINGLE_CURLY_QUOTE)
+      }
+    } else {
+      result.push(chars[i]!)
+    }
+  }
+  return result.join("")
+}
+
+function preserveQuoteStyle(oldString: string, actualOldString: string, newString: string): string {
+  if (oldString === actualOldString) return newString
+  const hasDoubleQuotes =
+    actualOldString.includes(LEFT_DOUBLE_CURLY_QUOTE) || actualOldString.includes(RIGHT_DOUBLE_CURLY_QUOTE)
+  const hasSingleQuotes =
+    actualOldString.includes(LEFT_SINGLE_CURLY_QUOTE) || actualOldString.includes(RIGHT_SINGLE_CURLY_QUOTE)
+  if (!hasDoubleQuotes && !hasSingleQuotes) return newString
+  let result = newString
+  if (hasDoubleQuotes) result = applyCurlyDoubleQuotes(result)
+  if (hasSingleQuotes) result = applyCurlySingleQuotes(result)
+  return result
+}
+
 export const EditTool = Tool.define("edit", {
   description: DESCRIPTION,
   parameters: z.object({
@@ -31,13 +135,41 @@ export const EditTool = Tool.define("edit", {
     newString: z.string().describe("The text to replace it with (must be different from oldString)"),
     replaceAll: z.boolean().optional().describe("Replace all occurrences of oldString (default false)"),
   }),
+  async validate(params, ctx) {
+    const { filePath: rawPath, oldString, newString, replaceAll = false } = params
+    if (oldString === newString) {
+      return { success: false, error: "oldString and newString are identical." }
+    }
+    const filePath = path.isAbsolute(rawPath) ? rawPath : path.join(Instance.directory, rawPath)
+    if (!(await Filesystem.exists(filePath))) {
+      return { success: false, error: `File not found: ${filePath}` }
+    }
+    const content = await Filesystem.readText(filePath)
+    const actualOldString = findActualString(content, oldString)
+    if (!actualOldString) {
+      return {
+        success: false,
+        error: `Could not find the string to replace in '${filePath}'. Please ensure it matches exactly, including quotes and whitespace.`,
+      }
+    }
+    if (!replaceAll) {
+      const occurrences = content.split(actualOldString).length - 1
+      if (occurrences > 1) {
+        return {
+          success: false,
+          error: `Found ${occurrences} occurrences of the string to replace. Set 'replaceAll: true' or provide more context.`,
+        }
+      }
+    }
+    return { success: true }
+  },
   async execute(params, ctx) {
     if (!params.filePath) {
       throw new Error("filePath is required")
     }
 
     if (params.oldString === params.newString) {
-      throw new Error("oldString and newString must be different")
+      throw new Error("No changes to apply: oldString and newString are identical.")
     }
 
     const filePath = path.isAbsolute(params.filePath) ? params.filePath : path.join(Instance.directory, params.filePath)
@@ -48,6 +180,7 @@ export const EditTool = Tool.define("edit", {
     let contentNew = ""
     await FileTime.withLock(filePath, async () => {
       if (params.oldString === "") {
+        const existed = await Filesystem.exists(filePath)
         contentNew = params.newString
         diff = trimDiff(createTwoFilesPatch(filePath, filePath, contentOld, contentNew))
         await ctx.ask({
@@ -59,33 +192,35 @@ export const EditTool = Tool.define("edit", {
             diff,
           },
         })
-        await Bun.write(filePath, params.newString)
-        await Bus.publish(File.Event.Edited, {
+        await Filesystem.write(filePath, params.newString)
+        await Format.file(filePath)
+        Bus.publish(File.Event.Edited, { file: filePath })
+        await Bus.publish(FileWatcher.Event.Updated, {
           file: filePath,
+          event: existed ? "change" : "add",
         })
-        FileTime.read(ctx.sessionID, filePath)
+        await FileTime.read(ctx.sessionID, filePath)
         return
       }
 
-      const file = Bun.file(filePath)
-      const stats = await file.stat().catch(() => { })
+      const stats = Filesystem.stat(filePath)
       if (!stats) throw new Error(`File ${filePath} not found`)
       if (stats.isDirectory()) throw new Error(`Path is a directory, not a file: ${filePath}`)
       await FileTime.assert(ctx.sessionID, filePath)
-      contentOld = await file.text()
-      contentNew = replace(contentOld, params.oldString, params.newString, params.replaceAll)
+      contentOld = await Filesystem.readText(filePath)
+
+      const actualOldString = findActualString(contentOld, params.oldString) || params.oldString
+      const actualNewString = preserveQuoteStyle(params.oldString, actualOldString, params.newString)
+
+      const ending = detectLineEnding(contentOld)
+      const old = convertToLineEnding(normalizeLineEndings(actualOldString), ending)
+      const next = convertToLineEnding(normalizeLineEndings(actualNewString), ending)
+
+      contentNew = replace(contentOld, old, next, params.replaceAll)
 
       diff = trimDiff(
         createTwoFilesPatch(filePath, filePath, normalizeLineEndings(contentOld), normalizeLineEndings(contentNew)),
       )
-      
-      let additions = 0
-      let deletions = 0
-      for (const change of diffLines(contentOld, contentNew)) {
-        if (change.added) additions += change.count || 0
-        if (change.removed) deletions += change.count || 0
-      }
-
       await ctx.ask({
         permission: "edit",
         patterns: [path.relative(Instance.worktree, filePath)],
@@ -93,19 +228,21 @@ export const EditTool = Tool.define("edit", {
         metadata: {
           filepath: filePath,
           diff,
-          summary: `+${additions} lines, -${deletions} lines`
         },
       })
 
-      await file.write(contentNew)
-      await Bus.publish(File.Event.Edited, {
+      await Filesystem.write(filePath, contentNew)
+      await Format.file(filePath)
+      Bus.publish(File.Event.Edited, { file: filePath })
+      await Bus.publish(FileWatcher.Event.Updated, {
         file: filePath,
+        event: "change",
       })
-      contentNew = await file.text()
+      contentNew = await Filesystem.readText(filePath)
       diff = trimDiff(
         createTwoFilesPatch(filePath, filePath, normalizeLineEndings(contentOld), normalizeLineEndings(contentNew)),
       )
-      FileTime.read(ctx.sessionID, filePath)
+      await FileTime.read(ctx.sessionID, filePath)
     })
 
     const filediff: Snapshot.FileDiff = {
@@ -129,7 +266,7 @@ export const EditTool = Tool.define("edit", {
     })
 
     let output = "Edit applied successfully."
-    await LSP.touchFile(filePath, false)
+    await LSP.touchFile(filePath, true)
     const diagnostics = await LSP.diagnostics()
     const normalizedFilePath = Filesystem.normalizePath(filePath)
     const issues = diagnostics[normalizedFilePath] ?? []
@@ -138,7 +275,7 @@ export const EditTool = Tool.define("edit", {
       const limited = errors.slice(0, MAX_DIAGNOSTICS_PER_FILE)
       const suffix =
         errors.length > MAX_DIAGNOSTICS_PER_FILE ? `\n... and ${errors.length - MAX_DIAGNOSTICS_PER_FILE} more` : ""
-      output += `\n\nLSP errors detected in this file:\n<diagnostics file="${filePath}">\n${limited.map(LSP.Diagnostic.pretty).join("\n")}${suffix}\n</diagnostics>`
+      output += `\n\nLSP errors detected in this file, please fix:\n<diagnostics file="${filePath}">\n${limited.map(LSP.Diagnostic.pretty).join("\n")}${suffix}\n</diagnostics>`
     }
 
     return {
@@ -616,7 +753,7 @@ export function trimDiff(diff: string): string {
 
 export function replace(content: string, oldString: string, newString: string, replaceAll = false): string {
   if (oldString === newString) {
-    throw new Error("oldString and newString must be different")
+    throw new Error("No changes to apply: oldString and newString are identical.")
   }
 
   let notFound = true
@@ -646,9 +783,10 @@ export function replace(content: string, oldString: string, newString: string, r
   }
 
   if (notFound) {
-    throw new Error("oldString not found in content")
+    throw new Error(
+      "Could not find oldString in the file. It must match exactly, including whitespace, indentation, and line endings.",
+    )
   }
-  throw new Error(
-    "Found multiple matches for oldString. Provide more surrounding lines in oldString to identify the correct match.",
-  )
+  throw new Error("Found multiple matches for oldString. Provide more surrounding context to make the match unique.")
 }
+

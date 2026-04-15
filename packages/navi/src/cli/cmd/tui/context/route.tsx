@@ -5,6 +5,7 @@ import type { PromptInfo } from "../component/prompt/history"
 export type HomeRoute = {
   type: "home"
   initialPrompt?: PromptInfo
+  workspaceID?: string
 }
 
 export type SessionRoute = {
@@ -13,17 +14,23 @@ export type SessionRoute = {
   initialPrompt?: PromptInfo
 }
 
-export type Route = HomeRoute | SessionRoute
+export type PluginRoute = {
+  type: "plugin"
+  id: string
+  data?: Record<string, unknown>
+}
+
+export type Route = HomeRoute | SessionRoute | PluginRoute
 
 export const { use: useRoute, provider: RouteProvider } = createSimpleContext({
   name: "Route",
   init: () => {
     const [store, setStore] = createStore<Route>(
-      process.env["navi_ROUTE"]
-        ? JSON.parse(process.env["navi_ROUTE"])
+      process.env["NAVI_ROUTE"]
+        ? JSON.parse(process.env["NAVI_ROUTE"])
         : {
-          type: "home",
-        },
+            type: "home",
+          },
     )
 
     return {
@@ -43,3 +50,4 @@ export function useRouteData<T extends Route["type"]>(type: T) {
   const route = useRoute()
   return route.data as Extract<Route, { type: typeof type }>
 }
+

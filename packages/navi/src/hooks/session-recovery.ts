@@ -10,6 +10,7 @@
  */
 
 import type { Hooks } from "@navi-ai/plugin"
+import { SessionID } from "../session/schema"
 import { Log } from "../util/log"
 import { Session } from "../session"
 import { MemoryManager } from "../agent/memory-manager"
@@ -48,14 +49,14 @@ const processingErrors = new Set<string>()
 /**
  * Get session recovery state
  */
-export function getRecoveryState(sessionID: string): SessionRecoveryState | undefined {
+export function getRecoveryState(sessionID: SessionID): SessionRecoveryState | undefined {
     return recoveryState.get(sessionID)
 }
 
 /**
  * Check if session is currently recovering
  */
-export function isRecovering(sessionID: string): boolean {
+export function isRecovering(sessionID: SessionID): boolean {
     return recoveryState.get(sessionID)?.isRecovering ?? false
 }
 
@@ -138,9 +139,9 @@ export interface SessionRecoveryOptions {
 
 export interface SessionRecoveryHook {
     event: Hooks["event"]
-    handleError: (sessionID: string, messageID: string, error: unknown) => Promise<boolean>
+    handleError: (sessionID: SessionID, messageID: string, error: unknown) => Promise<boolean>
     isRecoverableError: (error: unknown) => boolean
-    isRecovering: (sessionID: string) => boolean
+    isRecovering: (sessionID: SessionID) => boolean
 }
 
 /**
@@ -153,7 +154,7 @@ export function createSessionRecoveryHook(options?: SessionRecoveryOptions): Ses
      * Handle session error recovery
      */
     const handleError = async (
-        sessionID: string,
+        sessionID: SessionID,
         messageID: string,
         error: unknown
     ): Promise<boolean> => {
@@ -242,7 +243,7 @@ export function createSessionRecoveryHook(options?: SessionRecoveryOptions): Ses
 
         // Handle session errors
         if (eventData.type === "session.error") {
-            const sessionID = props?.sessionID as string | undefined
+            const sessionID = props?.sessionID as SessionID | undefined
             const error = props?.error as unknown
             const messageInfo = props?.info as { id?: string; role?: string } | undefined
 
@@ -267,8 +268,9 @@ export function createSessionRecoveryHook(options?: SessionRecoveryOptions): Ses
         event,
         handleError,
         isRecoverableError,
-        isRecovering: (sessionID: string) => isRecovering(sessionID),
+        isRecovering: (sessionID: SessionID) => isRecovering(sessionID),
     }
 }
 
 export default createSessionRecoveryHook
+

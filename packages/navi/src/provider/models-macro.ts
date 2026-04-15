@@ -6,6 +6,10 @@ export async function data() {
       return await file.text()
     }
   }
-  const json = await fetch("https://models.dev/api.json").then((x) => x.text())
+  const json = await fetch("https://models.dev/api.json", {
+    signal: AbortSignal.timeout(10_000),
+  }).then((x) => x.text())
   return json
 }
+
+

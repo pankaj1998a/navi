@@ -320,3 +320,6 @@ export function hasControlCharacters(command: string): { char: string; explanati
 
     return null
 }
+
+
+

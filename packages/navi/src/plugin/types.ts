@@ -185,6 +185,10 @@ export interface Hooks {
       metadata: any
     },
   ) => Promise<void>
+  "tool.execute.error"?: (
+    input: { tool: string; sessionID: string; callID: string },
+    output: { error: string },
+  ) => Promise<void>
   "experimental.chat.messages.transform"?: (
     input: {},
     output: {
@@ -216,3 +220,5 @@ export interface Hooks {
     output: { text: string },
   ) => Promise<void>
 }
+
+

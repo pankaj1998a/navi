@@ -1,13 +1,9 @@
 import z from "zod"
 import { EOL } from "os"
-import { NamedError } from "@navi-ai/sdk/util/error"
+import { NamedError } from "@navi-ai/util/error"
+import { logo as glyphs } from "./logo"
 
 export namespace UI {
-  const glyphs = {
-    left: ["                   ", "█▀▀█ █▀▀█ █▀▀█ █▀▀▄", "█__█ █__█ █^^^ █__█", "▀▀▀▀ █▀▀▀ ▀▀▀▀ ▀~~▀"],
-    right: ["             ▄     ", "█▀▀▀ █▀▀█ █▀▀█ █▀▀█", "█___ █__█ █__█ █^^^", "▀▀▀▀ ▀▀▀▀ ▀▀▀▀ ▀▀▀▀"],
-  }
-
   export const CancelledError = NamedError.create("UICancelledError", z.void())
 
   export const Style = {
@@ -21,24 +17,20 @@ export namespace UI {
     TEXT_WARNING_BOLD: "\x1b[93m\x1b[1m",
     TEXT_DANGER: "\x1b[91m",
     TEXT_DANGER_BOLD: "\x1b[91m\x1b[1m",
-    TEXT_ERROR: "\x1b[91m",
-    TEXT_ERROR_BOLD: "\x1b[91m\x1b[1m",
     TEXT_SUCCESS: "\x1b[92m",
     TEXT_SUCCESS_BOLD: "\x1b[92m\x1b[1m",
     TEXT_INFO: "\x1b[94m",
     TEXT_INFO_BOLD: "\x1b[94m\x1b[1m",
-    TEXT_BOLD: "\x1b[1m",
-    RESET: "\x1b[0m",
   }
 
   export function println(...message: string[]) {
     print(...message)
-    Bun.stderr.write(EOL)
+    process.stderr.write(EOL)
   }
 
   export function print(...message: string[]) {
     blank = false
-    Bun.stderr.write(message.join(" "))
+    process.stderr.write(message.join(" "))
   }
 
   let blank = false
@@ -52,7 +44,7 @@ export namespace UI {
     const result: string[] = []
     const reset = "\x1b[0m"
     const left = {
-      fg: Bun.color("gray", "ansi") ?? "",
+      fg: "\x1b[90m",
       shadow: "\x1b[38;5;235m",
       bg: "\x1b[48;5;235m",
     }
@@ -112,6 +104,9 @@ export namespace UI {
   }
 
   export function error(message: string) {
+    if (message.startsWith("Error: ")) {
+      message = message.slice("Error: ".length)
+    }
     println(Style.TEXT_DANGER_BOLD + "Error: " + Style.TEXT_NORMAL + message)
   }
 

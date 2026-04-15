@@ -12,7 +12,7 @@ import { Provider } from "@/provider/provider"
 import { useArgs } from "./args"
 import { useSDK } from "./sdk"
 import { RGBA } from "@opentui/core"
-import { Awareness } from "@/agent/awareness"
+import { Filesystem } from "@/util/filesystem"
 
 export const { use: useLocal, provider: LocalProvider } = createSimpleContext({
   name: "Local",
@@ -34,24 +34,14 @@ export const { use: useLocal, provider: LocalProvider } = createSimpleContext({
       }
     }
 
-    function getRecommendedModel(agentName: string) {
-      const recommendations = Awareness.recommendModelsFromProviders(sync.data.provider, Awareness.profileForAgent(agentName), 1)
-      const recommendation = recommendations[0]?.model
-      if (!recommendation) return undefined
-      return {
-        providerID: recommendation.providerID,
-        modelID: recommendation.id,
-      }
-    }
-
     const agent = iife(() => {
-      const all = createMemo(() => sync.data.agent)
-      const primary = createMemo(() => all().filter((x) => (x.mode === "primary" || x.mode === "all") && !x.hidden))
-      const subagents = createMemo(() => all().filter((x) => (x.mode === "subagent" || x.mode === "all") && !x.hidden))
+      const agents = createMemo(() => sync.data.agent.filter((x) => !x.hidden))
+      const modes = createMemo(() => agents().filter((x) => x.mode === "primary"))
+      const visibleAgents = createMemo(() => sync.data.agent.filter((x) => !x.hidden))
       const [agentStore, setAgentStore] = createStore<{
         current: string
       }>({
-        current: primary()[0]?.name ?? "general",
+        current: modes()[0]?.name ?? agents()[0]?.name ?? "build",
       })
       const { theme } = useTheme()
       const colors = createMemo(() => [
@@ -61,22 +51,22 @@ export const { use: useLocal, provider: LocalProvider } = createSimpleContext({
         theme.warning,
         theme.primary,
         theme.error,
+        theme.info,
       ])
       return {
         list() {
-          return primary()
-        },
-        all() {
-          return all()
-        },
-        subagents() {
-          return subagents()
+          return agents()
         },
         current() {
-          return all().find((x) => x.name === agentStore.current) || primary()[0] || all()[0]
+          const list = agents()
+          const res = list.find((x) => x.name === agentStore.current)
+          if (res) return res
+          // Fallback to first available agent, or a minimal build agent object if none exist
+          return list[0] ?? { name: "build", displayName: "Build", mode: "primary", toolNames: [] }
         },
+
         set(name: string) {
-          if (!all().some((x) => x.name === name))
+          if (!agents().some((x) => x.name === name))
             return toast.show({
               variant: "warning",
               message: `Agent not found: ${name}`,
@@ -86,44 +76,31 @@ export const { use: useLocal, provider: LocalProvider } = createSimpleContext({
         },
         move(direction: 1 | -1) {
           batch(() => {
-            const list = all().filter((x) => !x.hidden)
-            let next = list.findIndex((x) => x.name === agentStore.current) + direction
+            const list = modes()
+            if (list.length === 0) return
+            let index = list.findIndex((x) => x.name === agentStore.current)
+            
+            // If current is not a mode (it's a sub-agent), find index in modes is -1
+            // We'll jump to the first mode in that case, or the one after the previous primary
+            let next = index + direction
             if (next < 0) next = list.length - 1
             if (next >= list.length) next = 0
+            
             const value = list[next]
-            if (value) setAgentStore("current", value.name)
-          })
-        },
-        movePrimary(direction: 1 | -1) {
-          batch(() => {
-            const list = primary()
-            let next = list.findIndex((x) => x.name === agentStore.current)
-            if (next === -1) next = direction === 1 ? -1 : list.length
-            next += direction
-            if (next < 0) next = list.length - 1
-            if (next >= list.length) next = 0
-            const value = list[next]
-            if (value) setAgentStore("current", value.name)
-          })
-        },
-        moveSubagent(direction: 1 | -1) {
-          batch(() => {
-            const list = subagents()
-            let next = list.findIndex((x) => x.name === agentStore.current)
-            if (next === -1) next = direction === 1 ? -1 : list.length
-            next += direction
-            if (next < 0) next = list.length - 1
-            if (next >= list.length) next = 0
-            const value = list[next]
-            if (value) setAgentStore("current", value.name)
+            setAgentStore("current", value.name)
           })
         },
         color(name: string) {
-          const all = sync.data.agent
-          const agent = all.find((x) => x.name === name)
-          if (agent?.color) return RGBA.fromHex(agent.color)
-          const index = all.findIndex((x) => x.name === name)
+          const index = visibleAgents().findIndex((x) => x.name === name)
           if (index === -1) return colors()[0]
+          const agent = visibleAgents()[index]
+
+          if (agent?.color) {
+            const color = agent.color
+            if (color.startsWith("#")) return RGBA.fromHex(color)
+            // already validated by config, just satisfying TS here
+            return theme[color as keyof typeof theme] as RGBA
+          }
           return colors()[index % colors().length]
         },
       }
@@ -156,29 +133,34 @@ export const { use: useLocal, provider: LocalProvider } = createSimpleContext({
         variant: {},
       })
 
-      const file = Bun.file(path.join(Global.Path.state, "model.json"))
-
-      function save() {
-        Bun.write(
-          file,
-          JSON.stringify({
-            recent: modelStore.recent,
-            favorite: modelStore.favorite,
-            variant: modelStore.variant,
-          }),
-        )
+      const filePath = path.join(Global.Path.state, "model.json")
+      const state = {
+        pending: false,
       }
 
-      file
-        .json()
-        .then((x) => {
+      function save() {
+        if (!modelStore.ready) {
+          state.pending = true
+          return
+        }
+        state.pending = false
+        Filesystem.writeJson(filePath, {
+          recent: modelStore.recent,
+          favorite: modelStore.favorite,
+          variant: modelStore.variant,
+        })
+      }
+
+      Filesystem.readJson(filePath)
+        .then((x: any) => {
           if (Array.isArray(x.recent)) setModelStore("recent", x.recent)
           if (Array.isArray(x.favorite)) setModelStore("favorite", x.favorite)
           if (typeof x.variant === "object" && x.variant !== null) setModelStore("variant", x.variant)
         })
-        .catch(() => { })
+        .catch(() => {})
         .finally(() => {
           setModelStore("ready", true)
+          if (state.pending) save()
         })
 
       const args = useArgs()
@@ -227,7 +209,6 @@ export const { use: useLocal, provider: LocalProvider } = createSimpleContext({
           getFirstValidModel(
             () => modelStore.model[a.name],
             () => a.model,
-            () => getRecommendedModel(a.name),
             fallbackModel,
           ) ?? undefined
         )
@@ -235,18 +216,6 @@ export const { use: useLocal, provider: LocalProvider } = createSimpleContext({
 
       return {
         current: currentModel,
-        getForAgent(agentName: string) {
-          const a = agent.all().find((x: any) => x.name === agentName)
-          if (!a) return undefined
-          return (
-            getFirstValidModel(
-              () => modelStore.model[a.name],
-              () => a.model,
-              () => getRecommendedModel(a.name),
-              fallbackModel,
-            ) ?? undefined
-          )
-        },
         get ready() {
           return modelStore.ready
         },
@@ -273,17 +242,9 @@ export const { use: useLocal, provider: LocalProvider } = createSimpleContext({
             reasoning: info?.capabilities?.reasoning ?? false,
           }
         }),
-        cycle(direction: 1 | -1, agentName?: string) {
-          const targetAgent = agentName ? agent.all().find((x: any) => x.name === agentName) : agent.current()
-          if (!targetAgent) return
-
-          const current = getFirstValidModel(
-            () => modelStore.model[targetAgent.name],
-            () => targetAgent.model,
-            fallbackModel,
-          )
+        cycle(direction: 1 | -1) {
+          const current = currentModel()
           if (!current) return
-
           const recent = modelStore.recent
           const index = recent.findIndex((x) => x.providerID === current.providerID && x.modelID === current.modelID)
           if (index === -1) return
@@ -292,7 +253,7 @@ export const { use: useLocal, provider: LocalProvider } = createSimpleContext({
           if (next >= recent.length) next = 0
           const val = recent[next]
           if (!val) return
-          setModelStore("model", targetAgent.name, { ...val })
+          setModelStore("model", agent.current().name, { ...val })
         },
         cycleFavorite(direction: 1 | -1) {
           const favorites = modelStore.favorite.filter((item) => isModelValid(item))
@@ -327,7 +288,7 @@ export const { use: useLocal, provider: LocalProvider } = createSimpleContext({
           )
           save()
         },
-        set(model: { providerID: string; modelID: string }, options?: { recent?: boolean; agentName?: string }) {
+        set(model: { providerID: string; modelID: string }, options?: { recent?: boolean }) {
           batch(() => {
             if (!isModelValid(model)) {
               toast.show({
@@ -337,8 +298,7 @@ export const { use: useLocal, provider: LocalProvider } = createSimpleContext({
               })
               return
             }
-            const targetAgentName = options?.agentName ?? agent.current().name
-            setModelStore("model", targetAgentName, model)
+            setModelStore("model", agent.current().name, model)
             if (options?.recent) {
               const uniq = uniqueBy([model, ...modelStore.recent], (x) => `${x.providerID}/${x.modelID}`)
               if (uniq.length > 10) uniq.pop()
@@ -374,11 +334,17 @@ export const { use: useLocal, provider: LocalProvider } = createSimpleContext({
           })
         },
         variant: {
-          current() {
+          selected() {
             const m = currentModel()
             if (!m) return undefined
             const key = `${m.providerID}/${m.modelID}`
             return modelStore.variant[key]
+          },
+          current() {
+            const v = this.selected()
+            if (!v) return undefined
+            if (!this.list().includes(v)) return undefined
+            return v
           },
           list() {
             const m = currentModel()
@@ -392,7 +358,7 @@ export const { use: useLocal, provider: LocalProvider } = createSimpleContext({
             const m = currentModel()
             if (!m) return
             const key = `${m.providerID}/${m.modelID}`
-            setModelStore("variant", key, value)
+            setModelStore("variant", key, value ?? "default")
             save()
           },
           cycle() {
@@ -449,35 +415,12 @@ export const { use: useLocal, provider: LocalProvider } = createSimpleContext({
       }
     })
 
-    const mode = iife(() => {
-      const [modeStore, setModeStore] = createStore<{
-        current: "plan" | "build"
-      }>({
-        current: "build",
-      })
-
-      return {
-        current() {
-          return modeStore.current
-        },
-        set(value: "plan" | "build") {
-          setModeStore("current", value)
-        },
-        cycle() {
-          const list: ("plan" | "build")[] = ["plan", "build"]
-          const index = list.indexOf(modeStore.current)
-          const next = (index + 1) % list.length
-          setModeStore("current", list[next])
-        },
-      }
-    })
-
     const result = {
       model,
       agent,
       mcp,
-      mode,
     }
     return result
   },
 })
+

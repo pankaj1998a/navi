@@ -205,51 +205,59 @@ export function detectKeywords(text: string): DetectedKeyword[] {
 /**
  * Creates the keyword detector hook
  */
-export function createKeywordDetectorHook(): Hooks["chat.message"] {
-    return async (
-        input: {
-            sessionID: string
-            agent?: string
-            model?: { providerID: string; modelID: string }
-            messageID?: string
-        },
-        output: {
-            message: Record<string, unknown>
-            parts: Array<{ type: string; text?: string;[key: string]: unknown }>
-        }
-    ): Promise<void> => {
-        const promptText = extractPromptText(output.parts)
-        const detectedKeywords = detectKeywords(removeCodeBlocks(promptText))
-
-        if (detectedKeywords.length === 0) {
-            return
-        }
-
-        // Check for ultrawork mode
-        const hasUltrawork = detectedKeywords.some((k) => k.type === "ultrawork")
-        if (hasUltrawork) {
-            log.info("Ultrawork mode activated", { sessionID: input.sessionID })
-
-            // Set maximum variant for thinking models
-            if (output.message.variant === undefined) {
-                output.message.variant = "max"
+export function createKeywordDetectorHook(): Hooks {
+    return {
+        "chat.message": async (
+            input: {
+                sessionID: string
+                agent?: string
+                model?: { providerID: string; modelID: string }
+                messageID?: string
+            },
+            output: {
+                message: any // UserMessage
+                parts: Array<{ type: string; text?: string;[key: string]: unknown }>
             }
-        }
+        ): Promise<void> => {
+            const promptText = extractPromptText(output.parts)
+            const detectedKeywords = detectKeywords(removeCodeBlocks(promptText))
 
-        // Inject context messages for detected keywords
-        for (const keyword of detectedKeywords) {
-            // Add the keyword message to the output parts
-            output.parts.push({
-                type: "text",
-                text: keyword.message,
+            if (detectedKeywords.length === 0) {
+                return
+            }
+
+            // Check for ultrawork mode
+            const hasUltrawork = detectedKeywords.some((k) => k.type === "ultrawork")
+            if (hasUltrawork) {
+                log.info("Ultrawork mode activated", { sessionID: input.sessionID })
+
+                // Set maximum variant for thinking models
+                if (output.message.variant === undefined) {
+                    output.message.variant = "max"
+                }
+            }
+
+            // Inject context messages for detected keywords
+            for (const keyword of detectedKeywords) {
+                // Add the keyword message to the output parts
+                const { Identifier } = await import("../id/id")
+                output.parts.push({
+                    id: Identifier.ascending("part"),
+                    messageID: output.message.id,
+                    sessionID: input.sessionID,
+                    synthetic: true,
+                    type: "text",
+                    text: keyword.message,
+                })
+            }
+
+            log.info("Detected keywords", {
+                sessionID: input.sessionID,
+                types: detectedKeywords.map((k) => k.type),
             })
         }
-
-        log.info("Detected keywords", {
-            sessionID: input.sessionID,
-            types: detectedKeywords.map((k) => k.type),
-        })
     }
 }
 
 export default createKeywordDetectorHook
+

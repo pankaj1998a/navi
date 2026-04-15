@@ -200,3 +200,4 @@ export type Options<
   TResponseStyle extends ResponseStyle = "fields",
 > = OmitKeys<RequestOptions<TResponse, TResponseStyle, ThrowOnError>, "body" | "path" | "query" | "url"> &
   ([TData] extends [never] ? unknown : Omit<TData, "url">)
+

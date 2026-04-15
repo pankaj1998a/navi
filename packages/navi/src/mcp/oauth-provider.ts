@@ -39,7 +39,7 @@ export class McpOAuthProvider implements OAuthClientProvider {
     return {
       redirect_uris: [this.redirectUrl],
       client_name: "Navi",
-      client_uri: "https://navi.ai",
+      client_uri: "https://Navi.ai",
       grant_types: ["authorization_code", "refresh_token"],
       response_types: ["code"],
       token_endpoint_auth_method: this.config.clientSecret ? "client_secret_post" : "none",
@@ -144,11 +144,43 @@ export class McpOAuthProvider implements OAuthClientProvider {
 
   async state(): Promise<string> {
     const entry = await McpAuth.get(this.mcpName)
-    if (!entry?.oauthState) {
-      throw new Error(`No OAuth state saved for MCP server: ${this.mcpName}`)
+    if (entry?.oauthState) {
+      return entry.oauthState
     }
-    return entry.oauthState
+
+    // Generate a new state if none exists — the SDK calls state() as a
+    // generator, not just a reader, so we need to produce a value even when
+    // startAuth() hasn't pre-saved one (e.g. during automatic auth on first
+    // connect).
+    const newState = Array.from(crypto.getRandomValues(new Uint8Array(32)))
+      .map((b) => b.toString(16).padStart(2, "0"))
+      .join("")
+    await McpAuth.updateOAuthState(this.mcpName, newState)
+    return newState
+  }
+
+  async invalidateCredentials(type: "all" | "client" | "tokens"): Promise<void> {
+    log.info("invalidating credentials", { mcpName: this.mcpName, type })
+    const entry = await McpAuth.get(this.mcpName)
+    if (!entry) {
+      return
+    }
+
+    switch (type) {
+      case "all":
+        await McpAuth.remove(this.mcpName)
+        break
+      case "client":
+        delete entry.clientInfo
+        await McpAuth.set(this.mcpName, entry)
+        break
+      case "tokens":
+        delete entry.tokens
+        await McpAuth.set(this.mcpName, entry)
+        break
+    }
   }
 }
 
 export { OAUTH_CALLBACK_PORT, OAUTH_CALLBACK_PATH }
+

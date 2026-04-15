@@ -3,6 +3,7 @@ import { randomBytes } from "crypto"
 
 export namespace Identifier {
   const prefixes = {
+    event: "evt",
     session: "ses",
     message: "msg",
     permission: "per",
@@ -11,8 +12,7 @@ export namespace Identifier {
     part: "prt",
     pty: "pty",
     tool: "tool",
-    todo: "todo",
-    checkpoint: "chk",
+    workspace: "wrk",
   } as const
 
   export function schema(prefix: keyof typeof prefixes) {
@@ -83,3 +83,4 @@ export namespace Identifier {
     return Number(encoded / BigInt(0x1000))
   }
 }
+

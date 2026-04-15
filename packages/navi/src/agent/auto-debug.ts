@@ -4,11 +4,12 @@ import { SessionPrompt } from "../session/prompt"
 import { Identifier } from "../id/id"
 import { $ } from "bun"
 import { Log } from "../util/log"
+import { SessionID, MessageID } from "../session/schema"
 
 export namespace AutoDebug {
     const log = Log.create({ service: "auto-debug" })
 
-    export async function run(command: string, maxRetries = 3, sessionID: string) {
+    export async function run(command: string, maxRetries = 3, sessionID: SessionID) {
         let attempts = 0
         while (attempts < maxRetries) {
             attempts++
@@ -33,7 +34,7 @@ export namespace AutoDebug {
                     title: `Auto-Debug Attempt ${attempts}: ${command}`,
                 })
 
-                const messageID = Identifier.ascending("message")
+                const messageID = MessageID.ascending()
                 const result = await SessionPrompt.prompt({
                     messageID,
                     sessionID: session.id,
@@ -57,3 +58,5 @@ export namespace AutoDebug {
         return { success: false, error: "Max retries exceeded" }
     }
 }
+
+

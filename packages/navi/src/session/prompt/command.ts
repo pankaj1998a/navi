@@ -10,6 +10,8 @@ import { Bus } from "../../bus"
 import { NamedError } from "@navi-ai/sdk/util/error"
 import { $ } from "bun"
 import { iife } from "../../util/iife"
+import { Storage } from "../../storage/storage"
+import { Instance } from "../../project/instance"
 import z from "zod"
 
 const log = Log.create({ service: "session.prompt.command" })
@@ -141,6 +143,82 @@ export async function executeCommand(input: CommandInput, deps: {
             ]
             : [...templateParts, ...(input.parts ?? [])]
 
+    // Native Handler Interception
+    if (command.handler) {
+        log.info("executing native handler", { command: input.command })
+        const handlerResult = await command.handler(input.arguments, input.sessionID)
+        
+        // 1. Ensure User Message exists
+        let userMessageID = input.messageID
+        if (!userMessageID) {
+            userMessageID = Identifier.ascending("message")
+            const userMsg: MessageV2.User = {
+                id: userMessageID,
+                sessionID: input.sessionID,
+                role: "user",
+                time: { created: Date.now() },
+                agent: agentName,
+                model,
+                variant: input.variant,
+            }
+            await Session.updateMessage(userMsg)
+            
+            // Write text parts for the user command
+            for (const part of parts) {
+                const partID = Identifier.ascending("part")
+                await Session.updatePart({
+                    ...part,
+                    id: partID,
+                    messageID: userMessageID,
+                    sessionID: input.sessionID,
+                } as MessageV2.Part)
+            }
+            Bus.publish(Session.Event.Updated, { sessionID: input.sessionID, info: await Session.get(input.sessionID) })
+        }
+
+        // 2. Create Assistant Response
+        const assistantMessageID = Identifier.ascending("message")
+        const assistantMsg: MessageV2.Assistant = {
+            id: assistantMessageID,
+            sessionID: input.sessionID,
+            role: "assistant",
+            parentID: userMessageID,
+            time: { created: Date.now(), completed: Date.now() },
+            modelID: model.modelID,
+            providerID: model.providerID,
+            agent: agentName,
+            mode: agent.mode,
+            path: { cwd: process.cwd(), root: Instance.worktree },
+            cost: 0,
+            tokens: { input: 0, output: 0, reasoning: 0, cache: { read: 0, write: 0 } },
+        }
+        await Session.updateMessage(assistantMsg)
+        
+        const responsePartID = Identifier.ascending("part")
+        const responsePart: MessageV2.TextPart = {
+            id: responsePartID,
+            messageID: assistantMessageID,
+            sessionID: input.sessionID,
+            type: "text",
+            text: handlerResult,
+        }
+        await Session.updatePart(responsePart)
+
+        const result: MessageV2.WithParts = {
+            info: assistantMsg,
+            parts: [responsePart],
+        }
+
+        Bus.publish(Command.Event.Executed, {
+            name: input.command,
+            sessionID: input.sessionID,
+            arguments: input.arguments,
+            messageID: result.info.id,
+        })
+
+        return result
+    }
+
     const result = (await deps.prompt({
         sessionID: input.sessionID,
         messageID: input.messageID,
@@ -159,3 +237,6 @@ export async function executeCommand(input: CommandInput, deps: {
 
     return result
 }
+
+
+

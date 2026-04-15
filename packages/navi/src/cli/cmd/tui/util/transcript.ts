@@ -1,26 +1,6 @@
 import type { AssistantMessage, Part, UserMessage } from "@navi-ai/sdk/v2"
 import { Locale } from "@/util/locale"
 
-type ResponseAwareTextPart = Part & {
-  type: "text"
-  response?: {
-    status?: string
-    summary?: string
-    nextStep?: string
-    blockedReason?: string
-    kind?: string
-    confidence?: number
-    answer?: string
-    question?: {
-      why?: string
-      recommendedOption?: string
-      impact?: string
-      expectedNextStep?: string
-      options?: Array<{ label: string }>
-    }
-  }
-}
-
 export type TranscriptOptions = {
   thinking: boolean
   toolDetails: boolean
@@ -89,51 +69,6 @@ export function formatAssistantHeader(msg: AssistantMessage, includeMetadata: bo
 
 export function formatPart(part: Part, options: TranscriptOptions): string {
   if (part.type === "text" && !part.synthetic) {
-    const responsePart = part as ResponseAwareTextPart
-    if (responsePart.response) {
-      const response = responsePart.response
-      const sections: string[] = []
-      const heading = response.kind ? `## ${response.kind.charAt(0).toUpperCase() + response.kind.slice(1)}` : undefined
-      if (heading) sections.push(heading)
-
-      if (response.status === "asking" && response.question) {
-        const question = response.question
-        const lines: string[] = []
-        if (question.why) lines.push(`Why: ${question.why}`)
-        if (question.impact) lines.push(`Impact: ${question.impact}`)
-        if (question.recommendedOption) lines.push(`Recommended: ${question.recommendedOption}`)
-        if (question.expectedNextStep) lines.push(`Next step: ${question.expectedNextStep}`)
-        const optionsSummary = question.options?.map((option: { label: string }) => option.label).join(", ")
-        if (optionsSummary) lines.push(`Options: ${optionsSummary}`)
-        sections.push(`### Question\n\n${question.text}\n\n${lines.join("\n")}`.trim())
-      }
-
-      if (response.answer) {
-        sections.push(`### Outcome\n\n${response.answer.trim()}`)
-      } else if (part.text.trim()) {
-        sections.push(`### Outcome\n\n${part.text.trim()}`)
-      }
-
-      if (response.summary) {
-        sections.push(`### Summary\n\n${response.summary.trim()}`)
-      }
-
-      if (response.nextStep) {
-        sections.push(`### Next Step\n\n${response.nextStep.trim()}`)
-      }
-
-      if (response.blockedReason) {
-        sections.push(`### Blocked\n\n${response.blockedReason.trim()}`)
-      }
-
-      if (response.confidence !== undefined) {
-        sections.push(`Confidence: ${Math.round(response.confidence * 100)}%`)
-      }
-
-      if (sections.length > 0) {
-        return `${sections.filter(Boolean).join("\n\n")}\n\n`
-      }
-    }
     return `${part.text}\n\n`
   }
 
@@ -145,19 +80,20 @@ export function formatPart(part: Part, options: TranscriptOptions): string {
   }
 
   if (part.type === "tool") {
-    let result = `\`\`\`\nTool: ${part.tool}\n`
+    let result = `**Tool: ${part.tool}**\n`
     if (options.toolDetails && part.state.input) {
-      result += `\n**Input:**\n\`\`\`json\n${JSON.stringify(part.state.input, null, 2)}\n\`\`\``
+      result += `\n**Input:**\n\`\`\`json\n${JSON.stringify(part.state.input, null, 2)}\n\`\`\`\n`
     }
     if (options.toolDetails && part.state.status === "completed" && part.state.output) {
-      result += `\n**Output:**\n\`\`\`\n${part.state.output}\n\`\`\``
+      result += `\n**Output:**\n\`\`\`\n${part.state.output}\n\`\`\`\n`
     }
     if (options.toolDetails && part.state.status === "error" && part.state.error) {
-      result += `\n**Error:**\n\`\`\`\n${part.state.error}\n\`\`\``
+      result += `\n**Error:**\n\`\`\`\n${part.state.error}\n\`\`\`\n`
     }
-    result += `\n\`\`\`\n\n`
+    result += `\n`
     return result
   }
 
   return ""
 }
+

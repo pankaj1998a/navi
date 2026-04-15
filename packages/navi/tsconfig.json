@@ -13,7 +13,8 @@
       "DOM.Iterable"
     ],
     "types": [
-      "bun"
+      "bun",
+      "node"
     ],
     "strict": true,
     "esModuleInterop": true,
@@ -30,6 +31,15 @@
       ],
       "@tui/*": [
         "./src/cli/cmd/tui/*"
+      ],
+      "@navi-ai/util/*": [
+        "../util/src/*"
+      ],
+      "@navi-ai/sdk/*": [
+        "../sdk/js/src/*"
+      ],
+      "@navi-ai/native": [
+        "../native/src/index.ts"
       ]
     },
     "incremental": true,
@@ -38,8 +48,14 @@
   },
   "include": [
     "src/**/*",
+    "parsers-config.ts",
     "script/**/*",
-    "test/**/*"
+    "../../script/**/*",
+    "../../packages/**/script/**/*",
+    "test/**/*",
+    "../util/src/**/*",
+    "../sdk/js/src/**/*",
+    "../native/src/**/*"
   ],
   "exclude": [
     "node_modules",

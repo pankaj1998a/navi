@@ -197,7 +197,7 @@ async function invitePeer(peerId: string): Promise<void> {
  */
 async function invitePeerInternal(
   peerId: string, 
-  sessionId: string, 
+  sessionID: string, 
   projectPath: string
 ): Promise<void> {
   const peer = P2PDiscovery.getPeer(peerId)
@@ -210,7 +210,7 @@ async function invitePeerInternal(
   try {
     await P2PClient.inviteToCollab({
       peer,
-      sessionId,
+      sessionID,
       projectPath,
     })
 
@@ -223,7 +223,7 @@ async function invitePeerInternal(
 /**
  * Join a collaborative session
  */
-async function joinCollab(peerId: string, sessionId?: string): Promise<void> {
+async function joinCollab(peerId: string, sessionID?: string): Promise<void> {
   if (currentSession) {
     UI.error("Already in a collaborative session. Leave first with 'navi collab leave'")
     return
@@ -240,9 +240,9 @@ async function joinCollab(peerId: string, sessionId?: string): Promise<void> {
 
   try {
     // If no session ID provided, fetch available sessions from peer
-    let targetSessionId = sessionId
+    let targetSessionID = sessionID
     
-    if (!targetSessionId) {
+    if (!targetSessionID) {
       // TODO: Fetch sessions from peer via API
       UI.error("No session ID provided and auto-discovery not implemented")
       UI.println(UI.Style.TEXT_DIM + "Usage: navi collab join <peer-id> <session-id>")
@@ -251,11 +251,11 @@ async function joinCollab(peerId: string, sessionId?: string): Promise<void> {
 
     await P2PClient.joinCollab({
       peer,
-      sessionId: targetSessionId,
+      sessionID: targetSessionID,
     })
 
     currentSession = {
-      id: targetSessionId,
+      id: targetSessionID,
       isHost: false,
       host: peerId,
       participants: [],
@@ -264,7 +264,7 @@ async function joinCollab(peerId: string, sessionId?: string): Promise<void> {
     UI.println(UI.Style.TEXT_SUCCESS + `✓ Joined session on ${peer.name}`)
     
     UI.empty()
-    UI.println(UI.Style.TEXT_INFO_BOLD + "  Session ID: " + UI.Style.RESET + targetSessionId)
+    UI.println(UI.Style.TEXT_INFO_BOLD + "  Session ID: " + UI.Style.RESET + targetSessionID)
     UI.println(UI.Style.TEXT_INFO_BOLD + "  Host:       " + UI.Style.RESET + peer.name)
     UI.empty()
   } catch (error) {
@@ -288,7 +288,7 @@ async function leaveCollab(): Promise<void> {
       if (host) {
         await P2PClient.leaveCollab({
           peer: host,
-          sessionId: currentSession.id,
+          sessionID: currentSession.id,
         })
       }
     }
@@ -395,7 +395,7 @@ async function shareEdit(file: string, message?: string): Promise<void> {
         if (peer) {
           await P2PClient.sendEdit({
             peer,
-            sessionId: currentSession!.id,
+            sessionID: currentSession!.id,
             file,
             changes,
           })
@@ -411,3 +411,6 @@ async function shareEdit(file: string, message?: string): Promise<void> {
     UI.error(`Failed to share edit: ${error instanceof Error ? error.message : error}`)
   }
 }
+
+
+

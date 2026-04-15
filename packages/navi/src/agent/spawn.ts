@@ -12,3 +12,5 @@ export function canSpawnAgent(caller: SpawnCaller | undefined, agentName: string
 export function filterSpawnableAgents<T extends { name: string }>(caller: SpawnCaller | undefined, agents: T[]) {
   return agents.filter((agent) => canSpawnAgent(caller, agent.name))
 }
+
+

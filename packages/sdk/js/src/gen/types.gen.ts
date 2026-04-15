@@ -535,7 +535,6 @@ export type Session = {
   projectID: string
   directory: string
   parentID?: string
-  resumeFrom?: string
   summary?: {
     additions: number
     deletions: number
@@ -843,6 +842,14 @@ export type KeybindsConfig = {
    * Scroll messages down by one page
    */
   messages_page_down?: string
+  /**
+   * Scroll messages up by one line
+   */
+  messages_line_up?: string
+  /**
+   * Scroll messages down by one line
+   */
+  messages_line_down?: string
   /**
    * Scroll messages up by half page
    */
@@ -1202,7 +1209,7 @@ export type Config = {
     diff_style?: "auto" | "stacked"
   }
   /**
-   * Command configuration, see https://navi.ai/docs/commands
+   * Command configuration, see https://Navi.ai/docs/commands
    */
   command?: {
     [key: string]: {
@@ -1259,7 +1266,7 @@ export type Config = {
     [key: string]: AgentConfig | undefined
   }
   /**
-   * Agent configuration, see https://navi.ai/docs/agent
+   * Agent configuration, see https://Navi.ai/docs/agent
    */
   agent?: {
     plan?: AgentConfig
@@ -1370,9 +1377,6 @@ export type Config = {
      * Tools that should only be available to primary agents.
      */
     primary_tools?: Array<string>
-    dynamic_context_pruning?: boolean
-    aggressive_truncation?: boolean
-    auto_resume?: boolean
   }
 }
 
@@ -1510,7 +1514,7 @@ export type Model = {
 export type Provider = {
   id: string
   name: string
-  source: "env" | "config" | "custom" | "api" | "free"
+  source: "env" | "config" | "custom" | "api"
   env: Array<string>
   key?: string
   options: {
@@ -1550,7 +1554,7 @@ export type FileNode = {
 }
 
 export type FileContent = {
-  type: "text"
+  type: "text" | "binary"
   content: string
   diff?: string
   patch?: {
@@ -2075,7 +2079,6 @@ export type SessionListResponse = SessionListResponses[keyof SessionListResponse
 export type SessionCreateData = {
   body?: {
     parentID?: string
-    resumeFrom?: string
     title?: string
   }
   path?: never
@@ -2301,41 +2304,6 @@ export type SessionTodoResponses = {
 }
 
 export type SessionTodoResponse = SessionTodoResponses[keyof SessionTodoResponses]
-
-export type SessionTodoUpdateData = {
-  body: {
-    todos: Array<Todo>
-  }
-  path: {
-    /**
-     * Session ID
-     */
-    id: string
-  }
-  url: "/session/{id}/todo"
-}
-
-export type SessionTodoUpdateErrors = {
-  /**
-   * Bad request
-   */
-  400: BadRequestError
-  /**
-   * Not found
-   */
-  404: NotFoundError
-}
-
-export type SessionTodoUpdateError = SessionTodoUpdateErrors[keyof SessionTodoUpdateErrors]
-
-export type SessionTodoUpdateResponses = {
-  /**
-   * Todos updated successfully
-   */
-  200: Array<Todo>
-}
-
-export type SessionTodoUpdateResponse = SessionTodoUpdateResponses[keyof SessionTodoUpdateResponses]
 
 export type SessionInitData = {
   body?: {
@@ -3934,3 +3902,4 @@ export type EventSubscribeResponse = EventSubscribeResponses[keyof EventSubscrib
 export type ClientOptions = {
   baseUrl: `${string}://${string}` | (string & {})
 }
+

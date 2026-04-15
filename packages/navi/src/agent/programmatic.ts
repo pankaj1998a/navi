@@ -20,6 +20,8 @@ export const AgentTemplate = z.object({
     handleSteps: z.function().optional(),
 
     systemPrompt: z.string().optional(),
+    phase: z.enum(["analyze", "database", "interface", "test", "realize", "general", "design", "security", "deploy", "optimize", "debug", "document"]).optional().default("general"),
+    skills: z.array(z.string()).optional().default([]),
 })
 export type AgentTemplate = z.infer<typeof AgentTemplate> & {
     handleSteps?: (context: AgentContext) => AsyncGenerator<AgentStep, string | void, any>
@@ -34,7 +36,7 @@ export type AgentStep =
 
 export interface AgentContext {
     agentId: string
-    sessionId: string
+    sessionID: string
     input: string
     history: any[]
 }
@@ -67,7 +69,7 @@ export namespace ProgrammaticAgentRuntime {
     export async function execute(
         templateId: string,
         input: string,
-        sessionId: string,
+        sessionID: string,
         toolExecutor: (name: string, input: any) => Promise<any>,
         options: {
             messageId?: string,
@@ -80,7 +82,7 @@ export namespace ProgrammaticAgentRuntime {
 
         const context: AgentContext = {
             agentId: template.id,
-            sessionId,
+            sessionID,
             input,
             history: []
         }
@@ -154,3 +156,5 @@ export namespace ProgrammaticAgentRuntime {
         }
     }
 }
+
+

@@ -52,7 +52,7 @@ export const AgentInfo = z
         author: z.string().optional(),
         license: z.string().optional(),
         tags: z.array(z.string()).optional(),
-        examples: z.array(z.any()).optional(),
+        variant: z.string().optional(),
         handleSteps: z.any().optional(), // Async generator function for programmatic control
     })
     .meta({
@@ -60,3 +60,5 @@ export const AgentInfo = z
     })
 
 export type AgentInfo = z.infer<typeof AgentInfo>
+
+

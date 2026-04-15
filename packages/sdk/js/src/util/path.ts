@@ -16,3 +16,4 @@ export function getFileExtension(path: string | undefined) {
   const parts = path.split(".")
   return parts[parts.length - 1]
 }
+

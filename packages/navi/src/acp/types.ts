@@ -1,5 +1,6 @@
 import type { McpServer } from "@agentclientprotocol/sdk"
-import type { naviClient } from "@navi-ai/sdk/v2"
+import type { NaviClient } from "@navi-ai/sdk/v2"
+import type { ProviderID, ModelID } from "../provider/schema"
 
 export interface ACPSessionState {
   id: string
@@ -7,16 +8,18 @@ export interface ACPSessionState {
   mcpServers: McpServer[]
   createdAt: Date
   model?: {
-    providerID: string
-    modelID: string
+    providerID: ProviderID
+    modelID: ModelID
   }
+  variant?: string
   modeId?: string
 }
 
 export interface ACPConfig {
-  sdk: naviClient
+  sdk: NaviClient
   defaultModel?: {
-    providerID: string
-    modelID: string
+    providerID: ProviderID
+    modelID: ModelID
   }
 }
+

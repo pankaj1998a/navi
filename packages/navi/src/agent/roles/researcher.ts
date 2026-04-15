@@ -78,3 +78,5 @@ const ResearcherAgent: AgentTemplate = {
 AgentRegistry.register(ResearcherAgent)
 export { ResearcherAgent }
 export default ResearcherAgent
+
+

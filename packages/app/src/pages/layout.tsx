@@ -60,6 +60,7 @@ import { ConstrainDragXAxis } from "@/utils/solid-dnd"
 import { navStart } from "@/utils/perf"
 import { DialogSelectDirectory } from "@/components/dialog-select-directory"
 import { useServer } from "@/context/server"
+import { CanvasSidebar } from "@/components/canvas-sidebar"
 
 export default function Layout(props: ParentProps) {
   const [store, setStore] = createStore({
@@ -1305,6 +1306,8 @@ export default function Layout(props: ParentProps) {
         </div>
 
         <main class="size-full overflow-x-hidden flex flex-col items-start contain-strict">{props.children}</main>
+        
+        <CanvasSidebar />
       </div>
       <Toast.Region />
     </div>

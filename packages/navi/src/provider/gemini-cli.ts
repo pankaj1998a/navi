@@ -991,3 +991,5 @@ export const GeminiAuthHook: AuthHook = {
 export async function GeminiAuthPlugin(_input: PluginInput): Promise<Hooks> {
     return { auth: GeminiAuthHook }
 }
+
+

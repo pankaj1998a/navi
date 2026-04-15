@@ -20,7 +20,7 @@ process.chdir(dir)
 
 import pkg from "../package.json"
 const rootPkg = await Bun.file("../../package.json").json()
-import { Script } from "@navi-ai/script"
+import { Script } from "../../../script/info"
 import { build, binaries } from "./build"
 
 const dryRun = !process.argv.includes("--publish")

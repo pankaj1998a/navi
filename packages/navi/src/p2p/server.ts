@@ -39,7 +39,7 @@ export namespace P2PServer {
   const collabSessions = new Map<string, CollabSession>()
   
   // Joined collaborative sessions (hosted by others)
-  const joinedSessions = new Map<string, { sessionId: string; host: PeerId }>()
+  const joinedSessions = new Map<string, { sessionID: string; host: PeerId }>()
 
   // Hono router for P2P endpoints
   export const router = new Hono()
@@ -400,7 +400,7 @@ export namespace P2PServer {
         result: `Task accepted. Session ID: ${session.id}`,
         success: true,
         timestamp: Date.now(),
-        sessionId: session.id,
+        sessionID: session.id,
       }
     } catch (error) {
       log.error("Failed to handle help request", { error })
@@ -454,7 +454,7 @@ export namespace P2PServer {
   ): Promise<any> {
     log.info("Received session sync", { 
       from: fromPeerId, 
-      sessionId: message.sessionId 
+      sessionID: message.sessionID 
     })
 
     // Could be used to replicate session state
@@ -476,13 +476,13 @@ export namespace P2PServer {
 
     log.info("Received collab invite", { 
       from: fromPeerId, 
-      sessionId: message.sessionId,
+      sessionID: message.sessionID,
       projectPath: message.projectPath,
     })
 
     // Store invite for user to accept
-    joinedSessions.set(message.sessionId, {
-      sessionId: message.sessionId,
+    joinedSessions.set(message.sessionID, {
+      sessionID: message.sessionID,
       host: fromPeerId,
     })
 
@@ -496,7 +496,7 @@ export namespace P2PServer {
     fromPeerId: PeerId, 
     message: Extract<P2PMessage, { type: "collab.join" }>
   ): Promise<any> {
-    const session = collabSessions.get(message.sessionId)
+    const session = collabSessions.get(message.sessionID)
     if (!session) {
       return { error: "Session not found" }
     }
@@ -505,7 +505,7 @@ export namespace P2PServer {
     
     log.info("Peer joined collab session", { 
       peer: fromPeerId, 
-      sessionId: message.sessionId 
+      sessionID: message.sessionID 
     })
 
     return { 
@@ -521,12 +521,12 @@ export namespace P2PServer {
     fromPeerId: PeerId, 
     message: Extract<P2PMessage, { type: "collab.leave" }>
   ): Promise<any> {
-    const session = collabSessions.get(message.sessionId)
+    const session = collabSessions.get(message.sessionID)
     if (session) {
       session.participants.delete(fromPeerId)
       log.info("Peer left collab session", { 
         peer: fromPeerId, 
-        sessionId: message.sessionId 
+        sessionID: message.sessionID 
       })
     }
 
@@ -540,7 +540,7 @@ export namespace P2PServer {
     fromPeerId: PeerId, 
     message: Extract<P2PMessage, { type: "collab.edit" }>
   ): Promise<any> {
-    const session = collabSessions.get(message.sessionId)
+    const session = collabSessions.get(message.sessionID)
     if (!session) {
       return { error: "Session not found" }
     }
@@ -587,7 +587,7 @@ export namespace P2PServer {
     }
 
     collabSessions.set(id, session)
-    log.info("Created collab session", { sessionId: id, projectPath })
+    log.info("Created collab session", { sessionID: id, projectPath })
 
     return session
   }
@@ -608,3 +608,4 @@ export namespace P2PServer {
     log.info("P2P server cleaned up")
   }
 }
+

@@ -48,7 +48,10 @@ export const RoocodeProvider: ProviderLoader.Info = {
                     "X-Title": "Roo Code",
                     "Authorization": `Bearer ${apiKey}`,
                 }
-                const res = await fetch(`${ROOCODE_BASE_URL}/models`, { headers: fetchHeaders })
+                const res = await fetch(`${ROOCODE_BASE_URL}/models`, {
+                    headers: fetchHeaders,
+                    signal: AbortSignal.timeout(8_000),
+                })
                 if (res.ok) {
                     const data = (await res.json()) as any
                     if (data && data.data && Array.isArray(data.data)) {
@@ -142,3 +145,5 @@ export const RoocodeProvider: ProviderLoader.Info = {
         }
     },
 }
+
+

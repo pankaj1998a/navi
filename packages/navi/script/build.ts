@@ -13,7 +13,7 @@ const dir = path.resolve(__dirname, "..")
 process.chdir(dir)
 
 import pkg from "../package.json"
-import { Script } from "@navi-ai/script"
+import { Script } from "../../../script/info"
 
 const singleFlag = process.argv.includes("--single")
 const baselineFlag = process.argv.includes("--baseline")
@@ -188,6 +188,12 @@ async function build() {
           navi_WORKER_PATH: `'${builtWorkerPath}'`,
           navi_CHANNEL: `'${Script.channel}'`,
           NAVI_LIBC: item.os === "linux" ? `'${item.abi ?? "glibc"}'` : "''",
+          FEATURE_VOICE: "true",
+          FEATURE_TELEPORT: "true",
+          FEATURE_BRIDGE: "true",
+          FEATURE_SENTRY: "true",
+          FEATURE_SPECULATION: "true",
+          FEATURE_SYMBOL_GRAPH: "true",
         },
       })
 
@@ -213,6 +219,12 @@ async function build() {
           navi_WORKER_PATH: `'${builtWorkerPath}'`,
           navi_CHANNEL: `'${Script.channel}'`,
           NAVI_LIBC: item.os === "linux" ? `'${item.abi ?? "glibc"}'` : "''",
+          FEATURE_VOICE: "true",
+          FEATURE_TELEPORT: "true",
+          FEATURE_BRIDGE: "true",
+          FEATURE_SENTRY: "true",
+          FEATURE_SPECULATION: "true",
+          FEATURE_SYMBOL_GRAPH: "true",
         },
       })
 
@@ -237,6 +249,12 @@ async function build() {
           navi_WORKER_PATH: `'${builtWorkerPath}'`,
           navi_CHANNEL: `'${Script.channel}'`,
           NAVI_LIBC: item.os === "linux" ? `'${item.abi ?? "glibc"}'` : "''",
+          FEATURE_VOICE: "true",
+          FEATURE_TELEPORT: "true",
+          FEATURE_BRIDGE: "true",
+          FEATURE_SENTRY: "true",
+          FEATURE_SPECULATION: "true",
+          FEATURE_SYMBOL_GRAPH: "true",
         },
       })
 

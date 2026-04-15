@@ -208,3 +208,4 @@ export const createSseClient = <TData = unknown>({
 
   return { stream }
 }
+

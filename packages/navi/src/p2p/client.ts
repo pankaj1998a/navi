@@ -171,12 +171,12 @@ export namespace P2PClient {
   export async function shareContext(params: {
     peer: PeerInfo
     files: Array<{ path: string; content: string }>
-    sessionId?: string
+    sessionID?: string
   }): Promise<void> {
     await sendRequest(params.peer, {
       type: "context.share",
       files: params.files,
-      sessionId: params.sessionId,
+      sessionID: params.sessionID,
     })
   }
 
@@ -185,12 +185,12 @@ export namespace P2PClient {
    */
   export async function syncSession(params: {
     peer: PeerInfo
-    sessionId: string
+    sessionID: string
     messages?: any[]
   }): Promise<void> {
     await sendRequest(params.peer, {
       type: "session.sync",
-      sessionId: params.sessionId,
+      sessionID: params.sessionID,
       messages: params.messages,
     })
   }
@@ -200,12 +200,12 @@ export namespace P2PClient {
    */
   export async function inviteToCollab(params: {
     peer: PeerInfo
-    sessionId: string
+    sessionID: string
     projectPath: string
   }): Promise<void> {
     await sendRequest(params.peer, {
       type: "collab.invite",
-      sessionId: params.sessionId,
+      sessionID: params.sessionID,
       projectPath: params.projectPath,
     })
   }
@@ -215,11 +215,11 @@ export namespace P2PClient {
    */
   export async function joinCollab(params: {
     peer: PeerInfo
-    sessionId: string
+    sessionID: string
   }): Promise<void> {
     await sendRequest(params.peer, {
       type: "collab.join",
-      sessionId: params.sessionId,
+      sessionID: params.sessionID,
     })
   }
 
@@ -228,11 +228,11 @@ export namespace P2PClient {
    */
   export async function leaveCollab(params: {
     peer: PeerInfo
-    sessionId: string
+    sessionID: string
   }): Promise<void> {
     await sendRequest(params.peer, {
       type: "collab.leave",
-      sessionId: params.sessionId,
+      sessionID: params.sessionID,
     })
   }
 
@@ -241,13 +241,13 @@ export namespace P2PClient {
    */
   export async function sendEdit(params: {
     peer: PeerInfo
-    sessionId: string
+    sessionID: string
     file: string
     changes: Array<{ startLine: number; endLine: number; newText: string }>
   }): Promise<void> {
     await sendRequest(params.peer, {
       type: "collab.edit",
-      sessionId: params.sessionId,
+      sessionID: params.sessionID,
       file: params.file,
       changes: params.changes,
     })
@@ -362,3 +362,4 @@ export namespace P2PClient {
     log.info("P2P client cleaned up")
   }
 }
+

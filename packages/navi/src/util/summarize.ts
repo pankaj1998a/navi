@@ -84,10 +84,10 @@ export function summarizeLargeResult(fullResult: string, intent?: string): strin
 /**
  * Store full response for later retrieval
  */
-export function storeFullResponse(sessionId: string, toolUseId: string, content: string): string {
+export function storeFullResponse(sessionID: string, toolUseId: string, content: string): string {
     // In a full implementation, this would write to long_responses/ directory
     // For now, return a reference ID
-    const referenceId = `${sessionId}-${toolUseId}-${Date.now()}`;
+    const referenceId = `${sessionID}-${toolUseId}-${Date.now()}`;
     log.info(`Stored full response with reference: ${referenceId}`);
     return referenceId;
 }
@@ -101,3 +101,6 @@ export function getFullResponse(referenceId: string): string | null {
     log.warn(`Full response retrieval not implemented for: ${referenceId}`);
     return null;
 }
+
+
+

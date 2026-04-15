@@ -52,3 +52,6 @@ export const SkillRoute = new Hono()
             return c.json(skill)
         },
     )
+
+
+

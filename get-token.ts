@@ -1,17 +1,29 @@
 import { OAuth2Client } from "google-auth-library"
 import { Auth } from "./packages/navi/src/auth/index.js"
 
-const GEMINI_CLIENT_ID = "681255809395-oo8ft2oprdrnp9e3aqf6av3hmdib135j.apps.googleusercontent.com"
-const GEMINI_CLIENT_SECRET = "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"
+// OAuth credentials should be set via environment variables:
+//   GEMINI_CLIENT_ID
+//   GEMINI_CLIENT_SECRET
+// Never commit real credentials to source control.
 
 async function main() {
+    const clientId = process.env.GEMINI_CLIENT_ID
+    const clientSecret = process.env.GEMINI_CLIENT_SECRET
+
+    if (!clientId || !clientSecret) {
+        throw new Error(
+            "GEMINI_CLIENT_ID and GEMINI_CLIENT_SECRET environment variables are required. " +
+            "Set them before running this script."
+        )
+    }
+
     const auth = await Auth.get("gemini-cli")
     if (!auth || auth.type !== "oauth") throw new Error("not authenticated")
 
     // 1. Get token
     const client = new OAuth2Client({
-        clientId: GEMINI_CLIENT_ID,
-        clientSecret: GEMINI_CLIENT_SECRET,
+        clientId,
+        clientSecret,
     })
     client.setCredentials({ refresh_token: auth.refresh })
     const { token } = await client.getAccessToken()

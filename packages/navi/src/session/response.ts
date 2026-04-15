@@ -381,3 +381,6 @@ in the following JSON format inside a fenced json block:
 5. Do not leave the user guessing what happens next.
 6. Prefer a single clear output format per turn: direct answer, plan, implementation, blocker, recommendation, research report, review findings, question, or handoff.
 `
+
+
+

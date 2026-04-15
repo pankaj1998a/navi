@@ -33,7 +33,7 @@ Use this to break large features into parallelizable subtasks and ensure they pa
         const agents = await Agent.list().then(x => x.filter(a => a.mode === "subagent"))
         const callerName = ctx?.agent
         const caller = callerName ? await Agent.get(callerName).catch(() => undefined) : undefined
-        const accessibleAgents = filterSpawnableAgents(caller, agents)
+        const accessibleAgents = filterSpawnableAgents(caller ?? undefined, agents)
 
         log.info("Starting swarm", { description: params.description, taskCount: params.tasks.length })
 
@@ -53,50 +53,68 @@ Use this to break large features into parallelizable subtasks and ensure they pa
             }
         })
 
-        const runBatch = async () => {
+        const runBatch = async (iteration: number, failureLog?: string) => {
             const taskObjects = params.tasks.map(t => {
-                if (!canSpawnAgent(caller, t.agent_type)) {
+                const canSpawn = caller ? canSpawnAgent(caller, t.agent_type) : true
+                if (!canSpawn) {
                     throw new Error(`Agent "${t.agent_type}" is not available to "${callerName ?? "this agent"}"`)
                 }
-                return AgentSystem.createTask(t.agent_type, t.prompt, { metadata: t.metadata, model: t.model })
+                
+                // Adaptive Prompting: feedback failure into the next try
+                const enhancedPrompt = iteration > 1 && failureLog
+                    ? `[RETRY ATTEMPT ${iteration}]\nYour previous attempt failed with the following feedback:\n${failureLog}\n\nOriginal Task: ${t.prompt}`
+                    : t.prompt
+
+                return AgentSystem.createTask(t.agent_type, enhancedPrompt, { 
+                    metadata: t.metadata, 
+                    model: t.model 
+                })
             })
 
             const batch = AgentSystem.createBatch(taskObjects, {
                 mode: "parallel",
                 maxConcurrent: 5,
-                emitPart: ctx.metadata as any
+                emitPart: (ctx.metadata as any) ?? {}
             })
 
-            // We need an executor function that actually calls the Navi agent logic
             const executor = async (task: AgentSystem.Task): Promise<string> => {
                 const agent = await Agent.get(task.agentName)
-                if (!agent) throw new Error(`Swarm: Agent not found: "${task.agentName}". Check that this agent is defined in agent.ts.`)
+                if (!agent) throw new Error(`Swarm: Agent not found: "${task.agentName}"`)
 
                 const session = await Session.create({
                     parentID: ctx.sessionID,
-                    title: `Swarm: ${task.agentName}`,
+                    title: `Swarm: ${task.agentName} (Iter ${iteration})`,
                 })
 
-                const messageID = Identifier.ascending("message")
+                // MODEL PROMOTION: If this is a retry, use a "premium" model if configured
+                let selectedModel = task.model ? Provider.parseModel(task.model) : agent.model
+                if (iteration > 2) {
+                    const generalAgent = await Agent.get("general")
+                    if (generalAgent?.model) {
+                        log.info(`Promoting task "${task.agentName}" to premium model for stability.`, { from: selectedModel?.modelID, to: generalAgent.model.modelID })
+                        selectedModel = generalAgent.model as any
+                    }
+                }
+
+                const messageID = Identifier.ascending("message") as any
                 const promptParts = await SessionPrompt.resolvePromptParts(task.prompt)
 
                 const result = await SessionPrompt.prompt({
                     messageID,
                     sessionID: session.id,
-                    model: task.model ? Provider.parseModel(task.model) : agent.model,
+                    model: selectedModel as any,
                     agent: agent.name,
                     parts: promptParts,
                 }).catch((err: Error) => {
                     const msg = err?.message ?? String(err)
-                    // Surface provider/connection errors clearly
-                    if (msg.includes("fetch") || msg.includes("connect") || msg.includes("ECONNREFUSED") || msg.includes("ENOTFOUND")) {
-                        throw new Error(`Swarm (${task.agentName}): Cannot reach AI provider. Check your model/provider configuration and internet connection. Details: ${msg}`)
+                    if (msg.includes("fetch") || msg.includes("connect") || msg.includes("limit")) {
+                        throw new Error(`Swarm [NETWORK/LIMIT ERROR]: ${msg}`)
                     }
                     throw new Error(`Swarm (${task.agentName}): ${msg}`)
                 })
 
                 const textPart = result.parts.findLast((x: any) => x.type === "text")
-                const text = textPart && 'text' in textPart ? textPart.text : ""
+                const text = textPart && 'text' in textPart ? (textPart as any).text : ""
                 return text
             }
 
@@ -107,27 +125,29 @@ Use this to break large features into parallelizable subtasks and ensure they pa
         let currentIteration = 0
         let lastResult = ""
         let success = false
+        let failureFeedback = ""
 
         while (currentIteration < params.iterations && !success) {
             currentIteration++
             log.info(`Swarm iteration ${currentIteration}/${params.iterations}`)
 
-            const batchResult = await runBatch()
+            const batchResult = await runBatch(currentIteration, failureFeedback)
             lastResult = AgentSystem.aggregateResults(batchResult.tasks)
 
             if (params.verification_command) {
-                // Run verification
                 const { BashTool } = await import("./bash")
-                const bash = await BashTool.init({ agent: await Agent.get(ctx.agent) })
+                const bash = await BashTool.init({ agent: (await Agent.get(ctx.agent)) ?? undefined })
                 const verifyOutput = await bash.execute({
                     command: params.verification_command,
                     description: `Verifying iteration ${currentIteration}`
                 }, ctx)
 
-                if (verifyOutput.output.toLowerCase().includes("success") || !verifyOutput.output.toLowerCase().includes("fail")) {
+                const outputLower = verifyOutput.output.toLowerCase()
+                if (outputLower.includes("success") || (outputLower.includes("pass") && !outputLower.includes("fail"))) {
                     success = true
                 } else {
-                    log.warn("Verification failed, looping...", { iteration: currentIteration })
+                    log.warn("Verification failed, preparing next iteration...", { iteration: currentIteration })
+                    failureFeedback = verifyOutput.output // Feed this into the next iteration
                 }
             } else {
                 success = true
@@ -139,8 +159,11 @@ Use this to break large features into parallelizable subtasks and ensure they pa
             output: lastResult,
             metadata: {
                 iterations: currentIteration,
-                success
+                success,
+                verification: failureFeedback || "None"
             }
         }
     }
 })
+
+

@@ -96,3 +96,4 @@ export const DEFAULT_VERIFICATION_PROFILES: VerificationProfile[] = [
 export function getVerificationProfile(mode: string) {
   return DEFAULT_VERIFICATION_PROFILES.find((profile) => profile.mode === mode)
 }
+

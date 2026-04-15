@@ -1,34 +1,37 @@
 import { RequestError, type McpServer } from "@agentclientprotocol/sdk"
 import type { ACPSessionState } from "./types"
 import { Log } from "@/util/log"
-import type { naviClient } from "@navi-ai/sdk/v2"
+import type { NaviClient } from "@navi-ai/sdk/v2"
 
 const log = Log.create({ service: "acp-session-manager" })
 
 export class ACPSessionManager {
   private sessions = new Map<string, ACPSessionState>()
-  private sdk: naviClient
+  private sdk: NaviClient
 
-  constructor(sdk: naviClient) {
+  constructor(sdk: NaviClient) {
     this.sdk = sdk
+  }
+
+  tryGet(sessionID: string): ACPSessionState | undefined {
+    return this.sessions.get(sessionID)
   }
 
   async create(cwd: string, mcpServers: McpServer[], model?: ACPSessionState["model"]): Promise<ACPSessionState> {
     const session = await this.sdk.session
       .create(
         {
-          title: `ACP Session ${crypto.randomUUID()}`,
           directory: cwd,
         },
         { throwOnError: true },
       )
       .then((x) => x.data!)
 
-    const sessionId = session.id
+    const sessionID = session.id
     const resolvedModel = model
 
     const state: ACPSessionState = {
-      id: sessionId,
+      id: sessionID,
       cwd,
       mcpServers,
       createdAt: new Date(),
@@ -36,12 +39,12 @@ export class ACPSessionManager {
     }
     log.info("creating_session", { state })
 
-    this.sessions.set(sessionId, state)
+    this.sessions.set(sessionID, state)
     return state
   }
 
   async load(
-    sessionId: string,
+    sessionID: string,
     cwd: string,
     mcpServers: McpServer[],
     model?: ACPSessionState["model"],
@@ -49,7 +52,7 @@ export class ACPSessionManager {
     const session = await this.sdk.session
       .get(
         {
-          sessionID: sessionId,
+          sessionID: sessionID,
           directory: cwd,
         },
         { throwOnError: true },
@@ -59,7 +62,7 @@ export class ACPSessionManager {
     const resolvedModel = model
 
     const state: ACPSessionState = {
-      id: sessionId,
+      id: sessionID,
       cwd,
       mcpServers,
       createdAt: new Date(session.time.created),
@@ -67,35 +70,48 @@ export class ACPSessionManager {
     }
     log.info("loading_session", { state })
 
-    this.sessions.set(sessionId, state)
+    this.sessions.set(sessionID, state)
     return state
   }
 
-  get(sessionId: string): ACPSessionState {
-    const session = this.sessions.get(sessionId)
+  get(sessionID: string): ACPSessionState {
+    const session = this.sessions.get(sessionID)
     if (!session) {
-      log.error("session not found", { sessionId })
-      throw RequestError.invalidParams(JSON.stringify({ error: `Session not found: ${sessionId}` }))
+      log.error("session not found", { sessionID })
+      throw RequestError.invalidParams(JSON.stringify({ error: `Session not found: ${sessionID}` }))
     }
     return session
   }
 
-  getModel(sessionId: string) {
-    const session = this.get(sessionId)
+  getModel(sessionID: string) {
+    const session = this.get(sessionID)
     return session.model
   }
 
-  setModel(sessionId: string, model: ACPSessionState["model"]) {
-    const session = this.get(sessionId)
+  setModel(sessionID: string, model: ACPSessionState["model"]) {
+    const session = this.get(sessionID)
     session.model = model
-    this.sessions.set(sessionId, session)
+    this.sessions.set(sessionID, session)
     return session
   }
 
-  setMode(sessionId: string, modeId: string) {
-    const session = this.get(sessionId)
+  getVariant(sessionID: string) {
+    const session = this.get(sessionID)
+    return session.variant
+  }
+
+  setVariant(sessionID: string, variant?: string) {
+    const session = this.get(sessionID)
+    session.variant = variant
+    this.sessions.set(sessionID, session)
+    return session
+  }
+
+  setMode(sessionID: string, modeId: string) {
+    const session = this.get(sessionID)
     session.modeId = modeId
-    this.sessions.set(sessionId, session)
+    this.sessions.set(sessionID, session)
     return session
   }
 }
+

@@ -5,3 +5,4 @@ export namespace Token {
     return Math.max(0, Math.round((input || "").length / CHARS_PER_TOKEN))
   }
 }
+

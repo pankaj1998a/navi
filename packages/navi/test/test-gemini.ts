@@ -1,8 +1,8 @@
 import { createGoogleGenerativeAI } from "@ai-sdk/google"
-import { GeminiCliProvider } from "./src/provider/providers/gemini-cli.ts"
+import { GeminiCliProvider } from "../src/provider/providers/gemini-cli"
 
 async function main() {
-    const providerInfo = await GeminiCliProvider.load()
+    const providerInfo = await GeminiCliProvider.load({} as any)
     if (!providerInfo || !providerInfo.options) {
         console.log("no options")
         return
@@ -14,7 +14,7 @@ async function main() {
         fetch: providerInfo.options.fetch,
     })
 
-    const model = providerInfo.getModel(google, "gemini-3.1-pro-preview")
+    const model = providerInfo.getModel?.(google, "gemini-3.1-pro-preview")
 
     // Quick token test
     try {

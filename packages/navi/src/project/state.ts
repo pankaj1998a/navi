@@ -28,42 +28,6 @@ export namespace State {
     }
   }
 
-  /**
-   * Refresh a specific state entry by re-initializing it.
-   * This is useful for updating state after authentication changes.
-   * @param key The root key (usually Instance.directory)
-   * @param init The init function that was used to create the state
-   */
-  export function refresh<S>(key: string, init: () => S): S {
-    let entries = recordsByKey.get(key)
-    if (!entries) {
-      // No entries exist, just create new state
-      const state = init()
-      entries = new Map<any, Entry>()
-      entries.set(init, { state })
-      recordsByKey.set(key, entries)
-      return state
-    }
-
-    // Find and remove the old entry
-    const existingEntry = entries.get(init)
-    if (existingEntry) {
-      // Call dispose if available (synchronously for now)
-      if (existingEntry.dispose) {
-        Promise.resolve(existingEntry.state)
-          .then((s) => existingEntry.dispose!(s))
-          .catch((error) => log.error("Error while disposing state during refresh:", { error, key }))
-      }
-      entries.delete(init)
-    }
-
-    // Create new state
-    const state = init()
-    entries.set(init, { state })
-    log.info("refreshed state", { key })
-    return state
-  }
-
   export async function dispose(key: string) {
     const entries = recordsByKey.get(key)
     if (!entries) return
@@ -82,20 +46,26 @@ export namespace State {
     }, 10000).unref()
 
     const tasks: Promise<void>[] = []
-    for (const entry of entries.values()) {
+    for (const [init, entry] of entries) {
       if (!entry.dispose) continue
+
+      const label = typeof init === "function" ? init.name : String(init)
 
       const task = Promise.resolve(entry.state)
         .then((state) => entry.dispose!(state))
         .catch((error) => {
-          log.error("Error while disposing state:", { error, key })
+          log.error("Error while disposing state:", { error, key, init: label })
         })
 
       tasks.push(task)
     }
-    entries.clear()
     await Promise.all(tasks)
+
+    entries.clear()
+    recordsByKey.delete(key)
+
     disposalFinished = true
     log.info("state disposal completed", { key })
   }
 }
+

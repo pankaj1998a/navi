@@ -45,3 +45,4 @@ export function DialogTimeline(props: {
 
   return <DialogSelect onMove={(option) => props.onMove(option.value)} title="Timeline" options={options()} />
 }
+

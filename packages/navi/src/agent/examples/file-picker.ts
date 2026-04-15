@@ -29,3 +29,5 @@ const FilePickerAgent: AgentTemplate = {
 
 AgentRegistry.register(FilePickerAgent)
 export { FilePickerAgent }
+
+

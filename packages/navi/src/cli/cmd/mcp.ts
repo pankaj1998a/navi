@@ -13,6 +13,8 @@ import { Installation } from "../../installation"
 import path from "path"
 import { Global } from "../../global"
 import { modify, applyEdits } from "jsonc-parser"
+import { Filesystem } from "../../util/filesystem"
+import { Bus } from "../../bus"
 
 function getAuthStatusIcon(status: MCP.AuthStatus): string {
   switch (status) {
@@ -21,7 +23,7 @@ function getAuthStatusIcon(status: MCP.AuthStatus): string {
     case "expired":
       return "⚠"
     case "not_authenticated":
-      return "○"
+      return "✗"
   }
 }
 
@@ -83,7 +85,7 @@ export const McpListCommand = cmd({
 
         if (servers.length === 0) {
           prompts.log.warn("No MCP servers configured")
-          prompts.outro("Add servers with: navi mcp add")
+          prompts.outro("Add servers with: Navi mcp add")
           return
         }
 
@@ -160,7 +162,7 @@ export const McpAuthCommand = cmd({
 
         if (oauthServers.length === 0) {
           prompts.log.warn("No OAuth-capable MCP servers configured")
-          prompts.log.info("Remote MCP servers support OAuth by default. Add a remote server in navi.json:")
+          prompts.log.info("Remote MCP servers support OAuth by default. Add a remote server in Navi.json:")
           prompts.log.info(`
   "mcp": {
     "my-server": {
@@ -227,6 +229,16 @@ export const McpAuthCommand = cmd({
         const spinner = prompts.spinner()
         spinner.start("Starting OAuth flow...")
 
+        // Subscribe to browser open failure events to show URL for manual opening
+        const unsubscribe = Bus.subscribe(MCP.BrowserOpenFailed, (evt) => {
+          if (evt.properties.mcpName === serverName) {
+            spinner.stop("Could not open browser automatically")
+            prompts.log.warn("Please open this URL in your browser to authenticate:")
+            prompts.log.info(evt.properties.url)
+            spinner.start("Waiting for authorization...")
+          }
+        })
+
         try {
           const status = await MCP.authenticate(serverName)
 
@@ -256,6 +268,8 @@ export const McpAuthCommand = cmd({
         } catch (error) {
           spinner.stop("Authentication failed", 1)
           prompts.log.error(error instanceof Error ? error.message : String(error))
+        } finally {
+          unsubscribe()
         }
 
         prompts.outro("Done")
@@ -367,29 +381,27 @@ export const McpLogoutCommand = cmd({
 })
 
 async function resolveConfigPath(baseDir: string, global = false) {
-  // Check for existing config files (prefer .jsonc over .json, check .navi/ subdirectory too)
-  const candidates = [path.join(baseDir, "navi.json"), path.join(baseDir, "navi.jsonc")]
+  // Check for existing config files (prefer .jsonc over .json, check .Navi/ subdirectory too)
+  const candidates = [path.join(baseDir, "Navi.json"), path.join(baseDir, "Navi.jsonc")]
 
   if (!global) {
-    candidates.push(path.join(baseDir, ".navi", "navi.json"), path.join(baseDir, ".navi", "navi.jsonc"))
+    candidates.push(path.join(baseDir, ".Navi", "Navi.json"), path.join(baseDir, ".Navi", "Navi.jsonc"))
   }
 
   for (const candidate of candidates) {
-    if (await Bun.file(candidate).exists()) {
+    if (await Filesystem.exists(candidate)) {
       return candidate
     }
   }
 
-  // Default to navi.json if none exist
+  // Default to Navi.json if none exist
   return candidates[0]
 }
 
 async function addMcpToConfig(name: string, mcpConfig: Config.Mcp, configPath: string) {
-  const file = Bun.file(configPath)
-
   let text = "{}"
-  if (await file.exists()) {
-    text = await file.text()
+  if (await Filesystem.exists(configPath)) {
+    text = await Filesystem.readText(configPath)
   }
 
   // Use jsonc-parser to modify while preserving comments
@@ -398,7 +410,7 @@ async function addMcpToConfig(name: string, mcpConfig: Config.Mcp, configPath: s
   })
   const result = applyEdits(text, edits)
 
-  await Bun.write(configPath, result)
+  await Filesystem.write(configPath, result)
 
   return configPath
 }
@@ -469,7 +481,7 @@ export const McpAddCommand = cmd({
         if (type === "local") {
           const command = await prompts.text({
             message: "Enter command to run",
-            placeholder: "e.g., navi x @modelcontextprotocol/server-filesystem",
+            placeholder: "e.g., Navi x @modelcontextprotocol/server-filesystem",
             validate: (x) => (x && x.length > 0 ? undefined : "Required"),
           })
           if (prompts.isCancel(command)) throw new UI.CancelledError()
@@ -650,7 +662,7 @@ export const McpDebugCommand = cmd({
               params: {
                 protocolVersion: "2024-11-05",
                 capabilities: {},
-                clientInfo: { name: "navi-debug", version: Installation.VERSION },
+                clientInfo: { name: "Navi-debug", version: Installation.VERSION },
               },
               id: 1,
             }),
@@ -691,7 +703,7 @@ export const McpDebugCommand = cmd({
 
             try {
               const client = new Client({
-                name: "navi-debug",
+                name: "Navi-debug",
                 version: Installation.VERSION,
               })
               await client.connect(transport)
@@ -740,3 +752,4 @@ export const McpDebugCommand = cmd({
     })
   },
 })
+

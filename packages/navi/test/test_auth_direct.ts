@@ -1,7 +1,7 @@
-import { Env } from "./src/env/index.ts"
-import { Auth } from "./src/auth/index.ts"
-import { Config } from "./src/config/config.ts"
-import { Global } from "./src/global/index.ts"
+import { Env } from "../src/env/index"
+import { Auth } from "../src/auth/index"
+import { Config } from "../src/config/config"
+import { Global } from "../src/global/index"
 
 await Global.init()
 

@@ -1,709 +1,614 @@
-import { MessageV2 } from "./message-v2"
-import { Log } from "@/util/log"
-import { Identifier } from "@/id/id"
-import { Session } from "."
+import { Cause, Effect, Layer, ServiceMap } from "effect"
+import * as Stream from "effect/Stream"
 import { Agent } from "@/agent/agent"
-import { Snapshot } from "@/snapshot"
-import { SessionSummary } from "./summary"
 import { Bus } from "@/bus"
+import { Config } from "@/config/config"
+import { Permission } from "@/permission"
+import { Plugin } from "@/plugin"
+import { Snapshot } from "@/snapshot"
+import { Log } from "@/util/log"
+import { Session } from "."
+import { LLM } from "./llm"
+import { MessageV2 } from "./message-v2"
+import { isOverflow } from "./overflow"
+import { PartID } from "./schema"
+import type { SessionID } from "./schema"
 import { SessionRetry } from "./retry"
 import { SessionStatus } from "./status"
-import { Plugin } from "@/plugin"
+import { SessionSummary } from "./summary"
 import type { Provider } from "@/provider/provider"
-import { LLM } from "./llm"
-import { Config } from "@/config/config"
-import { SessionCompaction } from "./compaction"
-import { PermissionNext } from "@/permission/next"
 import { Question } from "@/question"
-import { formatNaviResponseText, parseNaviResponse, type NaviResponse, type ResponseQuestion } from "./response"
-import { AgentPolicy } from "@/agent/policy"
-import { SessionTrace } from "./trace"
-import { EvalFramework } from "@/eval/framework"
-import { ProviderReliability } from "@/provider/reliability"
-import { AgentScorecard } from "@/agent/scorecard"
-import { ResearchLedger } from "./research-ledger"
-// SessionValidation disabled - was blocking responses and leaking data into TUI
-// import { SessionValidation } from "./validation"
-
+import { VerificationAgent } from "@/agent/VerificationAgent"
+import { Orchestrator } from "@/agent/orchestrator"
+import { SessionPrompt } from "./prompt"
+import { Identifier } from "@/id/id"
 
 export namespace SessionProcessor {
   const DOOM_LOOP_THRESHOLD = 3
   const log = Log.create({ service: "session.processor" })
 
-  export type Info = Awaited<ReturnType<typeof create>>
-  export type Result = Awaited<ReturnType<Info["process"]>>
+  export type Result = "compact" | "stop" | "continue"
 
-  function getErrorMessage(error: MessageV2.Assistant["error"]) {
-    if (!error) return undefined
-    return "message" in error.data ? error.data.message : undefined
+  export type Event = LLM.Event
+
+  export interface Handle {
+    readonly message: MessageV2.Assistant
+    readonly partFromToolCall: (toolCallID: string) => MessageV2.ToolPart | undefined
+    readonly abort: () => Effect.Effect<void>
+    readonly process: (streamInput: LLM.StreamInput) => Effect.Effect<Result>
   }
 
-  export function create(input: {
+  type Input = {
     assistantMessage: MessageV2.Assistant
-    sessionID: string
+    sessionID: SessionID
     model: Provider.Model
-    abort: AbortSignal
-  }) {
-    const toolcalls: Record<string, MessageV2.ToolPart> = {}
-    let snapshot: string | undefined
-    let blocked = false
-    let attempt = 0
-    let needsCompaction = false
+  }
 
-    const result = {
-      get message() {
-        return input.assistantMessage
-      },
-      partFromToolCall(toolCallID: string) {
-        return toolcalls[toolCallID]
-      },
-      async process(streamInput: LLM.StreamInput) {
-        log.info("process")
-        needsCompaction = false
-        const taskClass = await resolveTaskClass(input.sessionID, streamInput.agent.name)
-        let pendingQuestion: ResponseQuestion | undefined
-        let lastResponse: NaviResponse | undefined
-        let toolCallCount = 0
-        let structuredQuestionCount = 0
-        let delegationCount = 0
-        const policy = AgentPolicy.resolve(streamInput.agent.name, streamInput.agent.executionPolicy)
-        const shouldBreak = (await Config.get()).experimental?.continue_loop_on_deny !== true
-        const maxRetries = streamInput.retries ?? policy.maxRetries ?? 0
-        while (true) {
-        try {
-          let currentText: MessageV2.TextPart | undefined
-          let reasoningMap: Record<string, MessageV2.ReasoningPart> = {}
-          const stream = await LLM.stream(streamInput)
+  export interface Interface {
+    readonly create: (input: Input) => Effect.Effect<Handle>
+  }
 
-            for await (const value of stream.fullStream) {
-              log.info("stream event", { type: value.type })
-              input.abort.throwIfAborted()
-              switch (value.type) {
-                case "start":
-                  SessionStatus.set(input.sessionID, {
-                    type: "busy",
-                    phase: phaseForTaskClass(taskClass),
-                    taskClass,
-                    activeAgents: [streamInput.agent.name],
-                    activeTools: Object.keys(streamInput.tools),
-                    nextAction:
-                      taskClass === "vibemode"
-                        ? "plan the next delegation chunk"
-                        : "waiting for model response",
-                  })
-                  break
+  interface ProcessorContext extends Input {
+    toolcalls: Record<string, MessageV2.ToolPart>
+    shouldBreak: boolean
+    snapshot: string | undefined
+    blocked: boolean
+    needsCompaction: boolean
+    currentText: MessageV2.TextPart | undefined
+    reasoningMap: Record<string, MessageV2.ReasoningPart>
+    verificationNeeded: boolean
+  }
 
-                case "reasoning-start":
-                  if (value.id in reasoningMap) {
-                    continue
-                  }
-                  reasoningMap[value.id] = {
-                    id: Identifier.ascending("part"),
-                    messageID: input.assistantMessage.id,
-                    sessionID: input.assistantMessage.sessionID,
-                    type: "reasoning",
-                    text: "",
-                    time: {
-                      start: Date.now(),
-                    },
-                    metadata: value.providerMetadata,
-                  }
-                  break
+  type StreamEvent = Event
 
-                case "reasoning-delta":
-                  if (value.id in reasoningMap) {
-                    const part = reasoningMap[value.id]
-                    part.text += value.text
-                    if (value.providerMetadata) part.metadata = value.providerMetadata
-                    if (part.text) await Session.updatePart({ part, delta: value.text })
-                  }
-                  break
+  export class Service extends ServiceMap.Service<Service, Interface>()("@navi/SessionProcessor") {}
 
-                case "reasoning-end":
-                  if (value.id in reasoningMap) {
-                    const part = reasoningMap[value.id]
-                    part.text = part.text.trimEnd()
+  export const layer: Layer.Layer<
+    Service,
+    never,
+    | Session.Service
+    | Config.Service
+    | Bus.Service
+    | Snapshot.Service
+    | Agent.Service
+    | LLM.Service
+    | Permission.Service
+    | Plugin.Service
+    | SessionStatus.Service
+  > = Layer.effect(
+    Service,
+    Effect.gen(function* () {
+      const session = yield* Session.Service
+      const config = yield* Config.Service
+      const bus = yield* Bus.Service
+      const snapshot = yield* Snapshot.Service
+      const agents = yield* Agent.Service
+      const llm = yield* LLM.Service
+      const permission = yield* Permission.Service
+      const plugin = yield* Plugin.Service
+      const status = yield* SessionStatus.Service
 
-                    part.time = {
-                      ...part.time,
-                      end: Date.now(),
-                    }
-                    if (value.providerMetadata) part.metadata = value.providerMetadata
-                    await Session.updatePart(part)
-                    delete reasoningMap[value.id]
-                  }
-                  break
+      const create = Effect.fn("SessionProcessor.create")(function* (input: Input) {
+        const ctx: ProcessorContext = {
+          assistantMessage: input.assistantMessage,
+          sessionID: input.sessionID,
+          model: input.model,
+          toolcalls: {},
+          shouldBreak: false,
+          snapshot: undefined,
+          blocked: false,
+          needsCompaction: false,
+          currentText: undefined,
+          reasoningMap: {},
+          verificationNeeded: false,
+        }
+        let aborted = false
 
-                case "tool-input-start":
-                  const part = await Session.updatePart({
-                    id: toolcalls[value.id]?.id ?? Identifier.ascending("part"),
-                    messageID: input.assistantMessage.id,
-                    sessionID: input.assistantMessage.sessionID,
-                    type: "tool",
-                    tool: value.toolName,
-                    callID: value.id,
-                    state: {
-                      status: "pending",
-                      input: {},
-                      raw: "",
-                    },
-                  })
-                  toolcalls[value.id] = part as MessageV2.ToolPart
-                  break
+        const parse = (e: unknown) =>
+          MessageV2.fromError(e, {
+            providerID: input.model.providerID,
+            aborted,
+          })
 
-                case "tool-input-delta":
-                  break
+        const handleEvent = Effect.fn("SessionProcessor.handleEvent")(function* (value: StreamEvent) {
+          switch (value.type) {
+            case "start":
+              yield* status.set(ctx.sessionID, { type: "busy" })
+              return
 
-                case "tool-input-end":
-                  break
-
-                case "tool-call": {
-                  toolCallCount++
-                  if (policy.maxToolCalls && toolCallCount > policy.maxToolCalls) {
-                    throw new Error(`Execution policy exceeded: maxToolCalls=${policy.maxToolCalls}`)
-                  }
-                  if (AgentPolicy.isDelegationTool(value.toolName)) {
-                    delegationCount++
-                    if (policy.maxDelegations && delegationCount > policy.maxDelegations) {
-                      throw new Error(`Execution policy exceeded: maxDelegations=${policy.maxDelegations}`)
-                    }
-                  }
-                  const match = toolcalls[value.toolCallId]
-                  if (match) {
-                    const part = await Session.updatePart({
-                      ...match,
-                      tool: value.toolName,
-                      state: {
-                        status: "running",
-                        input: value.input,
-                        time: {
-                          start: Date.now(),
-                        },
-                      },
-                      metadata: value.providerMetadata,
-                    })
-                    toolcalls[value.toolCallId] = part as MessageV2.ToolPart
-                    SessionStatus.set(input.sessionID, {
-                      type: "busy",
-                      phase: AgentPolicy.isDelegationTool(value.toolName) ? "delegating" : "running",
-                      taskClass,
-                      activeAgents: [streamInput.agent.name],
-                      activeTools: [value.toolName],
-                      nextAction: "waiting for tool result",
-                    })
-
-                    const parts = await MessageV2.parts(input.assistantMessage.id)
-                    const lastThree = parts.slice(-DOOM_LOOP_THRESHOLD)
-
-                    if (
-                      lastThree.length === DOOM_LOOP_THRESHOLD &&
-                      lastThree.every(
-                        (p) =>
-                          p.type === "tool" &&
-                          p.tool === value.toolName &&
-                          p.state.status !== "pending" &&
-                          JSON.stringify(p.state.input) === JSON.stringify(value.input),
-                      )
-                    ) {
-                      const agent = await Agent.get(input.assistantMessage.agent)
-                      await PermissionNext.ask({
-                        permission: "doom_loop",
-                        patterns: [value.toolName],
-                        sessionID: input.assistantMessage.sessionID,
-                        metadata: {
-                          tool: value.toolName,
-                          input: value.input,
-                        },
-                        always: [value.toolName],
-                        ruleset: agent.permission,
-                      })
-                    }
-                  }
-                  break
-                }
-                case "tool-result": {
-                  const match = toolcalls[value.toolCallId]
-                  if (match && match.state.status === "running") {
-                    await Session.updatePart({
-                      ...match,
-                      state: {
-                        status: "completed",
-                        input: value.input,
-                        output: value.output.output,
-                        metadata: value.output.metadata,
-                        title: value.output.title,
-                        time: {
-                          start: match.state.time.start,
-                          end: Date.now(),
-                        },
-                        attachments: value.output.attachments,
-                      },
-                    })
-
-                    delete toolcalls[value.toolCallId]
-                  }
-                  break
-                }
-
-                case "tool-error": {
-                  const match = toolcalls[value.toolCallId]
-                  if (match && match.state.status === "running") {
-                    await Session.updatePart({
-                      ...match,
-                      state: {
-                        status: "error",
-                        input: value.input,
-                        error: (value.error as any).toString(),
-                        time: {
-                          start: match.state.time.start,
-                          end: Date.now(),
-                        },
-                      },
-                    })
-
-                    if (
-                      value.error instanceof PermissionNext.RejectedError ||
-                      value.error instanceof Question.RejectedError
-                    ) {
-                      blocked = shouldBreak
-                      SessionStatus.set(input.sessionID, {
-                        type: "busy",
-                        phase: "blocked",
-                        taskClass,
-                        activeAgents: [streamInput.agent.name],
-                        blockedReason:
-                          value.error instanceof PermissionNext.RejectedError
-                            ? "permission rejected"
-                            : "question rejected",
-                        nextAction: "wait for user steering",
-                      })
-                    }
-                    delete toolcalls[value.toolCallId]
-                  }
-                  break
-                }
-                case "error":
-                  throw value.error
-
-                case "start-step":
-                  snapshot = await Snapshot.track()
-                  await Session.updatePart({
-                    id: Identifier.ascending("part"),
-                    messageID: input.assistantMessage.id,
-                    sessionID: input.sessionID,
-                    snapshot,
-                    type: "step-start",
-                  })
-                  break
-
-                case "finish-step": {
-                  const usage = Session.getUsage({
-                    model: input.model,
-                    usage: value.usage,
-                    metadata: value.providerMetadata,
-                  })
-                  input.assistantMessage.finish = value.finishReason
-                  input.assistantMessage.cost += usage.cost
-                  input.assistantMessage.tokens = usage.tokens
-                  await Session.updatePart({
-                    id: Identifier.ascending("part"),
-                    reason: value.finishReason,
-                    snapshot: await Snapshot.track(),
-                    messageID: input.assistantMessage.id,
-                    sessionID: input.assistantMessage.sessionID,
-                    type: "step-finish",
-                    tokens: usage.tokens,
-                    cost: usage.cost,
-                  })
-                  await Session.updateMessage(input.assistantMessage)
-                  if (snapshot) {
-                    const patch = await Snapshot.patch(snapshot)
-                    if (patch.files.length) {
-                      await Session.updatePart({
-                        id: Identifier.ascending("part"),
-                        messageID: input.assistantMessage.id,
-                        sessionID: input.sessionID,
-                        type: "patch",
-                        hash: patch.hash,
-                        files: patch.files,
-                      })
-                    }
-                    snapshot = undefined
-                  }
-                  SessionSummary.summarize({
-                    sessionID: input.sessionID,
-                    messageID: input.assistantMessage.parentID,
-                  })
-                  if (await SessionCompaction.isOverflow({ tokens: usage.tokens, model: input.model })) {
-                    needsCompaction = true
-                  }
-                  break
-                }
-
-                case "text-start":
-                  currentText = {
-                    id: Identifier.ascending("part"),
-                    messageID: input.assistantMessage.id,
-                    sessionID: input.assistantMessage.sessionID,
-                    type: "text",
-                    text: "",
-                    time: {
-                      start: Date.now(),
-                    },
-                    metadata: value.providerMetadata,
-                  }
-                  break
-
-                case "text-delta":
-                  if (currentText) {
-                    currentText.text += value.text
-                    if (value.providerMetadata) currentText.metadata = value.providerMetadata
-                    if (currentText.text)
-                      await Session.updatePart({
-                        part: currentText,
-                        delta: value.text,
-                      })
-                  }
-                  break
-
-                case "text-end":
-                  if (currentText) {
-                    currentText.text = currentText.text.trimEnd()
-                    const textOutput = await Plugin.trigger(
-                      "experimental.text.complete",
-                      {
-                        sessionID: input.sessionID,
-                        messageID: input.assistantMessage.id,
-                        partID: currentText.id,
-                      },
-                      { text: currentText.text },
-                    )
-                    currentText.text = textOutput.text
-                    currentText.time = {
-                      start: Date.now(),
-                      end: Date.now(),
-                    }
-                    if (value.providerMetadata) currentText.metadata = value.providerMetadata
-                    // Parse unified response envelope from the completed text
-                    currentText.response = parseNaviResponse(currentText.text)
-                    lastResponse = currentText.response
-                    currentText.text = formatNaviResponseText(currentText.response, currentText.text)
-                    pendingQuestion =
-                      currentText.response.status === "asking" ? currentText.response.question : undefined
-                    if (pendingQuestion) structuredQuestionCount++
-                    await Session.updatePart(currentText)
-                  }
-                  currentText = undefined
-                  break
-
-
-                case "finish":
-                  break
-
-                default:
-                  log.info("unhandled", {
-                    ...value,
-                  })
-                  continue
+            case "reasoning-start":
+              if (value.id in ctx.reasoningMap) return
+              ctx.reasoningMap[value.id] = {
+                id: PartID.ascending(),
+                messageID: ctx.assistantMessage.id,
+                sessionID: ctx.sessionID,
+                type: "reasoning",
+                text: "",
+                time: { start: Date.now() },
+                metadata: value.providerMetadata,
               }
-              if (needsCompaction) break
-            }
+              yield* session.updatePart(ctx.reasoningMap[value.id])
+              return
 
-            if (pendingQuestion) {
-              try {
-                if (policy.maxQuestions && structuredQuestionCount > policy.maxQuestions) {
-                  blocked = shouldBreak
-                  pendingQuestion = undefined
-                  SessionStatus.set(input.sessionID, {
-                    type: "busy",
-                    phase: "blocked",
-                    taskClass,
-                    activeAgents: [streamInput.agent.name],
-                    blockedReason: "question limit exceeded",
-                    nextAction: "continue only after user steering",
-                  })
-                } else {
-                  SessionStatus.set(input.sessionID, {
-                    type: "busy",
-                    phase: "waiting",
-                    taskClass,
-                    activeAgents: [streamInput.agent.name],
-                    blockedReason: "waiting for user answer",
-                    nextAction: pendingQuestion.expectedNextStep,
-                  })
-                  const answers = await Question.ask({
-                    sessionID: input.sessionID,
-                    questions: [responseQuestionToPrompt(pendingQuestion)],
-                  })
-                  await createQuestionReplyMessage({
-                    sessionID: input.sessionID,
-                    assistantMessage: input.assistantMessage,
-                    question: pendingQuestion,
-                    answers,
-                  })
-                }
-              } catch (error) {
-                if (error instanceof Question.RejectedError) {
-                  blocked = shouldBreak
-                } else {
-                  throw error
-                }
-              }
-            }
-          } catch (e: any) {
-            log.error("process", {
-              error: e,
-              stack: JSON.stringify(e.stack),
-            })
-            const error = MessageV2.fromError(e, { providerID: input.model.providerID })
-            const retry = SessionRetry.retryable(error)
-            if (retry !== undefined && attempt < maxRetries) {
-              attempt++
-              const delay = SessionRetry.delay(attempt, error.name === "APIError" ? error : undefined)
-              SessionStatus.set(input.sessionID, {
-                type: "retry",
-                attempt,
-                message: retry,
-                next: Date.now() + delay,
-                phase: "retrying",
-                taskClass,
-                activeAgents: [streamInput.agent.name],
-                nextAction: `retry in ${Math.ceil(delay / 1000)}s`,
+            case "reasoning-delta":
+              if (!(value.id in ctx.reasoningMap)) return
+              ctx.reasoningMap[value.id].text += value.text
+              if (value.providerMetadata) ctx.reasoningMap[value.id].metadata = value.providerMetadata
+              yield* session.updatePartDelta({
+                sessionID: ctx.reasoningMap[value.id].sessionID,
+                messageID: ctx.reasoningMap[value.id].messageID,
+                partID: ctx.reasoningMap[value.id].id,
+                field: "text",
+                delta: value.text,
               })
-              await SessionRetry.sleep(delay, input.abort).catch(() => { })
-              continue
+              return
+
+            case "reasoning-end":
+              if (!(value.id in ctx.reasoningMap)) return
+              ctx.reasoningMap[value.id].text = ctx.reasoningMap[value.id].text.trimEnd()
+              ctx.reasoningMap[value.id].time = { ...ctx.reasoningMap[value.id].time, end: Date.now() }
+              if (value.providerMetadata) ctx.reasoningMap[value.id].metadata = value.providerMetadata
+              yield* session.updatePart(ctx.reasoningMap[value.id])
+              delete ctx.reasoningMap[value.id]
+              return
+
+            case "tool-input-start":
+              if (ctx.assistantMessage.summary) {
+                throw new Error(`Tool call not allowed while generating summary: ${value.toolName}`)
+              }
+              ctx.toolcalls[value.id] = yield* session.updatePart({
+                id: ctx.toolcalls[value.id]?.id ?? PartID.ascending(),
+                messageID: ctx.assistantMessage.id,
+                sessionID: ctx.sessionID,
+                type: "tool",
+                tool: value.toolName,
+                callID: value.id,
+                state: { status: "pending", input: {}, raw: "" },
+              } satisfies MessageV2.ToolPart)
+              return
+
+            case "tool-input-delta":
+              return
+
+            case "tool-input-end":
+              return
+
+            case "tool-call": {
+              if (ctx.assistantMessage.summary) {
+                throw new Error(`Tool call not allowed while generating summary: ${value.toolName}`)
+              }
+              const match = ctx.toolcalls[value.toolCallId]
+              if (!match) return
+              ctx.toolcalls[value.toolCallId] = (yield* session.updatePart({
+                ...match,
+                tool: value.toolName,
+                state: { status: "running", input: value.input as Record<string, any>, time: { start: Date.now() } },
+                metadata: value.providerMetadata,
+              } satisfies MessageV2.ToolPart)) as MessageV2.ToolPart
+
+              const parts = yield* Effect.promise(() =>
+                MessageV2.parts({ sessionID: ctx.sessionID, messageID: ctx.assistantMessage.id }),
+              )
+              const recentParts = parts.slice(-DOOM_LOOP_THRESHOLD)
+
+              if (
+                recentParts.length !== DOOM_LOOP_THRESHOLD ||
+                !recentParts.every(
+                  (part) =>
+                    part.type === "tool" &&
+                    part.tool === value.toolName &&
+                    part.state.status !== "pending" &&
+                    JSON.stringify(part.state.input) === JSON.stringify(value.input),
+                )
+              ) {
+                return
+              }
+
+              const agent = yield* agents.get(ctx.assistantMessage.agent)
+              yield* permission.ask({
+                permission: "doom_loop",
+                patterns: [value.toolName],
+                sessionID: ctx.assistantMessage.sessionID,
+                metadata: { tool: value.toolName, input: value.input },
+                always: [value.toolName],
+                ruleset: agent?.permission ?? [],
+              })
+              return
             }
-            input.assistantMessage.error = error
-            Bus.publish(Session.Event.Error, {
-              sessionID: input.assistantMessage.sessionID,
-              error: input.assistantMessage.error,
-            })
+
+            case "tool-result": {
+              const match = ctx.toolcalls[value.toolCallId]
+              if (!match || match.state.status !== "running") return
+              yield* session.updatePart({
+                ...match,
+                state: {
+                  status: "completed",
+                  input: (value.input ?? match.state.input) as Record<string, any>,
+                  output: (value.output as any).output,
+                  metadata: (value.output as any).metadata,
+                  title: (value.output as any).title,
+                  time: { start: match.state.time.start, end: Date.now() },
+                  attachments: (value.output as any).attachments,
+                },
+              })
+              
+              const sensitiveTools = ["write", "edit", "bash", "apply_patch", "execute_phase", "quick_task"]
+              if (sensitiveTools.includes(match.tool)) {
+                ctx.verificationNeeded = true
+              }
+
+              delete ctx.toolcalls[value.toolCallId]
+              return
+            }
+
+            case "tool-error": {
+              const match = ctx.toolcalls[value.toolCallId]
+              if (!match || match.state.status !== "running") return
+              yield* session.updatePart({
+                ...match,
+                state: {
+                  status: "error",
+                  input: value.input ?? match.state.input,
+                  error: value.error instanceof Error ? value.error.message : String(value.error),
+                  time: { start: match.state.time.start, end: Date.now() },
+                },
+              })
+              if (value.error instanceof Permission.RejectedError || value.error instanceof Question.RejectedError) {
+                ctx.blocked = ctx.shouldBreak
+              }
+              delete ctx.toolcalls[value.toolCallId]
+              return
+            }
+
+            case "error":
+              throw value.error
+
+            case "start-step":
+              ctx.snapshot = yield* snapshot.track()
+              yield* session.updatePart({
+                id: PartID.ascending(),
+                messageID: ctx.assistantMessage.id,
+                sessionID: ctx.sessionID,
+                snapshot: ctx.snapshot,
+                type: "step-start",
+              })
+              return
+
+            case "finish-step": {
+              const usage = Session.getUsage({
+                model: ctx.model,
+                usage: value.usage,
+                metadata: value.providerMetadata,
+              })
+              ctx.assistantMessage.finish = value.finishReason
+              ctx.assistantMessage.cost += usage.cost
+              ctx.assistantMessage.tokens = usage.tokens
+              yield* session.updatePart({
+                id: PartID.ascending(),
+                reason: value.finishReason,
+                snapshot: yield* snapshot.track(),
+                messageID: ctx.assistantMessage.id,
+                sessionID: ctx.sessionID,
+                type: "step-finish",
+                tokens: usage.tokens,
+                cost: usage.cost,
+              })
+              yield* session.updateMessage(ctx.assistantMessage)
+
+              // Track cost for /cost command
+              yield* Effect.promise(() =>
+                import("./cost-tracker").then(({ CostTracker }) =>
+                  CostTracker.track(
+                    ctx.sessionID,
+                    ctx.model.id,
+                    ctx.model.providerID,
+                    {
+                      inputTokens: usage.tokens.input,
+                      outputTokens: usage.tokens.output,
+                      cacheReadTokens: usage.tokens.cache.read,
+                      cacheWriteTokens: usage.tokens.cache.write,
+                    },
+                  ),
+                ),
+              )
+
+              if (ctx.snapshot) {
+                const patch = yield* snapshot.patch(ctx.snapshot)
+                if (patch.files.length) {
+                  yield* session.updatePart({
+                    id: PartID.ascending(),
+                    messageID: ctx.assistantMessage.id,
+                    sessionID: ctx.sessionID,
+                    type: "patch",
+                    hash: patch.hash,
+                    files: patch.files,
+                  })
+                }
+                ctx.snapshot = undefined
+              }
+              SessionSummary.summarize({
+                sessionID: ctx.sessionID,
+                messageID: ctx.assistantMessage.parentID,
+              })
+              if (
+                !ctx.assistantMessage.summary &&
+                isOverflow({ cfg: yield* config.get(), tokens: usage.tokens, model: ctx.model })
+              ) {
+                ctx.needsCompaction = true
+              }
+              
+              // NEW: Trigger implicit verification for primary agents after sensitive changes
+              if (
+                ctx.verificationNeeded &&
+                !ctx.assistantMessage.summary &&
+                (ctx.assistantMessage.agent === "build" || ctx.assistantMessage.agent === "general")
+              ) {
+                const orchModule = yield* Effect.promise(() => import("../agent/orchestrator"))
+                const vaModule = yield* Effect.promise(() => import("../agent/VerificationAgent"))
+                const sessionPromptModule = yield* Effect.promise(() => import("./prompt"))
+                const orch = new orchModule.Orchestrator()
+                const va = new vaModule.VerificationAgent(orch)
+
+                const lastMsg = ctx.assistantMessage
+                const history = yield* session.messages({ sessionID: ctx.sessionID as any })
+                const lastFullMsg = (history as any[]).find((m: any) => m.info.id === lastMsg.id)
+                const outputStr = lastFullMsg?.parts?.filter((p: any) => p.type === "text").map((p: any) => p.text).join("\n") ?? ""
+
+                const task = {
+                  id: lastMsg.id,
+                  description: "Verify the recent implementation for regressions or hallucinations.",
+                  type: lastMsg.agent
+                } as any
+                
+                const result = yield* Effect.promise(() => va.verify(ctx.sessionID, task, {
+                  output: outputStr,
+                  success: true
+                } as any))
+                
+                if (!result.success) {
+                  log.warn("Adversarial verification failed. Triggering auto-recovery turn.", { taskId: task.id })
+                  
+                  // Inject failure into the conversation
+                  yield* session.updatePart({
+                    id: PartID.ascending(),
+                    messageID: ctx.assistantMessage.id,
+                    sessionID: ctx.sessionID,
+                    type: "text",
+                    text: `\n\n> [!CAUTION]\n> **ADVERSARIAL VERIFICATION FAILED**\n> ${result.output}\n\nNavi is attempting to auto-fix the issue...`,
+                    synthetic: true
+                  } as any)
+
+                  // Trigger a RECOVERY PROMPT
+                  yield* sessionPromptModule.SessionPrompt.prompt({
+                    messageID: Identifier.ascending("message") as any,
+                    sessionID: ctx.sessionID,
+                    agent: ctx.assistantMessage.agent,
+                    parts: [{ 
+                      type: "text", 
+                      text: `Verification of your last action failed with the following feedback: ${result.output}. Please fix the issues and ensure all requirements are met. Use a high-reasoning approach to avoid further regressions.` 
+                    }],
+                    variant: "think" // Forced thinking boost
+                  })
+                }
+                ctx.verificationNeeded = false
+              }
+              return
+            }
+
+
+            case "text-start":
+              ctx.currentText = {
+                id: PartID.ascending(),
+                messageID: ctx.assistantMessage.id,
+                sessionID: ctx.sessionID,
+                type: "text",
+                text: "",
+                time: { start: Date.now() },
+                metadata: value.providerMetadata,
+              }
+              yield* session.updatePart(ctx.currentText)
+              return
+
+            case "text-delta":
+              if (!ctx.currentText) return
+              ctx.currentText.text += value.text
+              if (value.providerMetadata) ctx.currentText.metadata = value.providerMetadata
+              yield* session.updatePartDelta({
+                sessionID: ctx.currentText.sessionID,
+                messageID: ctx.currentText.messageID,
+                partID: ctx.currentText.id,
+                field: "text",
+                delta: value.text,
+              })
+              return
+
+            case "text-end":
+              if (!ctx.currentText) return
+              ctx.currentText.text = ctx.currentText.text.trimEnd()
+              ctx.currentText.text = (yield* plugin.trigger(
+                "experimental.text.complete",
+                {
+                  sessionID: ctx.sessionID,
+                  messageID: ctx.assistantMessage.id,
+                  partID: ctx.currentText.id,
+                },
+                { text: ctx.currentText.text },
+              )).text
+              ctx.currentText.time = { start: Date.now(), end: Date.now() }
+              if (value.providerMetadata) ctx.currentText.metadata = value.providerMetadata
+              yield* session.updatePart(ctx.currentText)
+              ctx.currentText = undefined
+              return
+
+            case "finish":
+              return
+
+            default:
+              log.info("unhandled", { ...value })
+              return
           }
-          if (snapshot) {
-            const patch = await Snapshot.patch(snapshot)
+        })
+
+        const cleanup = Effect.fn("SessionProcessor.cleanup")(function* () {
+          if (ctx.snapshot) {
+            const patch = yield* snapshot.patch(ctx.snapshot)
             if (patch.files.length) {
-              await Session.updatePart({
-                id: Identifier.ascending("part"),
-                messageID: input.assistantMessage.id,
-                sessionID: input.sessionID,
+              yield* session.updatePart({
+                id: PartID.ascending(),
+                messageID: ctx.assistantMessage.id,
+                sessionID: ctx.sessionID,
                 type: "patch",
                 hash: patch.hash,
                 files: patch.files,
               })
             }
-            snapshot = undefined
+            ctx.snapshot = undefined
           }
-          const p = await MessageV2.parts(input.assistantMessage.id)
-          for (const part of p) {
-            if (part.type === "tool" && part.state.status !== "completed" && part.state.status !== "error") {
-              await Session.updatePart({
-                ...part,
-                state: {
-                  ...part.state,
-                  status: "error",
-                  error: "Tool execution aborted",
-                  time: {
-                    start: Date.now(),
-                    end: Date.now(),
-                  },
-                },
-              })
-            }
+
+          if (ctx.currentText) {
+            const end = Date.now()
+            ctx.currentText.time = { start: ctx.currentText.time?.start ?? end, end }
+            yield* session.updatePart(ctx.currentText)
+            ctx.currentText = undefined
           }
-          input.assistantMessage.time.completed = Date.now()
-          await Session.updateMessage(input.assistantMessage)
-          const step = countCompletedAssistantTurns(await Session.messages({ sessionID: input.sessionID, limit: 20 }))
-          await SessionTrace.record(input.sessionID, {
-            type: "turn.finish",
-            step,
-            agent: streamInput.agent.name,
-            agentVersion: streamInput.agent.version,
-            promptHash: streamInput.agent.prompt ? Bun.hash.xxHash32(streamInput.agent.prompt).toString(16) : undefined,
-            taskClass,
-            finish: input.assistantMessage.finish,
-            toolCalls: toolCallCount,
-            questionCount: structuredQuestionCount,
-            cost: input.assistantMessage.cost,
-            error: getErrorMessage(input.assistantMessage.error),
-            responseKind: lastResponse?.kind,
-            responseConfidence: lastResponse?.confidence,
-            responseSources: lastResponse?.sources?.slice(0, 8),
-            responseNextStep: lastResponse?.nextStep,
-            responseBlockedReason: lastResponse?.blockedReason,
-            responseHandoff: lastResponse?.handoff,
-          })
-          await AgentScorecard.record({
-            taskClass,
-            agentName: streamInput.agent.name,
-            success: !input.assistantMessage.error,
-            latencyMs:
-              (input.assistantMessage.time.completed ?? Date.now()) - input.assistantMessage.time.created,
-            cost: input.assistantMessage.cost,
-            toolCalls: toolCallCount,
-            questionCount: structuredQuestionCount,
-          })
-          await ProviderReliability.record({
-            providerID: input.model.providerID,
-            modelID: input.model.id,
-            success: !input.assistantMessage.error,
-            latencyMs:
-              (input.assistantMessage.time.completed ?? Date.now()) - input.assistantMessage.time.created,
-            cost: input.assistantMessage.cost,
-          })
-          await EvalFramework.recordTurn({
-            sessionID: input.sessionID,
-            taskClass,
-            step,
-            agent: streamInput.agent.name,
-            requestedModel: `${streamInput.user.model.providerID}/${streamInput.user.model.modelID}`,
-            routedModel: `${input.model.providerID}/${input.model.id}`,
-            toolCalls: toolCallCount,
-            questionCount: structuredQuestionCount,
-            cost: input.assistantMessage.cost,
-            finish: input.assistantMessage.finish,
-            error: getErrorMessage(input.assistantMessage.error),
-            routingReasons: streamInput.routingReasons,
-            responseKind: lastResponse?.kind,
-            responseConfidence: lastResponse?.confidence,
-            responseSources: lastResponse?.sources,
-            responseNextStep: lastResponse?.nextStep,
-            responseBlockedReason: lastResponse?.blockedReason,
-            responseHandoff: lastResponse?.handoff,
-            policy: {
-              maxIterations: policy.maxIterations,
-              maxToolCalls: policy.maxToolCalls,
-              maxQuestions: policy.maxQuestions,
-              maxRetries: policy.maxRetries,
-              maxDelegations: policy.maxDelegations,
-            },
-          })
-          if (taskClass === "researcher" || taskClass === "autoresearch" || taskClass === "research" || taskClass === "browse") {
-            await ResearchLedger.recordTurn({
-              sessionID: input.sessionID,
-              taskClass,
-              agent: streamInput.agent.name,
-              summary: lastResponse?.summary ?? lastResponse?.answer?.slice(0, 400) ?? "",
-              sources: lastResponse?.sources ?? [],
-              confidence: lastResponse?.confidence,
-              kind: lastResponse?.kind,
-              nextStep: lastResponse?.nextStep,
-              blockedReason: lastResponse?.blockedReason,
+
+          for (const part of Object.values(ctx.reasoningMap)) {
+            const end = Date.now()
+            yield* session.updatePart({
+              ...part,
+              time: { start: part.time.start ?? end, end },
             })
           }
-          if (needsCompaction) return "compact"
-          if (blocked) return "stop"
-          if (input.assistantMessage.error) return "stop"
-          return "continue"
-        }
-      },
-    }
-    return result
-  }
+          ctx.reasoningMap = {}
 
-  function responseQuestionToPrompt(question: ResponseQuestion): Question.Info {
-    return {
-      question: question.text,
-      header: buildQuestionHeader(question.text),
-      options: (question.options ?? []).map((option) => ({
-        label: option.label,
-        description: option.description ?? option.value ?? option.label,
-      })),
-      why: question.why,
-      recommendedOption: question.recommendedOption,
-      impact: question.impact,
-      expectedNextStep: question.expectedNextStep,
-    }
-  }
+          const parts = yield* Effect.promise(() =>
+            MessageV2.parts({ sessionID: ctx.sessionID, messageID: ctx.assistantMessage.id }),
+          )
+          for (const part of parts) {
+            if (part.type !== "tool" || part.state.status === "completed" || part.state.status === "error") continue
+            yield* session.updatePart({
+              ...part,
+              // Inject sessionID from context for legacy DB rows that have null session_id
+              sessionID: part.sessionID ?? ctx.sessionID,
+              messageID: part.messageID ?? ctx.assistantMessage.id,
+              state: {
+                ...part.state,
+                status: "error",
+                error: "Tool execution aborted",
+                time: { start: Date.now(), end: Date.now() },
+              },
+            })
+          }
+          ctx.assistantMessage.time.completed = Date.now()
+          yield* session.updateMessage(ctx.assistantMessage)
+        })
 
-  function buildQuestionHeader(text: string) {
-    const normalized = text
-      .replace(/[^a-z0-9 ]/gi, " ")
-      .trim()
-      .split(/\s+/)
-      .slice(0, 2)
-      .join(" ")
+        const halt = Effect.fn("SessionProcessor.halt")(function* (e: unknown) {
+          log.error("process", { error: e, stack: e instanceof Error ? e.stack : undefined })
+          const error = parse(e)
+          if (MessageV2.ContextOverflowError.isInstance(error)) {
+            ctx.needsCompaction = true
+            yield* bus.publish(Session.Event.Error, { sessionID: ctx.sessionID, error })
+            return
+          }
+          ctx.assistantMessage.error = error
+          yield* bus.publish(Session.Event.Error, {
+            sessionID: ctx.assistantMessage.sessionID,
+            error: ctx.assistantMessage.error,
+          })
+          yield* status.set(ctx.sessionID, { type: "idle" })
+        })
 
-    if (!normalized) return "Question"
-    return normalized.slice(0, 12)
-  }
+        const abort = Effect.fn("SessionProcessor.abort")(() =>
+          Effect.gen(function* () {
+            if (!ctx.assistantMessage.error) {
+              yield* halt(new DOMException("Aborted", "AbortError"))
+            }
+            if (!ctx.assistantMessage.time.completed) {
+              yield* cleanup()
+              return
+            }
+            yield* session.updateMessage(ctx.assistantMessage)
+          }),
+        )
 
-  function formatQuestionReply(question: ResponseQuestion, answers: Question.Answer[]) {
-    const answer = answers[0] ?? []
-    const rendered = answer.length ? answer.join(", ") : "(unanswered)"
-    return [
-      "The user answered your question.",
-      `Question: ${question.text}`,
-      question.why ? `Why: ${question.why}` : "",
-      question.impact ? `Impact: ${question.impact}` : "",
-      question.expectedNextStep ? `Expected next step: ${question.expectedNextStep}` : "",
-      question.recommendedOption ? `Recommended option: ${question.recommendedOption}` : "",
-      `Answer: ${rendered}`,
-    ]
-      .filter(Boolean)
-      .join("\n")
-  }
+        const process = Effect.fn("SessionProcessor.process")(function* (streamInput: LLM.StreamInput) {
+          log.info("process")
+          ctx.needsCompaction = false
+          ctx.shouldBreak = (yield* config.get()).experimental?.continue_loop_on_deny !== true
 
-  async function createQuestionReplyMessage(input: {
-    sessionID: string
-    assistantMessage: MessageV2.Assistant
-    question: ResponseQuestion
-    answers: Question.Answer[]
-  }) {
-    const parent = await MessageV2.get({
-      sessionID: input.sessionID,
-      messageID: input.assistantMessage.parentID,
-    })
+          return yield* Effect.gen(function* () {
+            yield* Effect.gen(function* () {
+              ctx.currentText = undefined
+              ctx.reasoningMap = {}
+              const stream = llm.stream(streamInput)
 
-    if (parent.info.role !== "user") {
-      throw new Error("Structured question replies require a parent user message")
-    }
+              yield* stream.pipe(
+                Stream.tap((event) => handleEvent(event)),
+                Stream.takeUntil(() => ctx.needsCompaction),
+                Stream.runDrain,
+              )
+            }).pipe(
+              Effect.onInterrupt(() => Effect.sync(() => void (aborted = true))),
+              Effect.catchCauseIf(
+                (cause) => !Cause.hasInterruptsOnly(cause),
+                (cause) => Effect.fail(Cause.squash(cause)),
+              ),
+              Effect.retry(
+                SessionRetry.policy({
+                  parse,
+                  set: (info) =>
+                    status.set(ctx.sessionID, {
+                      type: "retry",
+                      attempt: info.attempt,
+                      message: info.message,
+                      next: info.next,
+                    }),
+                }),
+              ),
+              Effect.catch(halt),
+              Effect.ensuring(cleanup()),
+            )
 
-    const message = await Session.updateMessage({
-      id: Identifier.ascending("message"),
-      role: "user",
-      agent: parent.info.agent,
-      model: parent.info.model,
-      time: {
-        created: Date.now(),
-      },
-      sessionID: input.sessionID,
-    })
+            if (aborted && !ctx.assistantMessage.error) {
+              yield* abort()
+            }
+            if (ctx.needsCompaction) return "compact"
+            if (ctx.blocked || ctx.assistantMessage.error || aborted) return "stop"
+            return "continue"
+          }).pipe(Effect.onInterrupt(() => abort().pipe(Effect.asVoid)))
+        })
 
-    await Session.updatePart({
-      id: Identifier.ascending("part"),
-      messageID: message.id,
-      sessionID: input.sessionID,
-      type: "text",
-      text: formatQuestionReply(input.question, input.answers),
-      time: {
-        start: Date.now(),
-        end: Date.now(),
-      },
-    })
-    await Session.touch(input.sessionID)
-  }
+        return {
+          get message() {
+            return ctx.assistantMessage
+          },
+          partFromToolCall(toolCallID: string) {
+            return ctx.toolcalls[toolCallID]
+          },
+          abort,
+          process,
+        } satisfies Handle
+      })
 
-  function countCompletedAssistantTurns(messages: MessageV2.WithParts[]) {
-    return messages.filter((message) => message.info.role === "assistant").length + 1
-  }
+      return Service.of({ create })
+    }),
+  )
 
-  async function resolveTaskClass(sessionID: string, fallback: string) {
-    const session = await Session.get(sessionID).catch(() => undefined)
-    if (!session?.parentID) return fallback
-
-    const parentMessages = await Session.messages({ sessionID: session.parentID }).catch(() => [])
-    const parentAssistant = parentMessages.findLast((msg) => msg.info.role === "assistant")?.info as
-      | MessageV2.Assistant
-      | undefined
-    return parentAssistant?.agent ?? fallback
-  }
-
-  function phaseForTaskClass(taskClass: string) {
-    if (taskClass === "researcher" || taskClass === "autoresearch") return "researching"
-    if (taskClass === "review") return "reviewing"
-    if (taskClass === "qa" || taskClass === "qa-only") return "qa"
-    if (taskClass === "vibemode") return "planning"
-    if (taskClass === "debug") return "planning"
-    return "running"
-  }
+  export const defaultLayer = Layer.unwrap(
+    Effect.sync(() =>
+      layer.pipe(
+        Layer.provide(Session.defaultLayer),
+        Layer.provide(Snapshot.defaultLayer),
+        Layer.provide(Agent.defaultLayer),
+        Layer.provide(LLM.defaultLayer),
+        Layer.provide(Permission.layer),
+        Layer.provide(Plugin.defaultLayer),
+        Layer.provide(SessionStatus.layer.pipe(Layer.provide(Bus.layer))),
+        Layer.provide(Bus.layer),
+        Layer.provide(Config.defaultLayer),
+      ),
+    ),
+  )
 }
+

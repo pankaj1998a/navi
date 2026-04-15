@@ -258,3 +258,5 @@ export async function httpSearch(query: string, numResults = 8): Promise<SearchR
     const result = await httpSearchDetailed(query, numResults)
     return result.results
 }
+
+

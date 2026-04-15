@@ -7,48 +7,37 @@ export namespace MDNS {
   let bonjour: Bonjour | undefined
   let currentPort: number | undefined
 
-  export function publish(port: number, name = "navi") {
+  export function publish(port: number, domain?: string) {
     if (currentPort === port) return
     if (bonjour) unpublish()
 
     try {
+      const host = domain ?? "Navi.local"
+      const name = `Navi-${port}`
       bonjour = new Bonjour()
-
-      // Suppress "Service name is already in use" from bonjour internals
-      const origConsoleLog = console.log
-      console.log = (...args: any[]) => {
-        const msg = args.join(" ")
-        if (msg.includes("Service name is already in use")) {
-          log.warn("mDNS name conflict (suppressed)")
-          return
-        }
-        origConsoleLog(...args)
-      }
-
       const service = bonjour.publish({
         name,
         type: "http",
+        host,
         port,
         txt: { path: "/" },
       })
-
-      setTimeout(() => { console.log = origConsoleLog }, 3000)
 
       service.on("up", () => {
         log.info("mDNS service published", { name, port })
       })
 
       service.on("error", (err) => {
-        log.warn("mDNS service error (non-fatal)", { error: String(err) })
+        log.error("mDNS service error", { error: err })
       })
 
       currentPort = port
     } catch (err) {
-      log.warn("mDNS publish failed (non-fatal)", { error: String(err) })
+      log.error("mDNS publish failed", { error: err })
       if (bonjour) {
         try {
           bonjour.destroy()
-        } catch { }
+        } catch {}
       }
       bonjour = undefined
       currentPort = undefined
@@ -69,3 +58,4 @@ export namespace MDNS {
     }
   }
 }
+

@@ -95,3 +95,4 @@ export const FileCommand = cmd({
       .demandCommand(),
   async handler() {},
 })
+

@@ -72,3 +72,4 @@ export const urlSearchParamsBodySerializer = {
     return data.toString()
   },
 }
+

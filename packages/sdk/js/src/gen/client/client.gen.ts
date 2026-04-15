@@ -210,3 +210,4 @@ export const createClient = (config: Config = {}): Client => {
     trace: makeMethod("TRACE"),
   } as Client
 }
+

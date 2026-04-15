@@ -41,6 +41,8 @@ export interface PermissionsCustomConfig {
     allowedApiEndpoints: ApiEndpointRule[];
     /** File paths to allow writes in Safe Mode (glob pattern strings) */
     allowedWritePaths: string[];
+    /** Tool-specific restrictions (tool => globs) */
+    toolRestrictions: Record<string, string[]>;
 }
 
 /**
@@ -56,6 +58,8 @@ export interface MergedPermissionsConfig {
     allowedApiEndpoints: CompiledApiEndpointRule[];
     /** File paths allowed for writes in Safe Mode (glob patterns) */
     allowedWritePaths: string[];
+    /** Tool-specific restrictions mapping tool name to array of allowed glob patterns. */
+    toolRestrictions: Record<string, string[]>;
     /** Display name for error messages */
     displayName: string;
     /** Keyboard shortcut hint */
@@ -75,6 +79,7 @@ export function parsePermissionsJson(content: string): PermissionsCustomConfig {
         allowedMcpPatterns: [],
         allowedApiEndpoints: [],
         allowedWritePaths: [],
+        toolRestrictions: {},
     };
 
     try {
@@ -113,6 +118,7 @@ export function parsePermissionsJson(content: string): PermissionsCustomConfig {
             allowedMcpPatterns: normalizePatterns(data.allowedMcpPatterns),
             allowedApiEndpoints: data.allowedApiEndpoints ?? [],
             allowedWritePaths: normalizePatterns(data.allowedWritePaths),
+            toolRestrictions: (data.toolRestrictions as Record<string, string[]>) ?? {},
         };
     } catch (error) {
         log.error("JSON parse error:", { error });
@@ -255,6 +261,7 @@ class PermissionsConfigCache {
             readOnlyMcpPatterns: [...defaults.readOnlyMcpPatterns],
             allowedApiEndpoints: [],
             allowedWritePaths: [],
+            toolRestrictions: {},
             displayName: defaults.displayName,
             shortcutHint: defaults.shortcutHint,
         };
@@ -312,6 +319,14 @@ class PermissionsConfigCache {
         for (const pattern of custom.allowedWritePaths) {
             merged.allowedWritePaths.push(pattern);
         }
+
+        // Add tool restrictions mapping
+        for (const [tool, patterns] of Object.entries(custom.toolRestrictions)) {
+            if (!merged.toolRestrictions[tool]) {
+                merged.toolRestrictions[tool] = [];
+            }
+            merged.toolRestrictions[tool].push(...patterns);
+        }
     }
 
     /**
@@ -325,3 +340,6 @@ class PermissionsConfigCache {
 
 // Singleton instance
 export const permissionsConfigCache = new PermissionsConfigCache();
+
+
+

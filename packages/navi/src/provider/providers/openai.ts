@@ -10,18 +10,39 @@ const BASE_URL = "https://api.openai.com/v1"
 const NPM = "@ai-sdk/openai"
 const log = Log.create({ service: "openai-provider" })
 
-/** Model id prefixes that indicate a language / chat model worth listing */
-const LANG_MODEL_PREFIXES = [
-    "gpt-",
-    "o1",
-    "o3",
+const PREFERRED_OPENAI_PREFIXES = [
+    "gpt-5.4",
+    "gpt-5.3",
+    "gpt-5.2",
+    "gpt-5.1",
+    "gpt-5",
+    "gpt-4.1",
+    "gpt-4o",
     "o4",
+    "o3",
+    "o1",
     "chatgpt-",
     "codex-",
 ]
 
 function isLangModel(id: string): boolean {
-    return LANG_MODEL_PREFIXES.some((p) => id.startsWith(p))
+    const excludedPrefixes = [
+        "text-embedding-",
+        "embedding-",
+        "moderation-",
+        "whisper-",
+        "tts-",
+        "dall-e",
+        "gpt-image-",
+        "image-",
+        "sora-",
+    ]
+    return !excludedPrefixes.some((p) => id.startsWith(p))
+}
+
+function getOpenAIRank(id: string): number {
+    const index = PREFERRED_OPENAI_PREFIXES.findIndex((p) => id.startsWith(p))
+    return index === -1 ? PREFERRED_OPENAI_PREFIXES.length : index
 }
 
 export const OpenAIProvider: ProviderLoader.Info = {
@@ -69,8 +90,14 @@ export const OpenAIProvider: ProviderLoader.Info = {
                     source: "fetch",
                     fetchedAt: new Date().toISOString(),
                 })
-                models = stamped
-                await writeCache(PROVIDER_ID, stamped)
+                const orderedStamped = Object.fromEntries(
+                    Object.entries(stamped).sort(([a], [b]) => {
+                        const rankDiff = getOpenAIRank(a) - getOpenAIRank(b)
+                        return rankDiff !== 0 ? rankDiff : a.localeCompare(b)
+                    }),
+                )
+                models = orderedStamped
+                await writeCache(PROVIDER_ID, orderedStamped)
             } else if (cacheState.cache) {
                 models = cacheState.models
                 log.warn("using cached OpenAI models after fetch failure", {
@@ -92,3 +119,5 @@ export const OpenAIProvider: ProviderLoader.Info = {
         }
     },
 }
+
+

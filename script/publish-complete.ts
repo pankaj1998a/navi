@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 
-import { Script } from "@navi-ai/script"
+import { Script } from "./info"
 import { $ } from "bun"
 
 if (!Script.preview) {

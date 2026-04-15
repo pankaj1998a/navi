@@ -1,9 +1,9 @@
 import z from "zod"
 import { Tool } from "./tool"
 import * as path from "path"
-import { ls } from "@navi-ai/native"
 import DESCRIPTION from "./ls.txt"
 import { Instance } from "../project/instance"
+import { Ripgrep } from "../file/ripgrep"
 import { assertExternalDirectory } from "./external-directory"
 
 export const IGNORE_PATTERNS = [
@@ -54,76 +54,69 @@ export const ListTool = Tool.define("list", {
       },
     })
 
-    const ignorePatterns = IGNORE_PATTERNS.concat(params.ignore || [])
+    const ignoreGlobs = IGNORE_PATTERNS.map((p) => `!${p}*`).concat(params.ignore?.map((p) => `!${p}`) || [])
+    const files = []
+    for await (const file of Ripgrep.files({ cwd: searchPath, glob: ignoreGlobs, signal: ctx.abort })) {
+      files.push(file)
+      if (files.length >= LIMIT) break
+    }
 
-    try {
-      const entries = await ls(searchPath, ignorePatterns, LIMIT)
+    // Build directory structure
+    const dirs = new Set<string>()
+    const filesByDir = new Map<string, string[]>()
 
-      // Filter for files and convert to relative paths to match existing logic
-      const files = entries
-        .filter(e => !e.isDir)
-        .map(e => path.relative(searchPath, e.path))
-        // Normalize path separators for Windows
-        .map(p => p.split(path.sep).join("/"))
+    for (const file of files) {
+      const dir = path.dirname(file)
+      const parts = dir === "." ? [] : dir.split("/")
 
-      // Build directory structure
-      const dirs = new Set<string>()
-      const filesByDir = new Map<string, string[]>()
-
-      for (const file of files) {
-        const dir = path.dirname(file)
-        const parts = dir === "." ? [] : dir.split("/")
-
-        // Add all parent directories
-        for (let i = 0; i <= parts.length; i++) {
-          const dirPath = i === 0 ? "." : parts.slice(0, i).join("/")
-          dirs.add(dirPath)
-        }
-
-        // Add file to its directory
-        if (!filesByDir.has(dir)) filesByDir.set(dir, [])
-        filesByDir.get(dir)!.push(path.basename(file))
+      // Add all parent directories
+      for (let i = 0; i <= parts.length; i++) {
+        const dirPath = i === 0 ? "." : parts.slice(0, i).join("/")
+        dirs.add(dirPath)
       }
 
-      function renderDir(dirPath: string, depth: number): string {
-        const indent = "  ".repeat(depth)
-        let output = ""
+      // Add file to its directory
+      if (!filesByDir.has(dir)) filesByDir.set(dir, [])
+      filesByDir.get(dir)!.push(path.basename(file))
+    }
 
-        if (depth > 0) {
-          output += `${indent}${path.basename(dirPath)}/\n`
-        }
+    function renderDir(dirPath: string, depth: number): string {
+      const indent = "  ".repeat(depth)
+      let output = ""
 
-        const childIndent = "  ".repeat(depth + 1)
-        const children = Array.from(dirs)
-          .filter((d) => path.dirname(d) === dirPath && d !== dirPath)
-          .sort()
-
-        // Render subdirectories first
-        for (const child of children) {
-          output += renderDir(child, depth + 1)
-        }
-
-        // Render files
-        const files = filesByDir.get(dirPath) || []
-        for (const file of files.sort()) {
-          output += `${childIndent}${file}\n`
-        }
-
-        return output
+      if (depth > 0) {
+        output += `${indent}${path.basename(dirPath)}/\n`
       }
 
-      const output = `${searchPath}/\n` + renderDir(".", 0)
+      const childIndent = "  ".repeat(depth + 1)
+      const children = Array.from(dirs)
+        .filter((d) => path.dirname(d) === dirPath && d !== dirPath)
+        .sort()
 
-      return {
-        title: path.relative(Instance.worktree, searchPath),
-        metadata: {
-          count: files.length,
-          truncated: files.length >= LIMIT,
-        },
-        output,
+      // Render subdirectories first
+      for (const child of children) {
+        output += renderDir(child, depth + 1)
       }
-    } catch (e) {
-      throw new Error(`ls failed: ${e instanceof Error ? e.message : String(e)}`)
+
+      // Render files
+      const files = filesByDir.get(dirPath) || []
+      for (const file of files.sort()) {
+        output += `${childIndent}${file}\n`
+      }
+
+      return output
+    }
+
+    const output = `${searchPath}/\n` + renderDir(".", 0)
+
+    return {
+      title: path.relative(Instance.worktree, searchPath),
+      metadata: {
+        count: files.length,
+        truncated: files.length >= LIMIT,
+      },
+      output,
     }
   },
 })
+

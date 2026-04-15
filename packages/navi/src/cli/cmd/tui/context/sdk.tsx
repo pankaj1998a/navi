@@ -5,26 +5,34 @@ import { batch, onCleanup, onMount } from "solid-js"
 
 export type EventSource = {
   on: (handler: (event: Event) => void) => () => void
+  setWorkspace?: (workspaceID?: string) => void
 }
 
 export const { use: useSDK, provider: SDKProvider } = createSimpleContext({
   name: "SDK",
-  init: (props: { url: string; directory?: string; fetch?: typeof fetch; events?: EventSource }) => {
+  init: (props: {
+    url: string
+    directory?: string
+    fetch?: typeof fetch
+    headers?: RequestInit["headers"]
+    events?: EventSource
+  }) => {
     const abort = new AbortController()
-    const sdk = createNaviClient({
-      baseUrl: props.url,
-      signal: abort.signal,
-      directory: props.directory,
-      fetch: props.fetch,
-    }) as unknown as ReturnType<typeof createNaviClient> & {
-      session: {
-        list: (input: { search?: string; limit?: number }) => Promise<{ data: (import("@navi-ai/sdk/v2").Session & { status?: "todo" | "in_progress" | "done" })[] }>
-        update: (input: { sessionID: string; status?: "todo" | "in_progress" | "done" }) => Promise<import("@navi-ai/sdk/v2").Session>
-      }
-      todo: {
-        update: (input: { sessionID: string; todos: Array<{ id: string; content: string; status: string; priority: string }> }) => Promise<Array<{ id: string; content: string; status: string; priority: string }>>
-      }
+    let workspaceID: string | undefined
+    let sse: AbortController | undefined
+
+    function createSDK() {
+      return createNaviClient({
+        baseUrl: props.url,
+        signal: abort.signal,
+        directory: props.directory,
+        fetch: props.fetch,
+        headers: props.headers,
+        experimental_workspaceID: workspaceID,
+      })
     }
+
+    let sdk = createSDK()
 
     const emitter = createGlobalEmitter<{
       [key in Event["type"]]: Extract<Event, { type: key }>
@@ -62,41 +70,60 @@ export const { use: useSDK, provider: SDKProvider } = createSimpleContext({
       flush()
     }
 
-    onMount(async () => {
-      // If an event source is provided, use it instead of SSE
+    function startSSE() {
+      sse?.abort()
+      const ctrl = new AbortController()
+      sse = ctrl
+      ;(async () => {
+        while (true) {
+          if (abort.signal.aborted || ctrl.signal.aborted) break
+          const events = await sdk.event.subscribe({}, { signal: ctrl.signal })
+
+          for await (const event of events.stream) {
+            if (ctrl.signal.aborted) break
+            handleEvent(event)
+          }
+
+          if (timer) clearTimeout(timer)
+          if (queue.length > 0) flush()
+        }
+      })().catch(() => {})
+    }
+
+    onMount(() => {
       if (props.events) {
         const unsub = props.events.on(handleEvent)
         onCleanup(unsub)
-        return
-      }
-
-      // Fall back to SSE
-      while (true) {
-        if (abort.signal.aborted) break
-        const events = await sdk.event.subscribe(
-          {},
-          {
-            signal: abort.signal,
-          },
-        )
-
-        for await (const event of events.stream) {
-          handleEvent(event)
-        }
-
-        // Flush any remaining events
-        if (timer) clearTimeout(timer)
-        if (queue.length > 0) {
-          flush()
-        }
+      } else {
+        startSSE()
       }
     })
 
     onCleanup(() => {
       abort.abort()
+      sse?.abort()
       if (timer) clearTimeout(timer)
     })
 
-    return { client: sdk, event: emitter, url: props.url }
+    return {
+      get client() {
+        return sdk
+      },
+      get workspaceID() {
+        return workspaceID
+      },
+      directory: props.directory,
+      event: emitter,
+      fetch: props.fetch ?? fetch,
+      setWorkspace(next?: string) {
+        if (workspaceID === next) return
+        workspaceID = next
+        sdk = createSDK()
+        props.events?.setWorkspace?.(next)
+        if (!props.events) startSSE()
+      },
+      url: props.url,
+    }
   },
 })
+

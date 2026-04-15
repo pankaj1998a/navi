@@ -4,19 +4,20 @@ import { useRoute } from "@tui/context/route"
 import { useSync } from "@tui/context/sync"
 import { createMemo, createSignal, createResource, onMount, Show } from "solid-js"
 import { Locale } from "@/util/locale"
-import { Keybind } from "@/util/keybind"
+import { useKeybind } from "../context/keybind"
 import { useTheme } from "../context/theme"
 import { useSDK } from "../context/sdk"
 import { DialogSessionRename } from "./dialog-session-rename"
 import { useKV } from "../context/kv"
 import { createDebouncedSignal } from "../util/signal"
-import "opentui-spinner/solid"
+import { Spinner } from "./spinner"
 
 export function DialogSessionList() {
   const dialog = useDialog()
-  const sync = useSync()
-  const { theme } = useTheme()
   const route = useRoute()
+  const sync = useSync()
+  const keybind = useKeybind()
+  const { theme } = useTheme()
   const sdk = useSDK()
   const kv = useKV()
 
@@ -29,11 +30,7 @@ export function DialogSessionList() {
     return result.data ?? []
   })
 
-  const deleteKeybind = "ctrl+d"
-
   const currentSessionID = createMemo(() => (route.data.type === "session" ? route.data.sessionID : undefined))
-
-  const spinnerFrames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
 
   const sessions = createMemo(() => searchResults() ?? sync.data.session)
 
@@ -51,22 +48,13 @@ export function DialogSessionList() {
         const isDeleting = toDelete() === x.id
         const status = sync.data.session_status?.[x.id]
         const isWorking = status?.type === "busy"
-
-        let statusIcon = "[ ]"
-        if ((x as any).status === "in_progress") statusIcon = "[/]"
-        if ((x as any).status === "done") statusIcon = "[x]"
-
         return {
-          title: isDeleting ? `Press ${deleteKeybind} again to confirm` : `${statusIcon} ${x.title}`,
+          title: isDeleting ? `Press ${keybind.print("session_delete")} again to confirm` : x.title,
           bg: isDeleting ? theme.error : undefined,
           value: x.id,
           category,
           footer: Locale.time(x.time.updated),
-          gutter: isWorking ? (
-            <Show when={kv.get("animations_enabled", true)} fallback={<text fg={theme.textMuted}>[⋯]</text>}>
-              <spinner frames={spinnerFrames} interval={80} color={theme.primary} />
-            </Show>
-          ) : undefined,
+          gutter: isWorking ? <Spinner /> : undefined,
         }
       })
   })
@@ -94,7 +82,7 @@ export function DialogSessionList() {
       }}
       keybind={[
         {
-          keybind: Keybind.parse(deleteKeybind)[0],
+          keybind: keybind.all.session_delete?.[0],
           title: "delete",
           onTrigger: async (option) => {
             if (toDelete() === option.value) {
@@ -108,32 +96,14 @@ export function DialogSessionList() {
           },
         },
         {
-          keybind: Keybind.parse("ctrl+r")[0],
+          keybind: keybind.all.session_rename?.[0],
           title: "rename",
           onTrigger: async (option) => {
             dialog.replace(() => <DialogSessionRename session={option.value} />)
-          },
-        },
-        {
-          keybind: Keybind.parse("ctrl+s")[0],
-          title: "status",
-          onTrigger: async (option) => {
-            const session = sessions().find((x) => x.id === option.value)
-            if (!session) return
-
-            const nextStatus = ({
-              todo: "in_progress",
-              in_progress: "done",
-              done: "todo",
-            } as Record<string, string>)[(session as any).status ?? "todo"] as "todo" | "in_progress" | "done"
-
-            await sdk.client.session.update({
-              sessionID: option.value,
-              status: nextStatus,
-            })
           },
         },
       ]}
     />
   )
 }
+

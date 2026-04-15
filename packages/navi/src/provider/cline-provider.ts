@@ -225,3 +225,5 @@ export async function ClineAuthPlugin(_input: PluginInput): Promise<Hooks> {
 }
 
 export default ClineAuthPlugin
+
+

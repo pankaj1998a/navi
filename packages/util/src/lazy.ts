@@ -9,3 +9,4 @@ export function lazy<T>(fn: () => T) {
     return value as T
   }
 }
+

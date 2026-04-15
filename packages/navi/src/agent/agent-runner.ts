@@ -17,37 +17,40 @@ export class AgentInstance {
         this.config = config
     }
 
-    async execute(input: string): Promise<string> {
+    async execute(input: string, role?: string): Promise<string> {
+
+        // Fetch Role Memory if role is specified
+        const { RoleMemory } = await import("./memory")
+        const roleContext = (role || this.config.name) ? await RoleMemory.formatPromptContext(role || this.config.name) : ""
+        let finalInput = input
+        if (roleContext) {
+            finalInput = `${roleContext}\n\n# Your Immediate Task:\n${input}`
+        }
 
         // Create session
         const session = await Session.create({})
         this.sessionID = session.id
 
         // Determine model
-        let modelString = 'opencode/big-pickle' // Default to opencode provider if all else fails
+        let modelString = 'Navi/big-pickle' // Default to Navi provider if all else fails
         if (this.config.model) {
             modelString = `${this.config.model.providerID}/${this.config.model.modelID}`
         } else {
-            // Default to opencode/big-pickle if no specific configuration is found
-            modelString = 'opencode/big-pickle'
+            // Default to Navi/big-pickle if no specific configuration is found
+            modelString = 'Navi/big-pickle'
         }
-
-
-
 
         // Execute prompt using SessionPrompt
         await SessionPrompt.prompt({
             sessionID: session.id,
-            messageID: Identifier.ascending("message"),
+            messageID: Identifier.ascending("message") as any,
             model: {
-                providerID: modelString.split('/')[0],
-                modelID: modelString.split('/').slice(1).join('/')
+                providerID: modelString.split('/')[0] as any,
+                modelID: modelString.split('/').slice(1).join('/') as any
             },
             agent: this.config.name,
-            parts: [{ type: "text", text: input }]
+            parts: [{ type: "text", text: finalInput }]
         })
-
-
 
         // Capture result
         const messages = await Session.messages({ sessionID: session.id, limit: 10 })
@@ -86,12 +89,12 @@ export class AgentRunner {
             try {
                 // Attempt to get agent config. If exact match fails, try mapping or defaults.
                 // Note: AgentType in Orchestrator might not match exact Agent keys.
-                config = await Agent.get(task.type)
+                config = (await Agent.get(task.type)) || undefined
                 if (!config) {
                     // Try mapping common aliases if needed, or fallback
-                    if (task.type === 'editor') config = await Agent.get('coding')
-                    if (task.type === 'commander') config = await Agent.get('general')
-                    if (task.type === 'code-searcher') config = await Agent.get('explore')
+                    if (task.type === 'editor') config = (await Agent.get('coding')) || undefined
+                    if (task.type === 'commander') config = (await Agent.get('general')) || undefined
+                    if (task.type === 'code-searcher') config = (await Agent.get('explore')) || undefined
                 }
             } catch (e) {
                 // ignore
@@ -106,7 +109,7 @@ export class AgentRunner {
             this.running.add(agent.id)
 
             try {
-                const result = await agent.execute(task.description)
+                const result = await agent.execute(task.description, task.type)
                 results.push({ taskId: task.id, success: true, output: result })
             } catch (error) {
 
@@ -136,3 +139,5 @@ export class AgentRunner {
         return results
     }
 }
+
+

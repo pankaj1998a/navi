@@ -30,3 +30,5 @@ export const AutoDebugTool = Tool.define("auto_debug", async (ctx) => {
         }
     }
 })
+
+

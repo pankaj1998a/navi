@@ -1,21 +1,24 @@
-import { BusEvent } from "@/bus/bus-event"
+import { Effect, Layer, Schema, ServiceMap, Stream } from "effect"
+import { FetchHttpClient, HttpClient, HttpClientRequest, HttpClientResponse } from "effect/unstable/http"
+import * as CrossSpawnSpawner from "@/effect/cross-spawn-spawner"
+import { makeRuntime } from "@/effect/run-service"
+import { withTransientReadRetry } from "@/util/effect-http-client"
+import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process"
 import path from "path"
-import { $ } from "bun"
 import z from "zod"
-import { NamedError } from "@navi-ai/sdk/util/error"
-import { Log } from "../util/log"
-import { iife } from "@/util/iife"
+import { BusEvent } from "@/bus/bus-event"
 import { Flag } from "../flag/flag"
+import { Log } from "../util/log"
+import { CHANNEL as channel, VERSION as version } from "./meta"
 
-declare global {
-  const NAVI_VERSION: string
-  const NAVI_CHANNEL: string
-}
+import semver from "semver"
 
 export namespace Installation {
   const log = Log.create({ service: "installation" })
 
-  export type Method = Awaited<ReturnType<typeof method>>
+  export type Method = "curl" | "npm" | "yarn" | "pnpm" | "bun" | "brew" | "scoop" | "choco" | "unknown"
+
+  export type ReleaseType = "patch" | "minor" | "major"
 
   export const Event = {
     Updated: BusEvent.define(
@@ -32,6 +35,17 @@ export namespace Installation {
     ),
   }
 
+  export function getReleaseType(current: string, latest: string): ReleaseType {
+    const currMajor = semver.major(current)
+    const currMinor = semver.minor(current)
+    const newMajor = semver.major(latest)
+    const newMinor = semver.minor(latest)
+
+    if (newMajor > currMajor) return "major"
+    if (newMinor > currMinor) return "minor"
+    return "patch"
+  }
+
   export const Info = z
     .object({
       version: z.string(),
@@ -42,12 +56,9 @@ export namespace Installation {
     })
   export type Info = z.infer<typeof Info>
 
-  export async function info() {
-    return {
-      version: VERSION,
-      latest: await latest(),
-    }
-  }
+  export const VERSION = version
+  export const CHANNEL = channel
+  export const USER_AGENT = `Navi/${CHANNEL}/${VERSION}/${Flag.NAVI_CLIENT}`
 
   export function isPreview() {
     return CHANNEL !== "latest"
@@ -57,206 +68,293 @@ export namespace Installation {
     return CHANNEL === "local"
   }
 
-  export async function method() {
-    if (process.execPath.includes(path.join(".navi", "bin"))) return "curl"
-    if (process.execPath.includes(path.join(".local", "bin"))) return "curl"
-    const exec = process.execPath.toLowerCase()
+  export class UpgradeFailedError extends Schema.TaggedErrorClass<UpgradeFailedError>()("UpgradeFailedError", {
+    stderr: Schema.String,
+  }) {}
 
-    try {
-      if (exec.includes("npm") || exec.includes("node")) {
-        const root = (await $`npm root -g`.quiet().nothrow().text()).trim()
-        if (root && await Bun.file(path.join(root, "navi-ai-agent/package.json")).exists()) {
-          return "npm"
-        }
-      }
-    } catch { }
+  // Response schemas for external version APIs
+  const GitHubRelease = Schema.Struct({ tag_name: Schema.String })
+  const NpmPackage = Schema.Struct({ version: Schema.String })
+  const BrewFormula = Schema.Struct({ versions: Schema.Struct({ stable: Schema.String }) })
+  const BrewInfoV2 = Schema.Struct({
+    formulae: Schema.Array(Schema.Struct({ versions: Schema.Struct({ stable: Schema.String }) })),
+  })
+  const ChocoPackage = Schema.Struct({
+    d: Schema.Struct({ results: Schema.Array(Schema.Struct({ Version: Schema.String })) }),
+  })
+  const ScoopManifest = NpmPackage
 
-    try {
-      if (exec.includes("bun")) {
-        const root = (await $`bun pm bin -g`.quiet().nothrow().text()).trim()
-        // bun pm bin -g returns the bin folder, not node_modules.
-        // bun global installs are in specific location.
-        // Fallback to checking existing slow method for bun if needed, or simple 'bun pm ls -g'
-        const output = await $`bun pm ls -g`.quiet().nothrow().text()
-        if (output.includes("navi-ai-agent")) return "bun"
-      }
-    } catch { }
-
-    // Fallback to checking the binary path directly if we can't detect via manager
-    // or just run the original checks but optimized?
-
-    const checks = [
-      {
-        name: "npm" as const,
-        // optimized npm check just in case
-        command: async () => {
-          const root = (await $`npm root -g`.quiet().nothrow().text()).trim()
-          return (root && await Bun.file(path.join(root, "navi-ai-agent/package.json")).exists()) ? "navi-ai-agent" : ""
-        }
-      },
-      {
-        name: "yarn" as const,
-        command: () => $`yarn global list`.throws(false).quiet().text(),
-      },
-      {
-        name: "pnpm" as const,
-        command: () => $`pnpm list -g --depth=0`.throws(false).quiet().text(),
-      },
-      {
-        name: "bun" as const,
-        command: () => $`bun pm ls -g`.throws(false).quiet().text(),
-      },
-      {
-        name: "brew" as const,
-        command: () => $`brew list --formula navi`.throws(false).quiet().text(),
-      },
-    ]
-
-    checks.sort((a, b) => {
-      const aMatches = exec.includes(a.name)
-      const bMatches = exec.includes(b.name)
-      if (aMatches && !bMatches) return -1
-      if (!aMatches && bMatches) return 1
-      return 0
-    })
-
-    for (const check of checks) {
-      // logic to skip checks if we already strongly suspect another one?
-      // For now, just run them.
-      const output = await check.command()
-      if (output.includes(check.name === "brew" ? "navi" : "navi-ai-agent")) {
-        return check.name
-      }
-    }
-
-    return "unknown"
+  export interface Interface {
+    readonly info: () => Effect.Effect<Info>
+    readonly method: () => Effect.Effect<Method>
+    readonly latest: (method?: Method) => Effect.Effect<string>
+    readonly upgrade: (method: Method, target: string) => Effect.Effect<void, UpgradeFailedError>
   }
 
-  export const UpgradeFailedError = NamedError.create(
-    "UpgradeFailedError",
-    z.object({
-      stderr: z.string(),
-    }),
+  export class Service extends ServiceMap.Service<Service, Interface>()("@navi/Installation") {}
+
+  export const layer: Layer.Layer<Service, never, HttpClient.HttpClient | ChildProcessSpawner.ChildProcessSpawner> =
+    Layer.effect(
+      Service,
+      Effect.gen(function* () {
+        const http = yield* HttpClient.HttpClient
+        const httpOk = HttpClient.filterStatusOk(withTransientReadRetry(http))
+        const spawner = yield* ChildProcessSpawner.ChildProcessSpawner
+
+        const text = Effect.fnUntraced(
+          function* (cmd: string[], opts?: { cwd?: string; env?: Record<string, string> }) {
+            const proc = ChildProcess.make(cmd[0], cmd.slice(1), {
+              cwd: opts?.cwd,
+              env: opts?.env,
+              extendEnv: true,
+            })
+            const handle = yield* spawner.spawn(proc)
+            const out = yield* Stream.mkString(Stream.decodeText(handle.stdout))
+            yield* handle.exitCode
+            return out
+          },
+          Effect.scoped,
+          Effect.catch(() => Effect.succeed("")),
+        )
+
+        const run = Effect.fnUntraced(
+          function* (cmd: string[], opts?: { cwd?: string; env?: Record<string, string> }) {
+            const proc = ChildProcess.make(cmd[0], cmd.slice(1), {
+              cwd: opts?.cwd,
+              env: opts?.env,
+              extendEnv: true,
+            })
+            const handle = yield* spawner.spawn(proc)
+            const [stdout, stderr] = yield* Effect.all(
+              [Stream.mkString(Stream.decodeText(handle.stdout)), Stream.mkString(Stream.decodeText(handle.stderr))],
+              { concurrency: 2 },
+            )
+            const code = yield* handle.exitCode
+            return { code, stdout, stderr }
+          },
+          Effect.scoped,
+          Effect.catch(() => Effect.succeed({ code: ChildProcessSpawner.ExitCode(1), stdout: "", stderr: "" })),
+        )
+
+        const getBrewFormula = Effect.fnUntraced(function* () {
+          const tapFormula = yield* text(["brew", "list", "--formula", "anomalyco/tap/Navi"])
+          if (tapFormula.includes("Navi")) return "anomalyco/tap/Navi"
+          const coreFormula = yield* text(["brew", "list", "--formula", "Navi"])
+          if (coreFormula.includes("Navi")) return "Navi"
+          return "Navi"
+        })
+
+        const upgradeCurl = Effect.fnUntraced(
+          function* (target: string) {
+            const response = yield* httpOk.execute(HttpClientRequest.get("https://Navi.ai/install"))
+            const body = yield* response.text
+            const bodyBytes = new TextEncoder().encode(body)
+            const proc = ChildProcess.make("bash", [], {
+              stdin: Stream.make(bodyBytes),
+              env: { VERSION: target },
+              extendEnv: true,
+            })
+            const handle = yield* spawner.spawn(proc)
+            const [stdout, stderr] = yield* Effect.all(
+              [Stream.mkString(Stream.decodeText(handle.stdout)), Stream.mkString(Stream.decodeText(handle.stderr))],
+              { concurrency: 2 },
+            )
+            const code = yield* handle.exitCode
+            return { code, stdout, stderr }
+          },
+          Effect.scoped,
+          Effect.orDie,
+        )
+
+        const methodImpl = Effect.fn("Installation.method")(function* () {
+          if (process.execPath.includes(path.join(".Navi", "bin"))) return "curl" as Method
+          if (process.execPath.includes(path.join(".local", "bin"))) return "curl" as Method
+          const exec = process.execPath.toLowerCase()
+
+          const checks: Array<{ name: Method; command: () => Effect.Effect<string> }> = [
+            { name: "npm", command: () => text(["npm", "list", "-g", "--depth=0"]) },
+            { name: "yarn", command: () => text(["yarn", "global", "list"]) },
+            { name: "pnpm", command: () => text(["pnpm", "list", "-g", "--depth=0"]) },
+            { name: "bun", command: () => text(["bun", "pm", "ls", "-g"]) },
+            { name: "brew", command: () => text(["brew", "list", "--formula", "Navi"]) },
+            { name: "scoop", command: () => text(["scoop", "list", "Navi"]) },
+            { name: "choco", command: () => text(["choco", "list", "--limit-output", "Navi"]) },
+          ]
+
+          checks.sort((a, b) => {
+            const aMatches = exec.includes(a.name)
+            const bMatches = exec.includes(b.name)
+            if (aMatches && !bMatches) return -1
+            if (!aMatches && bMatches) return 1
+            return 0
+          })
+
+          for (const check of checks) {
+            const output = yield* check.command()
+            const installedName =
+              check.name === "brew" || check.name === "choco" || check.name === "scoop" ? "Navi" : "Navi-ai"
+            if (output.includes(installedName)) {
+              return check.name
+            }
+          }
+
+          return "unknown" as Method
+        })
+
+        const latestImpl = Effect.fn("Installation.latest")(function* (installMethod?: Method) {
+          const detectedMethod = installMethod || (yield* methodImpl())
+
+          if (detectedMethod === "brew") {
+            const formula = yield* getBrewFormula()
+            if (formula.includes("/")) {
+              const infoJson = yield* text(["brew", "info", "--json=v2", formula])
+              const info = yield* Schema.decodeUnknownEffect(Schema.fromJsonString(BrewInfoV2))(infoJson)
+              return info.formulae[0].versions.stable
+            }
+            const response = yield* httpOk.execute(
+              HttpClientRequest.get("https://formulae.brew.sh/api/formula/Navi.json").pipe(
+                HttpClientRequest.acceptJson,
+              ),
+            )
+            const data = yield* HttpClientResponse.schemaBodyJson(BrewFormula)(response)
+            return data.versions.stable
+          }
+
+          if (detectedMethod === "npm" || detectedMethod === "bun" || detectedMethod === "pnpm") {
+            const r = (yield* text(["npm", "config", "get", "registry"])).trim()
+            const reg = r || "https://registry.npmjs.org"
+            const registry = reg.endsWith("/") ? reg.slice(0, -1) : reg
+            const channel = CHANNEL
+            const response = yield* httpOk.execute(
+              HttpClientRequest.get(`${registry}/Navi-ai/${channel}`).pipe(HttpClientRequest.acceptJson),
+            )
+            const data = yield* HttpClientResponse.schemaBodyJson(NpmPackage)(response)
+            return data.version
+          }
+
+          if (detectedMethod === "choco") {
+            const response = yield* httpOk.execute(
+              HttpClientRequest.get(
+                "https://community.chocolatey.org/api/v2/Packages?$filter=Id%20eq%20%27Navi%27%20and%20IsLatestVersion&$select=Version",
+              ).pipe(HttpClientRequest.setHeaders({ Accept: "application/json;odata=verbose" })),
+            )
+            const data = yield* HttpClientResponse.schemaBodyJson(ChocoPackage)(response)
+            return data.d.results[0].Version
+          }
+
+          if (detectedMethod === "scoop") {
+            const response = yield* httpOk.execute(
+              HttpClientRequest.get(
+                "https://raw.githubusercontent.com/ScoopInstaller/Main/master/bucket/Navi.json",
+              ).pipe(HttpClientRequest.setHeaders({ Accept: "application/json" })),
+            )
+            const data = yield* HttpClientResponse.schemaBodyJson(ScoopManifest)(response)
+            return data.version
+          }
+
+          const response = yield* httpOk.execute(
+            HttpClientRequest.get("https://api.github.com/repos/anomalyco/Navi/releases/latest").pipe(
+              HttpClientRequest.acceptJson,
+            ),
+          )
+          const data = yield* HttpClientResponse.schemaBodyJson(GitHubRelease)(response)
+          return data.tag_name.replace(/^v/, "")
+        }, Effect.orDie)
+
+        const upgradeImpl = Effect.fn("Installation.upgrade")(function* (m: Method, target: string) {
+          let result: { code: ChildProcessSpawner.ExitCode; stdout: string; stderr: string } | undefined
+          switch (m) {
+            case "curl":
+              result = yield* upgradeCurl(target)
+              break
+            case "npm":
+              result = yield* run(["npm", "install", "-g", `Navi-ai@${target}`])
+              break
+            case "pnpm":
+              result = yield* run(["pnpm", "install", "-g", `Navi-ai@${target}`])
+              break
+            case "bun":
+              result = yield* run(["bun", "install", "-g", `Navi-ai@${target}`])
+              break
+            case "brew": {
+              const formula = yield* getBrewFormula()
+              const env = { HOMEBREW_NO_AUTO_UPDATE: "1" }
+              if (formula.includes("/")) {
+                const tap = yield* run(["brew", "tap", "anomalyco/tap"], { env })
+                if (tap.code !== 0) {
+                  result = tap
+                  break
+                }
+                const repo = yield* text(["brew", "--repo", "anomalyco/tap"])
+                const dir = repo.trim()
+                if (dir) {
+                  const pull = yield* run(["git", "pull", "--ff-only"], { cwd: dir, env })
+                  if (pull.code !== 0) {
+                    result = pull
+                    break
+                  }
+                }
+              }
+              result = yield* run(["brew", "upgrade", formula], { env })
+              break
+            }
+            case "choco":
+              result = yield* run(["choco", "upgrade", "Navi", `--version=${target}`, "-y"])
+              break
+            case "scoop":
+              result = yield* run(["scoop", "install", `Navi@${target}`])
+              break
+            default:
+              return yield* new UpgradeFailedError({ stderr: `Unknown method: ${m}` })
+          }
+          if (!result || result.code !== 0) {
+            const stderr = m === "choco" ? "not running from an elevated command shell" : result?.stderr || ""
+            return yield* new UpgradeFailedError({ stderr })
+          }
+          log.info("upgraded", {
+            method: m,
+            target,
+            stdout: result.stdout,
+            stderr: result.stderr,
+          })
+          yield* text([process.execPath, "--version"])
+        })
+
+        return Service.of({
+          info: Effect.fn("Installation.info")(function* () {
+            return {
+              version: VERSION,
+              latest: yield* latestImpl(),
+            }
+          }),
+          method: methodImpl,
+          latest: latestImpl,
+          upgrade: upgradeImpl,
+        })
+      }),
+    )
+
+  export const defaultLayer = layer.pipe(
+    Layer.provide(FetchHttpClient.layer),
+    Layer.provide(CrossSpawnSpawner.defaultLayer),
   )
 
-  async function getBrewFormula() {
-    const tapFormula = await $`brew list --formula pankaj/tap/navi`.throws(false).quiet().text()
-    if (tapFormula.includes("navi")) return "pankaj/tap/navi"
-    const coreFormula = await $`brew list --formula navi`.throws(false).quiet().text()
-    if (coreFormula.includes("navi")) return "navi"
-    return "navi"
+  const { runPromise } = makeRuntime(Service, defaultLayer)
+
+  export async function info(): Promise<Info> {
+    return runPromise((svc) => svc.info())
   }
 
-  export async function upgrade(method: Method, target: string) {
-    let cmd
-    switch (method) {
-      case "curl":
-        cmd = $`curl -fsSL https://navi.ai/install | bash`.env({
-          ...process.env,
-          VERSION: target,
-        })
-        break
-      case "npm":
-        cmd = $`npm install -g navi-ai-agent@${target}`
-        break
-      case "pnpm":
-        cmd = $`pnpm install -g navi-ai-agent@${target}`
-        break
-      case "bun":
-        cmd = $`bun install -g navi-ai-agent@${target}`
-        break
-      case "brew": {
-        const formula = await getBrewFormula()
-        cmd = $`brew upgrade ${formula}`.env({
-          HOMEBREW_NO_AUTO_UPDATE: "1",
-          ...process.env,
-        })
-        break
-      }
-      default:
-        throw new Error(`Unknown method: ${method}`)
-    }
-    const result = await cmd.quiet().throws(false)
-    log.info("upgraded", {
-      method,
-      target,
-      stdout: result.stdout.toString(),
-      stderr: result.stderr.toString(),
-    })
-    if (result.exitCode !== 0)
-      throw new UpgradeFailedError({
-        stderr: result.stderr.toString("utf8"),
-      })
-    await $`${process.execPath} --version`.nothrow().quiet().text()
+  export async function method(): Promise<Method> {
+    return runPromise((svc) => svc.method())
   }
 
-  export const VERSION = typeof NAVI_VERSION === "string" ? NAVI_VERSION : "local"
-  export const CHANNEL = typeof NAVI_CHANNEL === "string" ? NAVI_CHANNEL : "local"
-  export const USER_AGENT = `navi/${CHANNEL}/${VERSION}/${Flag.NAVI_CLIENT}`
+  export async function latest(installMethod?: Method): Promise<string> {
+    return runPromise((svc) => svc.latest(installMethod))
+  }
 
-  export async function latest(installMethod?: Method) {
-    const detectedMethod = installMethod || (await method())
-
-    if (detectedMethod === "brew") {
-      const formula = await getBrewFormula()
-      if (formula === "navi") {
-        return fetch("https://formulae.brew.sh/api/formula/navi.json")
-          .then((res) => {
-            if (!res.ok) throw new Error(res.statusText)
-            return res.json()
-          })
-          .then((data: any) => data.versions.stable)
-          .catch((err) => {
-            log.warn("failed to check brew version", { error: err })
-            return "local"
-          })
-      }
-    }
-
-    if (detectedMethod === "npm" || detectedMethod === "bun" || detectedMethod === "pnpm") {
-      const registry = await iife(async () => {
-        try {
-          const r = (await $`npm config get registry`.quiet().nothrow().text()).trim()
-          const reg = r || "https://registry.npmjs.org"
-          return reg.endsWith("/") ? reg.slice(0, -1) : reg
-        } catch {
-          return "https://registry.npmjs.org"
-        }
-      })
-      const channel = CHANNEL === "local" || CHANNEL === "main" ? "latest" : CHANNEL
-      const url = `${registry}/navi-ai-agent`
-
-      return fetch(url, {
-        headers: {
-          Accept: "application/vnd.npm.install-v1+json; q=1.0, application/json; q=0.8, */*",
-        },
-      })
-        .then((res) => {
-          if (!res.ok) {
-            if (res.status === 404) return null
-            throw new Error(`${res.status} ${res.statusText}`)
-          }
-          return res.json()
-        })
-        .then((data: any) => {
-          if (!data) return "local"
-          const distTags = data["dist-tags"] || {}
-          return distTags[channel] || distTags["latest"] || "local"
-        })
-        .catch((err) => {
-          // excessive logging here might break TUI if printed to stdout/stderr directly
-          // log.warn("failed to check npm version", { error: err, url })
-          return "local"
-        })
-    }
-
-    return fetch("https://api.github.com/repos/pankaj/navi/releases/latest")
-      .then((res) => {
-        if (!res.ok) throw new Error(res.statusText)
-        return res.json()
-      })
-      .then((data: any) => data.tag_name.replace(/^v/, ""))
-      .catch(() => "local")
+  export async function upgrade(m: Method, target: string): Promise<void> {
+    return runPromise((svc) => svc.upgrade(m, target))
   }
 }
 

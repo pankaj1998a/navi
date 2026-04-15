@@ -28,3 +28,4 @@ export function checksum(content: string): string | undefined {
   }
   return (hash >>> 0).toString(36)
 }
+

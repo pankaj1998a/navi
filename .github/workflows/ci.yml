@@ -23,25 +23,23 @@ jobs:
       
       - name: Typecheck
         run: cd packages/navi && bun run typecheck
-        continue-on-error: true
-      
+
       - name: Run tests
         run: cd packages/navi && bun test
-        
+
   lint:
     runs-on: ubuntu-latest
-    
+
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
-      
+
       - name: Install dependencies
         run: bun install
-      
+
       - name: Check formatting
         run: bunx prettier --check "packages/navi/src/**/*.ts"
-        continue-on-error: true

@@ -1,196 +1,73 @@
 import z from "zod"
-import * as fs from "fs"
+import { createReadStream } from "fs"
+import * as fs from "fs/promises"
 import * as path from "path"
+import { createInterface } from "readline"
 import { Tool } from "./tool"
-import { readFileCore } from "@navi-ai/native"
 import { LSP } from "../lsp"
 import { FileTime } from "../file/time"
 import DESCRIPTION from "./read.txt"
 import { Instance } from "../project/instance"
-import { Identifier } from "../id/id"
 import { assertExternalDirectory } from "./external-directory"
+import { InstructionPrompt } from "../session/instruction"
+import { Filesystem } from "../util/filesystem"
 
 const DEFAULT_READ_LIMIT = 2000
 const MAX_LINE_LENGTH = 2000
+const MAX_LINE_SUFFIX = `... (line truncated to ${MAX_LINE_LENGTH} chars)`
 const MAX_BYTES = 50 * 1024
-
-// Token estimation constants for media files (from Gemini CLI)
-const IMAGE_TOKEN_ESTIMATE = 3000 // Covers up to 4K resolution
-const PDF_TOKEN_ESTIMATE = 25800 // ~100 pages at 258 tokens/page
-const AUDIO_TOKEN_ESTIMATE = 128 // Per second of audio
-const VIDEO_TOKEN_ESTIMATE = 263 // Per second of video
-
-// MIME type mapping for common extensions
-const MIME_TYPES: Record<string, string> = {
-  // Images
-  ".png": "image/png",
-  ".jpg": "image/jpeg",
-  ".jpeg": "image/jpeg",
-  ".gif": "image/gif",
-  ".webp": "image/webp",
-  ".bmp": "image/bmp",
-  ".svg": "image/svg+xml",
-  ".heic": "image/heic",
-  ".heif": "image/heif",
-  // Audio
-  ".mp3": "audio/mpeg",
-  ".wav": "audio/wav",
-  ".aiff": "audio/aiff",
-  ".aac": "audio/aac",
-  ".ogg": "audio/ogg",
-  ".flac": "audio/flac",
-  ".m4a": "audio/mp4",
-  // Video
-  ".mp4": "video/mp4",
-  ".mpeg": "video/mpeg",
-  ".mpg": "video/mpeg",
-  ".mov": "video/quicktime",
-  ".avi": "video/x-msvideo",
-  ".flv": "video/x-flv",
-  ".webm": "video/webm",
-  ".wmv": "video/x-ms-wmv",
-  ".3gpp": "video/3gpp",
-  ".3gp": "video/3gpp",
-  // Documents
-  ".pdf": "application/pdf",
-}
-
-// Known binary extensions that should not be processed as media
-const BINARY_EXTENSIONS = new Set([
-  ".zip", ".tar", ".gz", ".exe", ".dll", ".so", ".class", ".jar", ".war", ".7z",
-  ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx", ".odt", ".ods", ".odp",
-  ".bin", ".dat", ".obj", ".o", ".a", ".lib", ".wasm", ".pyc", ".pyo",
-])
-
-type FileType = "text" | "image" | "pdf" | "audio" | "video" | "binary" | "svg"
-
-/**
- * Detects the type of file based on extension and MIME type.
- * Inspired by Gemini CLI's detectFileType function.
- */
-function detectFileType(filepath: string, mimeType: string | null): FileType {
-  const ext = path.extname(filepath).toLowerCase()
-
-  // TypeScript files can be misidentified as MPEG video
-  if ([".ts", ".mts", ".cts"].includes(ext)) {
-    return "text"
-  }
-
-  // SVG is text-based, treat separately
-  if (ext === ".svg" || mimeType === "image/svg+xml") {
-    return "svg"
-  }
-
-  // Check MIME type first
-  if (mimeType) {
-    if (mimeType.startsWith("image/")) return "image"
-    if (mimeType.startsWith("audio/")) return "audio"
-    if (mimeType.startsWith("video/")) return "video"
-    if (mimeType === "application/pdf") return "pdf"
-  }
-
-  // Check known binary extensions
-  if (BINARY_EXTENSIONS.has(ext)) {
-    return "binary"
-  }
-
-  // Check known media extensions
-  if (ext in MIME_TYPES) {
-    const mime = MIME_TYPES[ext]
-    if (mime.startsWith("image/")) return "image"
-    if (mime.startsWith("audio/")) return "audio"
-    if (mime.startsWith("video/")) return "video"
-    if (mime === "application/pdf") return "pdf"
-  }
-
-  return "text"
-}
-
-function getMimeType(filepath: string): string {
-  const ext = path.extname(filepath).toLowerCase()
-  return MIME_TYPES[ext] || "application/octet-stream"
-}
-
-/**
- * Estimate tokens for media files based on type and size.
- * Uses heuristics from Gemini CLI.
- */
-function estimateMediaTokens(fileType: FileType, fileSize: number): number {
-  switch (fileType) {
-    case "image":
-      return IMAGE_TOKEN_ESTIMATE
-    case "pdf":
-      return PDF_TOKEN_ESTIMATE
-    case "audio":
-      // Estimate based on file size (rough approximation)
-      // ~16KB per second for MP3, ~500KB per minute
-      const audioDurationSeconds = Math.ceil(fileSize / 16000)
-      return audioDurationSeconds * AUDIO_TOKEN_ESTIMATE
-    case "video":
-      // Estimate based on file size (rough approximation)
-      // ~500KB per second for typical video
-      const videoDurationSeconds = Math.ceil(fileSize / 500000)
-      return videoDurationSeconds * VIDEO_TOKEN_ESTIMATE
-    default:
-      return 0
-  }
-}
+const MAX_BYTES_LABEL = `${MAX_BYTES / 1024} KB`
 
 export const ReadTool = Tool.define("read", {
   description: DESCRIPTION,
   parameters: z.object({
-    filePath: z.string().describe("The path to the file to read"),
-    offset: z.coerce.number().describe("The line number to start reading from (0-based)").optional(),
-    limit: z.coerce.number().describe("The number of lines to read (defaults to 2000)").optional(),
+    filePath: z.string().describe("The absolute path to the file or directory to read"),
+    offset: z.coerce.number().describe("The line number to start reading from (1-indexed)").optional(),
+    limit: z.coerce.number().describe("The maximum number of lines to read (defaults to 2000)").optional(),
   }),
   async execute(params, ctx) {
+    if (params.offset !== undefined && params.offset < 1) {
+      throw new Error("offset must be greater than or equal to 1")
+    }
     let filepath = params.filePath
     if (!path.isAbsolute(filepath)) {
-      filepath = path.join(process.cwd(), filepath)
+      filepath = path.resolve(Instance.directory, filepath)
+    }
+    if (process.platform === "win32") {
+      filepath = Filesystem.normalizePath(filepath)
     }
     const title = path.relative(Instance.worktree, filepath)
 
+    const stat = Filesystem.stat(filepath)
+
     await assertExternalDirectory(ctx, filepath, {
       bypass: Boolean(ctx.extra?.["bypassCwdCheck"]),
+      kind: stat?.isDirectory() ? "directory" : "file",
     })
 
-    // Feature 1: Engineering & Security Rigor (Credential Protection)
-    // Strictly guard sensitive files to prevent credential leakage
-    const isSensitive = filepath.includes('.env') || filepath.includes('credentials') || filepath.includes('secret')
-    if (isSensitive) {
-      await ctx.ask({
-        permission: "read_sensitive",
-        patterns: [filepath],
-        always: [], // Force explicit approval every time for sensitive files
-        metadata: { warning: "Attempting to read a sensitive credential file." },
-      })
-    } else {
-      await ctx.ask({
-        permission: "read",
-        patterns: [filepath],
-        always: ["*"],
-        metadata: {},
-      })
-    }
+    await ctx.ask({
+      permission: "read",
+      patterns: [filepath],
+      always: ["*"],
+      metadata: {},
+    })
 
-    const file = Bun.file(filepath)
-    if (!(await file.exists())) {
+    if (!stat) {
       const dir = path.dirname(filepath)
       const base = path.basename(filepath)
 
-      let suggestions: string[] = []
-      try {
-        const dirEntries = fs.readdirSync(dir)
-        suggestions = dirEntries
-          .filter(
-            (entry) =>
-              entry.toLowerCase().includes(base.toLowerCase()) || base.toLowerCase().includes(entry.toLowerCase()),
-          )
-          .map((entry) => path.join(dir, entry))
-          .slice(0, 3)
-      } catch (e) {
-        // Ignore error if directory doesn't exist
-      }
+      const suggestions = await fs
+        .readdir(dir)
+        .then((entries) =>
+          entries
+            .filter(
+              (entry) =>
+                entry.toLowerCase().includes(base.toLowerCase()) || base.toLowerCase().includes(entry.toLowerCase()),
+            )
+            .map((entry) => path.join(dir, entry))
+            .slice(0, 3),
+        )
+        .catch(() => [])
 
       if (suggestions.length > 0) {
         throw new Error(`File not found: ${filepath}\n\nDid you mean one of these?\n${suggestions.join("\n")}`)
@@ -199,116 +76,222 @@ export const ReadTool = Tool.define("read", {
       throw new Error(`File not found: ${filepath}`)
     }
 
-    // Detect file type using improved detection
-    const fileType = detectFileType(filepath, file.type)
-    const mimeType = file.type || getMimeType(filepath)
+    if (stat.isDirectory()) {
+      const dirents = await fs.readdir(filepath, { withFileTypes: true })
+      const entries = await Promise.all(
+        dirents.map(async (dirent) => {
+          if (dirent.isDirectory()) return dirent.name + "/"
+          if (dirent.isSymbolicLink()) {
+            const target = await fs.stat(path.join(filepath, dirent.name)).catch(() => undefined)
+            if (target?.isDirectory()) return dirent.name + "/"
+          }
+          return dirent.name
+        }),
+      )
+      entries.sort((a, b) => a.localeCompare(b))
 
-    // Handle media files (images, PDFs, audio, video)
-    if (fileType === "image" || fileType === "pdf" || fileType === "audio" || fileType === "video") {
-      const base64Data = Buffer.from(await file.bytes()).toString("base64")
-      const typeLabel = fileType.charAt(0).toUpperCase() + fileType.slice(1)
-      const stat = await file.stat()
-      const estimatedTokens = estimateMediaTokens(fileType, stat.size)
-      const msg = `${typeLabel} file read successfully (${mimeType}, ~${estimatedTokens} tokens)`
+      const limit = params.limit ?? DEFAULT_READ_LIMIT
+      const offset = params.offset ?? 1
+      const start = offset - 1
+      const sliced = entries.slice(start, start + limit)
+      const truncated = start + sliced.length < entries.length
 
+      const output = [
+        `<path>${filepath}</path>`,
+        `<type>directory</type>`,
+        `<entries>`,
+        sliced.join("\n"),
+        truncated
+          ? `\n(Showing ${sliced.length} of ${entries.length} entries. Use 'offset' parameter to read beyond entry ${offset + sliced.length})`
+          : `\n(${entries.length} entries)`,
+        `</entries>`,
+      ].join("\n")
+
+      return {
+        title,
+        output,
+        metadata: {
+          preview: sliced.slice(0, 20).join("\n"),
+          truncated,
+          loaded: [] as string[],
+        },
+      }
+    }
+
+    const instructions = await InstructionPrompt.resolve(ctx.messages, filepath, ctx.messageID)
+
+    // Exclude SVG (XML-based) and vnd.fastbidsheet (.fbs extension, commonly FlatBuffers schema files)
+    const mime = Filesystem.mimeType(filepath)
+    const isImage = mime.startsWith("image/") && mime !== "image/svg+xml" && mime !== "image/vnd.fastbidsheet"
+    const isPdf = mime === "application/pdf"
+    if (isImage || isPdf) {
+      const msg = `${isImage ? "Image" : "PDF"} read successfully`
       return {
         title,
         output: msg,
         metadata: {
           preview: msg,
           truncated: false,
-          fileType: fileType as "image" | "pdf" | "audio" | "video",
-          mimeType,
-          estimatedTokens,
+          loaded: instructions.map((i) => i.filepath),
         },
         attachments: [
           {
-            id: Identifier.ascending("part"),
-            sessionID: ctx.sessionID,
-            messageID: ctx.messageID,
             type: "file",
-            mime: mimeType,
-            url: `data:${mimeType};base64,${base64Data}`,
+            mime,
+            url: `data:${mime};base64,${Buffer.from(await Filesystem.readBytes(filepath)).toString("base64")}`,
           },
         ],
       }
     }
 
-    // Handle SVG as text
-    if (fileType === "svg") {
-      const content = await file.text()
-      return {
-        title,
-        output: `<file>\n${content}\n</file>`,
-        metadata: {
-          preview: content.slice(0, 500),
-          truncated: content.length > 500,
-        } as any,
-      }
-    }
-
-    const isBinary = await isBinaryFile(filepath, file)
+    const isBinary = await isBinaryFile(filepath, Number(stat.size))
     if (isBinary) throw new Error(`Cannot read binary file: ${filepath}`)
 
+    const stream = createReadStream(filepath, { encoding: "utf8" })
+    const rl = createInterface({
+      input: stream,
+      // Note: we use the crlfDelay option to recognize all instances of CR LF
+      // ('\r\n') in file as a single line break.
+      crlfDelay: Infinity,
+    })
+
     const limit = params.limit ?? DEFAULT_READ_LIMIT
-    const offset = params.offset || 0
-
+    const offset = params.offset ?? 1
+    const start = offset - 1
+    const raw: string[] = []
+    let bytes = 0
+    let lines = 0
+    let truncatedByBytes = false
+    let hasMoreLines = false
     try {
-      // Use native read_file_core for memory efficiency
-      // Note: offset in native is 1-based line number, but params.offset is 0-based index
-      // So we pass offset + 1
-      const content = await readFileCore(filepath, offset + 1, limit)
+      for await (const text of rl) {
+        lines += 1
+        if (lines <= start) continue
 
-      let output = "<file>\n"
-      output += content
-      output += "\n</file>"
+        if (raw.length >= limit) {
+          hasMoreLines = true
+          continue
+        }
 
-      // Extract preview (first 20 lines)
-      const lines = content.split("\n")
-      const preview = lines.slice(0, 20).join("\n")
-      const truncated = lines.length >= limit
+        const line = text.length > MAX_LINE_LENGTH ? text.substring(0, MAX_LINE_LENGTH) + MAX_LINE_SUFFIX : text
+        const size = Buffer.byteLength(line, "utf-8") + (raw.length > 0 ? 1 : 0)
+        if (bytes + size > MAX_BYTES) {
+          truncatedByBytes = true
+          hasMoreLines = true
+          break
+        }
 
-      // just warms the lsp client
-      LSP.touchFile(filepath, false)
-      FileTime.read(ctx.sessionID, filepath)
-
-      return {
-        title,
-        output,
-        metadata: {
-          preview,
-          truncated,
-        } as any,
+        raw.push(line)
+        bytes += size
       }
-    } catch (e) {
-      throw new Error(`read failed: ${e instanceof Error ? e.message : String(e)}`)
+    } finally {
+      rl.close()
+      stream.destroy()
+    }
+
+    if (lines < offset && !(lines === 0 && offset === 1)) {
+      throw new Error(`Offset ${offset} is out of range for this file (${lines} lines)`)
+    }
+
+    const content = raw.map((line, index) => {
+      return `${index + offset}: ${line}`
+    })
+    const preview = raw.slice(0, 20).join("\n")
+
+    let output = [`<path>${filepath}</path>`, `<type>file</type>`, "<content>"].join("\n")
+    output += content.join("\n")
+
+    const totalLines = lines
+    const lastReadLine = offset + raw.length - 1
+    const nextOffset = lastReadLine + 1
+    const truncated = hasMoreLines || truncatedByBytes
+
+    if (truncatedByBytes) {
+      output += `\n\n(Output capped at ${MAX_BYTES_LABEL}. Showing lines ${offset}-${lastReadLine}. Use offset=${nextOffset} to continue.)`
+    } else if (hasMoreLines) {
+      output += `\n\n(Showing lines ${offset}-${lastReadLine} of ${totalLines}. Use offset=${nextOffset} to continue.)`
+    } else {
+      output += `\n\n(End of file - total ${totalLines} lines)`
+    }
+    output += "\n</content>"
+
+    // just warms the lsp client
+    LSP.touchFile(filepath, false)
+    await FileTime.read(ctx.sessionID, filepath)
+
+    if (instructions.length > 0) {
+      output += `\n\n<system-reminder>\n${instructions.map((i) => i.content).join("\n\n")}\n</system-reminder>`
+    }
+
+    return {
+      title,
+      output,
+      metadata: {
+        preview,
+        truncated,
+        loaded: instructions.map((i) => i.filepath),
+      },
     }
   },
 })
 
-async function isBinaryFile(filepath: string, file: Bun.BunFile): Promise<boolean> {
+async function isBinaryFile(filepath: string, fileSize: number): Promise<boolean> {
   const ext = path.extname(filepath).toLowerCase()
   // binary check for common non-text extensions
-  if (BINARY_EXTENSIONS.has(ext)) {
-    return true
+  switch (ext) {
+    case ".zip":
+    case ".tar":
+    case ".gz":
+    case ".exe":
+    case ".dll":
+    case ".so":
+    case ".class":
+    case ".jar":
+    case ".war":
+    case ".7z":
+    case ".doc":
+    case ".docx":
+    case ".xls":
+    case ".xlsx":
+    case ".ppt":
+    case ".pptx":
+    case ".odt":
+    case ".ods":
+    case ".odp":
+    case ".bin":
+    case ".dat":
+    case ".obj":
+    case ".o":
+    case ".a":
+    case ".lib":
+    case ".wasm":
+    case ".pyc":
+    case ".pyo":
+      return true
+    default:
+      break
   }
 
-  const stat = await file.stat()
-  const fileSize = stat.size
   if (fileSize === 0) return false
 
-  const bufferSize = Math.min(4096, fileSize)
-  const buffer = await file.arrayBuffer()
-  if (buffer.byteLength === 0) return false
-  const bytes = new Uint8Array(buffer.slice(0, bufferSize))
+  const fh = await fs.open(filepath, "r")
+  try {
+    const sampleSize = Math.min(4096, fileSize)
+    const bytes = Buffer.alloc(sampleSize)
+    const result = await fh.read(bytes, 0, sampleSize, 0)
+    if (result.bytesRead === 0) return false
 
-  let nonPrintableCount = 0
-  for (let i = 0; i < bytes.length; i++) {
-    if (bytes[i] === 0) return true
-    if (bytes[i] < 9 || (bytes[i] > 13 && bytes[i] < 32)) {
-      nonPrintableCount++
+    let nonPrintableCount = 0
+    for (let i = 0; i < result.bytesRead; i++) {
+      if (bytes[i] === 0) return true
+      if (bytes[i] < 9 || (bytes[i] > 13 && bytes[i] < 32)) {
+        nonPrintableCount++
+      }
     }
+    // If >30% non-printable characters, consider it binary
+    return nonPrintableCount / result.bytesRead > 0.3
+  } finally {
+    await fh.close()
   }
-  // If >30% non-printable characters, consider it binary
-  return nonPrintableCount / bytes.length > 0.3
 }
+

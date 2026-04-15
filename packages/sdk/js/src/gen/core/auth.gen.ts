@@ -39,3 +39,4 @@ export const getAuthToken = async (
 
   return token
 }
+

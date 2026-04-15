@@ -19,3 +19,5 @@ export const AgentManifest = z.object({
 })
 
 export type AgentManifest = z.infer<typeof AgentManifest>
+
+

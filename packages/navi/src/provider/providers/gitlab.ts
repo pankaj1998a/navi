@@ -19,7 +19,7 @@ export const GitLabProvider: ProviderLoader.Info = {
         const config = await Config.get()
         const providerConfig = config.provider?.["gitlab"]
 
-        // version 0.1.x of navi matches opencode current logic
+        // version 0.1.x of navi matches Navi current logic
         const aiGatewayHeaders = {
             "User-Agent": `navi/${Installation.VERSION} gitlab-ai-provider (unknown) (${os.platform()} ${os.release()}; ${os.arch()})`,
             ...(providerConfig?.options?.aiGatewayHeaders || {}),
@@ -50,3 +50,5 @@ export const GitLabProvider: ProviderLoader.Info = {
         }
     },
 }
+
+

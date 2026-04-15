@@ -116,7 +116,7 @@ navi "Explain how the authentication logic works in this project"
 navi -c
 
 # Use a specific model for this session
-navi -m anthropic/claude-3-5-sonnet-latest
+navi -m openai/gpt-5.2-codex
 ```
 
 ## ⌨️ Keyboard Shortcuts
@@ -142,7 +142,7 @@ navi
 
 Supported providers include:
 - **Anthropic** (Claude 3.5 Sonnet/Opus)
-- **OpenAI** (GPT-4o, GPT-4 Turbo)
+- **OpenAI** (GPT-5.2, GPT-5.2 Codex, GPT-4.1, GPT-4o)
 - **Google** (Gemini 1.5 Pro/Flash)
 - **GitHub Copilot**
 - **OpenRouter** (Access to Llama 3, Mistral, etc.)

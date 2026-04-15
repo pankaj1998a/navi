@@ -9,3 +9,4 @@ export function fn<T extends z.ZodType, Result>(schema: T, cb: (input: z.infer<T
   result.schema = schema
   return result
 }
+

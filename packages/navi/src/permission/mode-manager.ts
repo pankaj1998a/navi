@@ -12,7 +12,7 @@ import { PermissionMode, PERMISSION_MODE_ORDER } from "./mode-types"
 const log = Log.create({ service: "mode-manager" })
 
 export interface ModeState {
-    sessionId: string
+    sessionID: string
     permissionMode: PermissionMode
 }
 
@@ -24,71 +24,74 @@ class ModeManager {
     private states: Map<string, ModeState> = new Map()
     private callbacks: Map<string, ModeStateCallbacks> = new Map()
 
-    getState(sessionId: string): ModeState {
-        let state = this.states.get(sessionId)
+    getState(sessionID: string): ModeState {
+        let state = this.states.get(sessionID)
         if (!state) {
             state = {
-                sessionId,
+                sessionID,
                 permissionMode: "ask", // Default to 'ask'
             }
-            this.states.set(sessionId, state)
+            this.states.set(sessionID, state)
         }
         return state
     }
 
-    setPermissionMode(sessionId: string, mode: PermissionMode): void {
-        const existing = this.getState(sessionId)
+    setPermissionMode(sessionID: string, mode: PermissionMode): void {
+        const existing = this.getState(sessionID)
         const newState = { ...existing, permissionMode: mode }
-        this.states.set(sessionId, newState)
-        log.info("Set permission mode", { sessionId, mode })
+        this.states.set(sessionID, newState)
+        log.info("Set permission mode", { sessionID, mode })
         
         // Notify callbacks
-        const callbacks = this.callbacks.get(sessionId)
+        const callbacks = this.callbacks.get(sessionID)
         if (callbacks?.onStateChange) {
             callbacks.onStateChange(newState)
         }
     }
 
-    cyclePermissionMode(sessionId: string): PermissionMode {
-        const current = this.getState(sessionId).permissionMode
+    cyclePermissionMode(sessionID: string): PermissionMode {
+        const current = this.getState(sessionID).permissionMode
         const currentIndex = PERMISSION_MODE_ORDER.indexOf(current)
         const nextIndex = (currentIndex + 1) % PERMISSION_MODE_ORDER.length
         const nextMode = PERMISSION_MODE_ORDER[nextIndex]
-        this.setPermissionMode(sessionId, nextMode)
+        this.setPermissionMode(sessionID, nextMode)
         return nextMode
     }
 
-    initializeModeState(sessionId: string, initialMode: PermissionMode, callbacks?: ModeStateCallbacks): void {
+    initializeModeState(sessionID: string, initialMode: PermissionMode, callbacks?: ModeStateCallbacks): void {
         if (callbacks) {
-            this.callbacks.set(sessionId, callbacks)
+            this.callbacks.set(sessionID, callbacks)
         }
-        this.setPermissionMode(sessionId, initialMode)
+        this.setPermissionMode(sessionID, initialMode)
     }
 
-    cleanupSession(sessionId: string): void {
-        this.states.delete(sessionId)
-        this.callbacks.delete(sessionId)
+    cleanupSession(sessionID: string): void {
+        this.states.delete(sessionID)
+        this.callbacks.delete(sessionID)
     }
 }
 
 export const modeManager = new ModeManager()
 
-export function getPermissionMode(sessionId: string): PermissionMode {
-    return modeManager.getState(sessionId).permissionMode
+export function getPermissionMode(sessionID: string): PermissionMode {
+    return modeManager.getState(sessionID).permissionMode
 }
 
-export function setPermissionMode(sessionId: string, mode: PermissionMode): void {
-    modeManager.setPermissionMode(sessionId, mode)
+export function setPermissionMode(sessionID: string, mode: PermissionMode): void {
+    modeManager.setPermissionMode(sessionID, mode)
 }
 
-export function cyclePermissionMode(sessionId: string): PermissionMode {
-    return modeManager.cyclePermissionMode(sessionId)
+export function cyclePermissionMode(sessionID: string): PermissionMode {
+    return modeManager.cyclePermissionMode(sessionID)
 }
 
-export function initializeModeState(sessionId: string, initialMode: PermissionMode, callbacks?: ModeStateCallbacks): void {
-    modeManager.initializeModeState(sessionId, initialMode, callbacks)
+export function initializeModeState(sessionID: string, initialMode: PermissionMode, callbacks?: ModeStateCallbacks): void {
+    modeManager.initializeModeState(sessionID, initialMode, callbacks)
 }
 
-export function cleanupModeState(sessionId: string): void {
-    modeManager.cleanupSession(sessionId)
+export function cleanupModeState(sessionID: string): void {
+    modeManager.cleanupSession(sessionID)
 }
+
+
+

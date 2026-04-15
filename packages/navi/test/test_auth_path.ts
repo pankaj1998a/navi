@@ -1,5 +1,5 @@
-import { Global } from "./src/global/index.ts"
-import { Auth } from "./src/auth/index.ts"
+import { Global } from "../src/global/index"
+import { Auth } from "../src/auth/index"
 
 console.log("Global Path:", Global.Path.data)
 async function test() {

@@ -46,3 +46,4 @@ export namespace Identifier {
     return timeBytes.toString("hex") + randomBase62(LENGTH - 12)
   }
 }
+

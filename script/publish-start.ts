@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 
 import { $ } from "bun"
-import { Script } from "@navi-ai/script"
+import { Script } from "./info"
 import { buildNotes, getLatestRelease } from "./changelog"
 
 let notes: string[] = []

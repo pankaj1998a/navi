@@ -1,8 +1,7 @@
 import path from "path"
 import type { Tool } from "./tool"
 import { Instance } from "../project/instance"
-import { Config } from "../config/config"
-import { Filesystem } from "../util/filesystem"
+import { Filesystem } from "@/util/filesystem"
 
 type Kind = "file" | "directory"
 
@@ -16,22 +15,24 @@ export async function assertExternalDirectory(ctx: Tool.Context, target?: string
 
   if (options?.bypass) return
 
-  if (Instance.containsPath(target)) return
-
-  const config = await Config.get()
-  if (config.sandbox?.trusted?.some((dir) => Filesystem.contains(dir, target))) return
+  const full = process.platform === "win32" ? Filesystem.normalizePath(target) : target
+  if (Instance.containsPath(full)) return
 
   const kind = options?.kind ?? "file"
-  const parentDir = kind === "directory" ? target : path.dirname(target)
-  const glob = path.join(parentDir, "*")
+  const dir = kind === "directory" ? full : path.dirname(full)
+  const glob =
+    process.platform === "win32"
+      ? Filesystem.normalizePathPattern(path.join(dir, "*"))
+      : path.join(dir, "*").replaceAll("\\", "/")
 
   await ctx.ask({
     permission: "external_directory",
     patterns: [glob],
     always: [glob],
     metadata: {
-      filepath: target,
-      parentDir,
+      filepath: full,
+      parentDir: dir,
     },
   })
 }
+

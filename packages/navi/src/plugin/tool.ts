@@ -17,3 +17,5 @@ export function tool<Args extends z.ZodRawShape>(input: {
 tool.schema = z
 
 export type ToolDefinition = ReturnType<typeof tool>
+
+

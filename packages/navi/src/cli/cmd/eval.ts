@@ -1,3 +1,4 @@
+import path from "path"
 import type { CommandModule } from "yargs"
 import { EvalFramework } from "../../eval/framework"
 import { DEFAULT_VERIFICATION_PROFILES, getVerificationProfile } from "../../eval/catalog"
@@ -41,13 +42,47 @@ export const EvalCommand = {
         type: "string",
         describe: "show the verification profile for a mode or agent",
       })
+      .option("learn", {
+        type: "boolean",
+        describe: "run the iterative learning loop over git commits",
+      })
+      .option("count", {
+        type: "number",
+        default: 10,
+        describe: "number of commits to process in learn mode",
+      })
+      .option("repo", {
+        type: "string",
+        describe: "path to the repository to learn from",
+      })
       .option("format", {
         type: "string",
         choices: ["table", "json"],
         default: "table",
         describe: "output format",
       }),
-  handler: async (args: Args) => {
+  handler: async (raw: any) => {
+    const args = raw as Args & { learn?: boolean; count: number; repo?: string }
+    if (args.learn) {
+      const { NaviEval } = await import("../../eval/navi-eval")
+      const { bootstrap } = await import("../bootstrap")
+      const { UI } = await import("../ui")
+      const repoPath = args.repo ? (path.isAbsolute(args.repo) ? args.repo : path.resolve(process.cwd(), args.repo)) : process.cwd()
+      
+      UI.println(UI.Style.TEXT_HIGHLIGHT_BOLD + "🌌 Navi-Eval: Learning Mode Initialized")
+      UI.println(UI.Style.TEXT_DIM + `Repository: ${repoPath}`)
+      UI.empty()
+
+      await bootstrap(repoPath, async () => {
+        const evalEngine = new NaviEval(repoPath)
+        await evalEngine.runLearnMode(args.count)
+      })
+      
+      UI.empty()
+      UI.println(UI.Style.TEXT_SUCCESS_BOLD + "✨ Navi-Eval Learn Mode complete.")
+      return
+    }
+
     if (args.list) {
       const data = {
         benchmarks: EvalFramework.benchmarks(),
@@ -113,3 +148,6 @@ export const EvalCommand = {
     console.log(`- avg questions: ${summary.avgQuestions.toFixed(1)}`)
   },
 } satisfies CommandModule
+
+
+

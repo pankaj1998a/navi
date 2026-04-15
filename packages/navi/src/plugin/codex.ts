@@ -1,16 +1,19 @@
 import type { Hooks, PluginInput } from "@navi-ai/plugin"
 import { Log } from "../util/log"
-import { OAUTH_DUMMY_KEY } from "../auth"
-import { ProviderTransform } from "../provider/transform"
-
-import { Env } from "../env"
+import { Installation } from "../installation"
+import { Auth, OAUTH_DUMMY_KEY } from "../auth"
+import os from "os"
+import { ProviderTransform } from "@/provider/transform"
+import { ModelID, ProviderID } from "@/provider/schema"
+import { setTimeout as sleep } from "node:timers/promises"
 
 const log = Log.create({ service: "plugin.codex" })
 
-const getClientID = () => Env.get("CODEX_CLIENT_ID") || "app_EMoamEEZ73f0CkXaXp7hrann"
+const CLIENT_ID = "app_EMoamEEZ73f0CkXaXp7hrann"
 const ISSUER = "https://auth.openai.com"
 const CODEX_API_ENDPOINT = "https://chatgpt.com/backend-api/codex/responses"
 const OAUTH_PORT = 1455
+const OAUTH_POLLING_SAFETY_MARGIN_MS = 3000
 
 interface PkceCodes {
   verifier: string
@@ -37,7 +40,7 @@ function generateRandomString(length: number): string {
 function base64UrlEncode(buffer: ArrayBuffer): string {
   const bytes = new Uint8Array(buffer)
   const binary = String.fromCharCode(...bytes)
-  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/\=+$/, "")
+  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "")
 }
 
 function generateState(): string {
@@ -87,7 +90,7 @@ export function extractAccountId(tokens: TokenResponse): string | undefined {
 function buildAuthorizeUrl(redirectUri: string, pkce: PkceCodes, state: string): string {
   const params = new URLSearchParams({
     response_type: "code",
-    client_id: getClientID(),
+    client_id: CLIENT_ID,
     redirect_uri: redirectUri,
     scope: "openid profile email offline_access",
     code_challenge: pkce.challenge,
@@ -95,7 +98,7 @@ function buildAuthorizeUrl(redirectUri: string, pkce: PkceCodes, state: string):
     id_token_add_organizations: "true",
     codex_cli_simplified_flow: "true",
     state,
-    originator: "navi",
+    originator: "Navi",
   })
   return `${ISSUER}/oauth/authorize?${params.toString()}`
 }
@@ -115,7 +118,7 @@ async function exchangeCodeForTokens(code: string, redirectUri: string, pkce: Pk
       grant_type: "authorization_code",
       code,
       redirect_uri: redirectUri,
-      client_id: getClientID(),
+      client_id: CLIENT_ID,
       code_verifier: pkce.verifier,
     }).toString(),
   })
@@ -132,7 +135,7 @@ async function refreshAccessToken(refreshToken: string): Promise<TokenResponse> 
     body: new URLSearchParams({
       grant_type: "refresh_token",
       refresh_token: refreshToken,
-      client_id: getClientID(),
+      client_id: CLIENT_ID,
     }).toString(),
   })
   if (!response.ok) {
@@ -356,42 +359,20 @@ export async function CodexAuthPlugin(input: PluginInput): Promise<Hooks> {
         if (auth.type !== "oauth") return {}
 
         // Filter models to only allowed Codex models for OAuth
-        const allowedModels = new Set(["gpt-5.1-codex-max", "gpt-5.1-codex-mini", "gpt-5.2", "gpt-5.2-codex"])
+        const allowedModels = new Set([
+          "gpt-5.1-codex",
+          "gpt-5.1-codex-max",
+          "gpt-5.1-codex-mini",
+          "gpt-5.2",
+          "gpt-5.2-codex",
+          "gpt-5.3-codex",
+          "gpt-5.4",
+          "gpt-5.4-mini",
+        ])
         for (const modelId of Object.keys(provider.models)) {
-          if (!allowedModels.has(modelId)) {
-            delete provider.models[modelId]
-          }
-        }
-
-        if (!provider.models["gpt-5.2-codex"]) {
-          const model = {
-            id: "gpt-5.2-codex",
-            providerID: "openai",
-            api: {
-              id: "gpt-5.2-codex",
-              url: "https://chatgpt.com/backend-api/codex",
-              npm: "@ai-sdk/openai",
-            },
-            name: "GPT-5.2 Codex",
-            capabilities: {
-              temperature: false,
-              reasoning: true,
-              attachment: true,
-              toolcall: true,
-              input: { text: true, audio: false, image: true, video: false, pdf: false },
-              output: { text: true, audio: false, image: false, video: false, pdf: false },
-              interleaved: false,
-            },
-            cost: { input: 0, output: 0, cache: { read: 0, write: 0 } },
-            limit: { context: 400000, output: 128000 },
-            status: "active" as const,
-            options: {},
-            headers: {},
-            release_date: "2025-12-18",
-            variants: {} as Record<string, Record<string, any>>,
-          }
-          model.variants = ProviderTransform.variants(model)
-          provider.models["gpt-5.2-codex"] = model
+          if (modelId.includes("codex")) continue
+          if (allowedModels.has(modelId)) continue
+          delete provider.models[modelId]
         }
 
         // Zero out costs for Codex (included with ChatGPT subscription)
@@ -431,7 +412,7 @@ export async function CodexAuthPlugin(input: PluginInput): Promise<Hooks> {
               const tokens = await refreshAccessToken(currentAuth.refresh)
               const newAccountId = extractAccountId(tokens) || authWithAccount.accountId
               await input.client.auth.set({
-                path: { id: "codex" },
+                path: { id: "openai" },
                 body: {
                   type: "oauth",
                   refresh: tokens.refresh_token,
@@ -487,7 +468,7 @@ export async function CodexAuthPlugin(input: PluginInput): Promise<Hooks> {
       },
       methods: [
         {
-          label: "ChatGPT Pro/Plus",
+          label: "ChatGPT Pro/Plus (browser)",
           type: "oauth",
           authorize: async () => {
             const { redirectUri } = await startOAuthServer()
@@ -517,10 +498,100 @@ export async function CodexAuthPlugin(input: PluginInput): Promise<Hooks> {
           },
         },
         {
+          label: "ChatGPT Pro/Plus (headless)",
+          type: "oauth",
+          authorize: async () => {
+            const deviceResponse = await fetch(`${ISSUER}/api/accounts/deviceauth/usercode`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "User-Agent": `Navi/${Installation.VERSION}`,
+              },
+              body: JSON.stringify({ client_id: CLIENT_ID }),
+            })
+
+            if (!deviceResponse.ok) throw new Error("Failed to initiate device authorization")
+
+            const deviceData = (await deviceResponse.json()) as {
+              device_auth_id: string
+              user_code: string
+              interval: string
+            }
+            const interval = Math.max(parseInt(deviceData.interval) || 5, 1) * 1000
+
+            return {
+              url: `${ISSUER}/codex/device`,
+              instructions: `Enter code: ${deviceData.user_code}`,
+              method: "auto" as const,
+              async callback() {
+                while (true) {
+                  const response = await fetch(`${ISSUER}/api/accounts/deviceauth/token`, {
+                    method: "POST",
+                    headers: {
+                      "Content-Type": "application/json",
+                      "User-Agent": `Navi/${Installation.VERSION}`,
+                    },
+                    body: JSON.stringify({
+                      device_auth_id: deviceData.device_auth_id,
+                      user_code: deviceData.user_code,
+                    }),
+                  })
+
+                  if (response.ok) {
+                    const data = (await response.json()) as {
+                      authorization_code: string
+                      code_verifier: string
+                    }
+
+                    const tokenResponse = await fetch(`${ISSUER}/oauth/token`, {
+                      method: "POST",
+                      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                      body: new URLSearchParams({
+                        grant_type: "authorization_code",
+                        code: data.authorization_code,
+                        redirect_uri: `${ISSUER}/deviceauth/callback`,
+                        client_id: CLIENT_ID,
+                        code_verifier: data.code_verifier,
+                      }).toString(),
+                    })
+
+                    if (!tokenResponse.ok) {
+                      throw new Error(`Token exchange failed: ${tokenResponse.status}`)
+                    }
+
+                    const tokens: TokenResponse = await tokenResponse.json()
+
+                    return {
+                      type: "success" as const,
+                      refresh: tokens.refresh_token,
+                      access: tokens.access_token,
+                      expires: Date.now() + (tokens.expires_in ?? 3600) * 1000,
+                      accountId: extractAccountId(tokens),
+                    }
+                  }
+
+                  if (response.status !== 403 && response.status !== 404) {
+                    return { type: "failed" as const }
+                  }
+
+                  await sleep(interval + OAUTH_POLLING_SAFETY_MARGIN_MS)
+                }
+              },
+            }
+          },
+        },
+        {
           label: "Manually enter API Key",
           type: "api",
         },
       ],
     },
+    "chat.headers": async (input, output) => {
+      if (input.model.providerID !== "openai") return
+      output.headers.originator = "Navi"
+      output.headers["User-Agent"] = `Navi/${Installation.VERSION} (${os.platform()} ${os.release()}; ${os.arch()})`
+      output.headers.session_id = input.sessionID
+    },
   }
 }
+

@@ -11,12 +11,12 @@ import { useSDK } from "@tui/context/sdk"
 function Status(props: { enabled: boolean; loading: boolean }) {
   const { theme } = useTheme()
   if (props.loading) {
-    return <span style={{ fg: theme.textMuted }}>⋯ Loading</span>
+    return <text fg={theme.textMuted}>⋯ Loading</text>
   }
   if (props.enabled) {
-    return <span style={{ fg: theme.success, attributes: TextAttributes.BOLD }}>✓ Enabled</span>
+    return <text fg={theme.success} attributes={TextAttributes.BOLD}>✓ Enabled</text>
   }
-  return <span style={{ fg: theme.textMuted }}>○ Disabled</span>
+  return <text fg={theme.textMuted}>○ Disabled</text>
 }
 
 export function DialogMcp() {
@@ -84,3 +84,4 @@ export function DialogMcp() {
     />
   )
 }
+

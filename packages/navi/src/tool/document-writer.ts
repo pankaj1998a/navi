@@ -276,3 +276,5 @@ function objectToTable(obj: object): unknown[][] {
     const entries = Object.entries(obj)
     return [["Key", "Value"], ...entries]
 }
+
+

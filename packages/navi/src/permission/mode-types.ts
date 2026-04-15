@@ -51,6 +51,8 @@ export const PermissionsConfigSchema = z.object({
     allowedWritePaths: z.array(PatternSchema).optional(),
     /** Additional tools to block (extends the hardcoded defaults) */
     blockedTools: z.array(PatternSchema).optional(),
+    /** Tool-specific restrictions mapping tool name to array of allowed glob patterns. */
+    toolRestrictions: z.record(z.array(z.string())).optional(),
 })
 
 export type PermissionsConfigFile = z.infer<typeof PermissionsConfigSchema>
@@ -179,3 +181,6 @@ export const PERMISSION_MODE_CONFIG: Record<PermissionMode, {
         },
     },
 }
+
+
+

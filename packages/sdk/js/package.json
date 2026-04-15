@@ -22,15 +22,15 @@
   ],
   "devDependencies": {
     "@hey-api/openapi-ts": "0.88.1",
-    "@tsconfig/node22": "catalog:",
+    "@tsconfig/node22": "22.0.2",
     "@types/diff": "8.0.0",
-    "@types/node": "catalog:",
-    "@typescript/native-preview": "catalog:",
+    "@types/node": "22.13.9",
+    "@typescript/native-preview": "7.0.0-dev.20251207.1",
     "diff": "8.0.2",
-    "typescript": "catalog:"
+    "typescript": "5.8.2"
   },
   "dependencies": {
-    "zod": "catalog:"
+    "zod": "4.1.8"
   },
   "publishConfig": {
     "directory": "dist"

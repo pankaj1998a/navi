@@ -34,7 +34,7 @@ export interface PermissionPattern {
 /**
  * Analyze permission usage and suggest improvements
  */
-export function analyzePermissionUsage(sessionId: string): PermissionPattern {
+export function analyzePermissionUsage(sessionID: string): PermissionPattern {
     // In a real implementation, this would query permission history
     // For now, return a mock pattern
     return {
@@ -51,9 +51,9 @@ export function analyzePermissionUsage(sessionId: string): PermissionPattern {
 export function suggestPermissionMode(
     taskDescription: string,
     currentMode: PermissionMode,
-    sessionId: string
+    sessionID: string
 ): { suggestion: PermissionMode; reason: string; confidence: number } {
-    const pattern = analyzePermissionUsage(sessionId);
+    const pattern = analyzePermissionUsage(sessionID);
     const taskLower = taskDescription.toLowerCase();
 
     // Analyze task for permission requirements
@@ -173,11 +173,11 @@ export function suggestPermissionRules(
  * Suggest permission mode change to user
  */
 export function suggestPermissionChange(
-    sessionId: string,
+    sessionID: string,
     taskDescription: string
 ): { message: string; options: Array<{ mode: PermissionMode; label: string; reason: string }> } | null {
-    const currentMode = getPermissionMode(sessionId);
-    const suggestion = suggestPermissionMode(taskDescription, currentMode, sessionId);
+    const currentMode = getPermissionMode(sessionID);
+    const suggestion = suggestPermissionMode(taskDescription, currentMode, sessionID);
 
     if (suggestion.suggestion === currentMode) {
         return null;
@@ -206,12 +206,12 @@ export function suggestPermissionChange(
  * Auto-suggest permission mode based on task
  */
 export function autoSuggestPermissionMode(
-    sessionId: string,
+    sessionID: string,
     taskDescription: string
 ): PermissionMode | null {
-    const suggestion = suggestPermissionMode(taskDescription, getPermissionMode(sessionId), sessionId);
+    const suggestion = suggestPermissionMode(taskDescription, getPermissionMode(sessionID), sessionID);
     
-    if (suggestion.confidence > 0.8 && suggestion.suggestion !== getPermissionMode(sessionId)) {
+    if (suggestion.confidence > 0.8 && suggestion.suggestion !== getPermissionMode(sessionID)) {
         log.info(`Auto-suggesting permission mode: ${suggestion.suggestion}`, {
             reason: suggestion.reason,
             confidence: suggestion.confidence,
@@ -222,3 +222,6 @@ export function autoSuggestPermissionMode(
 
     return null;
 }
+
+
+

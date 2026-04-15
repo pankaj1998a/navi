@@ -5,9 +5,9 @@ import { cyclePermissionMode, getPermissionMode, PERMISSION_MODE_CONFIG, setPerm
 export const PermissionModeGetTool = Tool.define("permission_mode_get", {
     description: "Get the current permission mode for this session",
     parameters: z.object({}),
-    execute: async () => {
-        const sessionId = "default" // In a real implementation, this would come from the session context
-        const mode = getPermissionMode(sessionId)
+    execute: async (_args, ctx) => {
+        const sessionID = ctx.sessionID
+        const mode = getPermissionMode(sessionID)
         const config = PERMISSION_MODE_CONFIG[mode]
 
         return {
@@ -25,9 +25,9 @@ export const PermissionModeSetTool = Tool.define("permission_mode_set", {
     parameters: z.object({
         mode: z.enum(["safe", "ask", "allow-all"]).describe("The permission mode to set"),
     }),
-    execute: async (args) => {
-        const sessionId = "default" // In a real implementation, this would come from the session context
-        setPermissionMode(sessionId, args.mode)
+    execute: async (args, ctx) => {
+        const sessionID = ctx.sessionID
+        setPermissionMode(sessionID, args.mode)
         const config = PERMISSION_MODE_CONFIG[args.mode]
 
         return {
@@ -42,9 +42,9 @@ Description: ${config.description}`,
 export const PermissionModeCycleTool = Tool.define("permission_mode_cycle", {
     description: "Cycle to the next permission mode for this session",
     parameters: z.object({}),
-    execute: async () => {
-        const sessionId = "default" // In a real implementation, this would come from the session context
-        const newMode = cyclePermissionMode(sessionId)
+    execute: async (_args, ctx) => {
+        const sessionID = ctx.sessionID
+        const newMode = cyclePermissionMode(sessionID)
         const config = PERMISSION_MODE_CONFIG[newMode]
 
         return {
@@ -56,3 +56,5 @@ Next mode: ${PERMISSION_MODE_CONFIG["safe" === newMode ? "ask" : "allow-all" ===
         }
     },
 })
+
+

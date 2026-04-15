@@ -165,3 +165,6 @@ export function validateConfigFile(filePath: string, workspaceRootPath: string):
         return `Error reading file: ${error instanceof Error ? error.message : String(error)}`;
     }
 }
+
+
+

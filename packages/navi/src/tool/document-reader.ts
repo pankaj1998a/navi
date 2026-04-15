@@ -178,3 +178,5 @@ function formatTableData(data: unknown[][]): string {
 
     return table
 }
+
+

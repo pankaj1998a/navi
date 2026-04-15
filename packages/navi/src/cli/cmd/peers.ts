@@ -469,3 +469,6 @@ async function readFiles(paths: string[]): Promise<Array<{ path: string; content
   
   return files
 }
+
+
+

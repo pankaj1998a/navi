@@ -1,6 +1,6 @@
 ---
 description: A software architect specialized in high-level design, system patterns, and structural decisions.
-mode: primary
+mode: subagent
 tools:
   read: true
   websearch: true

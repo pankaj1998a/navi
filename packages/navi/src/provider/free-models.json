@@ -1,10 +1,10 @@
 {
-  "opencode": {
-    "id": "opencode",
-    "name": "OpenCode Zen",
-    "api": "https://opencode.ai/zen/v1",
+  "navi": {
+    "id": "navi",
+    "name": "Navi Zen",
+    "api": "https://navi.ai/zen/v1",
     "env": [
-      "OPENCODE_API_KEY"
+      "NAVI_API_KEY"
     ],
     "npm": "@ai-sdk/openai-compatible",
     "models": {
@@ -1577,15 +1577,15 @@
   },
   "kilocode": {
     "id": "kilocode",
-    "name": "KiloCode",
-    "api": "https://api.kilo.ai/api/openrouter/",
+    "name": "Kilo Code",
+    "api": "https://api.kilo.ai/v1",
     "env": [
       "KILOCODE_API_KEY"
     ],
     "npm": "@ai-sdk/openai-compatible",
     "models": {
-      "kilo/auto": {
-        "id": "kilo/auto",
+      "kilo-auto/free": {
+        "id": "kilo-auto/free",
         "name": "Kilo Auto (Free)",
         "attachment": true,
         "reasoning": true,
@@ -1593,18 +1593,13 @@
         "tool_call": true,
         "cost": {
           "input": 0,
-          "output": 0,
-          "cache_read": 0
+          "output": 0
         },
         "limit": {
-          "context": 1000000,
-          "output": 64000
+          "context": 200000,
+          "output": 128000
         },
-        "options": {},
-        "headers": {
-          "HTTP-Referer": "https://navi.ai/",
-          "X-Title": "navi"
-        }
+        "options": {}
       },
       "minimax/minimax-m2.5:free": {
         "id": "minimax/minimax-m2.5:free",
@@ -1737,6 +1732,50 @@
           "HTTP-Referer": "https://navi.ai/",
           "X-Title": "navi"
         }
+      }
+    }
+  },
+  "gemini-cli": {
+    "id": "gemini-cli",
+    "name": "Gemini CLI",
+    "env": [
+      "GOOGLE_GENERATIVE_AI_API_KEY"
+    ],
+    "npm": "gemini-cli",
+    "models": {
+      "gemini-2.0-flash": {
+        "id": "gemini-2.0-flash",
+        "name": "Gemini 2.0 Flash",
+        "attachment": true,
+        "reasoning": false,
+        "temperature": true,
+        "tool_call": true,
+        "cost": {
+          "input": 0,
+          "output": 0
+        },
+        "limit": {
+          "context": 1048576,
+          "output": 8192
+        },
+        "options": {}
+      },
+      "gemini-1.5-pro": {
+        "id": "gemini-1.5-pro",
+        "name": "Gemini 1.5 Pro",
+        "attachment": true,
+        "reasoning": false,
+        "temperature": true,
+        "tool_call": true,
+        "cost": {
+          "input": 0,
+          "output": 0
+        },
+        "limit": {
+          "context": 2097152,
+          "output": 8192
+        },
+        "options": {}
       }
     }
   }

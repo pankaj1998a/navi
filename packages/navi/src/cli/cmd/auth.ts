@@ -328,7 +328,7 @@ export const AuthLoginCommand = cmd({
           kilocode: 7,
           cline: 8,
           roocode: 9,
-          opencode: 10,
+          Navi: 10,
           vercel: 11,
         }
         if (!provider) {
@@ -442,8 +442,8 @@ export const AuthLoginCommand = cmd({
           prompts.log.info("Create an api key at https://navi.ai/auth")
         }
 
-        if (authProvider === "opencode") {
-          prompts.log.info("Create an api key at https://opencode.ai/auth")
+        if (authProvider === "Navi") {
+          prompts.log.info("Create an api key at https://Navi.ai/auth")
         }
 
         if (authProvider === "kilocode") {
@@ -510,3 +510,6 @@ export const AuthLogoutCommand = cmd({
     prompts.outro("Logout successful")
   },
 })
+
+
+

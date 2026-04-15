@@ -53,10 +53,10 @@ export const ZenmuxProvider: ProviderLoader.Info = {
     return {
       autoload: Object.keys(models).length > 0,
       options: {
-        // Use opencode headers to avoid rate limiting
+        // Use Navi headers to avoid rate limiting
         headers: {
-          "HTTP-Referer": "https://opencode.ai/",
-          "X-Title": "opencode",
+          "HTTP-Referer": "https://Navi.ai/",
+          "X-Title": "Navi",
         },
       },
       models,
@@ -76,3 +76,5 @@ export const CerebrasProvider: ProviderLoader.Info = {
     }
   },
 }
+
+

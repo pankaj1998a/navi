@@ -85,3 +85,4 @@ const SearchCommand = cmd({
     process.stdout.write(JSON.stringify(results, null, 2) + EOL)
   },
 })
+

@@ -2,12 +2,13 @@ import { Log } from "../util/log"
 import { v4 as uuid } from "uuid"
 import { Storage } from "../storage/storage"
 import { MessageV2 } from "./message-v2"
+import { SessionID } from "./schema"
 
 const log = Log.create({ service: "timeline" })
 
 export interface TimelineNode {
     id: string
-    sessionId: string
+    sessionID: string
     messageId: string
     timestamp: number
     type: 'user' | 'assistant' | 'system' | 'branch' | 'merge'
@@ -65,8 +66,8 @@ export class TimelineManager {
         this.storage = Storage
     }
 
-    async createTimeline(sessionId: string): Promise<TimelineSnapshot> {
-        log.info("Creating timeline", { sessionId })
+    async createTimeline(sessionID: string): Promise<TimelineSnapshot> {
+        log.info("Creating timeline", { sessionID })
 
         const snapshot: TimelineSnapshot = {
             nodes: new Map(),
@@ -76,7 +77,7 @@ export class TimelineManager {
         }
 
         // Load messages from session
-        const messages = await this.loadMessages(sessionId)
+        const messages = await this.loadMessages(sessionID)
 
         // Build timeline from messages
         await this.buildTimeline(snapshot, messages)
@@ -94,10 +95,10 @@ export class TimelineManager {
             snapshot.branches.set('main', mainBranch)
         }
 
-        this.snapshots.set(sessionId, snapshot)
+        this.snapshots.set(sessionID, snapshot)
 
         log.info("Timeline created", {
-            sessionId,
+            sessionID,
             nodeCount: snapshot.nodes.size,
             branchCount: snapshot.branches.size
         })
@@ -105,10 +106,10 @@ export class TimelineManager {
         return snapshot
     }
 
-    private async loadMessages(sessionId: string): Promise<MessageV2.WithParts[]> {
+    private async loadMessages(sessionID: string): Promise<MessageV2.WithParts[]> {
         const messages: MessageV2.WithParts[] = []
 
-        for await (const msg of MessageV2.stream(sessionId)) {
+        for await (const msg of MessageV2.stream(sessionID as SessionID)) {
             messages.push(msg)
         }
 
@@ -131,7 +132,7 @@ export class TimelineManager {
 
             const node: TimelineNode = {
                 id: uuid(),
-                sessionId: message.info.sessionID,
+                sessionID: message.info.sessionID,
                 messageId: message.info.id,
                 timestamp: message.info.time.created || Date.now(),
                 type: this.getMessageType(message),
@@ -193,13 +194,13 @@ export class TimelineManager {
     }
 
     async addNode(
-        sessionId: string,
+        sessionID: string,
         message: MessageV2.WithParts,
         parentId: string | null = null
     ): Promise<TimelineNode> {
-        const snapshot = this.snapshots.get(sessionId)
+        const snapshot = this.snapshots.get(sessionID)
         if (!snapshot) {
-            throw new Error(`Timeline not found for session: ${sessionId}`)
+            throw new Error(`Timeline not found for session: ${sessionID}`)
         }
 
         const content = this.extractMessageContent(message)
@@ -207,7 +208,7 @@ export class TimelineManager {
 
         const node: TimelineNode = {
             id: uuid(),
-            sessionId,
+            sessionID,
             messageId: message.info.id,
             timestamp: Date.now(),
             type: this.getMessageType(message),
@@ -237,18 +238,18 @@ export class TimelineManager {
             await this.pruneOldNodes(snapshot)
         }
 
-        log.debug("Added timeline node", { nodeId: node.id, sessionId })
+        log.debug("Added timeline node", { nodeId: node.id, sessionID })
         return node
     }
 
     async createBranch(
-        sessionId: string,
+        sessionID: string,
         fromNodeId: string,
         name: string
     ): Promise<TimelineBranch> {
-        const snapshot = this.snapshots.get(sessionId)
+        const snapshot = this.snapshots.get(sessionID)
         if (!snapshot) {
-            throw new Error(`Timeline not found for session: ${sessionId}`)
+            throw new Error(`Timeline not found for session: ${sessionID}`)
         }
 
         const colorIndex = snapshot.branches.size % this.colors.length
@@ -269,18 +270,18 @@ export class TimelineManager {
         snapshot.branches.set(branch.id, branch)
         snapshot.activeBranch = branch.id
 
-        log.info("Created timeline branch", { branchId: branch.id, sessionId, name })
+        log.info("Created timeline branch", { branchId: branch.id, sessionID, name })
         return branch
     }
 
     async mergeBranch(
-        sessionId: string,
+        sessionID: string,
         fromBranchId: string,
         toBranchId: string = 'main'
     ): Promise<void> {
-        const snapshot = this.snapshots.get(sessionId)
+        const snapshot = this.snapshots.get(sessionID)
         if (!snapshot) {
-            throw new Error(`Timeline not found for session: ${sessionId}`)
+            throw new Error(`Timeline not found for session: ${sessionID}`)
         }
 
         const fromBranch = snapshot.branches.get(fromBranchId)
@@ -293,7 +294,7 @@ export class TimelineManager {
         // Create merge node
         const mergeNode: TimelineNode = {
             id: uuid(),
-            sessionId,
+            sessionID,
             messageId: uuid(),
             timestamp: Date.now(),
             type: 'merge',
@@ -317,16 +318,16 @@ export class TimelineManager {
         snapshot.activeBranch = toBranchId
 
         log.info("Merged timeline branch", {
-            sessionId,
+            sessionID,
             fromBranch: fromBranch.name,
             toBranch: toBranch.name
         })
     }
 
-    async switchBranch(sessionId: string, branchId: string): Promise<void> {
-        const snapshot = this.snapshots.get(sessionId)
+    async switchBranch(sessionID: string, branchId: string): Promise<void> {
+        const snapshot = this.snapshots.get(sessionID)
         if (!snapshot) {
-            throw new Error(`Timeline not found for session: ${sessionId}`)
+            throw new Error(`Timeline not found for session: ${sessionID}`)
         }
 
         const branch = snapshot.branches.get(branchId)
@@ -340,29 +341,29 @@ export class TimelineManager {
 
         snapshot.activeBranch = branchId
 
-        log.debug("Switched to branch", { sessionId, branchId })
+        log.debug("Switched to branch", { sessionID, branchId })
     }
 
-    async getTimeline(sessionId: string): Promise<TimelineSnapshot | null> {
-        return this.snapshots.get(sessionId) || null
+    async getTimeline(sessionID: string): Promise<TimelineSnapshot | null> {
+        return this.snapshots.get(sessionID) || null
     }
 
-    async getActiveBranch(sessionId: string): Promise<TimelineBranch | null> {
-        const snapshot = this.snapshots.get(sessionId)
+    async getActiveBranch(sessionID: string): Promise<TimelineBranch | null> {
+        const snapshot = this.snapshots.get(sessionID)
         if (!snapshot) return null
 
         return snapshot.branches.get(snapshot.activeBranch) || null
     }
 
-    async getBranches(sessionId: string): Promise<TimelineBranch[]> {
-        const snapshot = this.snapshots.get(sessionId)
+    async getBranches(sessionID: string): Promise<TimelineBranch[]> {
+        const snapshot = this.snapshots.get(sessionID)
         if (!snapshot) return []
 
         return Array.from(snapshot.branches.values())
     }
 
-    async getNodePath(sessionId: string, nodeId: string): Promise<TimelineNode[]> {
-        const snapshot = this.snapshots.get(sessionId)
+    async getNodePath(sessionID: string, nodeId: string): Promise<TimelineNode[]> {
+        const snapshot = this.snapshots.get(sessionID)
         if (!snapshot) return []
 
         const path: TimelineNode[] = []
@@ -381,12 +382,12 @@ export class TimelineManager {
     }
 
     async getDiff(
-        sessionId: string,
+        sessionID: string,
         nodeId1: string,
         nodeId2: string
     ): Promise<{ added: string[]; removed: string[] }> {
-        const path1 = await this.getNodePath(sessionId, nodeId1)
-        const path2 = await this.getNodePath(sessionId, nodeId2)
+        const path1 = await this.getNodePath(sessionID, nodeId1)
+        const path2 = await this.getNodePath(sessionID, nodeId2)
 
         const set1 = new Set(path1.map(n => n.messageId))
         const set2 = new Set(path2.map(n => n.messageId))
@@ -423,14 +424,14 @@ export class TimelineManager {
         log.debug("Pruned old timeline nodes", { count: toRemove.length })
     }
 
-    async exportTimeline(sessionId: string): Promise<string> {
-        const snapshot = this.snapshots.get(sessionId)
+    async exportTimeline(sessionID: string): Promise<string> {
+        const snapshot = this.snapshots.get(sessionID)
         if (!snapshot) {
-            throw new Error(`Timeline not found for session: ${sessionId}`)
+            throw new Error(`Timeline not found for session: ${sessionID}`)
         }
 
         const exportData = {
-            sessionId,
+            sessionID,
             exportedAt: new Date().toISOString(),
             branches: Array.from(snapshot.branches.values()),
             nodes: Array.from(snapshot.nodes.values()).map(n => ({
@@ -443,7 +444,7 @@ export class TimelineManager {
         return JSON.stringify(exportData, null, 2)
     }
 
-    async importTimeline(sessionId: string, data: string): Promise<TimelineSnapshot> {
+    async importTimeline(sessionID: string, data: string): Promise<TimelineSnapshot> {
         const importData = JSON.parse(data)
 
         const snapshot: TimelineSnapshot = {
@@ -464,23 +465,26 @@ export class TimelineManager {
             }
         }
 
-        this.snapshots.set(sessionId, snapshot)
+        this.snapshots.set(sessionID, snapshot)
 
-        log.info("Imported timeline", { sessionId })
+        log.info("Imported timeline", { sessionID })
         return snapshot
     }
 
-    async dispose(sessionId: string): Promise<void> {
-        const snapshot = this.snapshots.get(sessionId)
+    async dispose(sessionID: string): Promise<void> {
+        const snapshot = this.snapshots.get(sessionID)
         if (snapshot) {
             snapshot.nodes.clear()
             snapshot.branches.clear()
             snapshot.rootNodes = []
-            this.snapshots.delete(sessionId)
+            this.snapshots.delete(sessionID)
         }
 
-        log.debug("Disposed timeline", { sessionId })
+        log.debug("Disposed timeline", { sessionID })
     }
 }
 
 export const Timeline = new TimelineManager()
+
+
+

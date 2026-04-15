@@ -26,3 +26,5 @@ const DocumentationAgent: AgentTemplate = {
 
 AgentRegistry.register(DocumentationAgent)
 export { DocumentationAgent }
+
+

@@ -54,7 +54,10 @@ export const KilocodeProvider: ProviderLoader.Info = {
             if (apiKey && apiKey !== "public") {
                 fetchHeaders["Authorization"] = `Bearer ${apiKey}`
             }
-            const res = await fetch("https://api.kilo.ai/api/openrouter/models", { headers: fetchHeaders })
+            const res = await fetch("https://api.kilo.ai/api/openrouter/models", {
+                headers: fetchHeaders,
+                signal: AbortSignal.timeout(8_000),
+            })
             if (res.ok) {
                 const data = (await res.json()) as any
                 if (data && data.data && Array.isArray(data.data)) {
@@ -150,3 +153,5 @@ export const KilocodeProvider: ProviderLoader.Info = {
         }
     },
 }
+
+

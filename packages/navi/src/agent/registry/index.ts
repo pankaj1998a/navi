@@ -40,6 +40,7 @@ export interface AgentRegistryOptions {
 
 export class AgentRegistry {
     private agents: Map<string, AgentRegistryEntry> = new Map()
+    private staticAgents: Map<string, AgentDefinition> = new Map()
     private directory: string
     private autoReload: boolean
     private watchers: Map<string, FSWatcher> = new Map()
@@ -238,6 +239,11 @@ export class AgentRegistry {
     }
 
     async get(agentId: string): Promise<AgentDefinition | null> {
+        // Try static agents first
+        if (this.staticAgents.has(agentId)) {
+            return this.staticAgents.get(agentId)!
+        }
+
         // Try exact match first
         if (this.agents.has(agentId)) {
             return this.agents.get(agentId)!.definition
@@ -267,21 +273,23 @@ export class AgentRegistry {
         category?: string
         hidden?: boolean
     }): Promise<AgentDefinition[]> {
-        let agents = Array.from(this.agents.values())
+        const fileAgents = Array.from(this.agents.values()).map(a => a.definition)
+        const staticAgents = Array.from(this.staticAgents.values())
+        let agents = [...fileAgents, ...staticAgents]
 
         if (options?.publisher) {
-            agents = agents.filter(a => a.definition.publisher === options.publisher)
+            agents = agents.filter(a => a.publisher === options.publisher)
         }
 
         if (options?.category) {
-            agents = agents.filter(a => a.definition.categories?.includes(options.category!))
+            agents = agents.filter(a => a.categories?.includes(options.category!))
         }
 
         if (options?.hidden !== undefined) {
-            agents = agents.filter(a => a.definition.hidden === options.hidden)
+            agents = agents.filter(a => a.hidden === options.hidden)
         }
 
-        return agents.map(a => a.definition)
+        return agents
     }
 
     async listAll(): Promise<AgentDefinition[]> {
@@ -373,9 +381,18 @@ export class AgentRegistry {
 
         // Clear agents
         this.agents.clear()
+        this.staticAgents.clear()
 
         log.info("Disposed agent registry")
+    }
+
+    registerStatic(definition: AgentDefinition): void {
+        const fullId = this.getFullId(definition)
+        this.staticAgents.set(fullId, definition)
+        log.info("Registered static agent", { id: fullId })
     }
 }
 
 export const Registry = new AgentRegistry()
+
+

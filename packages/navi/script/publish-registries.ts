@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 import { $ } from "bun"
-import { Script } from "@navi-ai/script"
+import { Script } from "../../../script/info"
 
 if (!Script.preview) {
   // Calculate SHA values

@@ -181,7 +181,7 @@ export const BackgroundTaskTool = Tool.define("background_task", async (ctx) => 
                 title: `Started: ${params.description}`,
                 metadata: {
                     taskId,
-                    sessionId: session.id,
+                    sessionID: session.id,
                     agent: params.agent,
                     status: "running",
                 },
@@ -321,3 +321,5 @@ export const BackgroundCancelTool = Tool.define("background_cancel", async () =>
         },
     }
 })
+
+

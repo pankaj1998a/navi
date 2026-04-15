@@ -10,6 +10,9 @@ import { Log } from "../util/log"
 import { Env } from "../env"
 import crypto from "crypto"
 import open from "open"
+import { readFile } from "fs/promises"
+import { homedir } from "os"
+import { join } from "path"
 
 
 const log = Log.create({ service: "qwen-cli" })
@@ -24,25 +27,19 @@ const QWEN_TOKEN_URL = `${QWEN_BASE_URL}/api/v1/oauth2/token`
 // API Configuration
 // Default endpoint. OAuth responses can provide a provider-specific resource_url
 // that should be preferred at runtime.
-export const QWEN_API_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1"
+// For Qwen OAuth, we prefer the portal endpoint as it supports coder-model.
+export const QWEN_API_URL = "https://portal.qwen.ai/v1"
 
 /**
- * Qwen model definitions
+ * Qwen model definitions.
+ * When using OAuth (portal.qwen.ai/v1), only 'coder-model' is supported.
+ * This is the Qwen 3.6 Plus model — efficient hybrid with leading coding performance.
  */
 export const QWEN_MODELS = {
     "coder-model": {
-        name: "Qwen Coder",
+        name: "Qwen (coder-model)",
         id: "coder-model",
-        limit: { context: 262144, output: 16384 },
-    },
-    "vision-model": {
-        name: "Qwen Vision",
-        id: "vision-model",
-        limit: { context: 32768, output: 8192 },
-        modalities: {
-            input: ["text", "image"],
-            output: ["text"],
-        },
+        limit: { context: 131072, output: 8192 },
     },
 } as const
 
@@ -161,18 +158,75 @@ async function refreshToken(refreshToken: string): Promise<{ access: string; exp
 /**
  * Get a valid access token, refreshing if needed
  */
+/**
+ * Normalizes the Qwen API base URL.
+ * portal.qwen.ai uses /v1
+ * dashscope.aliyuncs.com uses /compatible-mode/v1
+ */
 function normalizeBaseURL(resourceUrl?: string): string {
     const base = resourceUrl && resourceUrl.trim().length > 0 ? resourceUrl : QWEN_API_URL
     const withProtocol = /^https?:\/\//.test(base) ? base : `https://${base}`
-    return withProtocol.endsWith("/v1") ? withProtocol : `${withProtocol}/v1`
+    let cleaned = withProtocol.replace(/\/+$/, "")
+    
+    // Direct mapping for known hosts to ensure correct paths
+    if (cleaned.includes("portal.qwen.ai")) {
+        return cleaned.endsWith("/v1") ? cleaned : `${cleaned}/v1`
+    }
+    
+    if (cleaned.includes("dashscope.aliyuncs.com")) {
+        if (cleaned.includes("/compatible-mode")) return cleaned
+        return `${cleaned}/compatible-mode/v1`
+    }
+
+    // Default to /v1 for OpenAI-compatible behavior
+    if (cleaned.endsWith("/v1") || cleaned.includes("/v1/")) {
+        return cleaned
+    }
+    return `${cleaned}/v1`
+}
+
+/**
+ * Try to read qwen-code's own credential file (~/.qwen/oauth_creds.json).
+ * This is the authoritative source for Qwen OAuth tokens — the VSCode extension
+ * stores working tokens there which are accepted by portal.qwen.ai.
+ */
+async function readQwenCodeCredentials(): Promise<{ token: string; baseURL: string } | null> {
+    try {
+        const filePath = join(homedir(), ".qwen", "oauth_creds.json")
+        const raw = await readFile(filePath, "utf-8")
+        const creds = JSON.parse(raw)
+        if (!creds.access_token) return null
+        // Check not expired (expiry_date is in ms)
+        if (creds.expiry_date && Date.now() > creds.expiry_date - 5 * 60 * 1000) {
+            log.info("qwen-code credentials expired, falling back to Navi auth")
+            return null
+        }
+        const baseURL = normalizeBaseURL(creds.resource_url)
+        log.info("Using qwen-code credentials from ~/.qwen/oauth_creds.json", { baseURL })
+        return { token: creds.access_token, baseURL }
+    } catch {
+        return null
+    }
 }
 
 export async function getAccessCredentials(
     forceRefresh = false,
 ): Promise<{ token: string; baseURL: string } | null> {
     try {
+        // Priority 1: qwen-code's own credential file (~/.qwen/oauth_creds.json)
+        // These tokens are known to work with portal.qwen.ai/v1
+        if (!forceRefresh) {
+            const qwenCodeCreds = await readQwenCodeCredentials()
+            if (qwenCodeCreds) return qwenCodeCreds
+        }
+
+        // Priority 2: Navi's own auth store
         const auth = await Auth.get("qwen-cli")
-        if (!auth || auth.type !== "oauth") return null
+        if (!auth || auth.type !== "oauth") {
+            log.info("No Navi auth found for qwen-cli")
+            return null
+        }
+        log.info("Using Navi auth for qwen-cli")
 
         const shouldRefresh =
             forceRefresh ||
@@ -216,25 +270,82 @@ export async function getAccessToken(forceRefresh = false): Promise<string | nul
 export const QwenAuthHook: AuthHook = {
     provider: "qwen-cli",
     async loader(_getAuth) {
+        // Dynamically resolve baseURL from stored credentials
+        const initialCreds = await getAccessCredentials()
+        const resolvedBaseURL = initialCreds?.baseURL ?? QWEN_API_URL
         return {
-            baseURL: QWEN_API_URL,
+            baseURL: resolvedBaseURL,
             fetch: async (input: RequestInfo | URL, init?: RequestInit) => {
                 const creds = await getAccessCredentials()
                 if (!creds) throw new Error("Unauthorized")
 
                 const headers = new Headers(init?.headers)
                 headers.set("Authorization", `Bearer ${creds.token}`)
+                // portal.qwen.ai doesn't need DashScope-specific headers
+                // Only add them when hitting dashscope.aliyuncs.com
+                if (creds.baseURL.includes("dashscope")) {
+                    headers.set("X-DashScope-AuthType", "qwen-oauth")
+                    headers.set("X-DashScope-CacheControl", "enable")
+                    headers.set("X-DashScope-UserAgent", "qwen-vscode/1.1.0")
+                    headers.set("X-DashScope-ApiKey", creds.token)
+                }
+                headers.set("User-Agent", "qwen-vscode/1.1.0")
 
                 const rawURL = typeof input === "string" ? input : input.toString()
-                const requestURL = rawURL.startsWith(QWEN_API_URL)
-                    ? rawURL.replace(QWEN_API_URL, creds.baseURL)
+                const normalizedBase = QWEN_API_URL.replace(/\/$/, "")
+                const normalizedCredsBase = creds.baseURL.replace(/\/$/, "")
+                const requestURL = rawURL.startsWith(normalizedBase)
+                    ? rawURL.replace(normalizedBase, normalizedCredsBase)
                     : rawURL
 
-                let response = await fetch(requestURL, { ...init, headers })
+                if (init?.body) {
+                    try {
+                        // DIAGNOSTIC: Extreme pruning to identify cause of 400
+                        const body = JSON.parse(init.body as string)
+                        const allowedKeys = ["model", "messages", "stream"]
+                        Object.keys(body).forEach(key => {
+                            if (!allowedKeys.includes(key)) delete body[key]
+                        })
+                        
+                        // Log for debugging
+                        const logHeaders = Object.fromEntries(headers.entries())
+                        if (logHeaders["authorization"]) {
+                            logHeaders["authorization"] = logHeaders["authorization"].substring(0, 15) + "..."
+                        }
+                        
+                        console.log("\x1b[35m[Qwen DIAGNOSTIC]\x1b[0m Request:", { 
+                            url: requestURL, 
+                            headers: logHeaders,
+                            model: body.model,
+                            bodyKeys: Object.keys(body)
+                        })
+                        
+                        init.body = JSON.stringify(body)
+                    } catch (e) {
+                        console.warn("Failed to parse/prune request body", e)
+                    }
+                }
+                let response = await fetch(requestURL, { ...init, headers }) 
+                if (!response.ok) {
+                    const errorJson = await response.clone().json().catch(() => ({}))
+                    console.log("\x1b[31m[Qwen API] Error:\x1b[0m", {
+                        status: response.status,
+                        error: errorJson
+                    })
+                }
+                console.log("DashScope Response Status:", response.status)
+
+                if (!response.ok) {
+                    const text = await response.clone().text()
+                    log.error("DashScope Error Response", { status: response.status, body: text })
+                    console.log("DashScope Error Body:", text)
+                }
 
                 if (response.status === 401) {
+                    log.info("Received 401, attempting to refresh token...")
                     const refreshed = await getAccessCredentials(true)
                     if (refreshed) {
+                        log.info("Token refreshed, retrying request...")
                         headers.set("Authorization", `Bearer ${refreshed.token}`)
                         const retryURL = requestURL.startsWith(creds.baseURL)
                             ? requestURL.replace(creds.baseURL, refreshed.baseURL)
@@ -295,3 +406,5 @@ export const QwenAuthHook: AuthHook = {
 export async function QwenAuthPlugin(_input: PluginInput): Promise<Hooks> {
     return { auth: QwenAuthHook }
 }
+
+

@@ -51,7 +51,7 @@ export const PatchTool = Tool.define("patch", {
     let totalDiff = ""
 
     for (const hunk of hunks) {
-      const filePath = path.resolve(Instance.directory, hunk.path)
+      const filePath = path.resolve(Instance.directory ?? process.cwd(), hunk.path)
       await assertExternalDirectory(ctx, filePath)
 
       switch (hunk.type) {
@@ -95,8 +95,8 @@ export const PatchTool = Tool.define("patch", {
 
           const diff = createTwoFilesPatch(filePath, filePath, oldContent, newContent)
 
-          const movePath = hunk.move_path ? path.resolve(Instance.directory, hunk.move_path) : undefined
-          await assertExternalDirectory(ctx, movePath)
+          const movePath = hunk.move_path ? path.resolve(Instance.directory ?? process.cwd(), hunk.move_path) : undefined
+          if (movePath) await assertExternalDirectory(ctx, movePath)
 
           fileChanges.push({
             filePath,
@@ -130,7 +130,7 @@ export const PatchTool = Tool.define("patch", {
     }
 
     // Check permissions if needed
-    const relativePaths = fileChanges.map((c) => path.relative(Instance.worktree, c.filePath))
+    const relativePaths = fileChanges.map((c) => path.relative(Instance.worktree ?? Instance.directory ?? process.cwd(), c.filePath))
     await ctx.ask({
       permission: "edit",
       patterns: relativePaths,
@@ -139,7 +139,7 @@ export const PatchTool = Tool.define("patch", {
         diff: totalDiff,
         files: fileChanges.map((change) => ({
           filePath: change.filePath,
-          relativePath: path.relative(Instance.worktree, change.filePath),
+          relativePath: path.relative(Instance.worktree ?? Instance.directory ?? process.cwd(), change.filePath),
           type: change.type,
           diff: change.diff,
           movePath: change.movePath,
@@ -226,7 +226,7 @@ export const PatchTool = Tool.define("patch", {
         const limited = errors.slice(0, MAX_DIAGNOSTICS_PER_FILE)
         const suffix =
           errors.length > MAX_DIAGNOSTICS_PER_FILE ? `\n... and ${errors.length - MAX_DIAGNOSTICS_PER_FILE} more` : ""
-        output += `\n\nLSP errors detected in ${path.relative(Instance.worktree, target)}, please fix:\n<diagnostics file="${target}">\n${limited.map(LSP.Diagnostic.pretty).join("\n")}${suffix}\n</diagnostics>`
+        output += `\n\nLSP errors detected in ${path.relative(Instance.worktree ?? Instance.directory ?? process.cwd(), target)}, please fix:\n<diagnostics file="${target}">\n${limited.map(LSP.Diagnostic.pretty).join("\n")}${suffix}\n</diagnostics>`
       }
     }
 
@@ -236,7 +236,7 @@ export const PatchTool = Tool.define("patch", {
         diff: totalDiff,
         files: fileChanges.map((change) => ({
           filePath: change.filePath,
-          relativePath: path.relative(Instance.worktree, change.filePath),
+          relativePath: path.relative(Instance.worktree ?? Instance.directory ?? process.cwd(), change.filePath),
           type: change.type,
           diff: change.diff,
           movePath: change.movePath,
@@ -247,3 +247,5 @@ export const PatchTool = Tool.define("patch", {
     }
   },
 })
+
+

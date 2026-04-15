@@ -89,3 +89,5 @@ describe("CheckpointTool", () => {
         expect(Snapshot.restore).toHaveBeenCalledWith("abcdef1234567890")
     })
 })
+
+

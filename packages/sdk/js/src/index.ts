@@ -20,4 +20,3 @@ export async function createNavi(options?: ServerOptions) {
   }
 }
 
-export const createnavi = createNavi

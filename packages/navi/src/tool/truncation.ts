@@ -116,3 +116,5 @@ export namespace Truncate {
     return { content: message, truncated: true, outputPath: filepath }
   }
 }
+
+

@@ -1,22 +1,42 @@
 import { BusEvent } from "@/bus/bus-event"
+import { SessionID, MessageID, PartID } from "./schema"
 import z from "zod"
-import { NamedError } from "@navi-ai/sdk/util/error"
-import { APICallError, convertToModelMessages, LoadAPIKeyError, type CoreMessage, type UIMessage, type ModelMessage } from "ai"
-import { Identifier } from "../id/id"
+import { NamedError } from "@navi-ai/util/error"
+import { APICallError, convertToModelMessages, LoadAPIKeyError, type ModelMessage, type UIMessage } from "ai"
 import { LSP } from "../lsp"
 import { Snapshot } from "@/snapshot"
 import { fn } from "@/util/fn"
+import { SyncEvent } from "../sync"
+import { JsonlStorage } from "@/storage/jsonl"
 import { Storage } from "@/storage/storage"
-import { ProviderTransform } from "@/provider/transform"
-import { STATUS_CODES } from "http"
+import { ProviderError } from "@/provider/error"
 import { iife } from "@/util/iife"
-import { type SystemError } from "bun"
-import { NaviResponse } from "./response"
+import { errorMessage } from "@/util/error"
+import type { SystemError } from "bun"
+import type { Provider } from "@/provider/provider"
+import { ModelID, ProviderID } from "@/provider/schema"
 
+/** Error shape thrown by Bun's fetch() when gzip/br decompression fails mid-stream */
+interface FetchDecompressionError extends Error {
+  code: "ZlibError"
+  errno: number
+  path: string
+}
 
 export namespace MessageV2 {
+  export function isMedia(mime: string) {
+    return mime.startsWith("image/") || mime === "application/pdf"
+  }
+
   export const OutputLengthError = NamedError.create("MessageOutputLengthError", z.object({}))
   export const AbortedError = NamedError.create("MessageAbortedError", z.object({ message: z.string() }))
+  export const StructuredOutputError = NamedError.create(
+    "StructuredOutputError",
+    z.object({
+      message: z.string(),
+      retries: z.number(),
+    }),
+  )
   export const AuthError = NamedError.create(
     "ProviderAuthError",
     z.object({
@@ -24,8 +44,6 @@ export namespace MessageV2 {
       message: z.string(),
     }),
   )
-  export const BudgetExceededError = NamedError.create("BudgetExceededError", z.object({ message: z.string() }))
-  export const MaxTurnsExceededError = NamedError.create("MaxTurnsExceededError", z.object({ message: z.string() }))
   export const APIError = NamedError.create(
     "APIError",
     z.object({
@@ -38,11 +56,38 @@ export namespace MessageV2 {
     }),
   )
   export type APIError = z.infer<typeof APIError.Schema>
+  export const ContextOverflowError = NamedError.create(
+    "ContextOverflowError",
+    z.object({ message: z.string(), responseBody: z.string().optional() }),
+  )
+
+  export const OutputFormatText = z
+    .object({
+      type: z.literal("text"),
+    })
+    .meta({
+      ref: "OutputFormatText",
+    })
+
+  export const OutputFormatJsonSchema = z
+    .object({
+      type: z.literal("json_schema"),
+      schema: z.record(z.string(), z.any()).meta({ ref: "JSONSchema" }),
+      retryCount: z.number().int().min(0).default(2),
+    })
+    .meta({
+      ref: "OutputFormatJsonSchema",
+    })
+
+  export const Format = z.discriminatedUnion("type", [OutputFormatText, OutputFormatJsonSchema]).meta({
+    ref: "OutputFormat",
+  })
+  export type OutputFormat = z.infer<typeof Format>
 
   const PartBase = z.object({
-    id: z.string(),
-    sessionID: z.string(),
-    messageID: z.string(),
+    id: PartID.zod,
+    sessionID: SessionID.zod,
+    messageID: MessageID.zod,
   })
 
   export const SnapshotPart = PartBase.extend({
@@ -67,12 +112,6 @@ export namespace MessageV2 {
     text: z.string(),
     synthetic: z.boolean().optional(),
     ignored: z.boolean().optional(),
-    /**
-     * Parsed unified response envelope. Present only on completed (non-streaming)
-     * text parts. Normalises the diverse output styles of different LLM providers
-     * into a single canonical shape with status, answer, question, files, etc.
-     */
-    response: NaviResponse.optional(),
     time: z
       .object({
         start: z.number(),
@@ -84,7 +123,6 @@ export namespace MessageV2 {
     ref: "TextPart",
   })
   export type TextPart = z.infer<typeof TextPart>
-
 
   export const ReasoningPart = PartBase.extend({
     type: z.literal("reasoning"),
@@ -169,6 +207,7 @@ export namespace MessageV2 {
   export const CompactionPart = PartBase.extend({
     type: z.literal("compaction"),
     auto: z.boolean(),
+    overflow: z.boolean().optional(),
   }).meta({
     ref: "CompactionPart",
   })
@@ -179,7 +218,15 @@ export namespace MessageV2 {
     prompt: z.string(),
     description: z.string(),
     agent: z.string(),
+    model: z
+      .object({
+        providerID: ProviderID.zod,
+        modelID: ModelID.zod,
+      })
+      .optional(),
     command: z.string().optional(),
+  }).meta({
+    ref: "SubtaskPart",
   })
   export type SubtaskPart = z.infer<typeof SubtaskPart>
 
@@ -209,6 +256,7 @@ export namespace MessageV2 {
     snapshot: z.string().optional(),
     cost: z.number(),
     tokens: z.object({
+      total: z.number().optional(),
       input: z.number(),
       output: z.number(),
       reasoning: z.number(),
@@ -302,8 +350,8 @@ export namespace MessageV2 {
   export type ToolPart = z.infer<typeof ToolPart>
 
   const Base = z.object({
-    id: z.string(),
-    sessionID: z.string(),
+    id: MessageID.zod,
+    sessionID: SessionID.zod,
   })
 
   export const User = Base.extend({
@@ -311,6 +359,7 @@ export namespace MessageV2 {
     time: z.object({
       created: z.number(),
     }),
+    format: Format.optional(),
     summary: z
       .object({
         title: z.string().optional(),
@@ -320,8 +369,8 @@ export namespace MessageV2 {
       .optional(),
     agent: z.string(),
     model: z.object({
-      providerID: z.string(),
-      modelID: z.string(),
+      providerID: ProviderID.zod,
+      modelID: ModelID.zod,
     }),
     system: z.string().optional(),
     tools: z.record(z.string(), z.boolean()).optional(),
@@ -363,14 +412,14 @@ export namespace MessageV2 {
         NamedError.Unknown.Schema,
         OutputLengthError.Schema,
         AbortedError.Schema,
-        BudgetExceededError.Schema,
-        MaxTurnsExceededError.Schema,
+        StructuredOutputError.Schema,
+        ContextOverflowError.Schema,
         APIError.Schema,
       ])
       .optional(),
-    parentID: z.string(),
-    modelID: z.string(),
-    providerID: z.string(),
+    parentID: MessageID.zod,
+    modelID: ModelID.zod,
+    providerID: ProviderID.zod,
     /**
      * @deprecated
      */
@@ -383,6 +432,7 @@ export namespace MessageV2 {
     summary: z.boolean().optional(),
     cost: z.number(),
     tokens: z.object({
+      total: z.number().optional(),
       input: z.number(),
       output: z.number(),
       reasoning: z.number(),
@@ -391,6 +441,8 @@ export namespace MessageV2 {
         write: z.number(),
       }),
     }),
+    structured: z.any().optional(),
+    variant: z.string().optional(),
     finish: z.string().optional(),
   }).meta({
     ref: "AssistantMessage",
@@ -403,34 +455,54 @@ export namespace MessageV2 {
   export type Info = z.infer<typeof Info>
 
   export const Event = {
-    Updated: BusEvent.define(
-      "message.updated",
-      z.object({
+    Updated: SyncEvent.define({
+      type: "message.updated",
+      version: 1,
+      aggregate: "sessionID",
+      schema: z.object({
+        sessionID: SessionID.zod,
         info: Info,
       }),
-    ),
-    Removed: BusEvent.define(
-      "message.removed",
-      z.object({
-        sessionID: z.string(),
-        messageID: z.string(),
+    }),
+    Removed: SyncEvent.define({
+      type: "message.removed",
+      version: 1,
+      aggregate: "sessionID",
+      schema: z.object({
+        sessionID: SessionID.zod,
+        messageID: MessageID.zod,
       }),
-    ),
-    PartUpdated: BusEvent.define(
-      "message.part.updated",
-      z.object({
+    }),
+    PartUpdated: SyncEvent.define({
+      type: "message.part.updated",
+      version: 1,
+      aggregate: "sessionID",
+      schema: z.object({
+        sessionID: SessionID.zod,
         part: Part,
-        delta: z.string().optional(),
+        time: z.number(),
       }),
-    ),
-    PartRemoved: BusEvent.define(
-      "message.part.removed",
+    }),
+    PartDelta: BusEvent.define(
+      "message.part.delta",
       z.object({
-        sessionID: z.string(),
-        messageID: z.string(),
-        partID: z.string(),
+        sessionID: SessionID.zod,
+        messageID: MessageID.zod,
+        partID: PartID.zod,
+        field: z.string(),
+        delta: z.string(),
       }),
     ),
+    PartRemoved: SyncEvent.define({
+      type: "message.part.removed",
+      version: 1,
+      aggregate: "sessionID",
+      schema: z.object({
+        sessionID: SessionID.zod,
+        messageID: MessageID.zod,
+        partID: PartID.zod,
+      }),
+    }),
   }
 
   export const WithParts = z.object({
@@ -439,8 +511,133 @@ export namespace MessageV2 {
   })
   export type WithParts = z.infer<typeof WithParts>
 
-  export function toModelMessage(input: WithParts[]): ModelMessage[] {
+  const Cursor = z.object({
+    id: MessageID.zod,
+    time: z.number(),
+  })
+  type Cursor = z.infer<typeof Cursor>
+
+  export const cursor = {
+    encode(input: Cursor) {
+      return Buffer.from(JSON.stringify(input)).toString("base64url")
+    },
+    decode(input: string) {
+      return Cursor.parse(JSON.parse(Buffer.from(input, "base64url").toString("utf8")))
+    },
+  }
+
+
+
+  // Internal helper to reconstruct state from JSONL
+  export function replay(sessionID: string): WithParts[] {
+    const events = JsonlStorage.readLogSync("session_logs", sessionID)
+    const messages = new Map<string, MessageV2.Info>()
+    const partsByMsg = new Map<string, Map<string, MessageV2.Part>>()
+
+    for (const entry of events) {
+      if (!entry || !entry.event || !entry.data) continue
+      const data = entry.data
+      if (entry.event === "message.updated") {
+        messages.set(data.info.id, data.info)
+      } else if (entry.event === "message.removed") {
+        messages.delete(data.messageID)
+        partsByMsg.delete(data.messageID)
+      } else if (entry.event === "message.part.updated") {
+        const p = data.part
+        let msgParts = partsByMsg.get(p.messageID)
+        if (!msgParts) {
+          msgParts = new Map()
+          partsByMsg.set(p.messageID, msgParts)
+        }
+        msgParts.set(p.id, p)
+      } else if (entry.event === "message.part.removed") {
+        // Attempt to find and remove the part
+        for (const [mid, mparts] of partsByMsg.entries()) {
+          if (mparts.has(data.partID)) {
+            mparts.delete(data.partID)
+            break
+          }
+        }
+      }
+    }
+
+    const result: WithParts[] = []
+    for (const info of messages.values()) {
+      const pMap = partsByMsg.get(info.id)
+      const parts = pMap ? Array.from(pMap.values()).sort((a, b) => a.id.localeCompare(b.id)) : []
+      result.push({ info, parts })
+    }
+
+    // Sort by time created, then id (ascending)
+    return result.sort((a, b) => {
+      if (a.info.time.created !== b.info.time.created) {
+        return a.info.time.created - b.info.time.created
+      }
+      return a.info.id.localeCompare(b.info.id)
+    })
+  }
+
+  export async function toModelMessages(
+    input: WithParts[],
+    model: Provider.Model,
+    options?: { stripMedia?: boolean },
+  ): Promise<ModelMessage[]> {
     const result: UIMessage[] = []
+    const toolNames = new Set<string>()
+    // Track media from tool results that need to be injected as user messages
+    // for providers that don't support media in tool results.
+    //
+    // OpenAI-compatible APIs only support string content in tool results, so we need
+    // to extract media and inject as user messages. Other SDKs (anthropic, google,
+    // bedrock) handle type: "content" with media parts natively.
+    //
+    // Only apply this workaround if the model actually supports image input -
+    // otherwise there's no point extracting images.
+    const supportsMediaInToolResults = (() => {
+      if (model.api.npm === "@ai-sdk/anthropic") return true
+      if (model.api.npm === "@ai-sdk/openai") return true
+      if (model.api.npm === "@ai-sdk/amazon-bedrock") return true
+      if (model.api.npm === "@ai-sdk/google-vertex/anthropic") return true
+      if (model.api.npm === "@ai-sdk/google") {
+        const id = model.api.id.toLowerCase()
+        return id.includes("gemini-3") && !id.includes("gemini-2")
+      }
+      return false
+    })()
+
+    const toModelOutput = (options: { toolCallId: string; input: unknown; output: unknown }) => {
+      const output = options.output
+      if (typeof output === "string") {
+        return { type: "text", value: output }
+      }
+
+      if (typeof output === "object") {
+        const outputObject = output as {
+          text: string
+          attachments?: Array<{ mime: string; url: string }>
+        }
+        const attachments = (outputObject.attachments ?? []).filter((attachment) => {
+          return attachment.url.startsWith("data:") && attachment.url.includes(",")
+        })
+
+        return {
+          type: "content",
+          value: [
+            { type: "text", text: outputObject.text },
+            ...attachments.map((attachment) => ({
+              type: "media",
+              mediaType: attachment.mime,
+              data: iife(() => {
+                const commaIndex = attachment.url.indexOf(",")
+                return commaIndex === -1 ? attachment.url : attachment.url.slice(commaIndex + 1)
+              }),
+            })),
+          ],
+        }
+      }
+
+      return { type: "json", value: output as never }
+    }
 
     for (const msg of input) {
       if (msg.parts.length === 0) continue
@@ -459,13 +656,21 @@ export namespace MessageV2 {
               text: part.text,
             })
           // text/plain and directory files are converted into text parts, ignore them
-          if (part.type === "file" && part.mime !== "text/plain" && part.mime !== "application/x-directory")
-            userMessage.parts.push({
-              type: "file",
-              url: part.url,
-              mediaType: part.mime,
-              filename: part.filename,
-            })
+          if (part.type === "file" && part.mime !== "text/plain" && part.mime !== "application/x-directory") {
+            if (options?.stripMedia && isMedia(part.mime)) {
+              userMessage.parts.push({
+                type: "text",
+                text: `[Attached ${part.mime}: ${part.filename ?? "file"}]`,
+              })
+            } else {
+              userMessage.parts.push({
+                type: "file",
+                url: part.url,
+                mediaType: part.mime,
+                filename: part.filename,
+              })
+            }
+          }
 
           if (part.type === "compaction") {
             userMessage.parts.push({
@@ -483,6 +688,9 @@ export namespace MessageV2 {
       }
 
       if (msg.info.role === "assistant") {
+        const differentModel = `${model.providerID}/${model.id}` !== `${msg.info.providerID}/${msg.info.modelID}`
+        const media: Array<{ mime: string; url: string }> = []
+
         if (
           msg.info.error &&
           !(
@@ -502,39 +710,42 @@ export namespace MessageV2 {
             assistantMessage.parts.push({
               type: "text",
               text: part.text,
-              providerMetadata: part.metadata,
+              ...(differentModel ? {} : { providerMetadata: part.metadata }),
             })
           if (part.type === "step-start")
             assistantMessage.parts.push({
               type: "step-start",
             })
           if (part.type === "tool") {
+            toolNames.add(part.tool)
             if (part.state.status === "completed") {
-              if (part.state.attachments?.length) {
-                result.push({
-                  id: Identifier.ascending("message"),
-                  role: "user",
-                  parts: [
-                    {
-                      type: "text",
-                      text: `The tool ${part.tool} returned the following attachments:`,
-                    },
-                    ...part.state.attachments.map((attachment) => ({
-                      type: "file" as const,
-                      url: attachment.url,
-                      mediaType: attachment.mime,
-                      filename: attachment.filename,
-                    })),
-                  ],
-                })
+              const outputText = part.state.time.compacted ? "[Old tool result content cleared]" : part.state.output
+              const attachments = part.state.time.compacted || options?.stripMedia ? [] : (part.state.attachments ?? [])
+
+              // For providers that don't support media in tool results, extract media files
+              // (images, PDFs) to be sent as a separate user message
+              const mediaAttachments = attachments.filter((a) => isMedia(a.mime))
+              const nonMediaAttachments = attachments.filter((a) => !isMedia(a.mime))
+              if (!supportsMediaInToolResults && mediaAttachments.length > 0) {
+                media.push(...mediaAttachments)
               }
+              const finalAttachments = supportsMediaInToolResults ? attachments : nonMediaAttachments
+
+              const output =
+                finalAttachments.length > 0
+                  ? {
+                      text: outputText,
+                      attachments: finalAttachments,
+                    }
+                  : outputText
+
               assistantMessage.parts.push({
                 type: ("tool-" + part.tool) as `tool-${string}`,
                 state: "output-available",
                 toolCallId: part.callID,
                 input: part.state.input,
-                output: part.state.time.compacted ? "[Old tool result content cleared]" : part.state.output,
-                callProviderMetadata: part.metadata,
+                output,
+                ...(differentModel ? {} : { callProviderMetadata: part.metadata }),
               })
             }
             if (part.state.status === "error")
@@ -544,7 +755,7 @@ export namespace MessageV2 {
                 toolCallId: part.callID,
                 input: part.state.input,
                 errorText: part.state.error,
-                callProviderMetadata: part.metadata,
+                ...(differentModel ? {} : { callProviderMetadata: part.metadata }),
               })
             // Handle pending/running tool calls to prevent dangling tool_use blocks
             // Anthropic/Claude APIs require every tool_use to have a corresponding tool_result
@@ -555,56 +766,135 @@ export namespace MessageV2 {
                 toolCallId: part.callID,
                 input: part.state.input,
                 errorText: "[Tool execution was interrupted]",
-                callProviderMetadata: part.metadata,
+                ...(differentModel ? {} : { callProviderMetadata: part.metadata }),
               })
           }
           if (part.type === "reasoning") {
             assistantMessage.parts.push({
               type: "reasoning",
               text: part.text,
-              providerMetadata: part.metadata,
+              ...(differentModel ? {} : { providerMetadata: part.metadata }),
             })
           }
         }
         if (assistantMessage.parts.length > 0) {
           result.push(assistantMessage)
+          // Inject pending media as a user message for providers that don't support
+          // media (images, PDFs) in tool results
+          if (media.length > 0) {
+            result.push({
+              id: MessageID.ascending(),
+              role: "user",
+              parts: [
+                {
+                  type: "text" as const,
+                  text: "Attached image(s) from tool result:",
+                },
+                ...media.map((attachment) => ({
+                  type: "file" as const,
+                  url: attachment.url,
+                  mediaType: attachment.mime,
+                })),
+              ],
+            })
+          }
         }
       }
     }
 
-    return convertToModelMessages(result.filter((msg) => msg.parts.some((part) => part.type !== "step-start")))
+    const tools = Object.fromEntries(Array.from(toolNames).map((toolName) => [toolName, { toModelOutput }]))
+
+    return await convertToModelMessages(
+      result.filter((msg) => msg.parts.some((part) => part.type !== "step-start")),
+      {
+        //@ts-expect-error (convertToModelMessages expects a ToolSet but only actually needs tools[name]?.toModelOutput)
+        tools,
+      },
+    )
   }
 
-  export const stream = fn(Identifier.schema("session"), async function* (sessionID) {
-    const list = await Array.fromAsync(await Storage.list(["message", sessionID]))
-    for (let i = list.length - 1; i >= 0; i--) {
-      yield await get({
-        sessionID,
-        messageID: list[i][2],
-      })
+  export const page = fn(
+    z.object({
+      sessionID: SessionID.zod,
+      limit: z.number().int().positive(),
+      before: z.string().optional(),
+    }),
+    async (input) => {
+      const beforeCursor = input.before ? cursor.decode(input.before) : undefined
+      let all = replay(input.sessionID)
+      
+      // We need descending order for pagination
+      all.reverse()
+      
+      if (beforeCursor) {
+        all = all.filter((msg) => {
+          if (msg.info.time.created < beforeCursor.time) return true
+          if (msg.info.time.created === beforeCursor.time && msg.info.id < beforeCursor.id) return true
+          return false
+        })
+      }
+
+      if (all.length === 0) {
+        const session = await JsonlStorage.readItem("sessions", input.sessionID)
+        if (!session) throw new Storage.NotFoundError({ message: `Session not found: ${input.sessionID}` })
+        return {
+          items: [] as MessageV2.WithParts[],
+          more: false,
+        }
+      }
+
+      const rows = all.slice(0, input.limit + 1)
+      const more = rows.length > input.limit
+      const page = more ? rows.slice(0, input.limit) : rows
+      
+      // Page items are currently sorted descending, we reverse to return in ascending order
+      const items = [...page].reverse()
+      const tail = page.at(-1)
+
+      return {
+        items,
+        more,
+        cursor: more && tail ? cursor.encode({ id: tail.info.id, time: tail.info.time.created }) : undefined,
+      }
+    },
+  )
+
+  export const stream = fn(SessionID.zod, async function* (sessionID) {
+    const size = 50
+    let before: string | undefined
+    while (true) {
+      const next = await page({ sessionID, limit: size, before })
+      if (next.items.length === 0) break
+      for (let i = next.items.length - 1; i >= 0; i--) {
+        yield next.items[i]
+      }
+      if (!next.more || !next.cursor) break
+      before = next.cursor
     }
   })
 
-  export const parts = fn(Identifier.schema("message"), async (messageID) => {
-    const result = [] as MessageV2.Part[]
-    for (const item of await Storage.list(["part", messageID])) {
-      const read = await Storage.read<MessageV2.Part>(item)
-      result.push(read)
-    }
-    result.sort((a, b) => (a.id > b.id ? 1 : -1))
-    return result
-  })
+  export const parts = fn(
+    z.object({
+      sessionID: SessionID.zod,
+      messageID: MessageID.zod,
+    }),
+    async (input) => {
+      const all = replay(input.sessionID)
+      const found = all.find((m) => m.info.id === input.messageID)
+      return found ? found.parts : []
+    },
+  )
 
   export const get = fn(
     z.object({
-      sessionID: Identifier.schema("session"),
-      messageID: Identifier.schema("message"),
+      sessionID: SessionID.zod,
+      messageID: MessageID.zod,
     }),
-    async (input) => {
-      return {
-        info: await Storage.read<MessageV2.Info>(["message", input.sessionID, input.messageID]),
-        parts: await parts(input.messageID),
-      }
+    async (input): Promise<WithParts> => {
+      const all = replay(input.sessionID)
+      const found = all.find((m) => m.info.id === input.messageID)
+      if (!found) throw new Storage.NotFoundError({ message: `Message not found: ${input.messageID}` })
+      return found
     },
   )
 
@@ -619,13 +909,17 @@ export namespace MessageV2 {
         msg.parts.some((part) => part.type === "compaction")
       )
         break
-      if (msg.info.role === "assistant" && msg.info.summary && msg.info.finish) completed.add(msg.info.parentID)
+      if (msg.info.role === "assistant" && msg.info.summary && msg.info.finish && !msg.info.error)
+        completed.add(msg.info.parentID)
     }
     result.reverse()
     return result
   }
 
-  export function fromError(e: unknown, ctx: { providerID: string }) {
+  export function fromError(
+    e: unknown,
+    ctx: { providerID: ProviderID; aborted?: boolean },
+  ): NonNullable<Assistant["error"]> {
     switch (true) {
       case e instanceof DOMException && e.name === "AbortError":
         return new MessageV2.AbortedError(
@@ -657,53 +951,75 @@ export namespace MessageV2 {
           },
           { cause: e },
         ).toObject()
-      case APICallError.isInstance(e):
-        const message = iife(() => {
-          let msg = e.message
-          if (msg === "") {
-            if (e.responseBody) return e.responseBody
-            if (e.statusCode) {
-              const err = STATUS_CODES[e.statusCode]
-              if (err) return err
-            }
-            return "Unknown error"
-          }
-          const transformed = ProviderTransform.error(ctx.providerID, e)
-          if (transformed !== msg) {
-            return transformed
-          }
-          if (!e.responseBody || (e.statusCode && msg !== STATUS_CODES[e.statusCode])) {
-            return msg
-          }
-
-          try {
-            const body = JSON.parse(e.responseBody)
-            // try to extract common error message fields
-            const errMsg = body.message || body.error || body.error?.message
-            if (errMsg && typeof errMsg === "string") {
-              return `${msg}: ${errMsg}`
-            }
-          } catch { }
-
-          return `${msg}: ${e.responseBody}`
-        }).trim()
-
-        const metadata = e.url ? { url: e.url } : undefined
+      case e instanceof Error && (e as FetchDecompressionError).code === "ZlibError":
+        if (ctx.aborted) {
+          return new MessageV2.AbortedError({ message: e.message }, { cause: e }).toObject()
+        }
         return new MessageV2.APIError(
           {
-            message,
-            statusCode: e.statusCode,
-            isRetryable: e.isRetryable,
-            responseHeaders: e.responseHeaders,
-            responseBody: e.responseBody,
-            metadata,
+            message: "Response decompression failed",
+            isRetryable: true,
+            metadata: {
+              code: (e as FetchDecompressionError).code,
+              message: e.message,
+            },
+          },
+          { cause: e },
+        ).toObject()
+      case APICallError.isInstance(e):
+        const parsed = ProviderError.parseAPICallError({
+          providerID: ctx.providerID,
+          error: e,
+        })
+        if (parsed.type === "context_overflow") {
+          return new MessageV2.ContextOverflowError(
+            {
+              message: parsed.message,
+              responseBody: parsed.responseBody,
+            },
+            { cause: e },
+          ).toObject()
+        }
+
+        return new MessageV2.APIError(
+          {
+            message: parsed.message,
+            statusCode: parsed.statusCode,
+            isRetryable: parsed.isRetryable,
+            responseHeaders: parsed.responseHeaders,
+            responseBody: parsed.responseBody,
+            metadata: parsed.metadata,
           },
           { cause: e },
         ).toObject()
       case e instanceof Error:
-        return new NamedError.Unknown({ message: e.toString() }, { cause: e }).toObject()
+        return new NamedError.Unknown({ message: errorMessage(e) }, { cause: e }).toObject()
       default:
-        return new NamedError.Unknown({ message: JSON.stringify(e) }, { cause: e })
+        try {
+          const parsed = ProviderError.parseStreamError(e)
+          if (parsed) {
+            if (parsed.type === "context_overflow") {
+              return new MessageV2.ContextOverflowError(
+                {
+                  message: parsed.message,
+                  responseBody: parsed.responseBody,
+                },
+                { cause: e },
+              ).toObject()
+            }
+            return new MessageV2.APIError(
+              {
+                message: parsed.message,
+                isRetryable: parsed.isRetryable,
+                responseBody: parsed.responseBody,
+              },
+              {
+                cause: e,
+              },
+            ).toObject()
+          }
+        } catch {}
+        return new NamedError.Unknown({ message: JSON.stringify(e) }, { cause: e }).toObject()
     }
   }
 }

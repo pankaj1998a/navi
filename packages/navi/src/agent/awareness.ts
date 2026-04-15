@@ -27,7 +27,6 @@ export namespace Awareness {
     plan: { cost: "low", speed: "fast", capabilities: { reasoning: true, toolcall: true } },
     build: { cost: "high", speed: "medium", capabilities: { toolcall: true, reasoning: true } },
     vibemode: { cost: "high", speed: "medium", capabilities: { toolcall: true, reasoning: true } },
-    specs: { cost: "high", speed: "medium", capabilities: { toolcall: true, reasoning: true } },
     "plan-ceo-review": { cost: "medium", speed: "fast", capabilities: { reasoning: true } },
     "plan-eng-review": { cost: "medium", speed: "fast", capabilities: { reasoning: true, toolcall: true } },
     ask: { cost: "medium", speed: "fast", capabilities: { toolcall: true, reasoning: true } },
@@ -339,3 +338,5 @@ export namespace Awareness {
     }
   }
 }
+
+

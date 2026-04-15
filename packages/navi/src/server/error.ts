@@ -1,9 +1,8 @@
 import { resolver } from "hono-openapi"
 import z from "zod"
-import { Storage } from "../storage/storage"
+import { NotFoundError } from "../storage/db"
 
-// Explicitly type to avoid inference issues with hidden dependencies
-export const ERRORS: any = {
+export const ERRORS = {
   400: {
     description: "Bad request",
     content: {
@@ -26,12 +25,13 @@ export const ERRORS: any = {
     description: "Not found",
     content: {
       "application/json": {
-        schema: resolver(Storage.NotFoundError.Schema),
+        schema: resolver(NotFoundError.Schema),
       },
     },
   },
-}
+} as const
 
-export function errors(...codes: number[]): any {
+export function errors(...codes: number[]) {
   return Object.fromEntries(codes.map((code) => [code, ERRORS[code as keyof typeof ERRORS]]))
 }
+

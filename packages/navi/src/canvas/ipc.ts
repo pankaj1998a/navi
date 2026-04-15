@@ -78,3 +78,4 @@ export class CanvasIPC {
         socket.write(JSON.stringify(msg))
     }
 }
+

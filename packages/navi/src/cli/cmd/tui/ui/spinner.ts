@@ -366,3 +366,4 @@ export function createColors(options: KnightRiderOptions = {}): ColorGenerator {
 
   return createKnightRiderTrail(trailOptions)
 }
+

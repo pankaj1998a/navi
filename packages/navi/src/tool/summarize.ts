@@ -102,3 +102,5 @@ Provide a concise but comprehensive summary.`,
         return response.substring(0, 40000) + "\n\n[Result truncated - summarization failed]"
     }
 }
+
+

@@ -31,6 +31,7 @@ import {
     suggestToolFromLearning,
     learnFromTaskCompletion,
 } from "../agent/learning"
+import { MessageID, SessionID } from "../session/schema"
 
 // Adaptive Thinking Tools
 
@@ -119,11 +120,11 @@ export const SuggestPermissionModeTool = Tool.define("suggest_permission_mode", 
     description: "Suggest permission mode based on task",
     parameters: z.object({
         task: z.string().describe("The task to analyze"),
-        sessionId: z.string().optional().describe("Session ID (defaults to current)"),
+        sessionID: z.string().optional().describe("Session ID (defaults to current)"),
     }),
     execute: async (args) => {
-        const sessionId = args.sessionId || "default"
-        const suggestion = suggestPermissionMode(args.task, "ask", sessionId)
+        const sessionID = args.sessionID || "default"
+        const suggestion = suggestPermissionMode(args.task, "ask", sessionID)
 
         if (!suggestion) {
             return {
@@ -176,7 +177,7 @@ export const SuggestPermissionRulesTool = Tool.define("suggest_permission_rules"
 export const AnalyzeSessionForRecoveryTool = Tool.define("analyze_session_for_recovery", {
     description: "Analyze session for recovery context",
     parameters: z.object({
-        sessionId: z.string().describe("Session ID to analyze"),
+        sessionID: z.string().describe("Session ID to analyze"),
         limit: z.number().optional().describe("Number of messages to analyze"),
     }),
     execute: async (args) => {
@@ -193,7 +194,7 @@ export const AnalyzeSessionForRecoveryTool = Tool.define("analyze_session_for_re
 export const GetRecoveryPromptTool = Tool.define("get_recovery_prompt", {
     description: "Get recovery prompt for continuing a session",
     parameters: z.object({
-        sessionId: z.string().describe("Session ID to recover"),
+        sessionID: z.string().describe("Session ID to recover"),
     }),
     execute: async (args) => {
         // In a real implementation, this would load recovery context
@@ -209,7 +210,7 @@ export const GetRecoveryPromptTool = Tool.define("get_recovery_prompt", {
 export const SuggestRecoveryActionsTool = Tool.define("suggest_recovery_actions", {
     description: "Suggest recovery actions for a session",
     parameters: z.object({
-        sessionId: z.string().describe("Session ID to analyze"),
+        sessionID: z.string().describe("Session ID to analyze"),
     }),
     execute: async (args) => {
         // In a real implementation, this would analyze session
@@ -368,13 +369,13 @@ export const RunSwarmTool = Tool.define("run_swarm", {
                 title: `Swarm: ${task.agentName}`,
             })
 
-            const messageID = Identifier.ascending("message")
+            const messageID = MessageID.ascending()
             const promptParts = await SessionPrompt.resolvePromptParts(task.prompt)
 
             const result = await SessionPrompt.prompt({
                 messageID,
                 sessionID: session.id,
-                model: agent.model,
+                model: agent.model as any,
                 agent: agent.name,
                 parts: promptParts,
             })
@@ -455,3 +456,5 @@ export const SuggestToolFromLearningTool = Tool.define("suggest_tool_from_learni
         }
     },
 })
+
+

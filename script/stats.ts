@@ -1,6 +1,11 @@
 #!/usr/bin/env bun
 
-async function sendToPostHog(event: string, properties: Record<string, any>) {
+interface PostHogProperties {
+  count: number
+  source: string
+}
+
+async function sendToPostHog(event: string, properties: PostHogProperties) {
   const key = process.env["POSTHOG_KEY"]
 
   if (!key) {
@@ -94,13 +99,25 @@ async function fetchReleases(): Promise<Release[]> {
   return releases
 }
 
-function calculate(releases: Release[]) {
+interface ReleaseStat {
+  tag: string
+  name: string
+  downloads: number
+  assets: Array<{ name: string; downloads: number }>
+}
+
+interface CalculateResult {
+  total: number
+  stats: ReleaseStat[]
+}
+
+function calculate(releases: Release[]): CalculateResult {
   let total = 0
-  const stats = []
+  const stats: ReleaseStat[] = []
 
   for (const release of releases) {
     let downloads = 0
-    const assets = []
+    const assets: Array<{ name: string; downloads: number }> = []
 
     for (const asset of release.assets) {
       downloads += asset.download_count

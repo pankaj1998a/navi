@@ -1,44 +1,56 @@
-import { BoxRenderable, TextareaRenderable, MouseEvent, PasteEvent, KeyEvent, t, dim, fg } from "@opentui/core"
-import { createEffect, createMemo, type JSX, onMount, createSignal, onCleanup, Show, Switch, Match } from "solid-js"
+import { BoxRenderable, TextareaRenderable, MouseEvent, PasteEvent, decodePasteBytes, t, dim, fg, TextAttributes } from "@opentui/core"
+import { createEffect, createMemo, type JSX, onMount, createSignal, onCleanup, on, Show, Switch, Match } from "solid-js"
 import "opentui-spinner/solid"
+import path from "path"
+import { Global } from "@/global"
+import { Filesystem } from "@/util/filesystem"
 import { useLocal } from "@tui/context/local"
 import { useTheme } from "@tui/context/theme"
-import { EmptyBorder } from "@tui/component/border"
+import { EmptyBorder, SplitBorder } from "@tui/component/border"
 import { useSDK } from "@tui/context/sdk"
 import { useRoute } from "@tui/context/route"
 import { useSync } from "@tui/context/sync"
-import { Identifier } from "@/id/id"
+import { MessageID, PartID } from "@/session/schema"
 import { createStore, produce } from "solid-js/store"
 import { useKeybind } from "@tui/context/keybind"
+import { Buddy } from "../../../../../buddy"
 import { usePromptHistory, type PromptInfo } from "./history"
+import { assign } from "./part"
 import { usePromptStash } from "./stash"
-import { DialogStash } from "@tui/component/dialog-stash"
+import { DialogStash } from "../dialog-stash"
 import { type AutocompleteRef, Autocomplete } from "./autocomplete"
-import { useCommandDialog } from "@tui/component/dialog-command"
+import { useCommandDialog } from "../dialog-command"
 import { useKeyboard, useRenderer } from "@opentui/solid"
 import { Editor } from "@tui/util/editor"
-import { useExit } from "@tui/context/exit"
-import { Clipboard } from "@tui/util/clipboard"
-import type { FilePart } from "@navi-ai/sdk/v2"
+import { useExit } from "../../context/exit"
+import { Clipboard } from "../../util/clipboard"
+import type { AssistantMessage, FilePart } from "@navi-ai/sdk/v2"
 import { TuiEvent } from "../../event"
 import { iife } from "@/util/iife"
 import { Locale } from "@/util/locale"
-import { createColors, createFrames } from "@tui/ui/spinner"
+import { formatDuration } from "@/util/format"
+import { createColors, createFrames } from "../../ui/spinner.ts"
 import { useDialog } from "@tui/ui/dialog"
-import { DialogProvider as DialogProviderConnect } from "@tui/component/dialog-provider"
-import { DialogAlert } from "@tui/ui/dialog-alert"
-import { useToast } from "@tui/ui/toast"
-import { useKV } from "@tui/context/kv"
-import { useTextareaKeybindings } from "@tui/component/textarea-keybindings"
+import { DialogProvider as DialogProviderConnect } from "../dialog-provider"
+import { DialogAlert } from "../../ui/dialog-alert"
+import { useToast } from "../../ui/toast"
+import { useKV } from "../../context/kv"
+import { useTextareaKeybindings } from "../textarea-keybindings"
+import { DialogSkill } from "../dialog-skill"
 
 export type PromptProps = {
   sessionID?: string
+  workspaceID?: string
   visible?: boolean
   disabled?: boolean
   onSubmit?: () => void
   ref?: (ref: PromptRef) => void
   hint?: JSX.Element
   showPlaceholder?: boolean
+  placeholders?: {
+    normal?: string[]
+    shell?: string[]
+  }
 }
 
 export type PromptRef = {
@@ -51,7 +63,15 @@ export type PromptRef = {
   submit(): void
 }
 
-const PLACEHOLDERS = ["Fix a TODO in the codebase", "What is the tech stack of this project?", "Fix broken tests"]
+const money = new Intl.NumberFormat("en-US", {
+  style: "currency",
+  currency: "USD",
+})
+
+function randomIndex(count: number) {
+  if (count <= 0) return 0
+  return Math.floor(Math.random() * count)
+}
 
 export function Prompt(props: PromptProps) {
   let input: TextareaRenderable
@@ -72,6 +92,8 @@ export function Prompt(props: PromptProps) {
   const renderer = useRenderer()
   const { theme, syntax } = useTheme()
   const kv = useKV()
+  const list = createMemo(() => props.placeholders?.normal ?? [])
+  const shell = createMemo(() => props.placeholders?.shell ?? [])
 
   function promptModelWarning() {
     toast.show({
@@ -91,15 +113,17 @@ export function Prompt(props: PromptProps) {
   const pasteStyleId = syntax().getStyleId("extmark.paste")!
   let promptPartTypeId = 0
 
-  const unsubPromptAppend = sdk.event.on(TuiEvent.PromptAppend.type, (evt) => {
+  sdk.event.on(TuiEvent.PromptAppend.type, (evt) => {
+    if (!input || input.isDestroyed) return
     input.insertText(evt.properties.text)
     setTimeout(() => {
+      // setTimeout is a workaround and needs to be addressed properly
+      if (!input || input.isDestroyed) return
       input.getLayoutNode().markDirty()
       input.gotoBufferEnd()
       renderer.requestRender()
     }, 0)
   })
-  onCleanup(unsubPromptAppend)
 
   createEffect(() => {
     if (props.disabled) input.cursorColor = theme.backgroundElement
@@ -113,6 +137,25 @@ export function Prompt(props: PromptProps) {
     return messages.findLast((m) => m.role === "user")
   })
 
+  const usage = createMemo(() => {
+    if (!props.sessionID) return
+    const msg = sync.data.message[props.sessionID] ?? []
+    const last = msg.findLast((item): item is AssistantMessage => item.role === "assistant" && item.tokens.output > 0)
+    if (!last) return
+
+    const tokens =
+      last.tokens.input + last.tokens.output + last.tokens.reasoning + last.tokens.cache.read + last.tokens.cache.write
+    if (tokens <= 0) return
+
+    const model = sync.data.provider.find((item) => item.id === last.providerID)?.models[last.modelID]
+    const pct = model?.limit.context ? `${Math.round((tokens / model.limit.context) * 100)}%` : undefined
+    const cost = msg.reduce((sum, item) => sum + (item.role === "assistant" ? item.cost : 0), 0)
+    return {
+      context: pct ? `${Locale.number(tokens)} (${pct})` : Locale.number(tokens),
+      cost: cost > 0 ? money.format(cost) : undefined,
+    }
+  })
+
   const [store, setStore] = createStore<{
     prompt: PromptInfo
     mode: "normal" | "shell"
@@ -120,7 +163,7 @@ export function Prompt(props: PromptProps) {
     interrupt: number
     placeholder: number
   }>({
-    placeholder: Math.floor(Math.random() * PLACEHOLDERS.length),
+    placeholder: randomIndex(list().length),
     prompt: {
       input: "",
       parts: [],
@@ -129,6 +172,16 @@ export function Prompt(props: PromptProps) {
     extmarkToPartIndex: new Map(),
     interrupt: 0,
   })
+
+  createEffect(
+    on(
+      () => props.sessionID,
+      () => {
+        setStore("placeholder", randomIndex(list().length))
+      },
+      { defer: true },
+    ),
+  )
 
   // Initialize agent/model/variant from last user message when session changes
   let syncedSessionID: string | undefined
@@ -145,37 +198,9 @@ export function Prompt(props: PromptProps) {
       const isPrimaryAgent = local.agent.list().some((x) => x.name === msg.agent)
       if (msg.agent && isPrimaryAgent) {
         local.agent.set(msg.agent)
+        if (msg.model) local.model.set(msg.model)
+        if (msg.variant) local.model.variant.set(msg.variant)
       }
-      if (msg.model) local.model.set(msg.model)
-      if (msg.variant) local.model.variant.set(msg.variant)
-    }
-  })
-
-  // Global keyboard handling for mode and agent cycling
-  useKeyboard((e: KeyEvent) => {
-    if (!input?.focused || props.disabled) return
-    if (store.mode !== "normal" || autocomplete?.visible) return
-
-    const isModeCycle =
-      keybind.match("mode_cycle", e) || (e.name === "tab" && !e.ctrl && !e.meta) || (e.name === "\t" && !e.ctrl && !e.meta)
-
-    if (isModeCycle) {
-      e.preventDefault()
-      const direction = e.shift ? -1 : 1
-      local.agent.movePrimary(direction)
-      const agent = local.agent.current()
-      toast.show({
-        variant: "info",
-        message: `Mode: ${agent.name}`,
-        duration: 2000,
-      })
-      return
-    }
-
-    if (keybind.match("agent_cycle", e)) {
-      e.preventDefault()
-      local.agent.move(e.shift ? -1 : 1)
-      return
     }
   })
 
@@ -185,7 +210,7 @@ export function Prompt(props: PromptProps) {
         title: "Clear prompt",
         value: "prompt.clear",
         category: "Prompt",
-        disabled: true,
+        hidden: true,
         onSelect: (dialog) => {
           input.extmarks.clear()
           input.clear()
@@ -195,9 +220,9 @@ export function Prompt(props: PromptProps) {
       {
         title: "Submit prompt",
         value: "prompt.submit",
-        disabled: true,
         keybind: "input_submit",
         category: "Prompt",
+        hidden: true,
         onSelect: (dialog) => {
           if (!input.focused) return
           submit()
@@ -207,9 +232,9 @@ export function Prompt(props: PromptProps) {
       {
         title: "Paste",
         value: "prompt.paste",
-        disabled: true,
         keybind: "input_paste",
         category: "Prompt",
+        hidden: true,
         onSelect: async () => {
           const content = await Clipboard.read()
           if (content?.mime.startsWith("image/")) {
@@ -225,8 +250,9 @@ export function Prompt(props: PromptProps) {
         title: "Interrupt session",
         value: "session.interrupt",
         keybind: "session_interrupt",
-        disabled: status().type === "idle",
         category: "Session",
+        hidden: true,
+        enabled: status().type !== "idle",
         onSelect: (dialog) => {
           if (autocomplete.visible) return
           if (!input.focused) return
@@ -257,7 +283,10 @@ export function Prompt(props: PromptProps) {
         category: "Session",
         keybind: "editor_open",
         value: "prompt.editor",
-        onSelect: async (dialog, trigger) => {
+        slash: {
+          name: "editor",
+        },
+        onSelect: async (dialog) => {
           dialog.clear()
 
           // replace summarized text parts with the actual text
@@ -270,7 +299,7 @@ export function Prompt(props: PromptProps) {
 
           const nonTextParts = store.prompt.parts.filter((p) => p.type !== "text")
 
-          const value = trigger === "prompt" ? "" : text
+          const value = text
           const content = await Editor.open({ value, renderer })
           if (!content) return
 
@@ -336,8 +365,59 @@ export function Prompt(props: PromptProps) {
           input.cursorOffset = Bun.stringWidth(content)
         },
       },
+      {
+        title: "Skills",
+        value: "prompt.skills",
+        category: "Prompt",
+        slash: {
+          name: "skills",
+        },
+        onSelect: () => {
+          dialog.replace(() => (
+            <DialogSkill
+              onSelect={(skill) => {
+                input.setText(`/${skill} `)
+                setStore("prompt", {
+                  input: `/${skill} `,
+                  parts: [],
+                })
+                input.gotoBufferEnd()
+              }}
+            />
+          ))
+        },
+      },
+      {
+        title: "Rewind session",
+        value: "session.rewind",
+        category: "Session",
+        slash: {
+          name: "rewind",
+        },
+        onSelect: async (dialog) => {
+          if (!props.sessionID) return
+          await (sdk.client.experimental as any).session.rewind.$post({
+            json: { sessionID: props.sessionID, count: 1 }
+          })
+          dialog.clear()
+        },
+      },
     ]
   })
+
+  // Windows Terminal 1.25+ handles Ctrl+V on keydown when kitty events are
+  // enabled, but still reports the kitty key-release event. Probe on release.
+  if (process.platform === "win32") {
+    useKeyboard(
+      (evt) => {
+        if (!input.focused) return
+        if (evt.name === "v" && evt.ctrl && evt.eventType === "release") {
+          command.trigger("prompt.paste")
+        }
+      },
+      { release: true },
+    )
+  }
 
   const ref: PromptRef = {
     get focused() {
@@ -460,7 +540,7 @@ export function Prompt(props: PromptProps) {
       title: "Stash prompt",
       value: "prompt.stash",
       category: "Prompt",
-      disabled: !store.prompt.input,
+      enabled: !!store.prompt.input,
       onSelect: (dialog) => {
         if (!store.prompt.input) return
         stash.push({
@@ -478,7 +558,7 @@ export function Prompt(props: PromptProps) {
       title: "Stash pop",
       value: "prompt.stash.pop",
       category: "Prompt",
-      disabled: stash.list().length === 0,
+      enabled: stash.list().length > 0,
       onSelect: (dialog) => {
         const entry = stash.pop()
         if (entry) {
@@ -494,7 +574,7 @@ export function Prompt(props: PromptProps) {
       title: "Stash list",
       value: "prompt.stash.list",
       category: "Prompt",
-      disabled: stash.list().length === 0,
+      enabled: stash.list().length > 0,
       onSelect: (dialog) => {
         dialog.replace(() => (
           <DialogStash
@@ -519,34 +599,33 @@ export function Prompt(props: PromptProps) {
       exit()
       return
     }
-    if (trimmed === "/clear") {
-      if (props.sessionID) {
-        sdk.client.session.delete({ sessionID: props.sessionID }).then(() => {
-          route.navigate({ type: "session", sessionID: "" })
-        })
-      }
-      input.clear()
-      return
-    }
-    if (trimmed === "/compact") {
-      if (props.sessionID) {
-        sdk.client.session.summarize({ sessionID: props.sessionID })
-      }
-      input.clear()
-      return
-    }
     const selectedModel = local.model.current()
     if (!selectedModel) {
       promptModelWarning()
       return
     }
-    const sessionID = props.sessionID
-      ? props.sessionID
-      : await (async () => {
-        const sessionID = await sdk.client.session.create({}).then((x) => x.data!.id)
-        return sessionID
-      })()
-    const messageID = Identifier.ascending("message")
+
+    let sessionID = props.sessionID
+    if (sessionID == null) {
+      const res = await sdk.client.session.create({
+        workspaceID: props.workspaceID,
+      })
+
+      if (res.error) {
+        console.log("Creating a session failed:", res.error)
+
+        toast.show({
+          message: "Creating a session failed. Open console for more details.",
+          variant: "error",
+        })
+
+        return
+      }
+
+      sessionID = res.data.id
+    }
+
+    const messageID = MessageID.ascending()
     let inputText = store.prompt.input
 
     // Expand pasted text inline before submitting
@@ -586,15 +665,22 @@ export function Prompt(props: PromptProps) {
     } else if (
       inputText.startsWith("/") &&
       iife(() => {
-        const command = inputText.split(" ")[0].slice(1)
+        const firstLine = inputText.split("\n")[0]
+        const command = firstLine.split(" ")[0].slice(1)
         return sync.data.command.some((x) => x.name === command)
       })
     ) {
-      let [command, ...args] = inputText.split(" ")
+      // Parse command from first line, preserve multi-line content in arguments
+      const firstLineEnd = inputText.indexOf("\n")
+      const firstLine = firstLineEnd === -1 ? inputText : inputText.slice(0, firstLineEnd)
+      const [command, ...firstLineArgs] = firstLine.split(" ")
+      const restOfInput = firstLineEnd === -1 ? "" : inputText.slice(firstLineEnd + 1)
+      const args = firstLineArgs.join(" ") + (restOfInput ? "\n" + restOfInput : "")
+
       sdk.client.session.command({
         sessionID,
         command: command.slice(1),
-        arguments: args.join(" "),
+        arguments: args,
         agent: local.agent.current().name,
         model: `${selectedModel.providerID}/${selectedModel.modelID}`,
         messageID,
@@ -602,7 +688,7 @@ export function Prompt(props: PromptProps) {
         parts: nonTextParts
           .filter((x) => x.type === "file")
           .map((x) => ({
-            id: Identifier.ascending("part"),
+            id: PartID.ascending(),
             ...x,
           })),
       })
@@ -617,17 +703,14 @@ export function Prompt(props: PromptProps) {
           variant,
           parts: [
             {
-              id: Identifier.ascending("part"),
+              id: PartID.ascending(),
               type: "text",
               text: inputText,
             },
-            ...nonTextParts.map((x) => ({
-              id: Identifier.ascending("part"),
-              ...x,
-            })),
+            ...nonTextParts.map(assign),
           ],
         })
-        .catch(() => { })
+        .catch(() => {})
     }
     history.append({
       ...store.prompt,
@@ -690,7 +773,7 @@ export function Prompt(props: PromptProps) {
   async function pasteImage(file: { filename?: string; content: string; mime: string }) {
     const currentOffset = input.visualCursor.offset
     const extmarkStart = currentOffset
-    const count = store.prompt.parts.filter((x) => x.type === "file").length
+    const count = store.prompt.parts.filter((x) => x.type === "file" && x.mime.startsWith("image/")).length
     const virtualText = `[Image ${count + 1}]`
     const extmarkEnd = extmarkStart + virtualText.length
     const textToInsert = virtualText + " "
@@ -743,6 +826,17 @@ export function Prompt(props: PromptProps) {
     return !!current
   })
 
+  const placeholderText = createMemo(() => {
+    if (props.showPlaceholder === false) return undefined
+    if (store.mode === "shell") {
+      if (!shell().length) return undefined
+      const example = shell()[store.placeholder % shell().length]
+      return `Run a command... "${example}"`
+    }
+    if (!list().length) return undefined
+    return `Ask anything... "${list()[store.placeholder % list().length]}"`
+  })
+
   const spinnerDef = createMemo(() => {
     const color = local.agent.color(local.agent.current().name)
     return {
@@ -761,6 +855,32 @@ export function Prompt(props: PromptProps) {
         minAlpha: 0.3,
       }),
     }
+  })
+
+  const [cronJobs, setCronJobs] = createSignal(0)
+  
+  onMount(() => {
+    let active = true
+    const cronFile = Bun.file(path.join(Global.Path.state, "cron-jobs.json"))
+    
+    async function pollCron() {
+      if (!active) return
+      try {
+        if (await cronFile.exists()) {
+          const data = await cronFile.json()
+          if (Array.isArray(data)) {
+            setCronJobs(data.filter(j => j.enabled).length)
+          }
+        }
+      } catch (err) {}
+      if (active) setTimeout(pollCron, 3000)
+    }
+    
+    pollCron()
+    
+    onCleanup(() => {
+      active = false
+    })
   })
 
   return (
@@ -786,35 +906,36 @@ export function Prompt(props: PromptProps) {
         promptPartTypeId={() => promptPartTypeId}
       />
       <box ref={(r) => (anchor = r)} visible={props.visible !== false}>
+        <Show when={cronJobs() > 0}>
+          <box paddingLeft={2} paddingBottom={1} flexDirection="row">
+            <text fg={theme.success}>⏱️ </text>
+            <text fg={theme.textMuted}>{String(cronJobs())} active cron {cronJobs() === 1 ? 'job' : 'jobs'}</text>
+          </box>
+        </Show>
         <box
           border={["left"]}
           borderColor={highlight()}
           customBorderChars={{
-            ...EmptyBorder,
-            vertical: "┃",
+            ...SplitBorder.customBorderChars,
             bottomLeft: "╹",
           }}
         >
           <box
+            marginLeft={1}
+            marginRight={1}
             paddingLeft={2}
             paddingRight={2}
             paddingTop={1}
+            paddingBottom={1}
             flexShrink={0}
             backgroundColor={theme.backgroundElement}
             flexGrow={1}
+            borderStyle="rounded"
+            borderColor={highlight()}
           >
             <textarea
-              ref={(r) => {
-                input = r
-                if (promptPartTypeId === 0) {
-                  promptPartTypeId = input.extmarks.registerType("prompt-part")
-                }
-                props.ref?.(ref)
-                setTimeout(() => {
-                  input.cursorColor = theme.text
-                }, 0)
-              }}
-              placeholder={props.sessionID ? undefined : `Ask anything... "${PLACEHOLDERS[store.placeholder]}"`}
+              placeholder={placeholderText()}
+              placeholderColor={theme.textMuted}
               textColor={keybind.leader ? theme.textMuted : theme.text}
               focusedTextColor={keybind.leader ? theme.textMuted : theme.text}
               minHeight={1}
@@ -831,10 +952,9 @@ export function Prompt(props: PromptProps) {
                   e.preventDefault()
                   return
                 }
-                // Handle clipboard paste (Ctrl+V) - check for images first on Windows
-                // This is needed because Windows terminal doesn't properly send image data
-                // through bracketed paste, so we need to intercept the keypress and
-                // directly read from clipboard before the terminal handles it
+                // Check clipboard for images before terminal-handled paste runs.
+                // This helps terminals that forward Ctrl+V to the app; Windows
+                // Terminal 1.25+ usually handles Ctrl+V before this path.
                 if (keybind.match("input_paste", e)) {
                   const content = await Clipboard.read()
                   if (content?.mime.startsWith("image/")) {
@@ -867,6 +987,7 @@ export function Prompt(props: PromptProps) {
                   }
                 }
                 if (e.name === "!" && input.visualCursor.offset === 0) {
+                  setStore("placeholder", randomIndex(shell().length))
                   setStore("mode", "shell")
                   e.preventDefault()
                   return
@@ -914,8 +1035,11 @@ export function Prompt(props: PromptProps) {
                 // Normalize line endings at the boundary
                 // Windows ConPTY/Terminal often sends CR-only newlines in bracketed paste
                 // Replace CRLF first, then any remaining CR
-                const normalizedText = event.text.replace(/\r\n/g, "\n").replace(/\r/g, "\n")
+                const normalizedText = decodePasteBytes(event.bytes).replace(/\r\n/g, "\n").replace(/\r/g, "\n")
                 const pastedContent = normalizedText.trim()
+
+                // Windows Terminal <1.25 can surface image-only clipboard as an
+                // empty bracketed paste. Windows Terminal 1.25+ does not.
                 if (!pastedContent) {
                   command.trigger("prompt.paste")
                   return
@@ -927,32 +1051,32 @@ export function Prompt(props: PromptProps) {
                 const isUrl = /^(https?):\/\//.test(filepath)
                 if (!isUrl) {
                   try {
-                    const file = Bun.file(filepath)
+                    const mime = Filesystem.mimeType(filepath)
+                    const filename = path.basename(filepath)
                     // Handle SVG as raw text content, not as base64 image
-                    if (file.type === "image/svg+xml") {
+                    if (mime === "image/svg+xml") {
                       event.preventDefault()
-                      const content = await file.text().catch(() => { })
+                      const content = await Filesystem.readText(filepath).catch(() => {})
                       if (content) {
-                        pasteText(content, `[SVG: ${file.name ?? "image"}]`)
+                        pasteText(content, `[SVG: ${filename ?? "image"}]`)
                         return
                       }
                     }
-                    if (file.type.startsWith("image/")) {
+                    if (mime.startsWith("image/")) {
                       event.preventDefault()
-                      const content = await file
-                        .arrayBuffer()
+                      const content = await Filesystem.readArrayBuffer(filepath)
                         .then((buffer) => Buffer.from(buffer).toString("base64"))
-                        .catch(() => { })
+                        .catch(() => {})
                       if (content) {
                         await pasteImage({
-                          filename: file.name,
-                          mime: file.type,
+                          filename,
+                          mime,
                           content,
                         })
                         return
                       }
                     }
-                  } catch { }
+                  } catch {}
                 }
 
                 const lineCount = (pastedContent.match(/\n/g)?.length ?? 0) + 1
@@ -967,8 +1091,22 @@ export function Prompt(props: PromptProps) {
 
                 // Force layout update and render for the pasted content
                 setTimeout(() => {
+                  // setTimeout is a workaround and needs to be addressed properly
+                  if (!input || input.isDestroyed) return
                   input.getLayoutNode().markDirty()
                   renderer.requestRender()
+                }, 0)
+              }}
+              ref={(r: TextareaRenderable) => {
+                input = r
+                if (promptPartTypeId === 0) {
+                  promptPartTypeId = input.extmarks.registerType("prompt-part")
+                }
+                props.ref?.(ref)
+                setTimeout(() => {
+                  // setTimeout is a workaround and needs to be addressed properly
+                  if (!input || input.isDestroyed) return
+                  input.cursorColor = theme.text
                 }, 0)
               }}
               onMouseDown={(r: MouseEvent) => r.target?.focus()}
@@ -976,10 +1114,9 @@ export function Prompt(props: PromptProps) {
               cursorColor={theme.text}
               syntaxStyle={syntax()}
             />
-
             <box flexDirection="row" flexShrink={0} paddingTop={1} gap={1}>
-              <text fg={highlight()}>
-                {store.mode === "shell" ? "Shell" : Locale.titlecase(local.agent.current().name)}{" "}
+              <text fg={highlight()} attributes={TextAttributes.BOLD}>
+                {store.mode === "shell" ? "Shell" : Locale.titlecase(local.agent.current().name.replace(/^@/, ""))}
               </text>
               <Show when={store.mode === "normal"}>
                 <box flexDirection="row" gap={1}>
@@ -989,9 +1126,7 @@ export function Prompt(props: PromptProps) {
                   <text fg={theme.textMuted}>{local.model.parsed().provider}</text>
                   <Show when={showVariant()}>
                     <text fg={theme.textMuted}>·</text>
-                    <text>
-                      <span style={{ fg: theme.warning, bold: true }}>{local.model.variant.current()}</span>
-                    </text>
+                    <text fg={theme.warning} attributes={TextAttributes.BOLD}>{String(local.model.variant.current())}</text>
                   </Show>
                 </box>
               </Show>
@@ -1014,18 +1149,18 @@ export function Prompt(props: PromptProps) {
             customBorderChars={
               theme.backgroundElement.a !== 0
                 ? {
-                  ...EmptyBorder,
-                  horizontal: "▀",
-                }
+                    ...EmptyBorder,
+                    horizontal: "▀",
+                  }
                 : {
-                  ...EmptyBorder,
-                  horizontal: " ",
-                }
+                    ...EmptyBorder,
+                    horizontal: " ",
+                  }
             }
           />
         </box>
         <box flexDirection="row" justifyContent="space-between">
-          <Show when={status().type !== "idle"} fallback={<text />}>
+          <Show when={status().type !== "idle"} fallback={<box>{props.hint ?? <text />}</box>}>
             <box
               flexDirection="row"
               gap={1}
@@ -1080,10 +1215,10 @@ export function Prompt(props: PromptProps) {
                     const retryText = () => {
                       const r = retry()
                       if (!r) return ""
-                      const baseMessage = message()
+                      const baseMessage = String(message() || "")
                       const truncatedHint = isTruncated() ? " (click to expand)" : ""
-                      const duration = Locale.duration(seconds() * 1000)
-                      const retryInfo = ` [retrying ${duration ? `in ${duration} ` : ""}attempt #${r.attempt}]`
+                      const duration = String(formatDuration(seconds()))
+                      const retryInfo = ` [retrying ${duration ? `in ${duration} ` : ""}attempt #${String(r.attempt)}]`
                       return baseMessage + truncatedHint + retryInfo
                     }
 
@@ -1097,35 +1232,43 @@ export function Prompt(props: PromptProps) {
                   })()}
                 </box>
               </box>
-              <text fg={store.interrupt > 0 ? theme.primary : theme.text}>
-                esc{" "}
-                <span style={{ fg: store.interrupt > 0 ? theme.primary : theme.textMuted }}>
+              <box flexDirection="row" gap={1}>
+                <text fg={store.interrupt > 0 ? theme.primary : theme.text}>esc</text>
+                <text fg={store.interrupt > 0 ? theme.primary : theme.textMuted}>
                   {store.interrupt > 0 ? "again to interrupt" : "interrupt"}
-                </span>
-              </text>
+                </text>
+              </box>
             </box>
           </Show>
           <Show when={status().type !== "retry"}>
             <box gap={2} flexDirection="row">
               <Switch>
                 <Match when={store.mode === "normal"}>
-                  <text fg={theme.text}>
-                    {keybind.print("mode_cycle")} <span style={{ fg: theme.textMuted }}>modes</span>
-                  </text>
-                  <text fg={theme.text}>
-                    {keybind.print("variant_cycle")} <span style={{ fg: theme.textMuted }}>variants</span>
-                  </text>
-                  <text fg={theme.text}>
-                    {keybind.print("agent_cycle")} <span style={{ fg: theme.textMuted }}>agents</span>
-                  </text>
-                  <text fg={theme.text}>
-                    {keybind.print("command_list")} <span style={{ fg: theme.textMuted }}>commands</span>
-                  </text>
+                  <Switch>
+                    <Match when={usage()}>
+                      {(item) => (
+                        <text fg={theme.textMuted} wrapMode="none">
+                          {[item().context, item().cost].filter(Boolean).join(" · ")}
+                        </text>
+                      )}
+                    </Match>
+                    <Match when={true}>
+                      <box flexDirection="row" gap={1}>
+                        <text fg={theme.text}>{String(keybind.print("agent_cycle"))}</text>
+                        <text fg={theme.textMuted}>agents</text>
+                      </box>
+                    </Match>
+                  </Switch>
+                  <box flexDirection="row" gap={1}>
+                    <text fg={theme.text}>{String(keybind.print("command_list"))}</text>
+                    <text fg={theme.textMuted}>commands</text>
+                  </box>
                 </Match>
                 <Match when={store.mode === "shell"}>
-                  <text fg={theme.text}>
-                    esc <span style={{ fg: theme.textMuted }}>exit shell mode</span>
-                  </text>
+                  <box flexDirection="row" gap={1}>
+                    <text fg={theme.text}>esc</text>
+                    <text fg={theme.textMuted}>exit shell mode</text>
+                  </box>
                 </Match>
               </Switch>
             </box>
@@ -1135,3 +1278,4 @@ export function Prompt(props: PromptProps) {
     </>
   )
 }
+

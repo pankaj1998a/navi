@@ -14,3 +14,4 @@ export const ScrapCommand = cmd({
     timer.stop()
   },
 })
+
