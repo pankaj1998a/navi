@@ -3,6 +3,7 @@ import { Tool } from "./tool"
 import TurndownService from "turndown"
 import DESCRIPTION from "./webfetch.txt"
 import { abortAfterAny } from "../util/abort"
+import { summarizeWebContent } from "./web-summarizer"
 
 const MAX_RESPONSE_SIZE = 5 * 1024 * 1024 // 5MB
 const DEFAULT_TIMEOUT = 30 * 1000 // 30 seconds
@@ -17,6 +18,7 @@ export const WebFetchTool = Tool.define("webfetch", {
       .default("markdown")
       .describe("The format to return the content in (text, markdown, or html). Defaults to markdown."),
     timeout: z.number().describe("Optional timeout in seconds (max 120)").optional(),
+    summarize: z.boolean().describe("Whether to intelligently summarize the content using AI. Useful for long pages.").default(true).optional(),
   }),
   async execute(params, ctx) {
     // Validate URL
@@ -152,11 +154,22 @@ export const WebFetchTool = Tool.define("webfetch", {
         }
 
       default:
-        return {
-          output: content,
-          title,
-          metadata: {},
-        }
+        // No-op
+    }
+
+    if (params.summarize || content.length > 50000) {
+      const summary = await summarizeWebContent(content, `Source: ${params.url}`, { abort: ctx.abort })
+      return {
+        output: summary,
+        title: `Summary of ${params.url}`,
+        metadata: { originalLength: content.length, summarized: true } as Record<string, unknown>,
+      }
+    }
+
+    return {
+      output: content,
+      title,
+      metadata: {} as Record<string, unknown>,
     }
   },
 })

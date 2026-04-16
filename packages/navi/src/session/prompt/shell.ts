@@ -14,6 +14,8 @@ import { state } from "./state"
 import { SessionStatus } from "../status"
 import { getPermissionMode, Permission } from "../../permission"
 import { getThinkingLevel } from "../../agent/thinking-levels"
+import { ProviderID, ModelID } from "../../provider/schema"
+import { MessageID, SessionID, PartID } from "../../session/schema"
 
 const log = Log.create({ service: "session.prompt.shell" })
 
@@ -23,9 +25,10 @@ const log = Log.create({ service: "session.prompt.shell" })
 
 function start(sessionID: string) {
     const s = state()
-    if (s[sessionID]) return
+    const id = SessionID.make(sessionID)
+    if (s[id]) return
     const controller = new AbortController()
-    s[sessionID] = {
+    s[id] = {
         abort: controller,
         callbacks: [],
     }
@@ -35,17 +38,18 @@ function start(sessionID: string) {
 function cancel(sessionID: string) {
     log.info("cancel", { sessionID })
     const s = state()
-    const match = s[sessionID]
+    const id = SessionID.make(sessionID)
+    const match = s[id]
     if (!match) return
     match.abort.abort()
     for (const item of match.callbacks) {
         item.reject()
     }
-    delete s[sessionID]
-    SessionStatus.set(sessionID, {
+    delete s[id]
+    SessionStatus.set(SessionID.make(sessionID), {
         type: "idle",
-        permissionMode: getPermissionMode(sessionID),
-        thinkingLevel: getThinkingLevel(sessionID),
+        permissionMode: getPermissionMode(SessionID.make(sessionID)),
+        thinkingLevel: getThinkingLevel(SessionID.make(sessionID)),
     })
     return
 }
@@ -59,7 +63,7 @@ export async function executeShell(input: {
 }) {
     const abort = start(input.sessionID)
     if (!abort) {
-        throw new Session.BusyError(input.sessionID)
+        throw new Session.BusyError(SessionID.make(input.sessionID))
     }
     using _ = defer(() => cancel(input.sessionID))
 
@@ -70,32 +74,32 @@ export async function executeShell(input: {
     const agent = await Agent.get(input.agent)
     const model = input.model ?? agent.model ?? (await input.lastModel(input.sessionID))
     const userMsg: MessageV2.User = {
-        id: Identifier.ascending("message"),
-        sessionID: input.sessionID,
+        id: MessageID.make(Identifier.ascending("message")),
+        sessionID: SessionID.make(input.sessionID),
         time: {
             created: Date.now(),
         },
         role: "user",
         agent: input.agent,
         model: {
-            providerID: model.providerID,
-            modelID: model.modelID,
+            providerID: ProviderID.make(model.providerID),
+            modelID: ModelID.make(model.modelID),
         },
     }
     await Session.updateMessage(userMsg)
     const userPart: MessageV2.Part = {
         type: "text",
-        id: Identifier.ascending("part"),
+        id: PartID.make(Identifier.ascending("part")),
         messageID: userMsg.id,
-        sessionID: input.sessionID,
+        sessionID: SessionID.make(input.sessionID),
         text: "The following tool was executed by the user",
         synthetic: true,
     }
     await Session.updatePart(userPart)
 
     const msg: MessageV2.Assistant = {
-        id: Identifier.ascending("message"),
-        sessionID: input.sessionID,
+        id: MessageID.make(Identifier.ascending("message")),
+        sessionID: SessionID.make(input.sessionID),
         parentID: userMsg.id,
         mode: input.agent,
         agent: input.agent,
@@ -114,15 +118,15 @@ export async function executeShell(input: {
             reasoning: 0,
             cache: { read: 0, write: 0 },
         },
-        modelID: model.modelID,
-        providerID: model.providerID,
+        modelID: ModelID.make(model.modelID),
+        providerID: ProviderID.make(model.providerID),
     }
     await Session.updateMessage(msg)
     const part: MessageV2.Part = {
         type: "tool",
-        id: Identifier.ascending("part"),
+        id: PartID.make(Identifier.ascending("part")),
         messageID: msg.id,
-        sessionID: input.sessionID,
+        sessionID: SessionID.make(input.sessionID),
         tool: "bash",
         callID: ulid(),
         state: {

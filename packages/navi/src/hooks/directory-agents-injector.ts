@@ -14,7 +14,7 @@
  * Ported from oh-my-navi-dev plugin
  */
 
-import type { Hooks } from "@navi-ai/plugin"
+import type { Hooks } from "@/plugin"
 import { Log } from "../util/log"
 import { existsSync, readFileSync, realpathSync } from "node:fs"
 import { dirname, join, resolve } from "node:path"
@@ -173,8 +173,8 @@ export function createDirectoryAgentsInjectorHook(options?: DirectoryAgentsInjec
          * Inject context after file read operations
          */
         "tool.execute.after": async (
-            input: { tool: string; sessionID: string; callID: string },
-            output: { title: string; output: string; metadata: unknown }
+            input: { tool: string; sessionID: string; callID: string; args: any },
+            output: { title: string; output: string; metadata: any }
         ): Promise<void> => {
             const toolName = input.tool.toLowerCase()
 
@@ -193,7 +193,7 @@ export function createDirectoryAgentsInjectorHook(options?: DirectoryAgentsInjec
         /**
          * Clean up session cache on deletion/compaction
          */
-        event: async (input: { event: { type: string; properties?: unknown } }): Promise<void> => {
+        event: async (input: { event: any }): Promise<void> => {
             const props = input.event.properties as Record<string, unknown> | undefined
 
             if (input.event.type === "session.deleted" || input.event.type === "session.compacted") {

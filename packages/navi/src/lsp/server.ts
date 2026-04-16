@@ -12,7 +12,7 @@ import { Flag } from "../flag/flag"
 import { Archive } from "../util/archive"
 import { Process } from "../util/process"
 import { which } from "../util/which"
-import { Module } from "@navi-ai/util/module"
+import { Module } from "@/util/module"
 import { spawn } from "./launch"
 
 export namespace LSPServer {

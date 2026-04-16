@@ -25,6 +25,8 @@
     "customConditions": [
       "browser"
     ],
+    "baseUrl": ".",
+    "rootDir": "../../",
     "paths": {
       "@/*": [
         "./src/*"
@@ -32,30 +34,22 @@
       "@tui/*": [
         "./src/cli/cmd/tui/*"
       ],
-      "@navi-ai/util/*": [
-        "../util/src/*"
+      "@navi-ai/sdk": [
+        "../sdk/js/src/index.ts"
       ],
       "@navi-ai/sdk/*": [
         "../sdk/js/src/*"
-      ],
-      "@navi-ai/native": [
-        "../native/src/index.ts"
       ]
     },
-    "incremental": true,
-    "composite": true,
+    "incremental": false,
+    "composite": false,
     "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.tsbuildinfo"
   },
   "include": [
     "src/**/*",
     "parsers-config.ts",
     "script/**/*",
-    "../../script/**/*",
-    "../../packages/**/script/**/*",
-    "test/**/*",
-    "../util/src/**/*",
-    "../sdk/js/src/**/*",
-    "../native/src/**/*"
+    "test/**/*"
   ],
   "exclude": [
     "node_modules",

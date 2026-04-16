@@ -10,7 +10,7 @@
  * Ported from oh-my-navi-dev plugin
  */
 
-import type { Hooks } from "@navi-ai/plugin"
+import type { Hooks } from "@/plugin"
 import { Log } from "../util/log"
 
 const log = Log.create({ service: "keyword-detector" })
@@ -213,10 +213,11 @@ export function createKeywordDetectorHook(): Hooks {
                 agent?: string
                 model?: { providerID: string; modelID: string }
                 messageID?: string
+                variant?: string
             },
             output: {
-                message: any // UserMessage
-                parts: Array<{ type: string; text?: string;[key: string]: unknown }>
+                message: any
+                parts: any[]
             }
         ): Promise<void> => {
             const promptText = extractPromptText(output.parts)

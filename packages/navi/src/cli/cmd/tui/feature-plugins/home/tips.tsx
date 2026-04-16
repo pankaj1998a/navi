@@ -1,4 +1,4 @@
-import type { TuiPlugin, TuiPluginModule } from "@navi-ai/plugin/tui"
+import type { TuiPlugin, TuiPluginModule } from "@/plugin/tui"
 import { createMemo, Show } from "solid-js"
 import { Tips } from "./tips-view"
 

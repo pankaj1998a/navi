@@ -1,4 +1,4 @@
-import { fileOps } from '@navi-ai/native'
+import { fileOps } from '../../native'
 import path from 'path'
 import { Instance } from '../../project/instance'
 

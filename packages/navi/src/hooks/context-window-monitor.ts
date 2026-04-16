@@ -13,7 +13,7 @@
  * Ported from oh-my-navi-dev plugin
  */
 
-import type { Hooks } from "@navi-ai/plugin"
+import type { Hooks } from "@/plugin"
 import { Log } from "../util/log"
 
 const log = Log.create({ service: "context-monitor" })

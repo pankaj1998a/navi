@@ -1,7 +1,7 @@
-import { Slug } from "@navi-ai/util/slug"
+import { Slug } from "../util/slug"
 import path from "path"
-import { BusEvent } from "@/bus/bus-event"
-import { Bus } from "@/bus"
+import { BusEvent } from "../bus/bus-event"
+import { Bus } from "../bus"
 import { Decimal } from "decimal.js"
 import z from "zod"
 import { type ProviderMetadata } from "ai"
@@ -10,28 +10,30 @@ import { Flag } from "../flag/flag"
 import { Installation } from "../installation"
 
 import { JsonlStorage } from "../storage/jsonl"
-import { Storage } from "@/storage/storage"
+import { Storage } from "../storage/storage"
 import { Log } from "../util/log"
 import { updateSchema } from "../util/update-schema"
 import { MessageV2 } from "./message-v2"
 import { Instance } from "../project/instance"
-import { InstanceState } from "@/effect/instance-state"
+import { InstanceState } from "../effect/instance-state"
 import { SessionPrompt } from "./prompt"
-import { fn } from "@/util/fn"
+import { fn } from "../util/fn"
 import { Command } from "../command"
-import { Snapshot } from "@/snapshot"
+import { Snapshot } from "../snapshot"
 import { ProjectID } from "../project/schema"
 import { WorkspaceID } from "../control-plane/schema"
 import { SessionID, MessageID, PartID } from "./schema"
 
-import type { Provider } from "@/provider/provider"
-import { ModelID, ProviderID } from "@/provider/schema"
-import { Permission } from "@/permission"
-import { Global } from "@/global"
+import type { Provider } from "../provider/provider"
+import { ModelID, ProviderID } from "../provider/schema"
+import { Permission } from "../permission"
+import { Global } from "../global"
 import type { LanguageModelV2Usage } from "@ai-sdk/provider"
 import { Effect, Layer, Scope, ServiceMap } from "effect"
-import { makeRuntime } from "@/effect/run-service"
+import { makeRuntime } from "../effect/run-service"
 import { SyncEvent } from "../sync"
+import { type InferInsertModel } from "drizzle-orm"
+import { SessionTable } from "./session.sql"
 
 export namespace Session {
   const log = Log.create({ service: "session" })
@@ -47,6 +49,30 @@ export namespace Session {
     return new RegExp(
       `^(${parentTitlePrefix}|${childTitlePrefix})\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$`,
     ).test(title)
+  }
+
+  export function toRow(info: Info): InferInsertModel<typeof SessionTable> {
+    return {
+      id: info.id,
+      project_id: info.projectID,
+      workspace_id: info.workspaceID,
+      parent_id: info.parentID,
+      slug: info.slug,
+      directory: info.directory,
+      title: info.title,
+      version: info.version,
+      share_url: info.share?.url,
+      summary_additions: info.summary?.additions,
+      summary_deletions: info.summary?.deletions,
+      summary_files: info.summary?.files,
+      summary_diffs: info.summary?.diffs,
+      revert: info.revert,
+      permission: info.permission,
+      time_created: info.time.created,
+      time_updated: info.time.updated,
+      time_compacting: info.time.compacting,
+      time_archived: info.time.archived,
+    }
   }
 
 
@@ -101,6 +127,7 @@ export namespace Session {
         })
         .optional(),
       scratchpad: z.string().optional(),
+      planningMode: z.boolean().optional(),
     })
     .meta({
       ref: "Session",
@@ -274,6 +301,8 @@ export namespace Session {
     }) => Effect.Effect<void>
     readonly clearRevert: (sessionID: SessionID) => Effect.Effect<void>
     readonly setSummary: (input: { sessionID: SessionID; summary: Info["summary"] }) => Effect.Effect<void>
+    readonly setScratchpad: (input: { sessionID: SessionID; content: string }) => Effect.Effect<void>
+    readonly setPlanningMode: (input: { sessionID: SessionID; enabled: boolean }) => Effect.Effect<void>
     readonly diff: (sessionID: SessionID) => Effect.Effect<Snapshot.FileDiff[]>
     readonly messages: (input: { sessionID: SessionID; limit?: number }) => Effect.Effect<MessageV2.WithParts[]>
     readonly children: (parentID: SessionID) => Effect.Effect<Info[]>
@@ -622,6 +651,13 @@ export namespace Session {
         yield* patch(input.sessionID, { scratchpad: input.content, time: { updated: Date.now() } })
       })
 
+      const setPlanningMode = Effect.fn("Session.setPlanningMode")(function* (input: {
+        sessionID: SessionID
+        enabled: boolean
+      }) {
+        yield* patch(input.sessionID, { planningMode: input.enabled, time: { updated: Date.now() } })
+      })
+
       return Service.of({
         create,
         fork,
@@ -647,6 +683,7 @@ export namespace Session {
         updatePart,
         updatePartDelta,
         initialize,
+        setPlanningMode,
       })
     }),
   )
@@ -699,6 +736,10 @@ export namespace Session {
   export const setSummary = fn(z.object({ sessionID: SessionID.zod, summary: Info.shape.summary }), (input) =>
     runPromise((svc) => svc.setSummary({ sessionID: input.sessionID, summary: input.summary })),
   )
+  
+  export const setPlanningMode = fn(z.object({ sessionID: SessionID.zod, enabled: z.boolean() }), (input) =>
+    runPromise((svc) => svc.setPlanningMode(input)),
+  )
 
   export const diff = fn(SessionID.zod, (id) => runPromise((svc) => svc.diff(id)))
 
@@ -717,16 +758,19 @@ export namespace Session {
     const all = JsonlStorage.listItemsSync<Info>("sessions")
     
     let filtered = all
-    if (input?.workspaceID) filtered = filtered.filter(s => s.workspaceID === input.workspaceID)
-    if (input?.directory) filtered = filtered.filter(s => s.directory === input.directory)
-    if (input?.roots) filtered = filtered.filter(s => !s.parentID)
-    if (input?.start) filtered = filtered.filter(s => s.time.updated >= input.start)
+    if (input?.workspaceID) filtered = filtered.filter((s: Info) => s.workspaceID === input.workspaceID)
+    if (input?.directory) filtered = filtered.filter((s: Info) => s.directory === input.directory)
+    if (input?.roots) filtered = filtered.filter((s: Info) => !s.parentID)
+    if (input?.start) {
+      const startValue = input.start
+      filtered = filtered.filter((s: Info) => s.time.updated >= startValue)
+    }
     if (input?.search) {
       const search = input.search.toLowerCase()
-      filtered = filtered.filter(s => s.title.toLowerCase().includes(search))
+      filtered = filtered.filter((s: Info) => s.title.toLowerCase().includes(search))
     }
 
-    filtered.sort((a, b) => b.time.updated - a.time.updated)
+    filtered.sort((a: Info, b: Info) => b.time.updated - a.time.updated)
     const limit = input?.limit ?? 100
     
     for (const item of filtered.slice(0, limit)) {
@@ -746,30 +790,36 @@ export namespace Session {
     const all = JsonlStorage.listItemsSync<Info>("sessions")
     
     let filtered = all
-    if (input?.directory) filtered = filtered.filter(s => s.directory === input.directory)
-    if (input?.roots) filtered = filtered.filter(s => !s.parentID)
-    if (input?.start) filtered = filtered.filter(s => s.time.updated >= input.start)
-    if (input?.cursor) filtered = filtered.filter(s => s.time.updated < input.cursor)
+    if (input?.directory) filtered = filtered.filter((s: Info) => s.directory === input.directory)
+    if (input?.roots) filtered = filtered.filter((s: Info) => !s.parentID)
+    if (input?.start) {
+      const startValue = input.start
+      filtered = filtered.filter((s: Info) => s.time.updated >= startValue)
+    }
+    if (input?.cursor) {
+      const cursorValue = input.cursor
+      filtered = filtered.filter((s: Info) => s.time.updated < cursorValue)
+    }
     if (input?.search) {
       const search = input.search.toLowerCase()
-      filtered = filtered.filter(s => s.title.toLowerCase().includes(search))
+      filtered = filtered.filter((s: Info) => s.title.toLowerCase().includes(search))
     }
     if (!input?.archived) {
-      filtered = filtered.filter(s => !s.time.archived)
+      filtered = filtered.filter((s: Info) => !s.time.archived)
     }
 
-    filtered.sort((a, b) => b.time.updated - a.time.updated)
+    filtered.sort((a: Info, b: Info) => b.time.updated - a.time.updated)
 
     const limit = input?.limit ?? 100
     const page = filtered.slice(0, limit)
 
-    const projectIDs = [...new Set(page.map(s => s.projectID))]
+    const projectIDs = [...new Set(page.map((s: Info) => s.projectID))]
     const projects = new Map<string, ProjectInfo>()
 
     for (const pid of projectIDs) {
-        const p = JsonlStorage.readItemSync<any>("projects", pid)
+        const p = JsonlStorage.readItemSync<any>("projects", pid as string)
         if (p) {
-            projects.set(pid, {
+            projects.set(pid as string, {
                 id: p.id,
                 name: p.name,
                 worktree: p.worktree
@@ -778,7 +828,7 @@ export namespace Session {
     }
 
     for (const item of page) {
-      const project = projects.get(item.projectID) ?? null
+      const project = projects.get(item.projectID as string) ?? null
       yield { ...item, project }
     }
   }

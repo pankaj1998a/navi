@@ -12,6 +12,8 @@ import { NodeFileSystem, NodePath } from "@effect/platform-node"
 import { makeRuntime } from "@/effect/run-service"
 import { AppFileSystem } from "@/filesystem"
 import * as CrossSpawnSpawner from "@/effect/cross-spawn-spawner"
+import { type InferInsertModel } from "drizzle-orm"
+import { ProjectTable } from "./project.sql"
 
 export namespace Project {
   const log = Log.create({ service: "project" })
@@ -48,6 +50,42 @@ export namespace Project {
 
   export const Event = {
     Updated: BusEvent.define("project.updated", Info),
+  }
+  
+  export function toRow(info: Info): InferInsertModel<typeof ProjectTable> {
+    return {
+      id: info.id,
+      worktree: info.worktree,
+      vcs: info.vcs,
+      name: info.name,
+      icon_url: info.icon?.url,
+      icon_color: info.icon?.color,
+      time_created: info.time.created,
+      time_updated: info.time.updated,
+      time_initialized: info.time.initialized,
+      sandboxes: info.sandboxes,
+      commands: info.commands,
+    }
+  }
+
+  export function fromRow(row: any): Info {
+    return {
+      id: row.id,
+      worktree: row.worktree,
+      vcs: row.vcs,
+      name: row.name,
+      icon: {
+        url: row.icon_url,
+        color: row.icon_color,
+      },
+      time: {
+        created: row.time_created,
+        updated: row.time_updated,
+        initialized: row.time_initialized,
+      },
+      sandboxes: row.sandboxes,
+      commands: row.commands,
+    }
   }
 
 

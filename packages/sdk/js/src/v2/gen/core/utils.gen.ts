@@ -135,4 +135,3 @@ export function getValidRequestBody(options: {
   // no body was provided
   return undefined
 }
-

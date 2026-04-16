@@ -1,6 +1,6 @@
 import { GlobalBus } from "@/bus/global"
 import { disposeInstance } from "@/effect/instance-registry"
-import { Filesystem } from "@/util/filesystem"
+import { Filesystem } from "@/filesystem"
 import { iife } from "@/util/iife"
 import { Log } from "@/util/log"
 import { Context } from "../util/context"

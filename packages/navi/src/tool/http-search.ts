@@ -206,6 +206,70 @@ async function searchDuckDuckGo(query: string, num: number): Promise<SearchResul
     return results
 }
 
+// ─── Tavily ──────────────────────────────────────────────────────────────────
+
+async function searchTavily(query: string, num: number): Promise<SearchResult[]> {
+    const apiKey = process.env.TAVILY_API_KEY
+    if (!apiKey) return []
+
+    try {
+        const response = await fetch("https://api.tavily.com/search", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                api_key: apiKey,
+                query,
+                search_depth: "advanced",
+                max_results: num,
+            }),
+        })
+
+        if (!response.ok) return []
+        const data = await response.json()
+        return (data.results || []).map((r: any) => ({
+            title: r.title,
+            url: r.url,
+            snippet: r.content,
+        }))
+    } catch (e) {
+        log.warn("Tavily search failed", { error: String(e) })
+        return []
+    }
+}
+
+// ─── Firecrawl ───────────────────────────────────────────────────────────────
+
+async function searchFirecrawl(query: string, num: number): Promise<SearchResult[]> {
+    const apiKey = process.env.FIRECRAWL_API_KEY
+    if (!apiKey) return []
+
+    try {
+        const response = await fetch("https://api.firecrawl.dev/v1/search", {
+            method: "POST",
+            headers: {
+                Authorization: `Bearer ${apiKey}`,
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+                query,
+                limit: num,
+                scrapeOptions: { formats: ["markdown"] },
+            }),
+        })
+
+        if (!response.ok) return []
+        const data = await response.json()
+        return (data.data || []).map((r: any) => ({
+            title: r.title || r.metadata?.title || "",
+            url: r.url || r.metadata?.sourceURL || "",
+            snippet: r.markdown || r.content || "",
+        }))
+    } catch (e) {
+        log.warn("Firecrawl search failed", { error: String(e) })
+        return []
+    }
+}
+
 // ─── Main export ─────────────────────────────────────────────────────────────
 
 export async function searchWithProvider(provider: Exclude<SearchProvider, "browser" | "google-api">, query: string, numResults = 8): Promise<SearchResult[]> {
@@ -225,6 +289,18 @@ export async function searchWithProvider(provider: Exclude<SearchProvider, "brow
         return bingResults.slice(0, numResults)
     }
 
+    if (provider === "tavily") {
+        const results = await searchTavily(query, numResults)
+        if (results.length > 0) log.info(`tavily returned ${results.length} results`)
+        return results
+    }
+
+    if (provider === "firecrawl") {
+        const results = await searchFirecrawl(query, numResults)
+        if (results.length > 0) log.info(`firecrawl returned ${results.length} results`)
+        return results
+    }
+
     const ddgResults = await searchDuckDuckGo(query, numResults)
     if (ddgResults.length >= 1) {
         log.info(`duckduckgo returned ${ddgResults.length} results`)
@@ -239,7 +315,7 @@ export async function searchWithProvider(provider: Exclude<SearchProvider, "brow
 export async function httpSearchDetailed(query: string, numResults = 8): Promise<SearchExecution> {
     const attemptedProviders: SearchProvider[] = []
 
-    for (const provider of ["google", "bing", "duckduckgo"] as const) {
+    for (const provider of ["tavily", "firecrawl", "google", "bing", "duckduckgo"] as const) {
         attemptedProviders.push(provider)
         try {
             const results = await searchWithProvider(provider, query, numResults)

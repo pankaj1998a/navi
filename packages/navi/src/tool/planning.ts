@@ -11,9 +11,7 @@ export const EnterPlanModeTool = Tool.define("enter_plan_mode", async (ctx) => {
         description: "Enter planning mode. This should be used when a task is complex and requires a structured approach before execution.",
         parameters: z.object({}),
         async execute(_, ctx) {
-            await Session.update(ctx.sessionID, (draft) => {
-                draft.planningMode = true
-            })
+            await Session.setPlanningMode({ sessionID: ctx.sessionID, enabled: true })
             return {
                 title: "Entered Planning Mode",
                 output: "You are now in planning mode. Please propose an implementation plan and wait for user approval before making any changes.",
@@ -32,9 +30,7 @@ export const ExitPlanModeTool = Tool.define("exit_plan_mode", async (ctx) => {
         description: "Exit planning mode. This should be used after a plan has been approved and you are ready to execute.",
         parameters: z.object({}),
         async execute(_, ctx) {
-            await Session.update(ctx.sessionID, (draft) => {
-                draft.planningMode = false
-            })
+            await Session.setPlanningMode({ sessionID: ctx.sessionID, enabled: false })
             return {
                 title: "Exited Planning Mode",
                 output: "You have exited planning mode. You can now proceed with executing the approved plan.",

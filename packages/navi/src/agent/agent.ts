@@ -4,6 +4,7 @@ import { AgentInfo } from "./info"
 import { Effect, Layer, ServiceMap } from "effect"
 import { loadPreferences } from "@/config/preferences"
 import { makeRuntime } from "@/effect/run-service"
+import { ProviderID, ModelID } from "../provider/schema"
 
 export namespace Agent {
   export const Info = AgentInfo
@@ -26,7 +27,7 @@ export namespace Agent {
       displayName: "General",
       description: "General purpose research and discussion assistant",
       mode: "primary",
-      model: { providerID: "Navi", modelID: "big-pickle" },
+      model: { providerID: ProviderID.Navi, modelID: ModelID.make("big-pickle") },
       toolNames: ["read", "webfetch", "mcp", "skill"],
       color: "gray",
       options: {},
@@ -37,7 +38,7 @@ export namespace Agent {
       displayName: "Build",
       description: "Primary agent for building and editing code",
       mode: "primary",
-      model: { providerID: "Navi", modelID: "big-pickle" },
+      model: { providerID: ProviderID.Navi, modelID: ModelID.make("big-pickle") },
       toolNames: ["read", "write", "edit", "grep", "ls", "terminal", "mcp", "skill"],
       color: "blue",
       options: {},
@@ -48,7 +49,7 @@ export namespace Agent {
       displayName: "Vibe",
       description: "Creative and aesthetic project orchestrator",
       mode: "primary",
-      model: { providerID: "Navi", modelID: "big-pickle" },
+      model: { providerID: ProviderID.Navi, modelID: ModelID.make("big-pickle") },
       toolNames: ["read", "write", "edit", "grep", "ls", "terminal", "mcp", "swarm", "skill"],
       color: "purple",
       options: {},
@@ -61,7 +62,8 @@ export namespace Agent {
     Effect.gen(function* () {
       initializeSystemAgents()
       const list = Effect.fn("Agent.list")(function* () {
-        return yield* Effect.promise(async () => {
+        // Build raw agent list from defaults + registry
+        const agents = yield* Effect.promise(async () => {
           let registryAgents: any[] = []
           try {
             registryAgents = await Registry.list()
@@ -77,10 +79,13 @@ export namespace Agent {
             model:
               typeof a.model === "string"
                 ? {
-                    providerID: a.model.split("/")[0],
-                    modelID: a.model.split("/").slice(1).join("/"),
+                    providerID: ProviderID.make(a.model.split("/")[0]),
+                    modelID: ModelID.make(a.model.split("/").slice(1).join("/")),
                   }
-                : a.model,
+                : {
+                    providerID: ProviderID.make(a.model.providerID),
+                    modelID: ModelID.make(a.model.modelID),
+                  },
             toolNames: a.toolNames || [],
             mode: "subagent" as any,
             hidden: !!a.hidden,
@@ -97,25 +102,26 @@ export namespace Agent {
           }
           return Array.from(finalMap.values())
         })
+
+        // Apply per-agent model overrides from user preferences.
+        // This ensures every consumer (UI picker, router, spawner, sessions)
+        // always sees the user's chosen model — for primary agents AND sub-agents.
+        const prefs = loadPreferences()
+        const agentModels = prefs.agentModels ?? {}
+        if (Object.keys(agentModels).length === 0) return agents
+
+        const { Provider } = yield* Effect.promise(() => import("../provider/provider"))
+        return agents.map((agent) => {
+          const customModel = agentModels[agent.name]
+          if (!customModel) return agent
+          return { ...agent, model: Provider.parseModel(customModel) }
+        })
       })
 
       const get = Effect.fn("Agent.get")(function* (id: string) {
+        // list() already applies agentModels preference overrides, so just find by id.
         const all = yield* list()
-        const agent = all.find((a) => a.name === id) ?? null
-        if (!agent) return null
-        
-        // Merge user preferences for this specific agent
-        const prefs = loadPreferences()
-        const customModel = prefs.agentModels?.[id]
-        if (customModel) {
-            const { Provider } = yield* Effect.promise(() => import("../provider/provider"))
-            return {
-                ...agent,
-                model: Provider.parseModel(customModel)
-            }
-        }
-        
-        return agent
+        return all.find((a) => a.name === id) ?? null
       })
 
       const defaultAgent = Effect.fn("Agent.defaultAgent")(function* () {

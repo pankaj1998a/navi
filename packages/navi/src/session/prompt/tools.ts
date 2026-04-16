@@ -11,8 +11,9 @@ import { MCP } from "../../mcp"
 import { Plugin } from "../../plugin"
 import { Identifier } from "../../id/id"
 import { MessageV2 } from "../message-v2"
+import { PartID } from "../schema"
 import { PermissionNext } from "../../permission/next"
-import { getPermissionMode, permissionsConfigCache, Permission } from "../../permission"
+import { getPermissionMode, permissionsConfigCache } from "../../permission"
 import { Instance } from "../../project/instance"
 import { Tool } from "../../tool/tool"
 
@@ -23,7 +24,7 @@ export async function resolveTools(input: {
     model: Provider.Model
     session: Session.Info
     tools?: Record<string, boolean>
-    processor: SessionProcessor.Info
+    processor: SessionProcessor.Handle
     bypassAgentCheck: boolean
     messages: MessageV2.WithParts[]
 }) {
@@ -62,7 +63,7 @@ export async function resolveTools(input: {
             if ((mode as any) === "allow-all") {
                 const config = permissionsConfigCache.getMergedConfig(Instance.directory)
                 if (config.blockedTools.has(req.permission)) {
-                    throw new Permission.RejectedError(input.session.id, req.permission, options.toolCallId, req.metadata, `Tool "${req.permission}" is explicitly blocked.`)
+                    throw new Error(`Tool "${req.permission}" is explicitly blocked.`)
                 }
                 // In allow-all mode, skip asking unless blocked
                 return
@@ -71,7 +72,7 @@ export async function resolveTools(input: {
             if (mode === "safe") {
                 const config = permissionsConfigCache.getMergedConfig(Instance.directory)
                 if (config.blockedTools.has(req.permission)) {
-                    throw new Permission.RejectedError(input.session.id, req.permission, options.toolCallId, req.metadata, `Tool "${req.permission}" is blocked in Safe Mode.`)
+                    throw new Error(`Tool "${req.permission}" is blocked in Safe Mode.`)
                 }
             }
 
@@ -79,12 +80,18 @@ export async function resolveTools(input: {
                 ...req,
                 sessionID: input.session.id,
                 tool: { messageID: input.processor.message.id, callID: options.toolCallId },
-                ruleset: PermissionNext.merge(input.agent.permission, input.session.permission ?? []),
+                // SAFE_RULESET pre-allows read-only tools (read, grep, ls, glob, etc.)
+                // so agents only prompt for genuinely dangerous operations.
+                ruleset: PermissionNext.merge(
+                    PermissionNext.SAFE_RULESET,
+                    input.agent.permission,
+                    input.session.permission ?? [],
+                ),
             })
         },
     })
 
-    for (const item of await ToolRegistry.tools(input.model.providerID, input.agent)) {
+    for (const item of await ToolRegistry.tools({ providerID: input.model.providerID, modelID: input.model.id }, input.agent)) {
         tools[item.id] = ToolExecutor.createAITool(item, context, input.model)
     }
 
@@ -128,7 +135,7 @@ export async function resolveTools(input: {
                 } else if (contentItem.type === "image") {
                     // Handle image blocks from MCP tools
                     attachments.push({
-                        id: Identifier.ascending("part"),
+                        id: PartID.make(Identifier.ascending("part")),
                         sessionID: input.session.id,
                         messageID: input.processor.message.id,
                         type: "file",
@@ -138,7 +145,7 @@ export async function resolveTools(input: {
                 } else if (contentItem.type === "audio") {
                     // Handle audio blocks from MCP tools (similar to image handling)
                     attachments.push({
-                        id: Identifier.ascending("part"),
+                        id: PartID.make(Identifier.ascending("part")),
                         sessionID: input.session.id,
                         messageID: input.processor.message.id,
                         type: "file",
@@ -152,7 +159,7 @@ export async function resolveTools(input: {
                     }
                     if (resource.blob) {
                         attachments.push({
-                            id: Identifier.ascending("part"),
+                            id: PartID.make(Identifier.ascending("part")),
                             sessionID: input.session.id,
                             messageID: input.processor.message.id,
                             type: "file",

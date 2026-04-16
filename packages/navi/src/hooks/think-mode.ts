@@ -5,7 +5,7 @@
  * to their high-reasoning variants with extended thinking budgets.
  */
 
-import type { Hooks } from "@navi-ai/plugin"
+import type { Hooks } from "@/plugin"
 import { Log } from "../util/log"
 
 const log = Log.create({ service: "think-mode" })

@@ -1,4 +1,7 @@
-import type { Hooks, PluginInput, Plugin as PluginInstance, PluginModule } from "@navi-ai/plugin"
+export * from "./types"
+export * from "./tui"
+import type { Hooks, PluginInput, Plugin as PluginInstance, PluginModule } from "./types"
+export type { Hooks, PluginInput, PluginInstance, PluginModule }
 import { Config } from "../config/config"
 import { Bus } from "../bus"
 import { Log } from "../util/log"
@@ -6,7 +9,7 @@ import { createNaviClient } from "@navi-ai/sdk"
 import { Flag } from "../flag/flag"
 import { CodexAuthPlugin } from "./codex"
 import { Session } from "../session"
-import { NamedError } from "@navi-ai/util/error"
+import { NamedError } from "../util/error"
 import { CopilotAuthPlugin } from "./copilot"
 import { gitlabAuthPlugin as GitlabAuthPlugin } from "opencode-gitlab-auth"
 import { PoeAuthPlugin } from "opencode-poe-auth"
@@ -34,8 +37,13 @@ export namespace Plugin {
 
   // Hook names that follow the (input, output) => Promise<void> trigger pattern
   type TriggerName = {
-    [K in keyof Hooks]-?: NonNullable<Hooks[K]> extends (input: any, output: any) => Promise<void> ? K : never
-  }[keyof Hooks]
+    [K in keyof Hooks as K extends string ? K : never]-?: NonNullable<Hooks[K]> extends (
+      input: any,
+      output: any,
+    ) => Promise<void>
+      ? K
+      : never
+  }[keyof Hooks & string]
 
   export interface Interface {
     readonly trigger: <
@@ -71,9 +79,12 @@ export namespace Plugin {
 
   function getServerPlugin(value: unknown) {
     if (isServerPlugin(value)) return value
-    if (!value || typeof value !== "object" || !("server" in value)) return
-    if (!isServerPlugin(value.server)) return
-    return value.server
+    if (!value || typeof value !== "object") return
+    const mod = value as Record<string, unknown>
+    if (!("server" in mod)) return
+    const server = mod.server
+    if (!isServerPlugin(server)) return
+    return server
   }
 
   function getLegacyPlugins(mod: Record<string, unknown>) {
@@ -98,7 +109,7 @@ export namespace Plugin {
         load.row.source,
         load.row.spec,
         load.row.target,
-        readPluginId(plugin.id, load.row.spec),
+        readPluginId((plugin as any).id, load.row.spec),
         load.row.pkg,
       )
       hooks.push(await (plugin as PluginModule).server(input, load.row.options))

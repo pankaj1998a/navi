@@ -1,6 +1,7 @@
 import z from "zod"
 import { Tool } from "./tool"
 import { webCrawl } from "./browser-engine"
+import { summarizeWebContent } from "./web-summarizer"
 
 export const WebCrawlTool = Tool.define("webcrawl", {
     description: `Crawl a website starting from a given URL, following links up to a specified depth.
@@ -37,6 +38,10 @@ Use this when you need to:
             .string()
             .optional()
             .describe("Skip URLs matching this regex pattern (e.g. '/blog/' to skip blog posts)"),
+        synthesize: z
+            .boolean()
+            .optional()
+            .describe("Synthesize crawled pages into a single cohesive report using AI (default: false)"),
     }),
     async execute(params, ctx) {
         if (!params.url.startsWith("http://") && !params.url.startsWith("https://")) {
@@ -90,13 +95,18 @@ Use this when you need to:
             sections.push("")
         }
 
-        const output = sections.join("\n")
+        let output = sections.join("\n")
+
+        if (params.synthesize) {
+            output = await summarizeWebContent(output, `Crawl Synthesis: ${params.url}. Synthesis across ${pages.length} pages.`, { abort: ctx.abort })
+        }
 
         return {
             output,
             title: `Crawl: ${params.url} (${pages.length} pages)`,
             metadata: {
                 pageCount: pages.length,
+                synthesized: params.synthesize ?? false,
                 pages: pages.map((p) => ({ url: p.url, title: p.title, depth: p.depth, linkCount: p.links.length })),
             } as Record<string, unknown>,
         }

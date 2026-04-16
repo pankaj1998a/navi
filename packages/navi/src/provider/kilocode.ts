@@ -1,4 +1,4 @@
-import type { Hooks, AuthHook, AuthOuathResult, PluginInput } from "@navi-ai/plugin"
+import type { Hooks, AuthHook, AuthOAuthResult, PluginInput } from "@/plugin"
 import { Auth } from "../auth"
 import { Log } from "../util/log"
 
@@ -21,7 +21,7 @@ export const KilocodeAuthHook: AuthHook = {
         {
             type: "oauth",
             label: "OAuth with Kilocode",
-            async authorize(inputs: Record<string, string> = {}): Promise<AuthOuathResult> {
+            async authorize(inputs: Record<string, string> = {}): Promise<AuthOAuthResult> {
                 log.info("Initiating Kilo Code Device Auth")
                 try {
                     const response = await fetch("https://api.kilo.ai/api/device-auth/codes", {

@@ -1,7 +1,9 @@
 import { Tool } from "./tool"
+import { Layer } from "effect"
 import { MemoryService } from "../agent/memory/service"
 import z from "zod"
 import { makeRuntime } from "@/effect/run-service"
+import { AppFileSystem } from "@/filesystem"
 
 export const MemoryTool = Tool.define("save_memory", {
     description: "Save a new memory or update an existing one. Use this when you find information about the user, project goals, feedback, or external references that would be useful in future conversations. Do NOT save derivable information like code snippets or git history.",
@@ -13,7 +15,7 @@ export const MemoryTool = Tool.define("save_memory", {
         scope: z.enum(["private", "team"] as const).default("private").describe("Whether this is just for this user or shared (default: private)")
     }),
     execute: async (args, _ctx) => {
-        const runtime = makeRuntime(MemoryService.Service, MemoryService.layer)
+        const runtime = makeRuntime(MemoryService.Service, MemoryService.layer.pipe(Layer.provide(AppFileSystem.defaultLayer)))
         await runtime.runPromise((memory) => memory.save(args))
         return {
             output: `Memory '${args.name}' saved successfully to ${args.scope} storage.`,

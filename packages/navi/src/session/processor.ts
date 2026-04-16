@@ -379,7 +379,7 @@ export namespace SessionProcessor {
                   } as any)
 
                   // Trigger a RECOVERY PROMPT
-                  yield* sessionPromptModule.SessionPrompt.prompt({
+                  yield* Effect.promise(() => sessionPromptModule.SessionPrompt.prompt({
                     messageID: Identifier.ascending("message") as any,
                     sessionID: ctx.sessionID,
                     agent: ctx.assistantMessage.agent,
@@ -388,7 +388,7 @@ export namespace SessionProcessor {
                       text: `Verification of your last action failed with the following feedback: ${result.output}. Please fix the issues and ensure all requirements are met. Use a high-reasoning approach to avoid further regressions.` 
                     }],
                     variant: "think" // Forced thinking boost
-                  })
+                  }))
                 }
                 ctx.verificationNeeded = false
               }

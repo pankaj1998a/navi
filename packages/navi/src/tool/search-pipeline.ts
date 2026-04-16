@@ -2,7 +2,7 @@ import { Log } from "../util/log"
 
 const log = Log.create({ service: "search-pipeline" })
 
-export type SearchProvider = "browser" | "google" | "bing" | "duckduckgo"
+export type SearchProvider = "browser" | "google" | "bing" | "duckduckgo" | "tavily" | "firecrawl"
 
 export interface SearchResult {
   title: string
@@ -16,7 +16,7 @@ export interface SearchExecution {
   results: SearchResult[]
 }
 
-const DEFAULT_PROVIDER_ORDER: SearchProvider[] = ["browser", "google", "bing", "duckduckgo"]
+const DEFAULT_PROVIDER_ORDER: SearchProvider[] = ["browser", "tavily", "firecrawl", "google", "bing", "duckduckgo"]
 const CURRENT_EVENTS_PATTERN =
   /\b(latest|recent|current|today|now|news|update|release|announced|just|trending|this week|this month|this year)\b/i
 const DATE_PATTERN =
@@ -47,7 +47,7 @@ export function resolveProviderOrder(preferred?: SearchProvider[]): SearchProvid
     .split(",")
     .map((item) => item.trim().toLowerCase())
     .filter(Boolean)
-      .filter((item): item is SearchProvider => item === "browser" || item === "google" || item === "bing" || item === "duckduckgo")
+      .filter((item): item is SearchProvider => ["browser", "google", "bing", "duckduckgo", "tavily", "firecrawl"].includes(item))
 
   return parsed.length > 0 ? dedupeProviders(parsed) : [...DEFAULT_PROVIDER_ORDER]
 }

@@ -18,6 +18,7 @@ import { SessionPrompt } from "../session/prompt"
 import { Config } from "../config/config"
 import { Log } from "../util/log"
 import { canSpawnAgent, filterSpawnableAgents } from "../agent/spawn"
+import { SessionID, MessageID } from "../session/schema"
 
 const log = Log.create({ service: "background-task" })
 
@@ -30,7 +31,7 @@ const parameters = z.object({
 // Track running background tasks
 interface BackgroundTask {
     id: string
-    sessionID: string
+    sessionID: SessionID
     agent: string
     description: string
     status: "running" | "completed" | "failed" | "cancelled"
@@ -111,7 +112,7 @@ export const BackgroundTaskTool = Tool.define("background_task", async (ctx) => 
 
             // Create session for background task
             const session = await Session.create({
-                parentID: ctx.sessionID,
+                parentID: SessionID.make(ctx.sessionID),
                 title: `[BG] ${params.description} (@${agent.name})`,
                 permission: [
                     { permission: "todowrite", pattern: "*", action: "deny" },
@@ -134,7 +135,7 @@ export const BackgroundTaskTool = Tool.define("background_task", async (ctx) => 
             log.info("Background task started", { taskId, sessionID: session.id, agent: params.agent })
 
             // Start the task asynchronously (don't await)
-            const msg = await MessageV2.get({ sessionID: ctx.sessionID, messageID: ctx.messageID })
+            const msg = await MessageV2.get({ sessionID: SessionID.make(ctx.sessionID), messageID: MessageID.make(ctx.messageID) })
             if (msg.info.role !== "assistant") throw new Error("Not an assistant message")
 
             const model = agent.model ?? {
@@ -147,7 +148,7 @@ export const BackgroundTaskTool = Tool.define("background_task", async (ctx) => 
 
             // Run in background
             SessionPrompt.prompt({
-                messageID,
+                messageID: MessageID.make(messageID),
                 sessionID: session.id,
                 model: {
                     modelID: model.modelID,

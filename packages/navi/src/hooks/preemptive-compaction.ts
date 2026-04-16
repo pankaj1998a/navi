@@ -14,7 +14,7 @@
  * Ported from oh-my-navi-dev plugin
  */
 
-import type { Hooks } from "@navi-ai/plugin"
+import type { Hooks } from "@/plugin"
 import { Log } from "../util/log"
 
 const log = Log.create({ service: "preemptive-compaction" })
@@ -212,7 +212,7 @@ export function createPreemptiveCompactionHook(options?: PreemptiveCompactionOpt
         /**
          * Event handler to monitor token usage
          */
-        event: async (input: { event: { type: string; properties?: unknown } }): Promise<void> => {
+        event: async (input: { event: any }): Promise<void> => {
             const props = input.event.properties as Record<string, unknown> | undefined
 
             // Clean up on session deletion

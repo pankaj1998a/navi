@@ -1,4 +1,4 @@
-import { checksum } from "@navi-ai/util/encode"
+import { checksum } from "@navi-ai/sdk/util/encode"
 import { FileDiff } from "@pierre/diffs"
 import { createMediaQuery } from "@solid-primitives/media"
 import { createEffect, createMemo, onCleanup, splitProps } from "solid-js"

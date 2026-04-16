@@ -3,7 +3,7 @@ import { fileURLToPath } from "url"
 
 import { Flag } from "@/flag/flag"
 import { Global } from "@/global"
-import { Filesystem } from "@/util/filesystem"
+import { Filesystem } from "@/filesystem"
 import { Flock } from "@/util/flock"
 
 import { parsePluginSpecifier, pluginSource } from "./shared"

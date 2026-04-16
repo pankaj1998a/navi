@@ -11,7 +11,7 @@ import { Tool } from "./tool"
 import DESCRIPTION from "./ast-grep.txt"
 import z from "zod"
 import { Log } from "../util/log"
-import { astGrep } from "@navi-ai/native"
+import { astGrep } from "../native"
 
 const log = Log.create({ service: "ast-grep" })
 

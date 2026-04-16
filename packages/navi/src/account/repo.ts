@@ -4,6 +4,15 @@ import { JsonlStorage } from "@/storage/jsonl"
 
 const ACCOUNT_STATE_ID = "global"
 
+export interface AccountRow {
+  id: AccountID
+  email: string
+  url: string
+  access_token: AccessToken
+  refresh_token: RefreshToken
+  token_expiry: number | null
+}
+
 export namespace AccountRepo {
   export interface Service {
     readonly active: () => Effect.Effect<Option.Option<Info>, AccountRepoError>

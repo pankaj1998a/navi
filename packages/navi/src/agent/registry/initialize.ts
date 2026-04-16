@@ -6,6 +6,7 @@ import { AgentTemplate } from "../programmatic"
  * Maps a programmatic AgentTemplate to a Registry AgentDefinition
  */
 function mapTemplateToDefinition(template: AgentTemplate): AgentDefinition {
+    const skills = template.skills ?? []
     return {
         id: template.id,
         displayName: template.name,
@@ -14,12 +15,12 @@ function mapTemplateToDefinition(template: AgentTemplate): AgentDefinition {
         toolNames: template.tools || [],
         instructionsPrompt: template.systemPrompt || (
             `You are the ${template.name} agent. Your phase is ${template.phase}.` +
-            (template.skills.length > 0 ? `\n\nYou possess the following specialized skills: ${template.skills.join(", ")}.` : "")
+            (skills.length > 0 ? `\n\nYou possess the following specialized skills: ${skills.join(", ")}.` : "")
         ),
         handleSteps: template.handleSteps,
         version: "1.0.0",
         publisher: "system",
-        categories: [template.phase, ...template.skills],
+        categories: [template.phase, ...skills].filter((s): s is string => Boolean(s)),
         hidden: false,
     }
 }
@@ -39,6 +40,7 @@ export function initializeSystemAgents() {
         SpecializedAgents.PerformancePilot,
         SpecializedAgents.BugBuster,
         SpecializedAgents.DocArchitect,
+        SpecializedAgents.CodebaseIndexer,
     ]
 
     for (const template of agents) {

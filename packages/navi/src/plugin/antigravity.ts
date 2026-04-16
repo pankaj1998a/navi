@@ -12,7 +12,7 @@
  * Based on navi-antigravity-auth by NoeFabris
  */
 
-import type { Plugin } from "@navi-ai/plugin"
+import type { Plugin } from "@/plugin"
 import { AntigravityAuthHook, getAntigravityProviderConfig, ANTIGRAVITY_MODELS } from "../provider/antigravity"
 
 export const AntigravityAuthPlugin: Plugin = async (_ctx) => {

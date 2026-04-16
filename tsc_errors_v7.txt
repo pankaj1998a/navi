@@ -1,0 +1,47 @@
+turbo 2.5.6
+
+• Packages in scope: @navi-ai/app, @navi-ai/console, @navi-ai/desktop, @navi-ai/enterprise, @navi-ai/function, @navi-ai/sdk, @navi-ai/slack, @navi-ai/ui, @navi-ai/web, github, navi-ai-agent
+• Running typecheck in 11 packages
+• Remote caching disabled
+@navi-ai/slack:typecheck: cache miss, executing 05499174b0b92c7e
+@navi-ai/desktop:typecheck: cache miss, executing 648e30a52dfbcf3e
+@navi-ai/sdk:typecheck: cache miss, executing aa6f6e2102b26e44
+@navi-ai/ui:typecheck: cache miss, executing ff863ca14ce59aee
+@navi-ai/console:typecheck: cache miss, executing 2afa546f5fae7a15
+@navi-ai/enterprise:typecheck: cache miss, executing 184cac0fff96d0db
+@navi-ai/app:typecheck: cache miss, executing 38de19ee95b7f7c8
+navi-ai-agent:typecheck: cache miss, executing 14d8f3a3196d4f60
+@navi-ai/slack:typecheck: $ tsc --noEmit
+@navi-ai/desktop:typecheck: $ tsgo -b
+@navi-ai/sdk:typecheck: $ tsc --noEmit
+@navi-ai/console:typecheck: $ tsc --noEmit
+@navi-ai/ui:typecheck: $ tsgo --noEmit
+navi-ai-agent:typecheck: $ tsc --noEmit
+@navi-ai/app:typecheck: $ tsgo -b
+@navi-ai/enterprise:typecheck: $ tsgo --noEmit
+@navi-ai/enterprise:typecheck: src/core/share.ts(2,20): error TS2307: Cannot find module '@navi-ai/util/fn' or its corresponding type declarations.
+@navi-ai/enterprise:typecheck: src/core/share.ts(3,22): error TS2307: Cannot find module '@navi-ai/util/iife' or its corresponding type declarations.
+@navi-ai/enterprise:typecheck: src/core/share.ts(4,28): error TS2307: Cannot find module '@navi-ai/util/identifier' or its corresponding type declarations.
+@navi-ai/enterprise:typecheck: src/core/share.ts(7,24): error TS2307: Cannot find module '@navi-ai/util/binary' or its corresponding type declarations.
+@navi-ai/enterprise:typecheck: src/core/share.ts(41,72): error TS7006: Parameter 'body' implicitly has an 'any' type.
+@navi-ai/enterprise:typecheck: src/core/share.ts(58,74): error TS7006: Parameter 'body' implicitly has an 'any' type.
+@navi-ai/enterprise:typecheck: src/core/share.ts(74,12): error TS7006: Parameter 'input' implicitly has an 'any' type.
+@navi-ai/enterprise:typecheck: src/core/share.ts(102,54): error TS7006: Parameter 'event' implicitly has an 'any' type.
+@navi-ai/enterprise:typecheck: src/core/share.ts(138,12): error TS7006: Parameter 'input' implicitly has an 'any' type.
+@navi-ai/enterprise:typecheck: src/core/storage.ts(2,22): error TS2307: Cannot find module '@navi-ai/util/lazy' or its corresponding type declarations.
+@navi-ai/enterprise:typecheck: src/core/storage.ts(119,24): error TS7006: Parameter 'x' implicitly has an 'any' type.
+@navi-ai/enterprise:typecheck: src/routes/share/[shareID].tsx(15,22): error TS2307: Cannot find module '@navi-ai/util/iife' or its corresponding type declarations.
+@navi-ai/enterprise:typecheck: src/routes/share/[shareID].tsx(16,24): error TS2307: Cannot find module '@navi-ai/util/binary' or its corresponding type declarations.
+@navi-ai/enterprise:typecheck: src/routes/share/[shareID].tsx(17,28): error TS2307: Cannot find module '@navi-ai/util/error' or its corresponding type declarations.
+@navi-ai/enterprise:typecheck: src/routes/share/[shareID].tsx(144,65): error TS7006: Parameter 's' implicitly has an 'any' type.
+@navi-ai/enterprise:typecheck: src/routes/share/[shareID].tsx(185,91): error TS7006: Parameter 's' implicitly has an 'any' type.
+@navi-ai/enterprise:typecheck: test/core/share.test.ts(4,28): error TS2307: Cannot find module '@navi-ai/util/identifier' or its corresponding type declarations.
+@navi-ai/enterprise:typecheck: ERROR: command finished with error: command (V:\pankaj\navi\packages\enterprise) C:\Users\X380 Yoga\AppData\Roaming\npm\bun.cmd run typecheck exited (2)
+@navi-ai/enterprise#typecheck: command (V:\pankaj\navi\packages\enterprise) C:\Users\X380 Yoga\AppData\Roaming\npm\bun.cmd run typecheck exited (2)
+
+ Tasks:    0 successful, 8 total
+Cached:    0 cached, 8 total
+  Time:    14.854s 
+Failed:    @navi-ai/enterprise#typecheck
+
+ ERROR  run failed: command  exited (2)

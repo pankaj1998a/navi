@@ -13,7 +13,7 @@
  * Ported from oh-my-navi-dev plugin
  */
 
-import type { Hooks } from "@navi-ai/plugin"
+import type { Hooks } from "@/plugin"
 import { Log } from "../util/log"
 
 const log = Log.create({ service: "comment-checker" })
@@ -221,7 +221,7 @@ export function createCommentCheckerHook(options?: CommentCheckerOptions) {
          */
         "tool.execute.before": async (
             input: { tool: string; sessionID: string; callID: string },
-            output: { args: Record<string, unknown> }
+            output: { args: any }
         ): Promise<void> => {
             const toolLower = input.tool.toLowerCase()
 
@@ -251,8 +251,8 @@ export function createCommentCheckerHook(options?: CommentCheckerOptions) {
          * Check for comment issues after write/edit completion
          */
         "tool.execute.after": async (
-            input: { tool: string; sessionID: string; callID: string },
-            output: { title: string; output: string; metadata: unknown }
+            input: { tool: string; sessionID: string; callID: string; args: any },
+            output: { title: string; output: string; metadata: any }
         ): Promise<void> => {
             const pendingCall = pendingCalls.get(input.callID)
             if (!pendingCall) return

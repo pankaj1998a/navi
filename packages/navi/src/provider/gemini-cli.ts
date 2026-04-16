@@ -13,7 +13,7 @@
  * - Falls back to direct generativelanguage.googleapis.com if Code Assist fails
  */
 
-import type { Hooks, AuthHook, AuthOuathResult, PluginInput } from "@navi-ai/plugin"
+import type { Hooks, AuthHook, AuthOAuthResult, PluginInput } from "@/plugin"
 import { Auth } from "../auth"
 import { Log } from "../util/log"
 import http from "http"
@@ -930,7 +930,7 @@ export const GeminiAuthHook: AuthHook = {
         {
             type: "oauth",
             label: "OAuth with Google (Gemini CLI)",
-            async authorize(): Promise<AuthOuathResult> {
+            async authorize(): Promise<AuthOAuthResult> {
                 // Match official gemini-cli: dynamic port, PKCE, state validation
                 const port = await getAvailablePort()
                 const redirectUri = `http://127.0.0.1:${port}/oauth2callback`

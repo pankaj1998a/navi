@@ -1,9 +1,6 @@
 import type {
-  Message,
   Agent,
   Provider,
-  Session,
-  Part,
   Config,
   Todo,
   Command,
@@ -18,9 +15,10 @@ import type {
   ProviderAuthMethod,
   VcsInfo,
 } from "@navi-ai/sdk/v2"
+import type { Session, Message, Part } from "@navi-ai/sdk"
 import { createStore, produce, reconcile } from "solid-js/store"
 import { useSDK } from "@tui/context/sdk"
-import { Binary } from "@navi-ai/util/binary"
+import { Binary } from "@/util/binary"
 import { createSimpleContext } from "./helper"
 import type { Snapshot } from "@/snapshot"
 import { useExit } from "./exit"
@@ -114,7 +112,7 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
     }
 
     sdk.event.listen((e) => {
-      const event = e.details
+      const event = e.details as any
       switch (event.type) {
         case "server.instance.disposed":
           bootstrap()

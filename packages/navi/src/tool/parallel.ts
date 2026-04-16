@@ -9,6 +9,7 @@ import { SessionPrompt } from "../session/prompt"
 import { Identifier } from "../id/id"
 import { Config } from "../config/config"
 import { PermissionNext } from "@/permission/next"
+import { SessionID, MessageID } from "../session/schema"
 
 const taskSchema = z.object({
     agent: z.string().describe("The name of the agent to use"),
@@ -42,7 +43,7 @@ export const ParallelTool = Tool.define("parallel", async (ctx) => {
 
                 // Create a sub-session for this task
                 const session = await Session.create({
-                    parentID: ctx.sessionID,
+                    parentID: SessionID.make(ctx.sessionID),
                     title: `Parallel Task: ${task.prompt.slice(0, 50)}... (@${agentName})`,
                     permission: PermissionNext.merge(
                         PermissionNext.fromConfig(config.permission ?? {}),
@@ -51,7 +52,7 @@ export const ParallelTool = Tool.define("parallel", async (ctx) => {
                 })
 
                 // Execute the prompt in the sub-session
-                const messageID = Identifier.ascending("message")
+                const messageID = MessageID.make(Identifier.ascending("message"))
                 const promptParts = await SessionPrompt.resolvePromptParts(task.prompt)
 
                 const result = await SessionPrompt.prompt({

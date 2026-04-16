@@ -4,6 +4,7 @@ import { Provider } from "@/provider/provider"
 import { ProviderHealth } from "@/provider/health"
 import { ProviderReliability } from "@/provider/reliability"
 import { AgentPolicy } from "./policy"
+import { ModelID, ProviderID } from "@/provider/schema"
 
 export namespace AgentRouter {
   export type Decision = {
@@ -13,7 +14,7 @@ export namespace AgentRouter {
   }
 
   export function chooseFromProviders(input: {
-    providers: Array<Pick<Provider.Info, "id" | "source" | "catalog" | "models">>
+    providers: Array<Pick<Provider.Info, "id" | "source" | "models">>
     requested: Provider.Model
     agentName: string
     allowFallback?: boolean
@@ -138,7 +139,10 @@ export namespace AgentRouter {
     requested: Provider.Model
   }): Promise<Decision> {
     if (input.agent.model) {
-      const exact = await Provider.getModel(input.agent.model.providerID, input.agent.model.modelID)
+      const exact = await Provider.getModel(
+        ProviderID.make(input.agent.model.providerID), 
+        ModelID.make(input.agent.model.modelID)
+      )
       return {
         model: exact,
         changed: exact.providerID !== input.requested.providerID || exact.id !== input.requested.id,

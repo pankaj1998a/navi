@@ -26,7 +26,7 @@ export const GraphTool = Tool.define("graph", {
         return {
           title: `Graph: ${symbolName}`,
           output: `No direct usages found for \`${symbolName}\` in the current project graph.`,
-          metadata: { symbolName, action, count: 0 },
+          metadata: { symbolName, action, count: 0, impactedFiles: undefined } as any,
         }
       }
 
@@ -46,14 +46,14 @@ ${relativePaths.map(p => `- \`${p}\``).join("\n")}
           action,
           impactedFiles: relativePaths,
           count: relativePaths.length
-        }
+        } as any
       }
     }
 
     return {
       title: `Graph: ${symbolName}`,
       output: `Action \`${action}\` is not yet fully implemented in the native core.`,
-      metadata: { symbolName, action }
+      metadata: { symbolName, action, count: 0, impactedFiles: undefined } as any
     }
   },
 })

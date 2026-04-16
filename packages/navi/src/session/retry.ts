@@ -1,4 +1,4 @@
-import type { NamedError } from "@navi-ai/util/error"
+import type { NamedError } from "@/util/error"
 import { Cause, Clock, Duration, Effect, Schedule } from "effect"
 import { MessageV2 } from "./message-v2"
 import { iife } from "@/util/iife"

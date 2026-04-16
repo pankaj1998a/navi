@@ -4,7 +4,7 @@
  * Provides Qwen OAuth authentication for accessing Qwen models using Device Flow.
  */
 
-import type { Hooks, AuthHook, AuthOuathResult, PluginInput } from "@navi-ai/plugin"
+import type { Hooks, AuthHook, AuthOAuthResult, PluginInput } from "@/plugin"
 import { Auth } from "../auth"
 import { Log } from "../util/log"
 import { Env } from "../env"
@@ -361,7 +361,7 @@ export const QwenAuthHook: AuthHook = {
         {
             type: "oauth",
             label: "Login with Qwen (Device Flow)",
-            async authorize(inputs: Record<string, string> = {}): Promise<AuthOuathResult> {
+            async authorize(inputs: Record<string, string> = {}): Promise<AuthOAuthResult> {
                 const verifier = generateCodeVerifier()
                 const codeData = await requestDeviceCode(verifier)
                 const authUrl = codeData.verification_uri_complete || codeData.verification_uri

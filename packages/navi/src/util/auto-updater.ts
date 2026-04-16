@@ -1,7 +1,7 @@
 /**
  * Navi Auto-Updater
  *
- * Checks for new versions of @navi-ai/navi on npm and notifies the user.
+ * Checks for new versions of @/navi on npm and notifies the user.
  * Supports:
  *  - Background version checks (non-blocking, checked once per day)
  *  - Manual upgrade trigger
@@ -15,7 +15,7 @@ import path from "path"
 
 const log = Log.create({ service: "auto-updater" })
 
-const PACKAGE_NAME = "@navi-ai/navi"
+const PACKAGE_NAME = "@/navi"
 const CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000 // 24h
 const STATE_FILE = () => path.join(Global.Path.state, "updater.json")
 

@@ -8,7 +8,7 @@
  * @see https://github.com/NoeFabris/navi-antigravity-auth
  */
 
-import type { Hooks, AuthHook, AuthOuathResult, PluginInput } from "@navi-ai/plugin"
+import type { Hooks, AuthHook, AuthOAuthResult, PluginInput } from "@/plugin"
 import { Auth } from "../auth"
 import { Log } from "../util/log"
 import http from "http"
@@ -717,7 +717,7 @@ export const AntigravityAuthHook: AuthHook = {
                     placeholder: ANTIGRAVITY_DEFAULT_PROJECT_ID,
                 },
             ],
-            async authorize(inputs: Record<string, string> = {}): Promise<AuthOuathResult> {
+            async authorize(inputs: Record<string, string> = {}): Promise<AuthOAuthResult> {
                 const port = 51121
                 const pkce = generatePKCE()
                 const projectId = inputs.projectId || ANTIGRAVITY_DEFAULT_PROJECT_ID

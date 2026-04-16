@@ -20,8 +20,8 @@ export const AgentTemplate = z.object({
     handleSteps: z.function().optional(),
 
     systemPrompt: z.string().optional(),
-    phase: z.enum(["analyze", "database", "interface", "test", "realize", "general", "design", "security", "deploy", "optimize", "debug", "document"]).optional().default("general"),
-    skills: z.array(z.string()).optional().default([]),
+    phase: z.enum(["analyze", "database", "interface", "test", "realize", "general", "design", "security", "deploy", "optimize", "debug", "document"]).optional(),
+    skills: z.array(z.string()).optional(),
 })
 export type AgentTemplate = z.infer<typeof AgentTemplate> & {
     handleSteps?: (context: AgentContext) => AsyncGenerator<AgentStep, string | void, any>

@@ -24,6 +24,11 @@ export function Dialog(
     return 60
   }
 
+  // xlarge dialogs sit near the top (1 row padding) so tall lists like the
+  // agent picker can render all items and be fully scrollable.
+  // medium/large keep the centered 25% padding for aesthetics.
+  const topPadding = () => props.size === "xlarge" ? 1 : Math.floor(dimensions().height / 4)
+
   return (
     <box
       onMouseDown={() => {
@@ -41,7 +46,7 @@ export function Dialog(
       alignItems="center"
       position="absolute"
       zIndex={3000}
-      paddingTop={dimensions().height / 4}
+      paddingTop={topPadding()}
       left={0}
       top={0}
       backgroundColor={RGBA.fromInts(0, 0, 0, 150)}

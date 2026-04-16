@@ -1,4 +1,4 @@
-import type { TuiPlugin, TuiPluginApi, TuiPluginModule } from "@navi-ai/plugin/tui"
+import type { TuiPlugin, TuiPluginApi, TuiPluginModule } from "@/plugin/tui"
 import { createMemo, For, Match, Show, Switch, createSignal } from "solid-js"
 import { TextAttributes } from "@opentui/core"
 

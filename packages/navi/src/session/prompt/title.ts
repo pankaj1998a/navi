@@ -5,14 +5,15 @@ import { Agent } from "../../agent/agent"
 import { LLM } from "../llm"
 import { iife } from "../../util/iife"
 import { Provider } from "../../provider/provider"
+import { ProviderID, ModelID } from "../../provider/schema"
 
 const log = Log.create({ service: "session.prompt.title" })
 
 export async function ensureTitle(input: {
     session: Session.Info
     history: MessageV2.WithParts[]
-    providerID: string
-    modelID: string
+    providerID: ProviderID
+    modelID: ModelID
 }) {
     if (input.session.parentID) return
     if (!Session.isDefaultTitle(input.session.title)) return
@@ -58,7 +59,7 @@ export async function ensureTitle(input: {
         messages: iife(() => {
             const msgs = hasOnlySubtaskParts
                 ? [{ role: "user" as const, content: subtaskParts.map((p) => p.prompt).join("\n") }]
-                : MessageV2.toModelMessage(contextMessages)
+                : MessageV2.toModelMessages(contextMessages)
 
             // Prepend the title generation prompt to the first user message
             const firstUser = msgs.find((m) => m.role === "user")
@@ -78,19 +79,18 @@ export async function ensureTitle(input: {
             return msgs
         }),
     })
-    const text = await result.text.catch((err) => log.error("failed to generate title", { error: err }))
-    if (text)
-        return Session.update(input.session.id, (draft) => {
-            const cleaned = text
-                .replace(/<think>[\s\S]*?<\/think>\s*/g, "")
-                .split("\n")
-                .map((line) => line.trim())
-                .find((line) => line.length > 0)
-            if (!cleaned) return
+    const text = await result.text.catch((err: any) => log.error("failed to generate title", { error: err }))
+    if (text) {
+        const cleaned = text
+            .replace(/<think>[\s\S]*?<\/think>\s*/g, "")
+            .split("\n")
+            .map((line: string) => line.trim())
+            .find((line: string) => line.length > 0)
+        if (!cleaned) return
 
-            const title = cleaned.length > 100 ? cleaned.substring(0, 97) + "..." : cleaned
-            draft.title = title
-        })
+        const title = cleaned.length > 100 ? cleaned.substring(0, 97) + "..." : cleaned
+        await Session.setTitle({ sessionID: input.session.id, title })
+    }
 }
 
 

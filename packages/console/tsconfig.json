@@ -1,0 +1,15 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "composite": true,
+    "baseUrl": ".",
+    "paths": {
+      "@navi-ai/console-core/*": ["core/src/*"],
+      "@navi-ai/console-resource": ["resource/index.ts"],
+      "@navi-ai/console-mail/*": ["mail/emails/templates/*"],
+      "@/*": ["app/src/*"]
+    }
+  },
+  "include": ["**/*"],
+  "exclude": ["node_modules", "dist"]
+}

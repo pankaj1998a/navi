@@ -3,7 +3,7 @@ import { createEffect, createMemo, type JSX, onMount, createSignal, onCleanup, o
 import "opentui-spinner/solid"
 import path from "path"
 import { Global } from "@/global"
-import { Filesystem } from "@/util/filesystem"
+import { Filesystem } from "@/filesystem"
 import { useLocal } from "@tui/context/local"
 import { useTheme } from "@tui/context/theme"
 import { EmptyBorder, SplitBorder } from "@tui/component/border"

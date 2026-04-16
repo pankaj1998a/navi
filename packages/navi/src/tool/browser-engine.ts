@@ -13,7 +13,7 @@ const log = Log.create({ service: "browser-engine" })
 const BROWSER_TIMEOUT = 60_000
 const NAVIGATION_TIMEOUT = 30_000
 const USER_AGENT =
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
 
 // ─── Browser singleton ──────────────────────────────────────────────────────
 
@@ -137,6 +137,23 @@ async function openPage(browser: Browser): Promise<Page> {
     })
 
     page.setDefaultNavigationTimeout(NAVIGATION_TIMEOUT)
+
+    // Help bypass some bot detection
+    await page.evaluateOnNewDocument(() => {
+        Object.defineProperty(navigator, 'webdriver', { get: () => false });
+        // @ts-ignore
+        navigator.chrome = { runtime: {} };
+        // @ts-ignore
+        navigator.languages = ['en-US', 'en'];
+    });
+
+    await page.setExtraHTTPHeaders({
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'Connection': 'keep-alive',
+        'Upgrade-Insecure-Requests': '1',
+    });
+
     return page
 }
 

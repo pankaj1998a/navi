@@ -1,7 +1,7 @@
 import { Log } from "../util/log"
 import path from "path"
 import { Global } from "../global"
-import { NamedError } from "@navi-ai/util/error"
+import { NamedError } from "../util/error"
 import z from "zod"
 import { git } from "@/util/git"
 import { AppFileSystem } from "@/filesystem"

@@ -9,7 +9,7 @@ import { Instance } from "../project/instance"
 import { lazy } from "@/util/lazy"
 import { Language, type Node } from "web-tree-sitter"
 
-import { Filesystem } from "@/util/filesystem"
+import { Filesystem } from "@/filesystem"
 import { Process } from "@/util/process"
 import { fileURLToPath } from "url"
 import { Flag } from "@/flag/flag"

@@ -1,0 +1,1048 @@
+packages/console/app/script/generate-sitemap.ts(5,24): error TS6307: File 'V:/pankaj/navi/packages/console/app/src/config.ts' is not listed within the file list of project 'V:/pankaj/navi/packages/navi/tsconfig.json'. Projects must list all files or use an 'include' pattern.
+packages/console/core/script/credit-workspace.ts(1,25): error TS6307: File 'V:/pankaj/navi/packages/console/core/src/billing.ts' is not listed within the file list of project 'V:/pankaj/navi/packages/navi/tsconfig.json'. Projects must list all files or use an 'include' pattern.
+  The file is in the program because:
+    Imported via "../src/billing.js" from file 'V:/pankaj/navi/packages/console/core/script/credit-workspace.ts'
+    Imported via "../src/billing.js" from file 'V:/pankaj/navi/packages/console/core/script/onboard-zen-black.ts'
+    Imported via "../src/billing.js" from file 'V:/pankaj/navi/packages/console/core/script/remove-black.ts'
+packages/console/core/script/lookup-user.ts(6,27): error TS6307: File 'V:/pankaj/navi/packages/console/core/src/black.ts' is not listed within the file list of project 'V:/pankaj/navi/packages/navi/tsconfig.json'. Projects must list all files or use an 'include' pattern.
+  The file is in the program because:
+    Imported via "../src/black.js" from file 'V:/pankaj/navi/packages/console/core/script/lookup-user.ts'
+    Imported via "../src/black" from file 'V:/pankaj/navi/packages/console/core/script/promote-black.ts'
+    Imported via "../src/black" from file 'V:/pankaj/navi/packages/console/core/script/update-black.ts'
+packages/console/core/script/lookup-user.ts(8,31): error TS6307: File 'V:/pankaj/navi/packages/console/core/src/util/date.ts' is not listed within the file list of project 'V:/pankaj/navi/packages/navi/tsconfig.json'. Projects must list all files or use an 'include' pattern.
+packages/console/core/script/promote-models.ts(5,25): error TS6307: File 'V:/pankaj/navi/packages/console/core/src/model.ts' is not listed within the file list of project 'V:/pankaj/navi/packages/navi/tsconfig.json'. Projects must list all files or use an 'include' pattern.
+  The file is in the program because:
+    Imported via "../src/model" from file 'V:/pankaj/navi/packages/console/core/script/promote-models.ts'
+    Imported via "../src/model" from file 'V:/pankaj/navi/packages/console/core/script/pull-models.ts'
+    Imported via "../src/model" from file 'V:/pankaj/navi/packages/console/core/script/update-models.ts'
+packages/console/core/script/reset-db.ts(1,26): error TS2307: Cannot find module '@navi-ai/console-resource' or its corresponding type declarations.
+packages/console/core/script/reset-db.ts(4,30): error TS6307: File 'V:/pankaj/navi/packages/console/core/src/schema/account.sql.ts' is not listed within the file list of project 'V:/pankaj/navi/packages/navi/tsconfig.json'. Projects must list all files or use an 'include' pattern.
+packages/console/core/src/actor.ts(2,26): error TS6307: File 'V:/pankaj/navi/packages/console/core/src/schema/user.sql.ts' is not listed within the file list of project 'V:/pankaj/navi/packages/navi/tsconfig.json'. Projects must list all files or use an 'include' pattern.
+  The file is in the program because:
+    Imported via "./schema/user.sql" from file 'V:/pankaj/navi/packages/console/core/src/actor.ts'
+    Imported via "./schema/user.sql" from file 'V:/pankaj/navi/packages/console/core/src/user.ts'
+    Imported via "./schema/user.sql" from file 'V:/pankaj/navi/packages/console/core/src/key.ts'
+    Imported via "../src/schema/user.sql.js" from file 'V:/pankaj/navi/packages/console/core/script/lookup-user.ts'
+    Imported via "../src/schema/user.sql.js" from file 'V:/pankaj/navi/packages/console/core/script/onboard-zen-black.ts'
+    Imported via "../src/schema/user.sql.js" from file 'V:/pankaj/navi/packages/console/core/script/reset-db.ts'
+packages/console/core/src/actor.ts(3,21): error TS6307: File 'V:/pankaj/navi/packages/console/core/src/util/log.ts' is not listed within the file list of project 'V:/pankaj/navi/packages/navi/tsconfig.json'. Projects must list all files or use an 'include' pattern.
+packages/console/core/src/aws.ts(2,26): error TS2307: Cannot find module '@navi-ai/console-resource' or its corresponding type declarations.
+packages/console/core/src/billing.ts(2,35): error TS6307: File 'V:/pankaj/navi/packages/console/core/src/drizzle/index.ts' is not listed within the file list of project 'V:/pankaj/navi/packages/navi/tsconfig.json'. Projects must list all files or use an 'include' pattern.
+  The file is in the program because:
+    Imported via "./drizzle" from file 'V:/pankaj/navi/packages/console/core/src/billing.ts'
+    Imported via "./drizzle" from file 'V:/pankaj/navi/packages/console/core/src/user.ts'
+    Imported via "./drizzle" from file 'V:/pankaj/navi/packages/console/core/src/key.ts'
+    Imported via "../src/drizzle/index.js" from file 'V:/pankaj/navi/packages/console/core/script/lookup-user.ts'
+    Imported via "../src/drizzle/index.js" from file 'V:/pankaj/navi/packages/console/core/script/onboard-zen-black.ts'
+    Imported via "./drizzle" from file 'V:/pankaj/navi/packages/console/core/src/model.ts'
+    Imported via "../src/drizzle/index.js" from file 'V:/pankaj/navi/packages/console/core/script/remove-black.ts'
+    Imported via "../src/drizzle/index.js" from file 'V:/pankaj/navi/packages/console/core/script/reset-db.ts'
+packages/console/core/src/billing.ts(3,56): error TS6307: File 'V:/pankaj/navi/packages/console/core/src/schema/billing.sql.ts' is not listed within the file list of project 'V:/pankaj/navi/packages/navi/tsconfig.json'. Projects must list all files or use an 'include' pattern.
+  The file is in the program because:
+    Imported via "./schema/billing.sql" from file 'V:/pankaj/navi/packages/console/core/src/billing.ts'
+    Imported via "../src/schema/billing.sql.js" from file 'V:/pankaj/navi/packages/console/core/script/lookup-user.ts'
+    Imported via "../src/schema/billing.sql.js" from file 'V:/pankaj/navi/packages/console/core/script/onboard-zen-black.ts'
+    Imported via "../src/schema/billing.sql.js" from file 'V:/pankaj/navi/packages/console/core/script/remove-black.ts'
+    Imported via "../src/schema/billing.sql.js" from file 'V:/pankaj/navi/packages/console/core/script/reset-db.ts'
+packages/console/core/src/billing.ts(4,23): error TS6307: File 'V:/pankaj/navi/packages/console/core/src/actor.ts' is not listed within the file list of project 'V:/pankaj/navi/packages/navi/tsconfig.json'. Projects must list all files or use an 'include' pattern.
+  The file is in the program because:
+    Imported via "./actor" from file 'V:/pankaj/navi/packages/console/core/src/billing.ts'
+    Imported via "./actor" from file 'V:/pankaj/navi/packages/console/core/src/user.ts'
+    Imported via "./actor" from file 'V:/pankaj/navi/packages/console/core/src/key.ts'
+    Imported via "./actor" from file 'V:/pankaj/navi/packages/console/core/src/model.ts'
+packages/console/core/src/billing.ts(5,20): error TS6307: File 'V:/pankaj/navi/packages/console/core/src/util/fn.ts' is not listed within the file list of project 'V:/pankaj/navi/packages/navi/tsconfig.json'. Projects must list all files or use an 'include' pattern.
+  The file is in the program because:
+    Imported via "./util/fn" from file 'V:/pankaj/navi/packages/console/core/src/billing.ts'
+    Imported via "./util/fn" from file 'V:/pankaj/navi/packages/console/core/src/user.ts'
+    Imported via "./util/fn" from file 'V:/pankaj/navi/packages/console/core/src/aws.ts'
+    Imported via "./util/fn" from file 'V:/pankaj/navi/packages/console/core/src/key.ts'
+    Imported via "./util/fn" from file 'V:/pankaj/navi/packages/console/core/src/black.ts'
+    Imported via "./util/fn" from file 'V:/pankaj/navi/packages/console/core/src/model.ts'
+packages/console/core/src/billing.ts(7,26): error TS2307: Cannot find module '@navi-ai/console-resource' or its corresponding type declarations.
+packages/console/core/src/billing.ts(8,28): error TS6307: File 'V:/pankaj/navi/packages/console/core/src/identifier.ts' is not listed within the file list of project 'V:/pankaj/navi/packages/navi/tsconfig.json'. Projects must list all files or use an 'include' pattern.
+  The file is in the program because:
+    Imported via "./identifier" from file 'V:/pankaj/navi/packages/console/core/src/billing.ts'
+    Imported via "./identifier" from file 'V:/pankaj/navi/packages/console/core/src/user.ts'
+    Imported via "./identifier" from file 'V:/pankaj/navi/packages/console/core/src/key.ts'
+    Imported via "../src/identifier.js" from file 'V:/pankaj/navi/packages/console/core/script/onboard-zen-black.ts'
+    Imported via "./identifier" from file 'V:/pankaj/navi/packages/console/core/src/model.ts'
+packages/console/core/src/billing.ts(9,35): error TS6307: File 'V:/pankaj/navi/packages/console/core/src/util/price.ts' is not listed within the file list of project 'V:/pankaj/navi/packages/navi/tsconfig.json'. Projects must list all files or use an 'include' pattern.
+  The file is in the program because:
+    Imported via "./util/price" from file 'V:/pankaj/navi/packages/console/core/src/billing.ts'
+    Imported via "../src/util/price.js" from file 'V:/pankaj/navi/packages/console/core/script/lookup-user.ts'
+    Imported via "../src/util/price.js" from file 'V:/pankaj/navi/packages/console/core/script/onboard-zen-black.ts'
+packages/console/core/src/billing.ts(10,22): error TS6307: File 'V:/pankaj/navi/packages/console/core/src/user.ts' is not listed within the file list of project 'V:/pankaj/navi/packages/navi/tsconfig.json'. Projects must list all files or use an 'include' pattern.
+packages/console/core/src/black.ts(3,26): error TS2307: Cannot find module '@navi-ai/console-resource' or its corresponding type declarations.
+packages/console/core/src/drizzle/index.ts(2,26): error TS2307: Cannot find module '@navi-ai/console-resource' or its corresponding type declarations.
+packages/console/core/src/drizzle/index.ts(9,25): error TS6307: File 'V:/pankaj/navi/packages/console/core/src/context.ts' is not listed within the file list of project 'V:/pankaj/navi/packages/navi/tsconfig.json'. Projects must list all files or use an 'include' pattern.
+  The file is in the program because:
+    Imported via "../context" from file 'V:/pankaj/navi/packages/console/core/src/drizzle/index.ts'
+    Imported via "./context" from file 'V:/pankaj/navi/packages/console/core/src/actor.ts'
+    Imported via "../context" from file 'V:/pankaj/navi/packages/console/core/src/util/log.ts'
+packages/console/core/src/drizzle/index.ts(10,22): error TS6307: File 'V:/pankaj/navi/packages/console/core/src/util/memo.ts' is not listed within the file list of project 'V:/pankaj/navi/packages/navi/tsconfig.json'. Projects must list all files or use an 'include' pattern.
+packages/console/core/src/key.ts(6,26): error TS6307: File 'V:/pankaj/navi/packages/console/core/src/schema/key.sql.ts' is not listed within the file list of project 'V:/pankaj/navi/packages/navi/tsconfig.json'. Projects must list all files or use an 'include' pattern.
+  The file is in the program because:
+    Imported via "./schema/key.sql" from file 'V:/pankaj/navi/packages/console/core/src/key.ts'
+    Imported via "./schema/key.sql" from file 'V:/pankaj/navi/packages/console/core/src/user.ts'
+    Imported via "../src/schema/key.sql.js" from file 'V:/pankaj/navi/packages/console/core/script/reset-db.ts'
+packages/console/core/src/key.ts(8,27): error TS6307: File 'V:/pankaj/navi/packages/console/core/src/schema/auth.sql.ts' is not listed within the file list of project 'V:/pankaj/navi/packages/navi/tsconfig.json'. Projects must list all files or use an 'include' pattern.
+  The file is in the program because:
+    Imported via "./schema/auth.sql" from file 'V:/pankaj/navi/packages/console/core/src/key.ts'
+    Imported via "./schema/auth.sql" from file 'V:/pankaj/navi/packages/console/core/src/user.ts'
+    Imported via "../src/schema/auth.sql.js" from file 'V:/pankaj/navi/packages/console/core/script/lookup-user.ts'
+    Imported via "../src/schema/auth.sql.js" from file 'V:/pankaj/navi/packages/console/core/script/onboard-zen-black.ts'
+packages/console/core/src/model.ts(4,28): error TS6307: File 'V:/pankaj/navi/packages/console/core/src/schema/model.sql.ts' is not listed within the file list of project 'V:/pankaj/navi/packages/navi/tsconfig.json'. Projects must list all files or use an 'include' pattern.
+packages/console/core/src/model.ts(8,26): error TS2307: Cannot find module '@navi-ai/console-resource' or its corresponding type declarations.
+packages/console/core/src/schema/billing.sql.ts(2,57): error TS6307: File 'V:/pankaj/navi/packages/console/core/src/drizzle/types.ts' is not listed within the file list of project 'V:/pankaj/navi/packages/navi/tsconfig.json'. Projects must list all files or use an 'include' pattern.
+  The file is in the program because:
+    Imported via "../drizzle/types" from file 'V:/pankaj/navi/packages/console/core/src/schema/billing.sql.ts'
+    Imported via "../drizzle/types" from file 'V:/pankaj/navi/packages/console/core/src/schema/workspace.sql.ts'
+    Imported via "../drizzle/types" from file 'V:/pankaj/navi/packages/console/core/src/schema/user.sql.ts'
+    Imported via "../drizzle/types" from file 'V:/pankaj/navi/packages/console/core/src/schema/key.sql.ts'
+    Imported via "../drizzle/types" from file 'V:/pankaj/navi/packages/console/core/src/schema/auth.sql.ts'
+    Imported via "../drizzle/types" from file 'V:/pankaj/navi/packages/console/core/src/schema/model.sql.ts'
+    Imported via "../drizzle/types" from file 'V:/pankaj/navi/packages/console/core/src/schema/account.sql.ts'
+packages/console/core/src/schema/billing.sql.ts(3,34): error TS6307: File 'V:/pankaj/navi/packages/console/core/src/schema/workspace.sql.ts' is not listed within the file list of project 'V:/pankaj/navi/packages/navi/tsconfig.json'. Projects must list all files or use an 'include' pattern.
+  The file is in the program because:
+    Imported via "./workspace.sql" from file 'V:/pankaj/navi/packages/console/core/src/schema/billing.sql.ts'
+    Imported via "./workspace.sql" from file 'V:/pankaj/navi/packages/console/core/src/schema/user.sql.ts'
+    Imported via "./workspace.sql" from file 'V:/pankaj/navi/packages/console/core/src/schema/key.sql.ts'
+    Imported via "./schema/workspace.sql" from file 'V:/pankaj/navi/packages/console/core/src/user.ts'
+    Imported via "../src/schema/workspace.sql.js" from file 'V:/pankaj/navi/packages/console/core/script/lookup-user.ts'
+    Imported via "./workspace.sql" from file 'V:/pankaj/navi/packages/console/core/src/schema/model.sql.ts'
+    Imported via "../src/schema/workspace.sql.js" from file 'V:/pankaj/navi/packages/console/core/script/reset-db.ts'
+packages/console/core/src/user.ts(9,21): error TS6307: File 'V:/pankaj/navi/packages/console/core/src/aws.ts' is not listed within the file list of project 'V:/pankaj/navi/packages/navi/tsconfig.json'. Projects must list all files or use an 'include' pattern.
+packages/console/core/src/user.ts(10,21): error TS6307: File 'V:/pankaj/navi/packages/console/core/src/key.ts' is not listed within the file list of project 'V:/pankaj/navi/packages/navi/tsconfig.json'. Projects must list all files or use an 'include' pattern.
+packages/console/core/src/user.ts(141,46): error TS2307: Cannot find module '@navi-ai/console-mail/InviteEmail.jsx' or its corresponding type declarations.
+packages/enterprise/script/scrap.ts(1,25): error TS6307: File 'V:/pankaj/navi/packages/enterprise/src/core/storage.ts' is not listed within the file list of project 'V:/pankaj/navi/packages/navi/tsconfig.json'. Projects must list all files or use an 'include' pattern.
+packages/enterprise/src/core/storage.ts(2,22): error TS2307: Cannot find module '@navi-ai/util/lazy' or its corresponding type declarations.
+packages/enterprise/src/core/storage.ts(119,24): error TS7006: Parameter 'x' implicitly has an 'any' type.
+packages/navi/src/acp/agent.ts(46,92): error TS2307: Cannot find module '@/sdk/v2' or its corresponding type declarations.
+packages/navi/src/acp/agent.ts(65,14): error TS7006: Parameter 'x' implicitly has an 'any' type.
+packages/navi/src/acp/agent.ts(66,15): error TS7006: Parameter 'error' implicitly has an 'any' type.
+packages/navi/src/acp/agent.ts(71,38): error TS7006: Parameter 'p' implicitly has an 'any' type.
+packages/navi/src/acp/agent.ts(84,14): error TS7006: Parameter 'x' implicitly has an 'any' type.
+packages/navi/src/acp/agent.ts(85,15): error TS7006: Parameter 'error' implicitly has an 'any' type.
+packages/navi/src/acp/agent.ts(93,8): error TS7006: Parameter 'm' implicitly has an 'any' type.
+packages/navi/src/acp/agent.ts(109,49): error TS7006: Parameter 'sum' implicitly has an 'any' type.
+packages/navi/src/acp/agent.ts(109,54): error TS7006: Parameter 'm' implicitly has an 'any' type.
+packages/navi/src/acp/agent.ts(470,20): error TS7006: Parameter 'x' implicitly has an 'any' type.
+packages/navi/src/acp/agent.ts(471,21): error TS7006: Parameter 'error' implicitly has an 'any' type.
+packages/navi/src/acp/agent.ts(478,44): error TS7006: Parameter 'p' implicitly has an 'any' type.
+packages/navi/src/acp/agent.ts(631,18): error TS7006: Parameter 'x' implicitly has an 'any' type.
+packages/navi/src/acp/agent.ts(632,19): error TS7006: Parameter 'err' implicitly has an 'any' type.
+packages/navi/src/acp/agent.ts(637,46): error TS7006: Parameter 'm' implicitly has an 'any' type.
+packages/navi/src/acp/agent.ts(682,18): error TS7006: Parameter 'x' implicitly has an 'any' type.
+packages/navi/src/acp/agent.ts(684,43): error TS7006: Parameter 'a' implicitly has an 'any' type.
+packages/navi/src/acp/agent.ts(684,46): error TS7006: Parameter 'b' implicitly has an 'any' type.
+packages/navi/src/acp/agent.ts(685,50): error TS7006: Parameter 's' implicitly has an 'any' type.
+packages/navi/src/acp/agent.ts(688,50): error TS7006: Parameter 'session' implicitly has an 'any' type.
+packages/navi/src/acp/agent.ts(729,18): error TS7006: Parameter 'x' implicitly has an 'any' type.
+packages/navi/src/acp/agent.ts(754,18): error TS7006: Parameter 'x' implicitly has an 'any' type.
+packages/navi/src/acp/agent.ts(755,19): error TS7006: Parameter 'err' implicitly has an 'any' type.
+packages/navi/src/acp/agent.ts(1120,16): error TS7006: Parameter 'resp' implicitly has an 'any' type.
+packages/navi/src/acp/agent.ts(1123,18): error TS7006: Parameter 'agent' implicitly has an 'any' type.
+packages/navi/src/acp/agent.ts(1124,15): error TS7006: Parameter 'agent' implicitly has an 'any' type.
+packages/navi/src/acp/agent.ts(1155,78): error TS7006: Parameter 'x' implicitly has an 'any' type.
+packages/navi/src/acp/agent.ts(1157,60): error TS2345: Argument of type '{ name: string; }[]' is not assignable to parameter of type '{ id: string; models: Record<string, { variants?: Record<string, any> | undefined; }>; }[]'.
+  Type '{ name: string; }' is missing the following properties from type '{ id: string; models: Record<string, { variants?: Record<string, any> | undefined; }>; }': id, models
+packages/navi/src/acp/agent.ts(1162,52): error TS2345: Argument of type '{ name: string; }[]' is not assignable to parameter of type '{ id: string; name: string; models: Record<string, any>; }[]'.
+  Type '{ name: string; }' is missing the following properties from type '{ id: string; name: string; models: Record<string, any>; }': id, models
+packages/navi/src/acp/agent.ts(1179,16): error TS7006: Parameter 'resp' implicitly has an 'any' type.
+packages/navi/src/acp/agent.ts(1181,47): error TS7006: Parameter 'command' implicitly has an 'any' type.
+packages/navi/src/acp/agent.ts(1185,52): error TS7006: Parameter 'c' implicitly has an 'any' type.
+packages/navi/src/acp/agent.ts(1226,21): error TS7006: Parameter 'error' implicitly has an 'any' type.
+packages/navi/src/acp/agent.ts(1261,16): error TS7006: Parameter 'x' implicitly has an 'any' type.
+packages/navi/src/acp/agent.ts(1268,60): error TS2345: Argument of type '{ name: string; }[]' is not assignable to parameter of type '{ id: string; models: Record<string, { variants?: Record<string, any> | undefined; }>; }[]'.
+  Type '{ name: string; }' is missing the following properties from type '{ id: string; models: Record<string, { variants?: Record<string, any> | undefined; }>; }': id, models
+packages/navi/src/acp/agent.ts(1428,16): error TS7006: Parameter 'x' implicitly has an 'any' type.
+packages/navi/src/acp/agent.ts(1428,36): error TS7006: Parameter 'c' implicitly has an 'any' type.
+packages/navi/src/acp/agent.ts(1539,14): error TS7006: Parameter 'resp' implicitly has an 'any' type.
+packages/navi/src/acp/agent.ts(1544,15): error TS7006: Parameter 'error' implicitly has an 'any' type.
+packages/navi/src/acp/agent.ts(1551,14): error TS7006: Parameter 'x' implicitly has an 'any' type.
+packages/navi/src/acp/agent.ts(1552,15): error TS7006: Parameter 'error' implicitly has an 'any' type.
+packages/navi/src/acp/agent.ts(1558,40): error TS7006: Parameter 'p' implicitly has an 'any' type.
+packages/navi/src/acp/agent.ts(1564,42): error TS7006: Parameter 'p' implicitly has an 'any' type.
+packages/navi/src/acp/agent.ts(1569,36): error TS2345: Argument of type 'unknown[]' is not assignable to parameter of type '{ id: string; }[]'.
+  Type 'unknown' is not assignable to type '{ id: string; }'.
+packages/navi/src/acp/agent.ts(1572,44): error TS2339: Property 'providerID' does not exist on type '{ id: string; }'.
+packages/navi/src/acp/agent.ts(1578,39): error TS7006: Parameter 'p' implicitly has an 'any' type.
+packages/navi/src/acp/agent.ts(1582,42): error TS2339: Property 'providerID' does not exist on type '{ id: string; }'.
+packages/navi/src/acp/session.ts(4,33): error TS2307: Cannot find module '@/sdk/v2' or its corresponding type declarations.
+packages/navi/src/acp/session.ts(28,14): error TS7006: Parameter 'x' implicitly has an 'any' type.
+packages/navi/src/acp/session.ts(60,14): error TS7006: Parameter 'x' implicitly has an 'any' type.
+packages/navi/src/acp/types.ts(2,33): error TS2307: Cannot find module '@/sdk/v2' or its corresponding type declarations.
+packages/navi/src/agent/AutoDreamService.ts(46,60): error TS2339: Property 'status' does not exist on type '{ id: string & Brand<"SessionID">; slug: string; projectID: string & Brand<"ProjectID">; directory: string; title: string; version: string; time: { created: number; updated: number; compacting?: number | undefined; archived?: number | undefined; }; ... 6 more ...; scratchpad?: string | undefined; }'.
+packages/navi/src/agent/checkpoint.ts(39,41): error TS2345: Argument of type '"checkpoint"' is not assignable to parameter of type '"message" | "question" | "permission" | "pty" | "tool" | "event" | "session" | "user" | "part" | "workspace"'.
+packages/navi/src/agent/examples/file-picker.ts(3,7): error TS2322: Type '{ id: string; name: string; description: string; tools: string[]; handleSteps: (context: AgentContext) => AsyncGenerator<AgentStep, string | void, any>; }' is not assignable to type 'AgentTemplate'.
+  Type '{ id: string; name: string; description: string; tools: string[]; handleSteps: (context: AgentContext) => AsyncGenerator<AgentStep, string | void, any>; }' is missing the following properties from type '{ id: string; name: string; description: string; tools: string[]; phase: "general" | "debug" | "security" | "database" | "test" | "document" | "analyze" | "interface" | "realize" | "design" | "deploy" | "optimize"; skills: string[]; model?: string | undefined; handleSteps?: $InferOuterFunctionType<...> | undefined; ...': phase, skills
+packages/navi/src/agent/memory/service.ts(91,33): error TS2322: Type '(record: Omit<MemoryRecord, "filepath" | "mtimeMs">) => Effect.Effect<void, AppFileSystem.Error, never>' is not assignable to type '(record: Omit<MemoryRecord, "filepath" | "mtimeMs">) => Effect<void, never, never>'.
+  Type 'Effect<void, Error, never>' is not assignable to type 'Effect<void, never, never>'.
+    Type 'Error' is not assignable to type 'never'.
+      Type 'PlatformError' is not assignable to type 'never'.
+packages/navi/src/agent/memory/service.ts(91,39): error TS2322: Type '(query: string, limit?: number) => Effect.Effect<MemoryRecord[], AppFileSystem.Error, never>' is not assignable to type '(query: string, limit?: number | undefined) => Effect<MemoryRecord[], never, never>'.
+  Type 'Effect<MemoryRecord[], Error, never>' is not assignable to type 'Effect<MemoryRecord[], never, never>'.
+    Type 'Error' is not assignable to type 'never'.
+      Type 'PlatformError' is not assignable to type 'never'.
+packages/navi/src/agent/roles/debugger.ts(3,7): error TS2322: Type '{ id: string; name: string; description: string; tools: string[]; handleSteps: (context: AgentContext) => AsyncGenerator<AgentStep, string | void, any>; }' is not assignable to type 'AgentTemplate'.
+  Type '{ id: string; name: string; description: string; tools: string[]; handleSteps: (context: AgentContext) => AsyncGenerator<AgentStep, string | void, any>; }' is missing the following properties from type '{ id: string; name: string; description: string; tools: string[]; phase: "general" | "debug" | "security" | "database" | "test" | "document" | "analyze" | "interface" | "realize" | "design" | "deploy" | "optimize"; skills: string[]; model?: string | undefined; handleSteps?: $InferOuterFunctionType<...> | undefined; ...': phase, skills
+packages/navi/src/agent/roles/docs-writer.ts(3,7): error TS2322: Type '{ id: string; name: string; description: string; tools: string[]; handleSteps: (context: AgentContext) => AsyncGenerator<AgentStep, string | void, any>; }' is not assignable to type 'AgentTemplate'.
+  Type '{ id: string; name: string; description: string; tools: string[]; handleSteps: (context: AgentContext) => AsyncGenerator<AgentStep, string | void, any>; }' is missing the following properties from type '{ id: string; name: string; description: string; tools: string[]; phase: "general" | "debug" | "security" | "database" | "test" | "document" | "analyze" | "interface" | "realize" | "design" | "deploy" | "optimize"; skills: string[]; model?: string | undefined; handleSteps?: $InferOuterFunctionType<...> | undefined; ...': phase, skills
+packages/navi/src/agent/roles/editor.ts(3,7): error TS2322: Type '{ id: string; name: string; description: string; tools: string[]; handleSteps: (context: AgentContext) => AsyncGenerator<AgentStep, string | void, any>; }' is not assignable to type 'AgentTemplate'.
+  Type '{ id: string; name: string; description: string; tools: string[]; handleSteps: (context: AgentContext) => AsyncGenerator<AgentStep, string | void, any>; }' is missing the following properties from type '{ id: string; name: string; description: string; tools: string[]; phase: "general" | "debug" | "security" | "database" | "test" | "document" | "analyze" | "interface" | "realize" | "design" | "deploy" | "optimize"; skills: string[]; model?: string | undefined; handleSteps?: $InferOuterFunctionType<...> | undefined; ...': phase, skills
+packages/navi/src/agent/roles/planner.ts(3,7): error TS2322: Type '{ id: string; name: string; description: string; tools: string[]; handleSteps: (context: AgentContext) => AsyncGenerator<AgentStep, string | void, any>; }' is not assignable to type 'AgentTemplate'.
+  Type '{ id: string; name: string; description: string; tools: string[]; handleSteps: (context: AgentContext) => AsyncGenerator<AgentStep, string | void, any>; }' is missing the following properties from type '{ id: string; name: string; description: string; tools: string[]; phase: "general" | "debug" | "security" | "database" | "test" | "document" | "analyze" | "interface" | "realize" | "design" | "deploy" | "optimize"; skills: string[]; model?: string | undefined; handleSteps?: $InferOuterFunctionType<...> | undefined; ...': phase, skills
+packages/navi/src/agent/roles/researcher.ts(8,7): error TS2322: Type '{ id: string; name: string; description: string; tools: string[]; handleSteps(context: AgentContext): AsyncGenerator<AgentStep, string | void, any>; }' is not assignable to type 'AgentTemplate'.
+  Type '{ id: string; name: string; description: string; tools: string[]; handleSteps(context: AgentContext): AsyncGenerator<AgentStep, string | void, any>; }' is missing the following properties from type '{ id: string; name: string; description: string; tools: string[]; phase: "general" | "debug" | "security" | "database" | "test" | "document" | "analyze" | "interface" | "realize" | "design" | "deploy" | "optimize"; skills: string[]; model?: string | undefined; handleSteps?: $InferOuterFunctionType<...> | undefined; ...': phase, skills
+packages/navi/src/agent/roles/reviewer.ts(3,7): error TS2322: Type '{ id: string; name: string; description: string; tools: string[]; handleSteps: (context: AgentContext) => AsyncGenerator<AgentStep, string | void, any>; }' is not assignable to type 'AgentTemplate'.
+  Type '{ id: string; name: string; description: string; tools: string[]; handleSteps: (context: AgentContext) => AsyncGenerator<AgentStep, string | void, any>; }' is missing the following properties from type '{ id: string; name: string; description: string; tools: string[]; phase: "general" | "debug" | "security" | "database" | "test" | "document" | "analyze" | "interface" | "realize" | "design" | "deploy" | "optimize"; skills: string[]; model?: string | undefined; handleSteps?: $InferOuterFunctionType<...> | undefined; ...': phase, skills
+packages/navi/src/agent/roles/sentry-fixer.ts(7,14): error TS2322: Type '{ id: string; name: string; description: string; tools: string[]; handleSteps: (context: AgentContext) => AsyncGenerator<AgentStep, string | void, any>; }' is not assignable to type 'AgentTemplate'.
+  Type '{ id: string; name: string; description: string; tools: string[]; handleSteps: (context: AgentContext) => AsyncGenerator<AgentStep, string | void, any>; }' is missing the following properties from type '{ id: string; name: string; description: string; tools: string[]; phase: "general" | "debug" | "security" | "database" | "test" | "document" | "analyze" | "interface" | "realize" | "design" | "deploy" | "optimize"; skills: string[]; model?: string | undefined; handleSteps?: $InferOuterFunctionType<...> | undefined; ...': phase, skills
+packages/navi/src/agent/roles/surfer.ts(7,7): error TS2322: Type '{ id: string; name: string; description: string; tools: string[]; handleSteps(context: AgentContext): AsyncGenerator<AgentStep, string | void, any>; }' is not assignable to type 'AgentTemplate'.
+  Type '{ id: string; name: string; description: string; tools: string[]; handleSteps(context: AgentContext): AsyncGenerator<AgentStep, string | void, any>; }' is missing the following properties from type '{ id: string; name: string; description: string; tools: string[]; phase: "general" | "debug" | "security" | "database" | "test" | "document" | "analyze" | "interface" | "realize" | "design" | "deploy" | "optimize"; skills: string[]; model?: string | undefined; handleSteps?: $InferOuterFunctionType<...> | undefined; ...': phase, skills
+packages/navi/src/agent/router.ts(16,42): error TS2344: Type '"id" | "models" | "source" | "catalog"' does not satisfy the constraint '"id" | "name" | "options" | "key" | "env" | "models" | "source"'.
+  Type '"catalog"' is not assignable to type '"id" | "name" | "options" | "key" | "env" | "models" | "source"'.
+packages/navi/src/agent/router.ts(141,45): error TS2345: Argument of type 'string' is not assignable to parameter of type 'string & Brand<"ProviderID">'.
+  Type 'string' is not assignable to type 'Brand<"ProviderID">'.
+packages/navi/src/agent/router.ts(150,42): error TS2339: Property 'modelRouting' does not exist on type '{ disable_paste_summary?: boolean | undefined; batch_tool?: boolean | undefined; openTelemetry?: boolean | undefined; primary_tools?: string[] | undefined; continue_loop_on_deny?: boolean | undefined; mcp_timeout?: number | undefined; }'.
+packages/navi/src/agent/router.ts(160,7): error TS2322: Type '{ id: string & Brand<"ProviderID">; name: string; source: "custom" | "api" | "env" | "config"; env: string[]; options: Record<string, any>; models: Record<string, { id: string & Brand<...>; ... 11 more ...; variants?: Record<...> | undefined; }>; key?: string | undefined; }[]' is not assignable to type 'Pick<{ id: string & Brand<"ProviderID">; name: string; source: "custom" | "api" | "env" | "config"; env: string[]; options: Record<string, any>; models: Record<string, { id: string & Brand<...>; ... 11 more ...; variants?: Record<...> | undefined; }>; key?: string | undefined; }, "id" | ... 2 more ... | "catalog">[]'.
+  Property 'catalog' is missing in type '{ id: string & Brand<"ProviderID">; name: string; source: "custom" | "api" | "env" | "config"; env: string[]; options: Record<string, any>; models: Record<string, { id: string & Brand<...>; ... 11 more ...; variants?: Record<...> | undefined; }>; key?: string | undefined; }' but required in type 'Pick<{ id: string & Brand<"ProviderID">; name: string; source: "custom" | "api" | "env" | "config"; env: string[]; options: Record<string, any>; models: Record<string, { id: string & Brand<...>; ... 11 more ...; variants?: Record<...> | undefined; }>; key?: string | undefined; }, "id" | ... 2 more ... | "catalog">'.
+packages/navi/src/agent/scorecard.ts(56,24): error TS2554: Expected 2-3 arguments, but got 1.
+packages/navi/src/agent/scorecard.ts(57,31): error TS2322: Type 'Record<string | number | symbol, unknown>' is not assignable to type 'Store'.
+  'string' index signatures are incompatible.
+    Type 'unknown' is not assignable to type '{ taskClass: string; agentName: string; successes: number; failures: number; totalLatencyMs: number; totalCost: number; totalToolCalls: number; totalQuestions: number; samples: number; lastRunAt?: number | undefined; lastSuccessAt?: number | undefined; lastFailureAt?: number | undefined; }'.
+packages/navi/src/agent/spawner.ts(153,13): error TS2322: Type 'string' is not assignable to type 'string & Brand<"MessageID">'.
+  Type 'string' is not assignable to type 'Brand<"MessageID">'.
+packages/navi/src/cli/cmd/acp.ts(7,34): error TS2307: Cannot find module '@/sdk/v2' or its corresponding type declarations.
+packages/navi/src/cli/cmd/auth.ts(14,15): error TS2459: Module '"../../plugin"' declares 'Hooks' locally, but it is not exported.
+packages/navi/src/cli/cmd/auth.ts(47,37): error TS7006: Parameter 'x' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/auth.ts(47,40): error TS7006: Parameter 'index' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/auth.ts(54,22): error TS2345: Argument of type 'unknown' is not assignable to parameter of type 'string'.
+packages/navi/src/cli/cmd/auth.ts(72,9): error TS2322: Type 'unknown' is not assignable to type 'string'.
+packages/navi/src/cli/cmd/auth.ts(121,24): error TS2339: Property 'refreshProviderOnConnect' does not exist on type 'typeof Provider'.
+packages/navi/src/cli/cmd/auth.ts(155,24): error TS2339: Property 'refreshProviderOnConnect' does not exist on type 'typeof Provider'.
+packages/navi/src/cli/cmd/auth.ts(177,24): error TS2339: Property 'refreshProviderOnConnect' does not exist on type 'typeof Provider'.
+packages/navi/src/cli/cmd/auth.ts(481,26): error TS2339: Property 'refreshProviderOnConnect' does not exist on type 'typeof Provider'.
+packages/navi/src/cli/cmd/browse.ts(14,29): error TS2722: Cannot invoke an object which is possibly 'undefined'.
+packages/navi/src/cli/cmd/browse.ts(14,40): error TS2349: This expression is not callable.
+  Not all constituents of type 'CommandBuilder<{}, WithDoubleDash<{ message: string[] | never[]; } & { command: string | undefined; } & { continue: boolean | undefined; } & { session: string | undefined; } & { fork: boolean | undefined; } & { ...; } & ... 10 more ... & { ...; }>>' are callable.
+    Type '{ [key: string]: Options; }' has no call signatures.
+packages/navi/src/cli/cmd/browse.ts(17,33): error TS2559: Type 'ArgumentsCamelCase<{ "--"?: string[] | undefined; }>' has no properties in common with type '{ message?: unknown[] | undefined; command?: string | undefined; }'.
+packages/navi/src/cli/cmd/checkpoint.ts(61,47): error TS2322: Type 'string' is not assignable to type 'string & Brand<"SessionID">'.
+  Type 'string' is not assignable to type 'Brand<"SessionID">'.
+packages/navi/src/cli/cmd/collab.ts(161,70): error TS2339: Property 'RESET' does not exist on type '{ TEXT_HIGHLIGHT: string; TEXT_HIGHLIGHT_BOLD: string; TEXT_DIM: string; TEXT_DIM_BOLD: string; TEXT_NORMAL: string; TEXT_NORMAL_BOLD: string; TEXT_WARNING: string; TEXT_WARNING_BOLD: string; ... 5 more ...; TEXT_INFO_BOLD: string; }'.
+packages/navi/src/cli/cmd/collab.ts(162,70): error TS2339: Property 'RESET' does not exist on type '{ TEXT_HIGHLIGHT: string; TEXT_HIGHLIGHT_BOLD: string; TEXT_DIM: string; TEXT_DIM_BOLD: string; TEXT_NORMAL: string; TEXT_NORMAL_BOLD: string; TEXT_WARNING: string; TEXT_WARNING_BOLD: string; ... 5 more ...; TEXT_INFO_BOLD: string; }'.
+packages/navi/src/cli/cmd/collab.ts(267,70): error TS2339: Property 'RESET' does not exist on type '{ TEXT_HIGHLIGHT: string; TEXT_HIGHLIGHT_BOLD: string; TEXT_DIM: string; TEXT_DIM_BOLD: string; TEXT_NORMAL: string; TEXT_NORMAL_BOLD: string; TEXT_WARNING: string; TEXT_WARNING_BOLD: string; ... 5 more ...; TEXT_INFO_BOLD: string; }'.
+packages/navi/src/cli/cmd/collab.ts(268,70): error TS2339: Property 'RESET' does not exist on type '{ TEXT_HIGHLIGHT: string; TEXT_HIGHLIGHT_BOLD: string; TEXT_DIM: string; TEXT_DIM_BOLD: string; TEXT_NORMAL: string; TEXT_NORMAL_BOLD: string; TEXT_WARNING: string; TEXT_WARNING_BOLD: string; ... 5 more ...; TEXT_INFO_BOLD: string; }'.
+packages/navi/src/cli/cmd/collab.ts(325,16): error TS2339: Property 'RESET' does not exist on type '{ TEXT_HIGHLIGHT: string; TEXT_HIGHLIGHT_BOLD: string; TEXT_DIM: string; TEXT_DIM_BOLD: string; TEXT_NORMAL: string; TEXT_NORMAL_BOLD: string; TEXT_WARNING: string; TEXT_WARNING_BOLD: string; ... 5 more ...; TEXT_INFO_BOLD: string; }'.
+packages/navi/src/cli/cmd/collab.ts(349,70): error TS2339: Property 'RESET' does not exist on type '{ TEXT_HIGHLIGHT: string; TEXT_HIGHLIGHT_BOLD: string; TEXT_DIM: string; TEXT_DIM_BOLD: string; TEXT_NORMAL: string; TEXT_NORMAL_BOLD: string; TEXT_WARNING: string; TEXT_WARNING_BOLD: string; ... 5 more ...; TEXT_INFO_BOLD: string; }'.
+packages/navi/src/cli/cmd/collab.ts(350,70): error TS2339: Property 'RESET' does not exist on type '{ TEXT_HIGHLIGHT: string; TEXT_HIGHLIGHT_BOLD: string; TEXT_DIM: string; TEXT_DIM_BOLD: string; TEXT_NORMAL: string; TEXT_NORMAL_BOLD: string; TEXT_WARNING: string; TEXT_WARNING_BOLD: string; ... 5 more ...; TEXT_INFO_BOLD: string; }'.
+packages/navi/src/cli/cmd/collab.ts(354,72): error TS2339: Property 'RESET' does not exist on type '{ TEXT_HIGHLIGHT: string; TEXT_HIGHLIGHT_BOLD: string; TEXT_DIM: string; TEXT_DIM_BOLD: string; TEXT_NORMAL: string; TEXT_NORMAL_BOLD: string; TEXT_WARNING: string; TEXT_WARNING_BOLD: string; ... 5 more ...; TEXT_INFO_BOLD: string; }'.
+packages/navi/src/cli/cmd/collab.ts(357,70): error TS2339: Property 'RESET' does not exist on type '{ TEXT_HIGHLIGHT: string; TEXT_HIGHLIGHT_BOLD: string; TEXT_DIM: string; TEXT_DIM_BOLD: string; TEXT_NORMAL: string; TEXT_NORMAL_BOLD: string; TEXT_WARNING: string; TEXT_WARNING_BOLD: string; ... 5 more ...; TEXT_INFO_BOLD: string; }'.
+packages/navi/src/cli/cmd/critic.ts(14,29): error TS2722: Cannot invoke an object which is possibly 'undefined'.
+packages/navi/src/cli/cmd/critic.ts(14,40): error TS2349: This expression is not callable.
+  Not all constituents of type 'CommandBuilder<{}, WithDoubleDash<{ message: string[] | never[]; } & { command: string | undefined; } & { continue: boolean | undefined; } & { session: string | undefined; } & { fork: boolean | undefined; } & { ...; } & ... 10 more ... & { ...; }>>' are callable.
+    Type '{ [key: string]: Options; }' has no call signatures.
+packages/navi/src/cli/cmd/critic.ts(17,33): error TS2559: Type 'ArgumentsCamelCase<{ "--"?: string[] | undefined; }>' has no properties in common with type '{ message?: unknown[] | undefined; command?: string | undefined; }'.
+packages/navi/src/cli/cmd/debug.ts(14,29): error TS2722: Cannot invoke an object which is possibly 'undefined'.
+packages/navi/src/cli/cmd/debug.ts(14,40): error TS2349: This expression is not callable.
+  Not all constituents of type 'CommandBuilder<{}, WithDoubleDash<{ message: string[] | never[]; } & { command: string | undefined; } & { continue: boolean | undefined; } & { session: string | undefined; } & { fork: boolean | undefined; } & { ...; } & ... 10 more ... & { ...; }>>' are callable.
+    Type '{ [key: string]: Options; }' has no call signatures.
+packages/navi/src/cli/cmd/debug.ts(17,33): error TS2559: Type 'ArgumentsCamelCase<{ "--"?: string[] | undefined; }>' has no properties in common with type '{ message?: unknown[] | undefined; command?: string | undefined; }'.
+packages/navi/src/cli/cmd/debug/agent.ts(74,29): error TS2345: Argument of type '{ modelID: string; providerID: string; }' is not assignable to parameter of type '{ providerID: string & Brand<"ProviderID">; modelID: string & Brand<"ModelID">; }'.
+  Types of property 'providerID' are incompatible.
+    Type 'string' is not assignable to type 'string & Brand<"ProviderID">'.
+      Type 'string' is not assignable to type 'Brand<"ProviderID">'.
+packages/navi/src/cli/cmd/debug/agent.ts(127,5): error TS2322: Type 'string' is not assignable to type 'string & Brand<"ModelID">'.
+  Type 'string' is not assignable to type 'Brand<"ModelID">'.
+packages/navi/src/cli/cmd/debug/agent.ts(128,5): error TS2322: Type 'string' is not assignable to type 'string & Brand<"ProviderID">'.
+  Type 'string' is not assignable to type 'Brand<"ProviderID">'.
+packages/navi/src/cli/cmd/health.ts(25,3): error TS2322: Type '(args: Args) => Promise<void>' is not assignable to type '(args: ArgumentsCamelCase<{}>) => void | Promise<void>'.
+  Types of parameters 'args' and 'args' are incompatible.
+    Type 'ArgumentsCamelCase<{}>' has no properties in common with type 'Args'.
+packages/navi/src/cli/cmd/history.ts(81,22): error TS2339: Property 'RESET' does not exist on type '{ TEXT_HIGHLIGHT: string; TEXT_HIGHLIGHT_BOLD: string; TEXT_DIM: string; TEXT_DIM_BOLD: string; TEXT_NORMAL: string; TEXT_NORMAL_BOLD: string; TEXT_WARNING: string; TEXT_WARNING_BOLD: string; ... 5 more ...; TEXT_INFO_BOLD: string; }'.
+packages/navi/src/cli/cmd/import.ts(2,59): error TS2307: Cannot find module '@/sdk/v2' or its corresponding type declarations.
+packages/navi/src/cli/cmd/import.ts(160,27): error TS2339: Property 'toRow' does not exist on type 'typeof Session'.
+packages/navi/src/cli/cmd/peers.ts(190,71): error TS2339: Property 'RESET' does not exist on type '{ TEXT_HIGHLIGHT: string; TEXT_HIGHLIGHT_BOLD: string; TEXT_DIM: string; TEXT_DIM_BOLD: string; TEXT_NORMAL: string; TEXT_NORMAL_BOLD: string; TEXT_WARNING: string; TEXT_WARNING_BOLD: string; ... 5 more ...; TEXT_INFO_BOLD: string; }'.
+packages/navi/src/cli/cmd/peers.ts(221,69): error TS2339: Property 'RESET' does not exist on type '{ TEXT_HIGHLIGHT: string; TEXT_HIGHLIGHT_BOLD: string; TEXT_DIM: string; TEXT_DIM_BOLD: string; TEXT_NORMAL: string; TEXT_NORMAL_BOLD: string; TEXT_WARNING: string; TEXT_WARNING_BOLD: string; ... 5 more ...; TEXT_INFO_BOLD: string; }'.
+packages/navi/src/cli/cmd/peers.ts(222,69): error TS2339: Property 'RESET' does not exist on type '{ TEXT_HIGHLIGHT: string; TEXT_HIGHLIGHT_BOLD: string; TEXT_DIM: string; TEXT_DIM_BOLD: string; TEXT_NORMAL: string; TEXT_NORMAL_BOLD: string; TEXT_WARNING: string; TEXT_WARNING_BOLD: string; ... 5 more ...; TEXT_INFO_BOLD: string; }'.
+packages/navi/src/cli/cmd/peers.ts(223,69): error TS2339: Property 'RESET' does not exist on type '{ TEXT_HIGHLIGHT: string; TEXT_HIGHLIGHT_BOLD: string; TEXT_DIM: string; TEXT_DIM_BOLD: string; TEXT_NORMAL: string; TEXT_NORMAL_BOLD: string; TEXT_WARNING: string; TEXT_WARNING_BOLD: string; ... 5 more ...; TEXT_INFO_BOLD: string; }'.
+packages/navi/src/cli/cmd/peers.ts(224,69): error TS2339: Property 'RESET' does not exist on type '{ TEXT_HIGHLIGHT: string; TEXT_HIGHLIGHT_BOLD: string; TEXT_DIM: string; TEXT_DIM_BOLD: string; TEXT_NORMAL: string; TEXT_NORMAL_BOLD: string; TEXT_WARNING: string; TEXT_WARNING_BOLD: string; ... 5 more ...; TEXT_INFO_BOLD: string; }'.
+packages/navi/src/cli/cmd/peers.ts(226,71): error TS2339: Property 'RESET' does not exist on type '{ TEXT_HIGHLIGHT: string; TEXT_HIGHLIGHT_BOLD: string; TEXT_DIM: string; TEXT_DIM_BOLD: string; TEXT_NORMAL: string; TEXT_NORMAL_BOLD: string; TEXT_WARNING: string; TEXT_WARNING_BOLD: string; ... 5 more ...; TEXT_INFO_BOLD: string; }'.
+packages/navi/src/cli/cmd/peers.ts(229,71): error TS2339: Property 'RESET' does not exist on type '{ TEXT_HIGHLIGHT: string; TEXT_HIGHLIGHT_BOLD: string; TEXT_DIM: string; TEXT_DIM_BOLD: string; TEXT_NORMAL: string; TEXT_NORMAL_BOLD: string; TEXT_WARNING: string; TEXT_WARNING_BOLD: string; ... 5 more ...; TEXT_INFO_BOLD: string; }'.
+packages/navi/src/cli/cmd/peers.ts(232,71): error TS2339: Property 'RESET' does not exist on type '{ TEXT_HIGHLIGHT: string; TEXT_HIGHLIGHT_BOLD: string; TEXT_DIM: string; TEXT_DIM_BOLD: string; TEXT_NORMAL: string; TEXT_NORMAL_BOLD: string; TEXT_WARNING: string; TEXT_WARNING_BOLD: string; ... 5 more ...; TEXT_INFO_BOLD: string; }'.
+packages/navi/src/cli/cmd/peers.ts(236,71): error TS2339: Property 'RESET' does not exist on type '{ TEXT_HIGHLIGHT: string; TEXT_HIGHLIGHT_BOLD: string; TEXT_DIM: string; TEXT_DIM_BOLD: string; TEXT_NORMAL: string; TEXT_NORMAL_BOLD: string; TEXT_WARNING: string; TEXT_WARNING_BOLD: string; ... 5 more ...; TEXT_INFO_BOLD: string; }'.
+packages/navi/src/cli/cmd/peers.ts(348,87): error TS2339: Property 'RESET' does not exist on type '{ TEXT_HIGHLIGHT: string; TEXT_HIGHLIGHT_BOLD: string; TEXT_DIM: string; TEXT_DIM_BOLD: string; TEXT_NORMAL: string; TEXT_NORMAL_BOLD: string; TEXT_WARNING: string; TEXT_WARNING_BOLD: string; ... 5 more ...; TEXT_INFO_BOLD: string; }'.
+packages/navi/src/cli/cmd/peers.ts(350,89): error TS2339: Property 'RESET' does not exist on type '{ TEXT_HIGHLIGHT: string; TEXT_HIGHLIGHT_BOLD: string; TEXT_DIM: string; TEXT_DIM_BOLD: string; TEXT_NORMAL: string; TEXT_NORMAL_BOLD: string; TEXT_WARNING: string; TEXT_WARNING_BOLD: string; ... 5 more ...; TEXT_INFO_BOLD: string; }'.
+packages/navi/src/cli/cmd/peers.ts(374,68): error TS2339: Property 'RESET' does not exist on type '{ TEXT_HIGHLIGHT: string; TEXT_HIGHLIGHT_BOLD: string; TEXT_DIM: string; TEXT_DIM_BOLD: string; TEXT_NORMAL: string; TEXT_NORMAL_BOLD: string; TEXT_WARNING: string; TEXT_WARNING_BOLD: string; ... 5 more ...; TEXT_INFO_BOLD: string; }'.
+packages/navi/src/cli/cmd/peers.ts(375,68): error TS2339: Property 'RESET' does not exist on type '{ TEXT_HIGHLIGHT: string; TEXT_HIGHLIGHT_BOLD: string; TEXT_DIM: string; TEXT_DIM_BOLD: string; TEXT_NORMAL: string; TEXT_NORMAL_BOLD: string; TEXT_WARNING: string; TEXT_WARNING_BOLD: string; ... 5 more ...; TEXT_INFO_BOLD: string; }'.
+packages/navi/src/cli/cmd/peers.ts(405,69): error TS2339: Property 'RESET' does not exist on type '{ TEXT_HIGHLIGHT: string; TEXT_HIGHLIGHT_BOLD: string; TEXT_DIM: string; TEXT_DIM_BOLD: string; TEXT_NORMAL: string; TEXT_NORMAL_BOLD: string; TEXT_WARNING: string; TEXT_WARNING_BOLD: string; ... 5 more ...; TEXT_INFO_BOLD: string; }'.
+packages/navi/src/cli/cmd/peers.ts(406,69): error TS2339: Property 'RESET' does not exist on type '{ TEXT_HIGHLIGHT: string; TEXT_HIGHLIGHT_BOLD: string; TEXT_DIM: string; TEXT_DIM_BOLD: string; TEXT_NORMAL: string; TEXT_NORMAL_BOLD: string; TEXT_WARNING: string; TEXT_WARNING_BOLD: string; ... 5 more ...; TEXT_INFO_BOLD: string; }'.
+packages/navi/src/cli/cmd/peers.ts(407,69): error TS2339: Property 'RESET' does not exist on type '{ TEXT_HIGHLIGHT: string; TEXT_HIGHLIGHT_BOLD: string; TEXT_DIM: string; TEXT_DIM_BOLD: string; TEXT_NORMAL: string; TEXT_NORMAL_BOLD: string; TEXT_WARNING: string; TEXT_WARNING_BOLD: string; ... 5 more ...; TEXT_INFO_BOLD: string; }'.
+packages/navi/src/cli/cmd/peers.ts(408,69): error TS2339: Property 'RESET' does not exist on type '{ TEXT_HIGHLIGHT: string; TEXT_HIGHLIGHT_BOLD: string; TEXT_DIM: string; TEXT_DIM_BOLD: string; TEXT_NORMAL: string; TEXT_NORMAL_BOLD: string; TEXT_WARNING: string; TEXT_WARNING_BOLD: string; ... 5 more ...; TEXT_INFO_BOLD: string; }'.
+packages/navi/src/cli/cmd/peers.ts(410,71): error TS2339: Property 'RESET' does not exist on type '{ TEXT_HIGHLIGHT: string; TEXT_HIGHLIGHT_BOLD: string; TEXT_DIM: string; TEXT_DIM_BOLD: string; TEXT_NORMAL: string; TEXT_NORMAL_BOLD: string; TEXT_WARNING: string; TEXT_WARNING_BOLD: string; ... 5 more ...; TEXT_INFO_BOLD: string; }'.
+packages/navi/src/cli/cmd/peers.ts(413,71): error TS2339: Property 'RESET' does not exist on type '{ TEXT_HIGHLIGHT: string; TEXT_HIGHLIGHT_BOLD: string; TEXT_DIM: string; TEXT_DIM_BOLD: string; TEXT_NORMAL: string; TEXT_NORMAL_BOLD: string; TEXT_WARNING: string; TEXT_WARNING_BOLD: string; ... 5 more ...; TEXT_INFO_BOLD: string; }'.
+packages/navi/src/cli/cmd/peers.ts(416,71): error TS2339: Property 'RESET' does not exist on type '{ TEXT_HIGHLIGHT: string; TEXT_HIGHLIGHT_BOLD: string; TEXT_DIM: string; TEXT_DIM_BOLD: string; TEXT_NORMAL: string; TEXT_NORMAL_BOLD: string; TEXT_WARNING: string; TEXT_WARNING_BOLD: string; ... 5 more ...; TEXT_INFO_BOLD: string; }'.
+packages/navi/src/cli/cmd/peers.ts(426,53): error TS2339: Property 'RESET' does not exist on type '{ TEXT_HIGHLIGHT: string; TEXT_HIGHLIGHT_BOLD: string; TEXT_DIM: string; TEXT_DIM_BOLD: string; TEXT_NORMAL: string; TEXT_NORMAL_BOLD: string; TEXT_WARNING: string; TEXT_WARNING_BOLD: string; ... 5 more ...; TEXT_INFO_BOLD: string; }'.
+packages/navi/src/cli/cmd/peers.ts(428,53): error TS2339: Property 'RESET' does not exist on type '{ TEXT_HIGHLIGHT: string; TEXT_HIGHLIGHT_BOLD: string; TEXT_DIM: string; TEXT_DIM_BOLD: string; TEXT_NORMAL: string; TEXT_NORMAL_BOLD: string; TEXT_WARNING: string; TEXT_WARNING_BOLD: string; ... 5 more ...; TEXT_INFO_BOLD: string; }'.
+packages/navi/src/cli/cmd/peers.ts(430,52): error TS2339: Property 'RESET' does not exist on type '{ TEXT_HIGHLIGHT: string; TEXT_HIGHLIGHT_BOLD: string; TEXT_DIM: string; TEXT_DIM_BOLD: string; TEXT_NORMAL: string; TEXT_NORMAL_BOLD: string; TEXT_WARNING: string; TEXT_WARNING_BOLD: string; ... 5 more ...; TEXT_INFO_BOLD: string; }'.
+packages/navi/src/cli/cmd/peers.ts(432,49): error TS2339: Property 'RESET' does not exist on type '{ TEXT_HIGHLIGHT: string; TEXT_HIGHLIGHT_BOLD: string; TEXT_DIM: string; TEXT_DIM_BOLD: string; TEXT_NORMAL: string; TEXT_NORMAL_BOLD: string; TEXT_WARNING: string; TEXT_WARNING_BOLD: string; ... 5 more ...; TEXT_INFO_BOLD: string; }'.
+packages/navi/src/cli/cmd/peers.ts(439,58): error TS2339: Property 'RESET' does not exist on type '{ TEXT_HIGHLIGHT: string; TEXT_HIGHLIGHT_BOLD: string; TEXT_DIM: string; TEXT_DIM_BOLD: string; TEXT_NORMAL: string; TEXT_NORMAL_BOLD: string; TEXT_WARNING: string; TEXT_WARNING_BOLD: string; ... 5 more ...; TEXT_INFO_BOLD: string; }'.
+packages/navi/src/cli/cmd/peers.ts(441,56): error TS2339: Property 'RESET' does not exist on type '{ TEXT_HIGHLIGHT: string; TEXT_HIGHLIGHT_BOLD: string; TEXT_DIM: string; TEXT_DIM_BOLD: string; TEXT_NORMAL: string; TEXT_NORMAL_BOLD: string; TEXT_WARNING: string; TEXT_WARNING_BOLD: string; ... 5 more ...; TEXT_INFO_BOLD: string; }'.
+packages/navi/src/cli/cmd/peers.ts(443,23): error TS2339: Property 'TEXT_ERROR' does not exist on type '{ TEXT_HIGHLIGHT: string; TEXT_HIGHLIGHT_BOLD: string; TEXT_DIM: string; TEXT_DIM_BOLD: string; TEXT_NORMAL: string; TEXT_NORMAL_BOLD: string; TEXT_WARNING: string; TEXT_WARNING_BOLD: string; ... 5 more ...; TEXT_INFO_BOLD: string; }'.
+packages/navi/src/cli/cmd/peers.ts(443,57): error TS2339: Property 'RESET' does not exist on type '{ TEXT_HIGHLIGHT: string; TEXT_HIGHLIGHT_BOLD: string; TEXT_DIM: string; TEXT_DIM_BOLD: string; TEXT_NORMAL: string; TEXT_NORMAL_BOLD: string; TEXT_WARNING: string; TEXT_WARNING_BOLD: string; ... 5 more ...; TEXT_INFO_BOLD: string; }'.
+packages/navi/src/cli/cmd/peers.ts(445,55): error TS2339: Property 'RESET' does not exist on type '{ TEXT_HIGHLIGHT: string; TEXT_HIGHLIGHT_BOLD: string; TEXT_DIM: string; TEXT_DIM_BOLD: string; TEXT_NORMAL: string; TEXT_NORMAL_BOLD: string; TEXT_WARNING: string; TEXT_WARNING_BOLD: string; ... 5 more ...; TEXT_INFO_BOLD: string; }'.
+packages/navi/src/cli/cmd/plan.ts(14,29): error TS2722: Cannot invoke an object which is possibly 'undefined'.
+packages/navi/src/cli/cmd/plan.ts(14,40): error TS2349: This expression is not callable.
+  Not all constituents of type 'CommandBuilder<{}, WithDoubleDash<{ message: string[] | never[]; } & { command: string | undefined; } & { continue: boolean | undefined; } & { session: string | undefined; } & { fork: boolean | undefined; } & { ...; } & ... 10 more ... & { ...; }>>' are callable.
+    Type '{ [key: string]: Options; }' has no call signatures.
+packages/navi/src/cli/cmd/plan.ts(17,33): error TS2559: Type 'ArgumentsCamelCase<{ "--"?: string[] | undefined; }>' has no properties in common with type '{ message?: unknown[] | undefined; command?: string | undefined; }'.
+packages/navi/src/cli/cmd/providers.ts(13,15): error TS2459: Module '"../../plugin"' declares 'Hooks' locally, but it is not exported.
+packages/navi/src/cli/cmd/providers.ts(22,50): error TS7006: Parameter 'x' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/providers.ts(25,96): error TS7006: Parameter 'x' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/providers.ts(34,37): error TS7006: Parameter 'x' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/providers.ts(34,40): error TS7006: Parameter 'index' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/providers.ts(41,22): error TS2345: Argument of type 'unknown' is not assignable to parameter of type 'string'.
+packages/navi/src/cli/cmd/providers.ts(62,9): error TS2322: Type 'unknown' is not assignable to type 'string'.
+packages/navi/src/cli/cmd/research.ts(15,5): error TS2722: Cannot invoke an object which is possibly 'undefined'.
+packages/navi/src/cli/cmd/research.ts(15,16): error TS2349: This expression is not callable.
+  Not all constituents of type 'CommandBuilder<{}, WithDoubleDash<{ message: string[] | never[]; } & { command: string | undefined; } & { continue: boolean | undefined; } & { session: string | undefined; } & { fork: boolean | undefined; } & { ...; } & ... 10 more ... & { ...; }>>' are callable.
+    Type '{ [key: string]: Options; }' has no call signatures.
+packages/navi/src/cli/cmd/research.ts(22,33): error TS2559: Type 'ArgumentsCamelCase<{ "--"?: string[] | undefined; }>' has no properties in common with type '{ message?: unknown[] | undefined; command?: string | undefined; }'.
+packages/navi/src/cli/cmd/review.ts(14,29): error TS2722: Cannot invoke an object which is possibly 'undefined'.
+packages/navi/src/cli/cmd/review.ts(14,40): error TS2349: This expression is not callable.
+  Not all constituents of type 'CommandBuilder<{}, WithDoubleDash<{ message: string[] | never[]; } & { command: string | undefined; } & { continue: boolean | undefined; } & { session: string | undefined; } & { fork: boolean | undefined; } & { ...; } & ... 10 more ... & { ...; }>>' are callable.
+    Type '{ [key: string]: Options; }' has no call signatures.
+packages/navi/src/cli/cmd/review.ts(17,33): error TS2559: Type 'ArgumentsCamelCase<{ "--"?: string[] | undefined; }>' has no properties in common with type '{ message?: unknown[] | undefined; command?: string | undefined; }'.
+packages/navi/src/cli/cmd/run.ts(10,80): error TS2307: Cannot find module '@/sdk/v2' or its corresponding type declarations.
+packages/navi/src/cli/cmd/run.ts(382,77): error TS7006: Parameter 's' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/run.ts(400,65): error TS7006: Parameter 'error' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/run.ts(568,20): error TS7006: Parameter 'x' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/run.ts(580,37): error TS7006: Parameter 'a' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/spec.ts(14,29): error TS2722: Cannot invoke an object which is possibly 'undefined'.
+packages/navi/src/cli/cmd/spec.ts(14,40): error TS2349: This expression is not callable.
+  Not all constituents of type 'CommandBuilder<{}, WithDoubleDash<{ message: string[] | never[]; } & { command: string | undefined; } & { continue: boolean | undefined; } & { session: string | undefined; } & { fork: boolean | undefined; } & { ...; } & ... 10 more ... & { ...; }>>' are callable.
+    Type '{ [key: string]: Options; }' has no call signatures.
+packages/navi/src/cli/cmd/spec.ts(17,33): error TS2559: Type 'ArgumentsCamelCase<{ "--"?: string[] | undefined; }>' has no properties in common with type '{ message?: unknown[] | undefined; command?: string | undefined; }'.
+packages/navi/src/cli/cmd/stats.ts(92,36): error TS2339: Property 'fromRow' does not exist on type 'typeof Session'.
+packages/navi/src/cli/cmd/teleport.ts(75,44): error TS2339: Property 'serialize' does not exist on type 'typeof Session'.
+packages/navi/src/cli/cmd/trace.ts(29,36): error TS2339: Property 'sessionTracing' does not exist on type '{ disable_paste_summary?: boolean | undefined; batch_tool?: boolean | undefined; openTelemetry?: boolean | undefined; primary_tools?: string[] | undefined; continue_loop_on_deny?: boolean | undefined; mcp_timeout?: number | undefined; }'.
+packages/navi/src/cli/cmd/trace.ts(30,40): error TS2339: Property 'sessionTracing' does not exist on type '{ disable_paste_summary?: boolean | undefined; batch_tool?: boolean | undefined; openTelemetry?: boolean | undefined; primary_tools?: string[] | undefined; continue_loop_on_deny?: boolean | undefined; mcp_timeout?: number | undefined; }'.
+packages/navi/src/cli/cmd/trace.ts(86,35): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+packages/navi/src/cli/cmd/tui/app.tsx(404,61): error TS7006: Parameter 'result' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/app.tsx(424,66): error TS7006: Parameter 'result' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/component/buddy-header.tsx(9,39): error TS2307: Cannot find module '@/sdk/v2' or its corresponding type declarations.
+packages/navi/src/cli/cmd/tui/component/dialog-model.tsx(15,91): error TS18046: 'y' is of type 'unknown'.
+packages/navi/src/cli/cmd/tui/component/dialog-model.tsx(81,11): error TS18046: 'provider' is of type 'unknown'.
+packages/navi/src/cli/cmd/tui/component/dialog-model.tsx(86,34): error TS18046: 'provider' is of type 'unknown'.
+packages/navi/src/cli/cmd/tui/component/dialog-model.tsx(88,71): error TS18046: 'provider' is of type 'unknown'.
+packages/navi/src/cli/cmd/tui/component/dialog-model.tsx(91,37): error TS18046: 'provider' is of type 'unknown'.
+packages/navi/src/cli/cmd/tui/component/dialog-model.tsx(92,23): error TS18046: 'provider' is of type 'unknown'.
+packages/navi/src/cli/cmd/tui/component/dialog-model.tsx(93,47): error TS18046: 'provider' is of type 'unknown'.
+packages/navi/src/cli/cmd/tui/component/dialog-model.tsx(95,24): error TS18046: 'provider' is of type 'unknown'.
+packages/navi/src/cli/cmd/tui/component/dialog-provider.tsx(11,68): error TS2307: Cannot find module '@/sdk/v2' or its corresponding type declarations.
+packages/navi/src/cli/cmd/tui/component/dialog-provider.tsx(39,22): error TS7053: Element implicitly has an 'any' type because expression of type 'any' can't be used to index type '{ Navi: string; anthropic: string; openai: string; "Navi-go": string; "qwen-cli": string; }'.
+packages/navi/src/cli/cmd/tui/component/dialog-provider.tsx(308,44): error TS7006: Parameter 'x' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/component/dialog-provider.tsx(313,45): error TS2345: Argument of type 'unknown' is not assignable to parameter of type 'string | PromiseLike<string | null> | null'.
+packages/navi/src/cli/cmd/tui/component/dialog-session-list.tsx(40,16): error TS7006: Parameter 'x' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/component/dialog-session-list.tsx(41,18): error TS7006: Parameter 'a' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/component/dialog-session-list.tsx(41,21): error TS7006: Parameter 'b' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/component/dialog-session-list.tsx(42,13): error TS7006: Parameter 'x' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/component/dialog-skill.tsx(22,47): error TS7006: Parameter 's' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/component/dialog-skill.tsx(23,22): error TS7006: Parameter 'skill' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/component/dialog-status.tsx(19,30): error TS7006: Parameter 'item' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/component/dialog-status.tsx(40,29): error TS7006: Parameter 'a' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/component/dialog-status.tsx(40,32): error TS7006: Parameter 'b' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/component/dialog-status.tsx(102,23): error TS7053: Element implicitly has an 'any' type because expression of type 'any' can't be used to index type '{ connected: any; error: any; }'.
+packages/navi/src/cli/cmd/tui/component/dialog-tag.tsx(28,26): error TS7006: Parameter 'file' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/component/dialog-tag.tsx(39,26): error TS2345: Argument of type 'unknown' is not assignable to parameter of type 'string'.
+packages/navi/src/cli/cmd/tui/component/dialog-workspace-list.tsx(6,48): error TS2307: Cannot find module '@/sdk/v2' or its corresponding type declarations.
+packages/navi/src/cli/cmd/tui/component/dialog-workspace-list.tsx(118,98): error TS7006: Parameter 'err' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/component/prompt/autocomplete.tsx(237,47): error TS7006: Parameter 'a' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/component/prompt/autocomplete.tsx(237,50): error TS7006: Parameter 'b' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/component/prompt/autocomplete.tsx(249,31): error TS7006: Parameter 'item' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/component/prompt/frecency.tsx(3,10): error TS2724: '"@/filesystem"' has no exported member named 'Filesystem'. Did you mean 'AppFileSystem'?
+packages/navi/src/cli/cmd/tui/component/prompt/frecency.tsx(27,15): error TS7006: Parameter 'line' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/component/prompt/frecency.tsx(34,18): error TS7006: Parameter 'line' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/component/prompt/frecency.tsx(37,10): error TS7006: Parameter 'acc' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/component/prompt/frecency.tsx(37,15): error TS7006: Parameter 'entry' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/component/prompt/frecency.tsx(45,25): error TS18046: 'b' is of type 'unknown'.
+packages/navi/src/cli/cmd/tui/component/prompt/frecency.tsx(45,38): error TS18046: 'a' is of type 'unknown'.
+packages/navi/src/cli/cmd/tui/component/prompt/frecency.tsx(51,34): error TS18046: 'entry' is of type 'unknown'.
+packages/navi/src/cli/cmd/tui/component/prompt/frecency.tsx(51,59): error TS18046: 'entry' is of type 'unknown'.
+packages/navi/src/cli/cmd/tui/component/prompt/frecency.tsx(51,86): error TS18046: 'entry' is of type 'unknown'.
+packages/navi/src/cli/cmd/tui/component/prompt/history.tsx(3,10): error TS2724: '"@/filesystem"' has no exported member named 'Filesystem'. Did you mean 'AppFileSystem'?
+packages/navi/src/cli/cmd/tui/component/prompt/history.tsx(8,52): error TS2307: Cannot find module '@/sdk/v2' or its corresponding type declarations.
+packages/navi/src/cli/cmd/tui/component/prompt/history.tsx(39,15): error TS7006: Parameter 'line' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/component/prompt/history.tsx(46,18): error TS7006: Parameter 'line' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/component/prompt/history.tsx(53,36): error TS7006: Parameter 'line' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/component/prompt/index.tsx(6,10): error TS2724: '"@/filesystem"' has no exported member named 'Filesystem'. Did you mean 'AppFileSystem'?
+packages/navi/src/cli/cmd/tui/component/prompt/index.tsx(27,49): error TS2307: Cannot find module '@/sdk/v2' or its corresponding type declarations.
+packages/navi/src/cli/cmd/tui/component/prompt/index.tsx(732,11): error TS2322: Type 'string | undefined' is not assignable to type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+packages/navi/src/cli/cmd/tui/component/prompt/index.tsx(1068,32): error TS7006: Parameter 'buffer' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/component/prompt/stash.tsx(3,10): error TS2724: '"@/filesystem"' has no exported member named 'Filesystem'. Did you mean 'AppFileSystem'?
+packages/navi/src/cli/cmd/tui/component/prompt/stash.tsx(27,15): error TS7006: Parameter 'line' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/component/prompt/stash.tsx(34,18): error TS7006: Parameter 'line' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/component/prompt/stash.tsx(41,36): error TS7006: Parameter 'line' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/component/workspace/dialog-session-list.tsx(59,16): error TS7006: Parameter 'x' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/component/workspace/dialog-session-list.tsx(66,18): error TS7006: Parameter 'a' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/component/workspace/dialog-session-list.tsx(66,21): error TS7006: Parameter 'b' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/component/workspace/dialog-session-list.tsx(67,13): error TS7006: Parameter 'x' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/component/workspace/dialog-session-list.tsx(129,39): error TS7006: Parameter 'sessions' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/component/workspace/dialog-session-list.tsx(129,70): error TS7006: Parameter 'session' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/context/kv.tsx(2,10): error TS2724: '"@/filesystem"' has no exported member named 'Filesystem'. Did you mean 'AppFileSystem'?
+packages/navi/src/cli/cmd/tui/context/kv.tsx(16,14): error TS7006: Parameter 'x' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/context/local.tsx(15,10): error TS2724: '"@/filesystem"' has no exported member named 'Filesystem'. Did you mean 'AppFileSystem'?
+packages/navi/src/cli/cmd/tui/context/local.tsx(198,51): error TS2339: Property 'id' does not exist on type '{}'.
+packages/navi/src/cli/cmd/tui/context/sdk.tsx(1,46): error TS2307: Cannot find module '@/sdk/v2' or its corresponding type declarations.
+packages/navi/src/cli/cmd/tui/context/sync.tsx(20,8): error TS2307: Cannot find module '@/sdk/v2' or its corresponding type declarations.
+packages/navi/src/cli/cmd/tui/context/sync.tsx(30,27): error TS2307: Cannot find module '@/sdk' or its corresponding type declarations.
+packages/navi/src/cli/cmd/tui/context/sync.tsx(31,32): error TS2307: Cannot find module '@/sdk/v2' or its corresponding type declarations.
+packages/navi/src/cli/cmd/tui/context/sync.tsx(344,41): error TS7006: Parameter 'x' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/context/sync.tsx(363,16): error TS7006: Parameter 'x' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/context/sync.tsx(363,47): error TS7006: Parameter 'a' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/context/sync.tsx(363,50): error TS7006: Parameter 'b' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/context/sync.tsx(380,60): error TS7006: Parameter 'x' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/context/sync.tsx(381,66): error TS7006: Parameter 'x' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/context/sync.tsx(382,54): error TS7006: Parameter 'x' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/context/sync.tsx(383,54): error TS7006: Parameter 'x' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/context/sync.tsx(413,64): error TS7006: Parameter 'sessions' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/context/sync.tsx(414,45): error TS7006: Parameter 'x' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/context/sync.tsx(415,43): error TS7006: Parameter 'x' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/context/sync.tsx(416,43): error TS7006: Parameter 'x' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/context/sync.tsx(417,59): error TS7006: Parameter 'x' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/context/sync.tsx(418,49): error TS7006: Parameter 'x' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/context/sync.tsx(419,47): error TS7006: Parameter 'x' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/context/sync.tsx(422,46): error TS7006: Parameter 'x' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/context/sync.tsx(423,40): error TS7006: Parameter 'x' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/context/sync.tsx(424,41): error TS7006: Parameter 'x' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/context/sync.tsx(484,62): error TS7006: Parameter 'x' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/context/theme.tsx(43,10): error TS2724: '"@/filesystem"' has no exported member named 'Filesystem'. Did you mean 'AppFileSystem'?
+packages/navi/src/cli/cmd/tui/context/theme.tsx(46,38): error TS2307: Cannot find module '../../../plugin/tui' or its corresponding type declarations.
+packages/navi/src/cli/cmd/tui/context/theme.tsx(436,11): error TS2578: Unused '@ts-expect-error' directive.
+packages/navi/src/cli/cmd/tui/context/theme.tsx(493,7): error TS2322: Type 'unknown' is not assignable to type 'string | undefined'.
+packages/navi/src/cli/cmd/tui/feature-plugins/home/footer.tsx(1,15): error TS2305: Module '"@/plugin/tui"' has no exported member 'TuiPlugin'.
+packages/navi/src/cli/cmd/tui/feature-plugins/home/footer.tsx(1,26): error TS2305: Module '"@/plugin/tui"' has no exported member 'TuiPluginApi'.
+packages/navi/src/cli/cmd/tui/feature-plugins/home/footer.tsx(1,40): error TS2305: Module '"@/plugin/tui"' has no exported member 'TuiPluginModule'.
+packages/navi/src/cli/cmd/tui/feature-plugins/home/footer.tsx(24,45): error TS7006: Parameter 'item' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/feature-plugins/home/footer.tsx(25,49): error TS7006: Parameter 'item' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/feature-plugins/home/footer.tsx(77,31): error TS7006: Parameter 'api' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/feature-plugins/home/tips.tsx(1,15): error TS2305: Module '"@/plugin/tui"' has no exported member 'TuiPlugin'.
+packages/navi/src/cli/cmd/tui/feature-plugins/home/tips.tsx(1,26): error TS2305: Module '"@/plugin/tui"' has no exported member 'TuiPluginModule'.
+packages/navi/src/cli/cmd/tui/feature-plugins/home/tips.tsx(17,31): error TS7006: Parameter 'api' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/feature-plugins/sidebar/context.tsx(1,39): error TS2307: Cannot find module '@/sdk/v2' or its corresponding type declarations.
+packages/navi/src/cli/cmd/tui/feature-plugins/sidebar/context.tsx(2,15): error TS2305: Module '"@/plugin/tui"' has no exported member 'TuiPlugin'.
+packages/navi/src/cli/cmd/tui/feature-plugins/sidebar/context.tsx(2,26): error TS2305: Module '"@/plugin/tui"' has no exported member 'TuiPluginApi'.
+packages/navi/src/cli/cmd/tui/feature-plugins/sidebar/context.tsx(2,40): error TS2305: Module '"@/plugin/tui"' has no exported member 'TuiPluginModule'.
+packages/navi/src/cli/cmd/tui/feature-plugins/sidebar/context.tsx(16,47): error TS7006: Parameter 'sum' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/feature-plugins/sidebar/context.tsx(16,52): error TS7006: Parameter 'item' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/feature-plugins/sidebar/context.tsx(19,34): error TS7006: Parameter 'item' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/feature-plugins/sidebar/context.tsx(29,50): error TS7006: Parameter 'item' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/feature-plugins/sidebar/context.tsx(48,31): error TS7006: Parameter 'api' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/feature-plugins/sidebar/context.tsx(52,23): error TS7006: Parameter '_ctx' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/feature-plugins/sidebar/context.tsx(52,29): error TS7006: Parameter 'props' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/feature-plugins/sidebar/files.tsx(1,15): error TS2305: Module '"@/plugin/tui"' has no exported member 'TuiPlugin'.
+packages/navi/src/cli/cmd/tui/feature-plugins/sidebar/files.tsx(1,26): error TS2305: Module '"@/plugin/tui"' has no exported member 'TuiPluginApi'.
+packages/navi/src/cli/cmd/tui/feature-plugins/sidebar/files.tsx(1,40): error TS2305: Module '"@/plugin/tui"' has no exported member 'TuiPluginModule'.
+packages/navi/src/cli/cmd/tui/feature-plugins/sidebar/files.tsx(45,31): error TS7006: Parameter 'api' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/feature-plugins/sidebar/files.tsx(49,23): error TS7006: Parameter '_ctx' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/feature-plugins/sidebar/files.tsx(49,29): error TS7006: Parameter 'props' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/feature-plugins/sidebar/footer.tsx(1,15): error TS2305: Module '"@/plugin/tui"' has no exported member 'TuiPlugin'.
+packages/navi/src/cli/cmd/tui/feature-plugins/sidebar/footer.tsx(1,26): error TS2305: Module '"@/plugin/tui"' has no exported member 'TuiPluginApi'.
+packages/navi/src/cli/cmd/tui/feature-plugins/sidebar/footer.tsx(1,40): error TS2305: Module '"@/plugin/tui"' has no exported member 'TuiPluginModule'.
+packages/navi/src/cli/cmd/tui/feature-plugins/sidebar/footer.tsx(12,8): error TS7006: Parameter 'item' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/feature-plugins/sidebar/footer.tsx(12,82): error TS18046: 'model' is of type 'unknown'.
+packages/navi/src/cli/cmd/tui/feature-plugins/sidebar/footer.tsx(75,31): error TS7006: Parameter 'api' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/feature-plugins/sidebar/lsp.tsx(1,15): error TS2305: Module '"@/plugin/tui"' has no exported member 'TuiPlugin'.
+packages/navi/src/cli/cmd/tui/feature-plugins/sidebar/lsp.tsx(1,26): error TS2305: Module '"@/plugin/tui"' has no exported member 'TuiPluginApi'.
+packages/navi/src/cli/cmd/tui/feature-plugins/sidebar/lsp.tsx(1,40): error TS2305: Module '"@/plugin/tui"' has no exported member 'TuiPluginModule'.
+packages/navi/src/cli/cmd/tui/feature-plugins/sidebar/lsp.tsx(47,31): error TS7006: Parameter 'api' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/feature-plugins/sidebar/mcp.tsx(1,15): error TS2305: Module '"@/plugin/tui"' has no exported member 'TuiPlugin'.
+packages/navi/src/cli/cmd/tui/feature-plugins/sidebar/mcp.tsx(1,26): error TS2305: Module '"@/plugin/tui"' has no exported member 'TuiPluginApi'.
+packages/navi/src/cli/cmd/tui/feature-plugins/sidebar/mcp.tsx(1,40): error TS2305: Module '"@/plugin/tui"' has no exported member 'TuiPluginModule'.
+packages/navi/src/cli/cmd/tui/feature-plugins/sidebar/mcp.tsx(11,46): error TS7006: Parameter 'item' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/feature-plugins/sidebar/mcp.tsx(15,10): error TS7006: Parameter 'item' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/feature-plugins/sidebar/mcp.tsx(79,31): error TS7006: Parameter 'api' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/feature-plugins/sidebar/todo.tsx(1,15): error TS2305: Module '"@/plugin/tui"' has no exported member 'TuiPlugin'.
+packages/navi/src/cli/cmd/tui/feature-plugins/sidebar/todo.tsx(1,26): error TS2305: Module '"@/plugin/tui"' has no exported member 'TuiPluginApi'.
+packages/navi/src/cli/cmd/tui/feature-plugins/sidebar/todo.tsx(1,40): error TS2305: Module '"@/plugin/tui"' has no exported member 'TuiPluginModule'.
+packages/navi/src/cli/cmd/tui/feature-plugins/sidebar/todo.tsx(12,67): error TS7006: Parameter 'item' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/feature-plugins/sidebar/todo.tsx(31,31): error TS7006: Parameter 'api' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/feature-plugins/sidebar/todo.tsx(35,23): error TS7006: Parameter '_ctx' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/feature-plugins/sidebar/todo.tsx(35,29): error TS7006: Parameter 'props' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/feature-plugins/system/plugins.tsx(2,15): error TS2305: Module '"@/plugin/tui"' has no exported member 'TuiPlugin'.
+packages/navi/src/cli/cmd/tui/feature-plugins/system/plugins.tsx(2,26): error TS2305: Module '"@/plugin/tui"' has no exported member 'TuiPluginApi'.
+packages/navi/src/cli/cmd/tui/feature-plugins/system/plugins.tsx(2,40): error TS2305: Module '"@/plugin/tui"' has no exported member 'TuiPluginModule'.
+packages/navi/src/cli/cmd/tui/feature-plugins/system/plugins.tsx(2,57): error TS2305: Module '"@/plugin/tui"' has no exported member 'TuiPluginStatus'.
+packages/navi/src/cli/cmd/tui/feature-plugins/system/plugins.tsx(69,19): error TS7006: Parameter 'raw' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/feature-plugins/system/plugins.tsx(83,18): error TS7006: Parameter 'out' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/feature-plugins/system/plugins.tsx(112,53): error TS7006: Parameter 'ok' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/feature-plugins/system/plugins.tsx(187,31): error TS7006: Parameter 'entry' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/feature-plugins/system/plugins.tsx(192,14): error TS7006: Parameter 'ok' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/feature-plugins/system/plugins.tsx(243,31): error TS7006: Parameter 'api' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/plugin/api.tsx(2,15): error TS2305: Module '"@/plugin/tui"' has no exported member 'TuiDialogSelectOption'.
+packages/navi/src/cli/cmd/tui/plugin/api.tsx(2,38): error TS2305: Module '"@/plugin/tui"' has no exported member 'TuiPluginApi'.
+packages/navi/src/cli/cmd/tui/plugin/api.tsx(2,52): error TS2305: Module '"@/plugin/tui"' has no exported member 'TuiRouteDefinition'.
+packages/navi/src/cli/cmd/tui/plugin/api.tsx(20,51): error TS2307: Cannot find module '@/sdk/v2' or its corresponding type declarations.
+packages/navi/src/cli/cmd/tui/plugin/api.tsx(155,11): error TS7006: Parameter 'workspaceID' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/plugin/api.tsx(163,12): error TS7006: Parameter 'sessionID' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/plugin/api.tsx(166,12): error TS7006: Parameter 'sessionID' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/plugin/api.tsx(169,16): error TS7006: Parameter 'sessionID' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/plugin/api.tsx(172,14): error TS7006: Parameter 'sessionID' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/plugin/api.tsx(175,18): error TS7006: Parameter 'sessionID' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/plugin/api.tsx(178,16): error TS7006: Parameter 'sessionID' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/plugin/api.tsx(182,10): error TS7006: Parameter 'messageID' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/plugin/api.tsx(210,49): error TS7006: Parameter 'workspaceID' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/plugin/api.tsx(227,9): error TS7006: Parameter 'workspaceID' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/plugin/api.tsx(241,16): error TS7006: Parameter 'cb' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/plugin/api.tsx(244,15): error TS7006: Parameter 'value' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/plugin/api.tsx(249,16): error TS7006: Parameter 'list' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/plugin/api.tsx(252,16): error TS7006: Parameter 'name' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/plugin/api.tsx(252,22): error TS7006: Parameter 'params' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/plugin/api.tsx(260,14): error TS7006: Parameter 'props' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/plugin/api.tsx(267,19): error TS7006: Parameter 'props' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/plugin/api.tsx(270,21): error TS7006: Parameter 'props' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/plugin/api.tsx(273,20): error TS7006: Parameter 'props' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/plugin/api.tsx(276,20): error TS7006: Parameter 'props' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/plugin/api.tsx(291,14): error TS7006: Parameter 'props' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/plugin/api.tsx(304,13): error TS7006: Parameter 'inputToast' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/plugin/api.tsx(313,17): error TS7006: Parameter 'render' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/plugin/api.tsx(313,25): error TS7006: Parameter 'onClose' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/plugin/api.tsx(319,17): error TS7006: Parameter 'size' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/plugin/api.tsx(334,13): error TS7006: Parameter 'key' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/plugin/api.tsx(337,13): error TS7006: Parameter 'key' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/plugin/api.tsx(340,14): error TS7006: Parameter 'defaults' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/plugin/api.tsx(340,24): error TS7006: Parameter 'overrides' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/plugin/api.tsx(348,11): error TS7006: Parameter 'key' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/plugin/api.tsx(348,16): error TS7006: Parameter 'fallback' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/plugin/api.tsx(351,11): error TS7006: Parameter 'key' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/plugin/api.tsx(351,16): error TS7006: Parameter 'value' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/plugin/api.tsx(399,11): error TS7006: Parameter 'name' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/plugin/api.tsx(402,11): error TS7006: Parameter 'name' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/plugin/api.tsx(405,21): error TS7006: Parameter '_jsonPath' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/plugin/internal.ts(10,15): error TS2305: Module '"@/plugin/tui"' has no exported member 'TuiPlugin'.
+packages/navi/src/cli/cmd/tui/plugin/internal.ts(10,26): error TS2305: Module '"@/plugin/tui"' has no exported member 'TuiPluginModule'.
+packages/navi/src/cli/cmd/tui/plugin/runtime.ts(3,8): error TS2305: Module '"@/plugin/tui"' has no exported member 'TuiDispose'.
+packages/navi/src/cli/cmd/tui/plugin/runtime.ts(4,8): error TS2305: Module '"@/plugin/tui"' has no exported member 'TuiPlugin'.
+packages/navi/src/cli/cmd/tui/plugin/runtime.ts(5,8): error TS2305: Module '"@/plugin/tui"' has no exported member 'TuiPluginApi'.
+packages/navi/src/cli/cmd/tui/plugin/runtime.ts(6,8): error TS2305: Module '"@/plugin/tui"' has no exported member 'TuiPluginInstallResult'.
+packages/navi/src/cli/cmd/tui/plugin/runtime.ts(7,8): error TS2305: Module '"@/plugin/tui"' has no exported member 'TuiPluginModule'.
+packages/navi/src/cli/cmd/tui/plugin/runtime.ts(8,8): error TS2305: Module '"@/plugin/tui"' has no exported member 'TuiPluginMeta'.
+packages/navi/src/cli/cmd/tui/plugin/runtime.ts(9,8): error TS2305: Module '"@/plugin/tui"' has no exported member 'TuiPluginStatus'.
+packages/navi/src/cli/cmd/tui/plugin/runtime.ts(10,8): error TS2305: Module '"@/plugin/tui"' has no exported member 'TuiTheme'.
+packages/navi/src/cli/cmd/tui/plugin/runtime.ts(27,10): error TS2724: '"@/filesystem"' has no exported member named 'Filesystem'. Did you mean 'AppFileSystem'?
+packages/navi/src/cli/cmd/tui/plugin/runtime.ts(142,17): error TS7006: Parameter 'file' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/plugin/runtime.ts(185,56): error TS7006: Parameter 'error' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/plugin/runtime.ts(206,49): error TS7006: Parameter 'error' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/plugin/runtime.ts(537,14): error TS7006: Parameter 'cb' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/plugin/runtime.ts(540,13): error TS7006: Parameter 'value' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/plugin/runtime.ts(546,14): error TS7006: Parameter 'list' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/plugin/runtime.ts(549,14): error TS7006: Parameter 'name' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/plugin/runtime.ts(549,20): error TS7006: Parameter 'params' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/plugin/runtime.ts(562,8): error TS7006: Parameter 'type' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/plugin/runtime.ts(562,14): error TS7006: Parameter 'handler' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/plugin/runtime.ts(570,14): error TS7006: Parameter 'plugin' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/plugin/runtime.ts(600,16): error TS7006: Parameter 'id' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/plugin/runtime.ts(603,18): error TS7006: Parameter 'id' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/plugin/runtime.ts(606,11): error TS7006: Parameter 'spec' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/plugin/runtime.ts(609,15): error TS7006: Parameter 'spec' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/plugin/runtime.ts(609,21): error TS7006: Parameter 'options' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/plugin/slots.tsx(1,15): error TS2305: Module '"@/plugin/tui"' has no exported member 'SlotMode'.
+packages/navi/src/cli/cmd/tui/plugin/slots.tsx(1,30): error TS2305: Module '"@/plugin/tui"' has no exported member 'TuiPluginApi'.
+packages/navi/src/cli/cmd/tui/plugin/slots.tsx(1,49): error TS2305: Module '"@/plugin/tui"' has no exported member 'TuiSlotContext'.
+packages/navi/src/cli/cmd/tui/plugin/slots.tsx(1,70): error TS2305: Module '"@/plugin/tui"' has no exported member 'TuiSlotMap'.
+packages/navi/src/cli/cmd/tui/routes/session/dialog-fork-from-timeline.tsx(4,31): error TS2307: Cannot find module '@/sdk/v2' or its corresponding type declarations.
+packages/navi/src/cli/cmd/tui/routes/session/dialog-timeline.tsx(4,31): error TS2307: Cannot find module '@/sdk/v2' or its corresponding type declarations.
+packages/navi/src/cli/cmd/tui/routes/session/index.tsx(32,93): error TS2307: Cannot find module '@/sdk/v2' or its corresponding type declarations.
+packages/navi/src/cli/cmd/tui/routes/session/index.tsx(75,10): error TS2724: '"@/filesystem"' has no exported member named 'Filesystem'. Did you mean 'AppFileSystem'?
+packages/navi/src/cli/cmd/tui/routes/session/index.tsx(384,18): error TS7006: Parameter 'res' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/routes/session/index.tsx(385,19): error TS7006: Parameter 'error' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/routes/session/index.tsx(493,19): error TS7006: Parameter 'error' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/routes/session/permission.tsx(7,40): error TS2307: Cannot find module '@/sdk/v2' or its corresponding type declarations.
+packages/navi/src/cli/cmd/tui/routes/session/permission.tsx(371,71): error TS7006: Parameter 'p' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/routes/session/question.tsx(7,54): error TS2307: Cannot find module '@/sdk/v2' or its corresponding type declarations.
+packages/navi/src/cli/cmd/tui/routes/session/question.tsx(47,38): error TS7006: Parameter '_' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/routes/session/question.tsx(47,41): error TS7006: Parameter 'i' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/routes/session/question.tsx(158,69): error TS7006: Parameter 'x' implicitly has an 'any' type.
+packages/navi/src/cli/cmd/tui/routes/session/subagent-footer.tsx(6,39): error TS2307: Cannot find module '@/sdk/v2' or its corresponding type declarations.
+packages/navi/src/cli/cmd/tui/routes/session/subagent-footer.tsx(79,47): error TS2304: Cannot find name 'TextAttributes'.
+packages/navi/src/cli/cmd/tui/thread.ts(12,10): error TS2724: '"@/filesystem"' has no exported member named 'Filesystem'. Did you mean 'AppFileSystem'?
+packages/navi/src/cli/cmd/tui/thread.ts(13,28): error TS2307: Cannot find module '@/sdk/v2' or its corresponding type declarations.
+packages/navi/src/cli/cmd/tui/util/editor.ts(6,10): error TS2724: '"@/filesystem"' has no exported member named 'Filesystem'. Did you mean 'AppFileSystem'?
+packages/navi/src/cli/cmd/tui/util/transcript.ts(1,58): error TS2307: Cannot find module '@/sdk/v2' or its corresponding type declarations.
+packages/navi/src/cli/cmd/tui/worker.ts(11,28): error TS2307: Cannot find module '@/sdk/v2' or its corresponding type declarations.
+packages/navi/src/codebase/sentry-service.ts(32,28): error TS2339: Property 'sentry' does not exist on type '{ $schema?: string | undefined; logLevel?: "DEBUG" | "INFO" | "WARN" | "ERROR" | undefined; server?: { port?: number | undefined; hostname?: string | undefined; mdns?: boolean | undefined; mdnsDomain?: string | undefined; cors?: string[] | undefined; } | undefined; ... 26 more ...; experimental?: { ...; } | undefine...'.
+packages/navi/src/codebase/sentry-service.ts(50,13): error TS2339: Property 'sentry' does not exist on type '{ $schema?: string | undefined; logLevel?: "DEBUG" | "INFO" | "WARN" | "ERROR" | undefined; server?: { port?: number | undefined; hostname?: string | undefined; mdns?: boolean | undefined; mdnsDomain?: string | undefined; cors?: string[] | undefined; } | undefined; ... 26 more ...; experimental?: { ...; } | undefine...'.
+packages/navi/src/codebase/sentry-service.ts(60,28): error TS2339: Property 'sentry' does not exist on type '{ $schema?: string | undefined; logLevel?: "DEBUG" | "INFO" | "WARN" | "ERROR" | undefined; server?: { port?: number | undefined; hostname?: string | undefined; mdns?: boolean | undefined; mdnsDomain?: string | undefined; cors?: string[] | undefined; } | undefined; ... 26 more ...; experimental?: { ...; } | undefine...'.
+packages/navi/src/codebase/sentry-service.ts(70,19): error TS2339: Property 'sentry' does not exist on type '{ $schema?: string | undefined; logLevel?: "DEBUG" | "INFO" | "WARN" | "ERROR" | undefined; server?: { port?: number | undefined; hostname?: string | undefined; mdns?: boolean | undefined; mdnsDomain?: string | undefined; cors?: string[] | undefined; } | undefined; ... 26 more ...; experimental?: { ...; } | undefine...'.
+packages/navi/src/config/config.ts(37,10): error TS2724: '"@/filesystem"' has no exported member named 'Filesystem'. Did you mean 'AppFileSystem'?
+packages/navi/src/config/config.ts(1348,17): error TS18046: 'dir' is of type 'unknown'.
+packages/navi/src/config/config.ts(1350,60): error TS2345: Argument of type 'unknown' is not assignable to parameter of type 'string'.
+packages/navi/src/config/config.ts(1351,84): error TS2345: Argument of type 'unknown' is not assignable to parameter of type 'string'.
+packages/navi/src/config/config.ts(1359,48): error TS2345: Argument of type 'unknown' is not assignable to parameter of type 'string'.
+packages/navi/src/config/config.ts(1360,52): error TS2345: Argument of type 'unknown' is not assignable to parameter of type 'string'.
+packages/navi/src/config/config.ts(1367,102): error TS2345: Argument of type 'unknown' is not assignable to parameter of type 'string'.
+packages/navi/src/config/config.ts(1368,90): error TS2345: Argument of type 'unknown' is not assignable to parameter of type 'string'.
+packages/navi/src/config/config.ts(1369,89): error TS2345: Argument of type 'unknown' is not assignable to parameter of type 'string'.
+packages/navi/src/config/config.ts(1370,75): error TS2345: Argument of type 'unknown' is not assignable to parameter of type 'string'.
+packages/navi/src/config/config.ts(1472,11): error TS2345: Argument of type '(ctx: InstanceContext) => Effect<{ config: { $schema?: string | undefined; logLevel?: "DEBUG" | "INFO" | "WARN" | "ERROR" | undefined; server?: { port?: number | undefined; hostname?: string | undefined; mdns?: boolean | undefined; mdnsDomain?: string | undefined; cors?: string[] | undefined; } | undefined; ... 26 m...' is not assignable to parameter of type '(ctx: InstanceContext) => Effect<State, never, Scope>'.
+  Type 'Effect<{ config: { $schema?: string | undefined; logLevel?: "DEBUG" | "INFO" | "WARN" | "ERROR" | undefined; server?: { port?: number | undefined; hostname?: string | undefined; mdns?: boolean | undefined; mdnsDomain?: string | undefined; cors?: string[] | undefined; } | undefined; ... 26 more ...; experimental?: { ...' is not assignable to type 'Effect<State, never, Scope>'.
+    Type '{ config: { $schema?: string | undefined; logLevel?: "DEBUG" | "INFO" | "WARN" | "ERROR" | undefined; server?: { port?: number | undefined; hostname?: string | undefined; mdns?: boolean | undefined; mdnsDomain?: string | undefined; cors?: string[] | undefined; } | undefined; ... 26 more ...; experimental?: { ...; } ...' is not assignable to type 'State'.
+      Types of property 'directories' are incompatible.
+        Type 'unknown[]' is not assignable to type 'string[]'.
+          Type 'unknown' is not assignable to type 'string'.
+packages/navi/src/config/migrate-tui-config.ts(10,10): error TS2724: '"@/filesystem"' has no exported member named 'Filesystem'. Did you mean 'AppFileSystem'?
+packages/navi/src/config/migrate-tui-config.ts(42,59): error TS7006: Parameter 'error' implicitly has an 'any' type.
+packages/navi/src/config/migrate-tui-config.ts(75,15): error TS7006: Parameter 'error' implicitly has an 'any' type.
+packages/navi/src/config/migrate-tui-config.ts(109,17): error TS7006: Parameter 'error' implicitly has an 'any' type.
+packages/navi/src/config/migrate-tui-config.ts(131,13): error TS7006: Parameter 'error' implicitly has an 'any' type.
+packages/navi/src/config/paths.ts(6,10): error TS2724: '"@/filesystem"' has no exported member named 'Filesystem'. Did you mean 'AppFileSystem'?
+packages/navi/src/config/tui.ts(120,30): error TS2322: Type 'unknown[]' is not assignable to type 'string[]'.
+  Type 'unknown' is not assignable to type 'string'.
+packages/navi/src/config/tui.ts(145,12): error TS18046: 'dir' is of type 'unknown'.
+packages/navi/src/config/tui.ts(146,54): error TS2345: Argument of type 'unknown' is not assignable to parameter of type 'string'.
+packages/navi/src/config/tui.ts(170,14): error TS18046: 'dir' is of type 'unknown'.
+packages/navi/src/config/tui.ts(171,31): error TS2345: Argument of type 'unknown' is not assignable to parameter of type 'string'.
+packages/navi/src/eval/framework.ts(51,38): error TS2339: Property 'evaluation' does not exist on type '{ disable_paste_summary?: boolean | undefined; batch_tool?: boolean | undefined; openTelemetry?: boolean | undefined; primary_tools?: string[] | undefined; continue_loop_on_deny?: boolean | undefined; mcp_timeout?: number | undefined; }'.
+packages/navi/src/eval/framework.ts(52,42): error TS2339: Property 'evaluation' does not exist on type '{ disable_paste_summary?: boolean | undefined; batch_tool?: boolean | undefined; openTelemetry?: boolean | undefined; primary_tools?: string[] | undefined; continue_loop_on_deny?: boolean | undefined; mcp_timeout?: number | undefined; }'.
+packages/navi/src/eval/framework.ts(60,30): error TS2339: Property 'evaluation' does not exist on type '{ disable_paste_summary?: boolean | undefined; batch_tool?: boolean | undefined; openTelemetry?: boolean | undefined; primary_tools?: string[] | undefined; continue_loop_on_deny?: boolean | undefined; mcp_timeout?: number | undefined; }'.
+packages/navi/src/file/index.ts(582,47): error TS2322: Type 'ParsedDiff' is not assignable to type '{ oldFileName: string; newFileName: string; hunks: { oldStart: number; oldLines: number; newStart: number; newLines: number; lines: string[]; }[]; oldHeader?: string | undefined; newHeader?: string | undefined; index?: string | undefined; }'.
+  Types of property 'oldFileName' are incompatible.
+    Type 'string | undefined' is not assignable to type 'string'.
+      Type 'undefined' is not assignable to type 'string'.
+packages/navi/src/hooks/comment-checker.ts(16,15): error TS2459: Module '"@/plugin"' declares 'Hooks' locally, but it is not exported.
+packages/navi/src/hooks/context-window-monitor.ts(16,15): error TS2459: Module '"@/plugin"' declares 'Hooks' locally, but it is not exported.
+packages/navi/src/hooks/context-window-monitor.ts(49,66): error TS7006: Parameter 'input' implicitly has an 'any' type.
+packages/navi/src/hooks/context-window-monitor.ts(49,73): error TS7006: Parameter 'output' implicitly has an 'any' type.
+packages/navi/src/hooks/context-window-monitor.ts(96,42): error TS7006: Parameter 'input' implicitly has an 'any' type.
+packages/navi/src/hooks/directory-agents-injector.ts(17,15): error TS2459: Module '"@/plugin"' declares 'Hooks' locally, but it is not exported.
+packages/navi/src/hooks/keyword-detector.ts(13,15): error TS2459: Module '"@/plugin"' declares 'Hooks' locally, but it is not exported.
+packages/navi/src/hooks/preemptive-compaction.ts(17,15): error TS2459: Module '"@/plugin"' declares 'Hooks' locally, but it is not exported.
+packages/navi/src/hooks/ralph-loop.ts(17,15): error TS2459: Module '"@/plugin"' declares 'Hooks' locally, but it is not exported.
+packages/navi/src/hooks/ralph-loop.ts(206,42): error TS7006: Parameter 'input' implicitly has an 'any' type.
+packages/navi/src/hooks/rules-injector.ts(16,15): error TS2459: Module '"@/plugin"' declares 'Hooks' locally, but it is not exported.
+packages/navi/src/hooks/session-recovery.ts(12,15): error TS2459: Module '"@/plugin"' declares 'Hooks' locally, but it is not exported.
+packages/navi/src/hooks/session-recovery.ts(240,42): error TS7006: Parameter 'input' implicitly has an 'any' type.
+packages/navi/src/hooks/think-mode.ts(8,15): error TS2459: Module '"@/plugin"' declares 'Hooks' locally, but it is not exported.
+packages/navi/src/hooks/think-mode.ts(103,32): error TS7006: Parameter 'input' implicitly has an 'any' type.
+packages/navi/src/hooks/think-mode.ts(103,39): error TS7006: Parameter 'output' implicitly has an 'any' type.
+packages/navi/src/hooks/think-mode.ts(125,31): error TS7006: Parameter 'input' implicitly has an 'any' type.
+packages/navi/src/hooks/think-mode.ts(125,38): error TS7006: Parameter 'output' implicitly has an 'any' type.
+packages/navi/src/hooks/think-mode.ts(136,25): error TS7031: Binding element 'event' implicitly has an 'any' type.
+packages/navi/src/hooks/todo-continuation-enforcer.ts(16,15): error TS2459: Module '"@/plugin"' declares 'Hooks' locally, but it is not exported.
+packages/navi/src/hooks/todo-continuation-enforcer.ts(112,42): error TS7006: Parameter 'input' implicitly has an 'any' type.
+packages/navi/src/native/file-ops.ts(1,18): error TS2307: Cannot find module 'fast-glob' or its corresponding type declarations.
+packages/navi/src/native/file-ops.ts(2,16): error TS2307: Cannot find module 'fs-extra' or its corresponding type declarations.
+packages/navi/src/native/grep.ts(1,16): error TS2307: Cannot find module 'fs-extra' or its corresponding type declarations.
+packages/navi/src/permission/mode-types.ts(55,25): error TS2554: Expected 2-3 arguments, but got 1.
+packages/navi/src/plugin/antigravity.ts(18,14): error TS2322: Type '(_ctx: any) => Promise<{ auth: AuthHook; }>' is not assignable to type 'Plugin'.
+packages/navi/src/plugin/antigravity.ts(18,53): error TS7006: Parameter '_ctx' implicitly has an 'any' type.
+packages/navi/src/plugin/codex.ts(380,11): error TS18046: 'model' is of type 'unknown'.
+packages/navi/src/plugin/copilot.ts(35,13): error TS18046: 'model' is of type 'unknown'.
+packages/navi/src/plugin/copilot.ts(57,13): error TS18046: 'model' is of type 'unknown'.
+packages/navi/src/plugin/copilot.ts(322,36): error TS7006: Parameter 'part' implicitly has an 'any' type.
+packages/navi/src/plugin/index.ts(5,34): error TS2307: Cannot find module '@/sdk' or its corresponding type declarations.
+packages/navi/src/plugin/index.ts(133,27): error TS7019: Rest parameter 'args' implicitly has an 'any[]' type.
+packages/navi/src/plugin/index.ts(133,62): error TS2556: A spread argument must either have a tuple type or be passed to a rest parameter.
+packages/navi/src/plugin/install.ts(12,10): error TS2724: '"@/filesystem"' has no exported member named 'Filesystem'. Did you mean 'AppFileSystem'?
+packages/navi/src/plugin/meta.ts(6,10): error TS2724: '"@/filesystem"' has no exported member named 'Filesystem'. Did you mean 'AppFileSystem'?
+packages/navi/src/plugin/meta.ts(80,14): error TS7006: Parameter 'item' implicitly has an 'any' type.
+packages/navi/src/plugin/shared.ts(5,10): error TS2724: '"@/filesystem"' has no exported member named 'Filesystem'. Did you mean 'AppFileSystem'?
+packages/navi/src/plugin/types.ts(13,8): error TS2307: Cannot find module '@/sdk' or its corresponding type declarations.
+packages/navi/src/project/instance.ts(3,10): error TS2724: '"@/filesystem"' has no exported member named 'Filesystem'. Did you mean 'AppFileSystem'?
+packages/navi/src/provider/antigravity.ts(11,15): error TS2459: Module '"@/plugin"' declares 'Hooks' locally, but it is not exported.
+packages/navi/src/provider/antigravity.ts(11,22): error TS2305: Module '"@/plugin"' has no exported member 'AuthHook'.
+packages/navi/src/provider/antigravity.ts(11,32): error TS2305: Module '"@/plugin"' has no exported member 'AuthOuathResult'.
+packages/navi/src/provider/antigravity.ts(11,49): error TS2459: Module '"@/plugin"' declares 'PluginInput' locally, but it is not exported.
+packages/navi/src/provider/antigravity.ts(674,18): error TS7006: Parameter 'getAuth' implicitly has an 'any' type.
+packages/navi/src/provider/auth.ts(1,15): error TS2305: Module '"@/plugin"' has no exported member 'AuthOAuthResult'.
+packages/navi/src/provider/auth.ts(1,32): error TS2459: Module '"@/plugin"' declares 'Hooks' locally, but it is not exported.
+packages/navi/src/provider/auth.ts(140,14): error TS7006: Parameter 'method' implicitly has an 'any' type.
+packages/navi/src/provider/auth.ts(143,45): error TS7006: Parameter 'prompt' implicitly has an 'any' type.
+packages/navi/src/provider/auth.ts(187,16): error TS18046: 'result' is of type 'unknown'.
+packages/navi/src/provider/auth.ts(188,19): error TS18046: 'result' is of type 'unknown'.
+packages/navi/src/provider/auth.ts(189,25): error TS18046: 'result' is of type 'unknown'.
+packages/navi/src/provider/auth.ts(208,31): error TS2339: Property 'type' does not exist on type '{}'.
+packages/navi/src/provider/auth.ts(210,22): error TS2638: Type '{}' may represent a primitive value, which is not permitted as the right operand of the 'in' operator.
+packages/navi/src/provider/auth.ts(213,13): error TS2322: Type 'unknown' is not assignable to type 'string'.
+packages/navi/src/provider/auth.ts(217,26): error TS2638: Type '{}' may represent a primitive value, which is not permitted as the right operand of the 'in' operator.
+packages/navi/src/provider/auth.ts(218,19): error TS2339: Property 'type' does not exist on type 'Record<"refresh", unknown>'.
+packages/navi/src/provider/auth.ts(218,28): error TS2339: Property 'provider' does not exist on type 'Record<"refresh", unknown>'.
+packages/navi/src/provider/auth.ts(218,51): error TS2339: Property 'access' does not exist on type 'Record<"refresh", unknown>'.
+packages/navi/src/provider/auth.ts(218,59): error TS2339: Property 'expires' does not exist on type 'Record<"refresh", unknown>'.
+packages/navi/src/provider/auth.ts(222,13): error TS2322: Type 'unknown' is not assignable to type 'string'.
+packages/navi/src/provider/cline-provider.ts(1,15): error TS2459: Module '"@/plugin"' declares 'Hooks' locally, but it is not exported.
+packages/navi/src/provider/cline-provider.ts(1,22): error TS2305: Module '"@/plugin"' has no exported member 'AuthHook'.
+packages/navi/src/provider/cline-provider.ts(1,32): error TS2305: Module '"@/plugin"' has no exported member 'AuthOuathResult'.
+packages/navi/src/provider/cline-provider.ts(1,49): error TS2459: Module '"@/plugin"' declares 'PluginInput' locally, but it is not exported.
+packages/navi/src/provider/cline-provider.ts(44,18): error TS7006: Parameter 'getAuth' implicitly has an 'any' type.
+packages/navi/src/provider/fetch-models.ts(55,9): error TS2322: Type 'string' is not assignable to type 'string & Brand<"ModelID">'.
+  Type 'string' is not assignable to type 'Brand<"ModelID">'.
+packages/navi/src/provider/fetch-models.ts(56,9): error TS2322: Type 'string' is not assignable to type 'string & Brand<"ProviderID">'.
+  Type 'string' is not assignable to type 'Brand<"ProviderID">'.
+packages/navi/src/provider/gemini-cli.ts(16,15): error TS2459: Module '"@/plugin"' declares 'Hooks' locally, but it is not exported.
+packages/navi/src/provider/gemini-cli.ts(16,22): error TS2305: Module '"@/plugin"' has no exported member 'AuthHook'.
+packages/navi/src/provider/gemini-cli.ts(16,32): error TS2305: Module '"@/plugin"' has no exported member 'AuthOuathResult'.
+packages/navi/src/provider/gemini-cli.ts(16,49): error TS2459: Module '"@/plugin"' declares 'PluginInput' locally, but it is not exported.
+packages/navi/src/provider/gemini-cli.ts(898,18): error TS7006: Parameter 'getAuth' implicitly has an 'any' type.
+packages/navi/src/provider/health.ts(45,67): error TS2344: Type '"id" | "models" | "source" | "catalog"' does not satisfy the constraint '"id" | "name" | "options" | "key" | "env" | "models" | "source"'.
+  Type '"catalog"' is not assignable to type '"id" | "name" | "options" | "key" | "env" | "models" | "source"'.
+packages/navi/src/provider/health.ts(58,9): error TS2367: This comparison appears to be unintentional because the types '"custom" | "api" | "env" | "config"' and '"free"' have no overlap.
+packages/navi/src/provider/health.ts(68,37): error TS2339: Property 'ageMs' does not exist on type '{}'.
+packages/navi/src/provider/health.ts(107,75): error TS2344: Type '"id" | "models" | "source" | "catalog"' does not satisfy the constraint '"id" | "name" | "options" | "key" | "env" | "models" | "source"'.
+  Type '"catalog"' is not assignable to type '"id" | "name" | "options" | "key" | "env" | "models" | "source"'.
+packages/navi/src/provider/health.ts(112,31): error TS2345: Argument of type '{ id: string & Brand<"ProviderID">; name: string; source: "custom" | "api" | "env" | "config"; env: string[]; options: Record<string, any>; models: Record<string, { id: string & Brand<...>; ... 11 more ...; variants?: Record<...> | undefined; }>; key?: string | undefined; }[]' is not assignable to parameter of type 'Pick<{ id: string & Brand<"ProviderID">; name: string; source: "custom" | "api" | "env" | "config"; env: string[]; options: Record<string, any>; models: Record<string, { id: string & Brand<...>; ... 11 more ...; variants?: Record<...> | undefined; }>; key?: string | undefined; }, "id" | ... 2 more ... | "catalog">[]'.
+  Property 'catalog' is missing in type '{ id: string & Brand<"ProviderID">; name: string; source: "custom" | "api" | "env" | "config"; env: string[]; options: Record<string, any>; models: Record<string, { id: string & Brand<...>; ... 11 more ...; variants?: Record<...> | undefined; }>; key?: string | undefined; }' but required in type 'Pick<{ id: string & Brand<"ProviderID">; name: string; source: "custom" | "api" | "env" | "config"; env: string[]; options: Record<string, any>; models: Record<string, { id: string & Brand<...>; ... 11 more ...; variants?: Record<...> | undefined; }>; key?: string | undefined; }, "id" | ... 2 more ... | "catalog">'.
+packages/navi/src/provider/kilocode.ts(1,15): error TS2459: Module '"@/plugin"' declares 'Hooks' locally, but it is not exported.
+packages/navi/src/provider/kilocode.ts(1,22): error TS2305: Module '"@/plugin"' has no exported member 'AuthHook'.
+packages/navi/src/provider/kilocode.ts(1,32): error TS2305: Module '"@/plugin"' has no exported member 'AuthOuathResult'.
+packages/navi/src/provider/kilocode.ts(1,49): error TS2459: Module '"@/plugin"' declares 'PluginInput' locally, but it is not exported.
+packages/navi/src/provider/kilocode.ts(9,18): error TS7006: Parameter 'getAuth' implicitly has an 'any' type.
+packages/navi/src/provider/providers/cline.ts(66,33): error TS2322: Type 'string' is not assignable to type 'string & Brand<"ModelID">'.
+  Type 'string' is not assignable to type 'Brand<"ModelID">'.
+packages/navi/src/provider/providers/cline.ts(67,33): error TS2322: Type 'string' is not assignable to type 'string & Brand<"ProviderID">'.
+  Type 'string' is not assignable to type 'Brand<"ProviderID">'.
+packages/navi/src/provider/providers/cohere.ts(49,29): error TS2322: Type 'string' is not assignable to type 'string & Brand<"ModelID">'.
+  Type 'string' is not assignable to type 'Brand<"ModelID">'.
+packages/navi/src/provider/providers/cohere.ts(50,29): error TS2322: Type 'string' is not assignable to type 'string & Brand<"ProviderID">'.
+  Type 'string' is not assignable to type 'Brand<"ProviderID">'.
+packages/navi/src/provider/providers/kilocode.ts(72,29): error TS2322: Type 'string' is not assignable to type 'string & Brand<"ProviderID">'.
+  Type 'string' is not assignable to type 'Brand<"ProviderID">'.
+packages/navi/src/provider/providers/misc.ts(118,29): error TS2353: Object literal may only specify known properties, and 'isFree' does not exist in type '{ id: string & Brand<"ModelID">; providerID: string & Brand<"ProviderID">; api: { id: string; url: string; npm: string; }; name: string; capabilities: { temperature: boolean; ... 5 more ...; interleaved: boolean | { ...; }; }; ... 7 more ...; variants?: Record<...> | undefined; }'.
+packages/navi/src/provider/providers/misc.ts(283,29): error TS2353: Object literal may only specify known properties, and 'isFree' does not exist in type '{ id: string & Brand<"ModelID">; providerID: string & Brand<"ProviderID">; api: { id: string; url: string; npm: string; }; name: string; capabilities: { temperature: boolean; ... 5 more ...; interleaved: boolean | { ...; }; }; ... 7 more ...; variants?: Record<...> | undefined; }'.
+packages/navi/src/provider/providers/roocode.ts(66,33): error TS2322: Type 'string' is not assignable to type 'string & Brand<"ModelID">'.
+  Type 'string' is not assignable to type 'Brand<"ModelID">'.
+packages/navi/src/provider/providers/roocode.ts(67,33): error TS2322: Type 'string' is not assignable to type 'string & Brand<"ProviderID">'.
+  Type 'string' is not assignable to type 'Brand<"ProviderID">'.
+packages/navi/src/provider/qwen-cli.ts(7,15): error TS2459: Module '"@/plugin"' declares 'Hooks' locally, but it is not exported.
+packages/navi/src/provider/qwen-cli.ts(7,22): error TS2305: Module '"@/plugin"' has no exported member 'AuthHook'.
+packages/navi/src/provider/qwen-cli.ts(7,32): error TS2305: Module '"@/plugin"' has no exported member 'AuthOuathResult'.
+packages/navi/src/provider/qwen-cli.ts(7,49): error TS2459: Module '"@/plugin"' declares 'PluginInput' locally, but it is not exported.
+packages/navi/src/provider/qwen-cli.ts(272,18): error TS7006: Parameter '_getAuth' implicitly has an 'any' type.
+packages/navi/src/provider/sdk/openai-compatible/src/openai-compatible-provider.ts(96,10): error TS2352: Conversion of type '{ (modelId: string): OpenAICompatibleChatLanguageModel; languageModel: (modelId: string) => OpenAICompatibleChatLanguageModel; chat: (modelId: string) => OpenAICompatibleChatLanguageModel; responses: (modelId: string) => OpenAIResponsesLanguageModel; }' to type 'OpenaiCompatibleProvider' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  The types of 'chat(...).specificationVersion' are incompatible between these types.
+    Type '"v3"' is not comparable to type '"v2"'.
+packages/navi/src/provider/sdk/openai-compatible/src/responses/tool/code-interpreter.ts(1,10): error TS2724: '"@ai-sdk/provider-utils"' has no exported member named 'createProviderDefinedToolFactoryWithOutputSchema'. Did you mean 'createProviderToolFactoryWithOutputSchema'?
+packages/navi/src/provider/sdk/openai-compatible/src/responses/tool/file-search.ts(1,10): error TS2724: '"@ai-sdk/provider-utils"' has no exported member named 'createProviderDefinedToolFactoryWithOutputSchema'. Did you mean 'createProviderToolFactoryWithOutputSchema'?
+packages/navi/src/provider/sdk/openai-compatible/src/responses/tool/image-generation.ts(1,10): error TS2724: '"@ai-sdk/provider-utils"' has no exported member named 'createProviderDefinedToolFactoryWithOutputSchema'. Did you mean 'createProviderToolFactoryWithOutputSchema'?
+packages/navi/src/provider/sdk/openai-compatible/src/responses/tool/local-shell.ts(1,10): error TS2724: '"@ai-sdk/provider-utils"' has no exported member named 'createProviderDefinedToolFactoryWithOutputSchema'. Did you mean 'createProviderToolFactoryWithOutputSchema'?
+packages/navi/src/provider/sdk/openai-compatible/src/responses/tool/web-search-preview.ts(1,10): error TS2724: '"@ai-sdk/provider-utils"' has no exported member named 'createProviderDefinedToolFactory'. Did you mean 'createProviderToolFactory'?
+packages/navi/src/provider/sdk/openai-compatible/src/responses/tool/web-search.ts(1,10): error TS2724: '"@ai-sdk/provider-utils"' has no exported member named 'createProviderDefinedToolFactory'. Did you mean 'createProviderToolFactory'?
+packages/navi/src/server/project.ts(72,38): error TS2339: Property 'schema' does not exist on type '(input: { projectID: string & Brand<"ProjectID">; name?: string | undefined; icon?: { url?: string | undefined; override?: string | undefined; color?: string | undefined; } | undefined; commands?: { ...; } | undefined; }) => Promise<...>'.
+packages/navi/src/server/pty.ts(74,34): error TS2345: Argument of type 'string' is not assignable to parameter of type 'string & Brand<"PtyID">'.
+  Type 'string' is not assignable to type 'Brand<"PtyID">'.
+packages/navi/src/server/pty.ts(102,43): error TS2345: Argument of type 'string' is not assignable to parameter of type 'string & Brand<"PtyID">'.
+  Type 'string' is not assignable to type 'Brand<"PtyID">'.
+packages/navi/src/server/pty.ts(126,30): error TS2345: Argument of type 'string' is not assignable to parameter of type 'string & Brand<"PtyID">'.
+  Type 'string' is not assignable to type 'Brand<"PtyID">'.
+packages/navi/src/server/question.ts(60,9): error TS2322: Type 'string' is not assignable to type 'QuestionID'.
+packages/navi/src/server/question.ts(92,29): error TS2345: Argument of type 'string' is not assignable to parameter of type 'QuestionID'.
+packages/navi/src/server/router.ts(6,10): error TS2724: '"@/filesystem"' has no exported member named 'Filesystem'. Did you mean 'AppFileSystem'?
+packages/navi/src/server/routes/app.ts(86,72): error TS2339: Property 'Info' does not exist on type 'typeof Permission'.
+packages/navi/src/server/routes/app.ts(107,20): error TS2339: Property 'respond' does not exist on type 'typeof Permission'.
+packages/navi/src/session/AwaySummaryService.ts(18,51): error TS2322: Type 'string' is not assignable to type 'string & Brand<"SessionID">'.
+  Type 'string' is not assignable to type 'Brand<"SessionID">'.
+packages/navi/src/session/AwaySummaryService.ts(32,54): error TS2322: Type 'string' is not assignable to type 'string & Brand<"SessionID">'.
+  Type 'string' is not assignable to type 'Brand<"SessionID">'.
+packages/navi/src/session/compaction.ts(178,23): error TS18047: 'agent' is possibly 'null'.
+packages/navi/src/session/compaction.ts(179,38): error TS18047: 'agent' is possibly 'null'.
+packages/navi/src/session/compaction.ts(179,38): error TS2345: Argument of type 'string' is not assignable to parameter of type 'string & Brand<"ProviderID">'.
+  Type 'string' is not assignable to type 'Brand<"ProviderID">'.
+packages/navi/src/session/compaction.ts(179,62): error TS18047: 'agent' is possibly 'null'.
+packages/navi/src/session/compaction.ts(256,13): error TS2322: Type '{ name: string; mode: "subagent" | "primary" | "all" | "parallel"; permission: { permission: string; pattern: string; action: "ask" | "allow" | "deny"; }[]; options: Record<string, any>; ... 26 more ...; handleSteps?: any; } | null' is not assignable to type '{ name: string; mode: "subagent" | "primary" | "all" | "parallel"; permission: { permission: string; pattern: string; action: "ask" | "allow" | "deny"; }[]; options: Record<string, any>; ... 26 more ...; handleSteps?: any; }'.
+  Type 'null' is not assignable to type '{ name: string; mode: "subagent" | "primary" | "all" | "parallel"; permission: { permission: string; pattern: string; action: "ask" | "allow" | "deny"; }[]; options: Record<string, any>; ... 26 more ...; handleSteps?: any; }'.
+packages/navi/src/session/llm.ts(307,66): error TS2339: Property 'args' does not exist on type 'LanguageModelV3ToolCall'.
+packages/navi/src/session/processor.ts(382,26): error TS2488: Type 'Promise<{ info: { id: string & Brand<"MessageID">; sessionID: string & Brand<"SessionID">; role: "user"; time: { created: number; }; agent: string; model: { providerID: string & Brand<...>; modelID: string & Brand<...>; }; ... 4 more ...; variant?: string | undefined; } | { ...; }; parts: ({ ...; } | ... 10 more ......' must have a '[Symbol.iterator]()' method that returns an iterator.
+packages/navi/src/session/processor.ts(590,11): error TS2322: Type '(streamInput: StreamInput) => Effect<"stop" | "continue" | "compact", never, unknown>' is not assignable to type '(streamInput: StreamInput) => Effect<Result, never, never>'.
+  Type 'Effect<"stop" | "continue" | "compact", never, unknown>' is not assignable to type 'Effect<Result, never, never>'.
+    Type 'unknown' is not assignable to type 'never'.
+packages/navi/src/session/processor.ts(594,27): error TS2322: Type '(input: Input) => Effect<{ readonly message: { id: string & Brand<"MessageID">; sessionID: string & Brand<"SessionID">; role: "assistant"; time: { created: number; completed?: number | undefined; }; ... 12 more ...; finish?: string | undefined; }; partFromToolCall(toolCallID: string): { ...; }; abort: () => Effect<....' is not assignable to type '(input: Input) => Effect<Handle, never, never>'.
+  Type 'Effect<{ readonly message: { id: string & Brand<"MessageID">; sessionID: string & Brand<"SessionID">; role: "assistant"; time: { created: number; completed?: number | undefined; }; parentID: string & Brand<...>; ... 11 more ...; finish?: string | undefined; }; partFromToolCall(toolCallID: string): { ...; }; abort: (...' is not assignable to type 'Effect<Handle, never, never>'.
+    Type '{ readonly message: { id: string & Brand<"MessageID">; sessionID: string & Brand<"SessionID">; role: "assistant"; time: { created: number; completed?: number | undefined; }; parentID: string & Brand<...>; ... 11 more ...; finish?: string | undefined; }; partFromToolCall(toolCallID: string): { ...; }; abort: () => Ef...' is not assignable to type 'Handle'.
+      The types returned by 'process(...)' are incompatible between these types.
+        Type 'Effect<"stop" | "continue" | "compact", never, unknown>' is not assignable to type 'Effect<Result, never, never>'.
+          Type 'unknown' is not assignable to type 'never'.
+packages/navi/src/session/prompt/command.ts(10,28): error TS2307: Cannot find module '@/sdk/util/error' or its corresponding type declarations.
+packages/navi/src/session/prompt/command.ts(54,23): error TS18048: 'command' is possibly 'undefined'.
+packages/navi/src/session/prompt/command.ts(59,35): error TS18048: 'command' is possibly 'undefined'.
+packages/navi/src/session/prompt/command.ts(94,13): error TS18048: 'command' is possibly 'undefined'.
+packages/navi/src/session/prompt/command.ts(95,40): error TS18048: 'command' is possibly 'undefined'.
+packages/navi/src/session/prompt/command.ts(97,13): error TS18048: 'command' is possibly 'undefined'.
+packages/navi/src/session/prompt/command.ts(98,46): error TS18048: 'command' is possibly 'undefined'.
+packages/navi/src/session/prompt/command.ts(108,33): error TS2345: Argument of type 'string' is not assignable to parameter of type 'string & Brand<"ProviderID">'.
+  Type 'string' is not assignable to type 'Brand<"ProviderID">'.
+packages/navi/src/session/prompt/command.ts(114,17): error TS2322: Type 'string' is not assignable to type 'string & Brand<"SessionID">'.
+  Type 'string' is not assignable to type 'Brand<"SessionID">'.
+packages/navi/src/session/prompt/command.ts(126,13): error TS2322: Type 'string' is not assignable to type 'string & Brand<"SessionID">'.
+  Type 'string' is not assignable to type 'Brand<"SessionID">'.
+packages/navi/src/session/prompt/command.ts(134,39): error TS18048: 'command' is possibly 'undefined'.
+packages/navi/src/session/prompt/command.ts(134,69): error TS18048: 'command' is possibly 'undefined'.
+packages/navi/src/session/prompt/command.ts(139,34): error TS18048: 'command' is possibly 'undefined'.
+packages/navi/src/session/prompt/command.ts(147,9): error TS18048: 'command' is possibly 'undefined'.
+packages/navi/src/session/prompt/command.ts(147,17): error TS2339: Property 'handler' does not exist on type 'Info'.
+packages/navi/src/session/prompt/command.ts(149,37): error TS18048: 'command' is possibly 'undefined'.
+packages/navi/src/session/prompt/command.ts(149,45): error TS2339: Property 'handler' does not exist on type 'Info'.
+packages/navi/src/session/prompt/command.ts(156,17): error TS2322: Type 'string' is not assignable to type 'string & Brand<"MessageID">'.
+  Type 'string' is not assignable to type 'Brand<"MessageID">'.
+packages/navi/src/session/prompt/command.ts(157,17): error TS2322: Type 'string' is not assignable to type 'string & Brand<"SessionID">'.
+  Type 'string' is not assignable to type 'Brand<"SessionID">'.
+packages/navi/src/session/prompt/command.ts(161,17): error TS2322: Type '{ modelID: string; providerID: string; }' is not assignable to type '{ providerID: string & Brand<"ProviderID">; modelID: string & Brand<"ModelID">; }'.
+  Types of property 'providerID' are incompatible.
+    Type 'string' is not assignable to type 'string & Brand<"ProviderID">'.
+      Type 'string' is not assignable to type 'Brand<"ProviderID">'.
+packages/navi/src/session/prompt/command.ts(176,50): error TS2322: Type 'string' is not assignable to type 'string & Brand<"SessionID">'.
+  Type 'string' is not assignable to type 'Brand<"SessionID">'.
+packages/navi/src/session/prompt/command.ts(176,102): error TS2345: Argument of type 'string' is not assignable to parameter of type 'string & Brand<"SessionID">'.
+  Type 'string' is not assignable to type 'Brand<"SessionID">'.
+packages/navi/src/session/prompt/command.ts(182,13): error TS2322: Type 'string' is not assignable to type 'string & Brand<"MessageID">'.
+  Type 'string' is not assignable to type 'Brand<"MessageID">'.
+packages/navi/src/session/prompt/command.ts(183,13): error TS2322: Type 'string' is not assignable to type 'string & Brand<"SessionID">'.
+  Type 'string' is not assignable to type 'Brand<"SessionID">'.
+packages/navi/src/session/prompt/command.ts(185,13): error TS2322: Type 'string' is not assignable to type 'string & Brand<"MessageID">'.
+  Type 'string' is not assignable to type 'Brand<"MessageID">'.
+packages/navi/src/session/prompt/command.ts(187,13): error TS2322: Type 'string' is not assignable to type 'string & Brand<"ModelID">'.
+  Type 'string' is not assignable to type 'Brand<"ModelID">'.
+packages/navi/src/session/prompt/command.ts(188,13): error TS2322: Type 'string' is not assignable to type 'string & Brand<"ProviderID">'.
+  Type 'string' is not assignable to type 'Brand<"ProviderID">'.
+packages/navi/src/session/prompt/command.ts(199,13): error TS2322: Type 'string' is not assignable to type 'string & Brand<"PartID">'.
+  Type 'string' is not assignable to type 'Brand<"PartID">'.
+packages/navi/src/session/prompt/command.ts(200,13): error TS2322: Type 'string' is not assignable to type 'string & Brand<"MessageID">'.
+  Type 'string' is not assignable to type 'Brand<"MessageID">'.
+packages/navi/src/session/prompt/command.ts(201,13): error TS2322: Type 'string' is not assignable to type 'string & Brand<"SessionID">'.
+  Type 'string' is not assignable to type 'Brand<"SessionID">'.
+packages/navi/src/session/prompt/command.ts(214,13): error TS2322: Type 'string' is not assignable to type 'string & Brand<"SessionID">'.
+  Type 'string' is not assignable to type 'Brand<"SessionID">'.
+packages/navi/src/session/prompt/command.ts(233,9): error TS2322: Type 'string' is not assignable to type 'string & Brand<"SessionID">'.
+  Type 'string' is not assignable to type 'Brand<"SessionID">'.
+packages/navi/src/session/prompt/reminders.ts(21,13): error TS2322: Type 'string' is not assignable to type 'string & Brand<"PartID">'.
+  Type 'string' is not assignable to type 'Brand<"PartID">'.
+packages/navi/src/session/prompt/reminders.ts(33,13): error TS2322: Type 'string' is not assignable to type 'string & Brand<"PartID">'.
+  Type 'string' is not assignable to type 'Brand<"PartID">'.
+packages/navi/src/session/prompt/shell.ts(45,23): error TS2345: Argument of type 'string' is not assignable to parameter of type 'string & Brand<"SessionID">'.
+  Type 'string' is not assignable to type 'Brand<"SessionID">'.
+packages/navi/src/session/prompt/shell.ts(66,39): error TS2345: Argument of type 'string' is not assignable to parameter of type 'string & Brand<"SessionID">'.
+  Type 'string' is not assignable to type 'Brand<"SessionID">'.
+packages/navi/src/session/prompt/shell.ts(71,34): error TS18047: 'agent' is possibly 'null'.
+packages/navi/src/session/prompt/shell.ts(73,9): error TS2322: Type 'string' is not assignable to type 'string & Brand<"MessageID">'.
+  Type 'string' is not assignable to type 'Brand<"MessageID">'.
+packages/navi/src/session/prompt/shell.ts(74,9): error TS2322: Type 'string' is not assignable to type 'string & Brand<"SessionID">'.
+  Type 'string' is not assignable to type 'Brand<"SessionID">'.
+packages/navi/src/session/prompt/shell.ts(81,13): error TS2322: Type 'string' is not assignable to type 'string & Brand<"ProviderID">'.
+  Type 'string' is not assignable to type 'Brand<"ProviderID">'.
+packages/navi/src/session/prompt/shell.ts(82,13): error TS2322: Type 'string' is not assignable to type 'string & Brand<"ModelID">'.
+  Type 'string' is not assignable to type 'Brand<"ModelID">'.
+packages/navi/src/session/prompt/shell.ts(88,9): error TS2322: Type 'string' is not assignable to type 'string & Brand<"PartID">'.
+  Type 'string' is not assignable to type 'Brand<"PartID">'.
+packages/navi/src/session/prompt/shell.ts(90,9): error TS2322: Type 'string' is not assignable to type 'string & Brand<"SessionID">'.
+  Type 'string' is not assignable to type 'Brand<"SessionID">'.
+packages/navi/src/session/prompt/shell.ts(97,9): error TS2322: Type 'string' is not assignable to type 'string & Brand<"MessageID">'.
+  Type 'string' is not assignable to type 'Brand<"MessageID">'.
+packages/navi/src/session/prompt/shell.ts(98,9): error TS2322: Type 'string' is not assignable to type 'string & Brand<"SessionID">'.
+  Type 'string' is not assignable to type 'Brand<"SessionID">'.
+packages/navi/src/session/prompt/shell.ts(117,9): error TS2322: Type 'string' is not assignable to type 'string & Brand<"ModelID">'.
+  Type 'string' is not assignable to type 'Brand<"ModelID">'.
+packages/navi/src/session/prompt/shell.ts(118,9): error TS2322: Type 'string' is not assignable to type 'string & Brand<"ProviderID">'.
+  Type 'string' is not assignable to type 'Brand<"ProviderID">'.
+packages/navi/src/session/prompt/shell.ts(123,9): error TS2322: Type 'string' is not assignable to type 'string & Brand<"PartID">'.
+  Type 'string' is not assignable to type 'Brand<"PartID">'.
+packages/navi/src/session/prompt/shell.ts(125,9): error TS2322: Type 'string' is not assignable to type 'string & Brand<"SessionID">'.
+  Type 'string' is not assignable to type 'Brand<"SessionID">'.
+packages/navi/src/session/prompt/shell.ts(192,18): error TS2339: Property 'state' does not exist on type '{ id: string & Brand<"PartID">; sessionID: string & Brand<"SessionID">; messageID: string & Brand<"MessageID">; type: "file"; mime: string; url: string; filename?: string | undefined; source?: { ...; } | ... 2 more ... | undefined; } | ... 10 more ... | { ...; }'.
+  Property 'state' does not exist on type '{ id: string & Brand<"PartID">; sessionID: string & Brand<"SessionID">; messageID: string & Brand<"MessageID">; type: "file"; mime: string; url: string; filename?: string | undefined; source?: { ...; } | ... 2 more ... | undefined; }'.
+packages/navi/src/session/prompt/shell.ts(193,18): error TS2339: Property 'state' does not exist on type '{ id: string & Brand<"PartID">; sessionID: string & Brand<"SessionID">; messageID: string & Brand<"MessageID">; type: "file"; mime: string; url: string; filename?: string | undefined; source?: { ...; } | ... 2 more ... | undefined; } | ... 10 more ... | { ...; }'.
+  Property 'state' does not exist on type '{ id: string & Brand<"PartID">; sessionID: string & Brand<"SessionID">; messageID: string & Brand<"MessageID">; type: "file"; mime: string; url: string; filename?: string | undefined; source?: { ...; } | ... 2 more ... | undefined; }'.
+packages/navi/src/session/prompt/shell.ts(203,18): error TS2339: Property 'state' does not exist on type '{ id: string & Brand<"PartID">; sessionID: string & Brand<"SessionID">; messageID: string & Brand<"MessageID">; type: "file"; mime: string; url: string; filename?: string | undefined; source?: { ...; } | ... 2 more ... | undefined; } | ... 10 more ... | { ...; }'.
+  Property 'state' does not exist on type '{ id: string & Brand<"PartID">; sessionID: string & Brand<"SessionID">; messageID: string & Brand<"MessageID">; type: "file"; mime: string; url: string; filename?: string | undefined; source?: { ...; } | ... 2 more ... | undefined; }'.
+packages/navi/src/session/prompt/shell.ts(204,18): error TS2339: Property 'state' does not exist on type '{ id: string & Brand<"PartID">; sessionID: string & Brand<"SessionID">; messageID: string & Brand<"MessageID">; type: "file"; mime: string; url: string; filename?: string | undefined; source?: { ...; } | ... 2 more ... | undefined; } | ... 10 more ... | { ...; }'.
+  Property 'state' does not exist on type '{ id: string & Brand<"PartID">; sessionID: string & Brand<"SessionID">; messageID: string & Brand<"MessageID">; type: "file"; mime: string; url: string; filename?: string | undefined; source?: { ...; } | ... 2 more ... | undefined; }'.
+packages/navi/src/session/prompt/shell.ts(242,14): error TS2339: Property 'state' does not exist on type '{ id: string & Brand<"PartID">; sessionID: string & Brand<"SessionID">; messageID: string & Brand<"MessageID">; type: "file"; mime: string; url: string; filename?: string | undefined; source?: { ...; } | ... 2 more ... | undefined; } | ... 10 more ... | { ...; }'.
+  Property 'state' does not exist on type '{ id: string & Brand<"PartID">; sessionID: string & Brand<"SessionID">; messageID: string & Brand<"MessageID">; type: "file"; mime: string; url: string; filename?: string | undefined; source?: { ...; } | ... 2 more ... | undefined; }'.
+packages/navi/src/session/prompt/shell.ts(243,14): error TS2339: Property 'state' does not exist on type '{ id: string & Brand<"PartID">; sessionID: string & Brand<"SessionID">; messageID: string & Brand<"MessageID">; type: "file"; mime: string; url: string; filename?: string | undefined; source?: { ...; } | ... 2 more ... | undefined; } | ... 10 more ... | { ...; }'.
+  Property 'state' does not exist on type '{ id: string & Brand<"PartID">; sessionID: string & Brand<"SessionID">; messageID: string & Brand<"MessageID">; type: "file"; mime: string; url: string; filename?: string | undefined; source?: { ...; } | ... 2 more ... | undefined; }'.
+packages/navi/src/session/prompt/shell.ts(246,25): error TS2339: Property 'state' does not exist on type '{ id: string & Brand<"PartID">; sessionID: string & Brand<"SessionID">; messageID: string & Brand<"MessageID">; type: "file"; mime: string; url: string; filename?: string | undefined; source?: { ...; } | ... 2 more ... | undefined; } | ... 10 more ... | { ...; }'.
+  Property 'state' does not exist on type '{ id: string & Brand<"PartID">; sessionID: string & Brand<"SessionID">; messageID: string & Brand<"MessageID">; type: "file"; mime: string; url: string; filename?: string | undefined; source?: { ...; } | ... 2 more ... | undefined; }'.
+packages/navi/src/session/prompt/shell.ts(249,25): error TS2339: Property 'state' does not exist on type '{ id: string & Brand<"PartID">; sessionID: string & Brand<"SessionID">; messageID: string & Brand<"MessageID">; type: "file"; mime: string; url: string; filename?: string | undefined; source?: { ...; } | ... 2 more ... | undefined; } | ... 10 more ... | { ...; }'.
+  Property 'state' does not exist on type '{ id: string & Brand<"PartID">; sessionID: string & Brand<"SessionID">; messageID: string & Brand<"MessageID">; type: "file"; mime: string; url: string; filename?: string | undefined; source?: { ...; } | ... 2 more ... | undefined; }'.
+packages/navi/src/session/prompt/subtask.ts(28,9): error TS2322: Type 'string' is not assignable to type 'string & Brand<"MessageID">'.
+  Type 'string' is not assignable to type 'Brand<"MessageID">'.
+packages/navi/src/session/prompt/subtask.ts(31,9): error TS2322: Type 'string' is not assignable to type 'string & Brand<"SessionID">'.
+  Type 'string' is not assignable to type 'Brand<"SessionID">'.
+packages/navi/src/session/prompt/subtask.ts(52,9): error TS2322: Type 'string' is not assignable to type 'string & Brand<"PartID">'.
+  Type 'string' is not assignable to type 'Brand<"PartID">'.
+packages/navi/src/session/prompt/subtask.ts(91,9): error TS2322: Type 'string' is not assignable to type 'string & Brand<"SessionID">'.
+  Type 'string' is not assignable to type 'Brand<"SessionID">'.
+packages/navi/src/session/prompt/subtask.ts(110,47): error TS18047: 'taskAgent' is possibly 'null'.
+packages/navi/src/session/prompt/subtask.ts(140,17): error TS2322: Type 'Omit<{ id: string & Brand<"PartID">; sessionID: string & Brand<"SessionID">; messageID: string & Brand<"MessageID">; type: "file"; mime: string; url: string; filename?: string | undefined; source?: { ...; } | ... 2 more ... | undefined; }, "id" | ... 1 more ... | "messageID">[] | undefined' is not assignable to type '{ id: string & Brand<"PartID">; sessionID: string & Brand<"SessionID">; messageID: string & Brand<"MessageID">; type: "file"; mime: string; url: string; filename?: string | undefined; source?: { ...; } | ... 2 more ... | undefined; }[] | undefined'.
+  Type 'Omit<{ id: string & Brand<"PartID">; sessionID: string & Brand<"SessionID">; messageID: string & Brand<"MessageID">; type: "file"; mime: string; url: string; filename?: string | undefined; source?: { ...; } | ... 2 more ... | undefined; }, "id" | ... 1 more ... | "messageID">[]' is not assignable to type '{ id: string & Brand<"PartID">; sessionID: string & Brand<"SessionID">; messageID: string & Brand<"MessageID">; type: "file"; mime: string; url: string; filename?: string | undefined; source?: { ...; } | ... 2 more ... | undefined; }[]'.
+    Type 'Omit<{ id: string & Brand<"PartID">; sessionID: string & Brand<"SessionID">; messageID: string & Brand<"MessageID">; type: "file"; mime: string; url: string; filename?: string | undefined; source?: { ...; } | ... 2 more ... | undefined; }, "id" | ... 1 more ... | "messageID">' is missing the following properties from type '{ id: string & Brand<"PartID">; sessionID: string & Brand<"SessionID">; messageID: string & Brand<"MessageID">; type: "file"; mime: string; url: string; filename?: string | undefined; source?: { ...; } | ... 2 more ... | undefined; }': id, sessionID, messageID
+packages/navi/src/session/prompt/subtask.ts(168,9): error TS2322: Type 'string' is not assignable to type 'string & Brand<"MessageID">'.
+  Type 'string' is not assignable to type 'Brand<"MessageID">'.
+packages/navi/src/session/prompt/subtask.ts(169,9): error TS2322: Type 'string' is not assignable to type 'string & Brand<"SessionID">'.
+  Type 'string' is not assignable to type 'Brand<"SessionID">'.
+packages/navi/src/session/prompt/subtask.ts(179,9): error TS2322: Type 'string' is not assignable to type 'string & Brand<"PartID">'.
+  Type 'string' is not assignable to type 'Brand<"PartID">'.
+packages/navi/src/session/prompt/subtask.ts(181,9): error TS2322: Type 'string' is not assignable to type 'string & Brand<"SessionID">'.
+  Type 'string' is not assignable to type 'Brand<"SessionID">'.
+packages/navi/src/session/prompt/title.ts(50,61): error TS2345: Argument of type 'string' is not assignable to parameter of type 'string & Brand<"ProviderID">'.
+  Type 'string' is not assignable to type 'Brand<"ProviderID">'.
+packages/navi/src/session/prompt/title.ts(52,47): error TS2345: Argument of type 'string' is not assignable to parameter of type 'string & Brand<"ProviderID">'.
+  Type 'string' is not assignable to type 'Brand<"ProviderID">'.
+packages/navi/src/session/prompt/title.ts(52,94): error TS2345: Argument of type 'string' is not assignable to parameter of type 'string & Brand<"ProviderID">'.
+  Type 'string' is not assignable to type 'Brand<"ProviderID">'.
+packages/navi/src/session/prompt/title.ts(61,29): error TS2551: Property 'toModelMessage' does not exist on type 'typeof MessageV2'. Did you mean 'toModelMessages'?
+packages/navi/src/session/prompt/title.ts(64,42): error TS7006: Parameter 'm' implicitly has an 'any' type.
+packages/navi/src/session/prompt/title.ts(81,43): error TS7006: Parameter 'err' implicitly has an 'any' type.
+packages/navi/src/session/prompt/title.ts(83,24): error TS2339: Property 'update' does not exist on type 'typeof Session'.
+packages/navi/src/session/prompt/title.ts(83,50): error TS7006: Parameter 'draft' implicitly has an 'any' type.
+packages/navi/src/session/prompt/title.ts(87,23): error TS7006: Parameter 'line' implicitly has an 'any' type.
+packages/navi/src/session/prompt/title.ts(88,24): error TS7006: Parameter 'line' implicitly has an 'any' type.
+packages/navi/src/session/prompt/tools.ts(26,33): error TS2694: Namespace '"V:/pankaj/navi/packages/navi/src/session/processor".SessionProcessor' has no exported member 'Info'.
+packages/navi/src/session/prompt/tools.ts(65,90): error TS2554: Expected 0-2 arguments, but got 5.
+packages/navi/src/session/prompt/tools.ts(74,90): error TS2554: Expected 0-2 arguments, but got 5.
+packages/navi/src/session/prompt/tools.ts(87,49): error TS2345: Argument of type 'string & Brand<"ProviderID">' is not assignable to parameter of type '{ providerID: string & Brand<"ProviderID">; modelID: string & Brand<"ModelID">; }'.
+  Type 'String & Brand<"ProviderID">' is missing the following properties from type '{ providerID: string & Brand<"ProviderID">; modelID: string & Brand<"ModelID">; }': providerID, modelID
+packages/navi/src/session/prompt/tools.ts(131,25): error TS2322: Type 'string' is not assignable to type 'string & Brand<"PartID">'.
+  Type 'string' is not assignable to type 'Brand<"PartID">'.
+packages/navi/src/session/prompt/tools.ts(141,25): error TS2322: Type 'string' is not assignable to type 'string & Brand<"PartID">'.
+  Type 'string' is not assignable to type 'Brand<"PartID">'.
+packages/navi/src/session/prompt/tools.ts(155,29): error TS2322: Type 'string' is not assignable to type 'string & Brand<"PartID">'.
+  Type 'string' is not assignable to type 'Brand<"PartID">'.
+packages/navi/src/session/prompt/user-message.ts(31,27): error TS18047: 'agent' is possibly 'null'.
+packages/navi/src/session/prompt/user-message.ts(42,16): error TS18047: 'agent' is possibly 'null'.
+packages/navi/src/session/prompt/user-message.ts(43,31): error TS18047: 'agent' is possibly 'null'.
+packages/navi/src/session/prompt/user-message.ts(57,9): error TS18047: 'agent' is possibly 'null'.
+packages/navi/src/session/prompt/user-message.ts(73,29): error TS2322: Type 'string' is not assignable to type 'string & Brand<"PartID">'.
+  Type 'string' is not assignable to type 'Brand<"PartID">'.
+packages/navi/src/session/prompt/user-message.ts(96,37): error TS2322: Type 'string' is not assignable to type 'string & Brand<"PartID">'.
+  Type 'string' is not assignable to type 'Brand<"PartID">'.
+packages/navi/src/session/prompt/user-message.ts(104,37): error TS2322: Type 'string' is not assignable to type 'string & Brand<"PartID">'.
+  Type 'string' is not assignable to type 'Brand<"PartID">'.
+packages/navi/src/session/prompt/user-message.ts(118,29): error TS2322: Type '{ id: string; messageID: string & Brand<"MessageID">; sessionID: any; type: "text"; synthetic: true; text: string; }' is not assignable to type '{ id: string & Brand<"PartID">; sessionID: string & Brand<"SessionID">; messageID: string & Brand<"MessageID">; type: "file"; mime: string; url: string; filename?: string | undefined; source?: { ...; } | ... 2 more ... | undefined; } | ... 10 more ... | { ...; }'.
+  Types of property 'id' are incompatible.
+    Type 'string' is not assignable to type 'string & Brand<"PartID">'.
+      Type 'string' is not assignable to type 'Brand<"PartID">'.
+packages/navi/src/session/prompt/user-message.ts(120,33): error TS2322: Type 'string' is not assignable to type 'string & Brand<"PartID">'.
+  Type 'string' is not assignable to type 'Brand<"PartID">'.
+packages/navi/src/session/prompt/user-message.ts(138,33): error TS2322: Type 'string' is not assignable to type 'string & Brand<"PartID">'.
+  Type 'string' is not assignable to type 'Brand<"PartID">'.
+packages/navi/src/session/prompt/user-message.ts(152,33): error TS2322: Type 'string' is not assignable to type 'string & Brand<"PartID">'.
+  Type 'string' is not assignable to type 'Brand<"PartID">'.
+packages/navi/src/session/prompt/user-message.ts(165,29): error TS2322: Type 'string' is not assignable to type 'string & Brand<"PartID">'.
+  Type 'string' is not assignable to type 'Brand<"PartID">'.
+packages/navi/src/session/prompt/user-message.ts(181,29): error TS2322: Type 'string' is not assignable to type 'string & Brand<"PartID">'.
+  Type 'string' is not assignable to type 'Brand<"PartID">'.
+packages/navi/src/session/rules.ts(2,10): error TS2724: '"@/filesystem"' has no exported member named 'Filesystem'. Did you mean 'AppFileSystem'?
+packages/navi/src/session/rules.ts(37,17): error TS18046: 'content' is of type 'unknown'.
+packages/navi/src/session/rules.ts(38,55): error TS18046: 'content' is of type 'unknown'.
+packages/navi/src/session/trace.ts(48,38): error TS2339: Property 'sessionTracing' does not exist on type '{ disable_paste_summary?: boolean | undefined; batch_tool?: boolean | undefined; openTelemetry?: boolean | undefined; primary_tools?: string[] | undefined; continue_loop_on_deny?: boolean | undefined; mcp_timeout?: number | undefined; }'.
+packages/navi/src/session/trace.ts(49,42): error TS2339: Property 'sessionTracing' does not exist on type '{ disable_paste_summary?: boolean | undefined; batch_tool?: boolean | undefined; openTelemetry?: boolean | undefined; primary_tools?: string[] | undefined; continue_loop_on_deny?: boolean | undefined; mcp_timeout?: number | undefined; }'.
+packages/navi/src/session/trace.ts(57,30): error TS2339: Property 'sessionTracing' does not exist on type '{ disable_paste_summary?: boolean | undefined; batch_tool?: boolean | undefined; openTelemetry?: boolean | undefined; primary_tools?: string[] | undefined; continue_loop_on_deny?: boolean | undefined; mcp_timeout?: number | undefined; }'.
+packages/navi/src/share/share-next.ts(11,27): error TS2307: Cannot find module '@/sdk/v2' or its corresponding type declarations.
+packages/navi/src/share/share.ts(18,33): error TS2339: Property 'getShare' does not exist on type 'typeof Session'.
+packages/navi/src/shell/shell.ts(3,10): error TS2724: '"@/filesystem"' has no exported member named 'Filesystem'. Did you mean 'AppFileSystem'?
+packages/navi/src/skill/skill.ts(4,28): error TS2307: Cannot find module '@/sdk/util/error' or its corresponding type declarations.
+packages/navi/src/skill/skill.ts(8,10): error TS2724: '"@/filesystem"' has no exported member named 'Filesystem'. Did you mean 'AppFileSystem'?
+packages/navi/src/skill/skill.ts(88,13): error TS2322: Type 'unknown' is not assignable to type 'string | undefined'.
+packages/navi/src/tool/background-task.ts(68,26): error TS2345: Argument of type 'string' is not assignable to parameter of type 'string & Brand<"SessionID">'.
+  Type 'string' is not assignable to type 'Brand<"SessionID">'.
+packages/navi/src/tool/background-task.ts(150,17): error TS2322: Type 'string' is not assignable to type 'string & Brand<"MessageID">'.
+  Type 'string' is not assignable to type 'Brand<"MessageID">'.
+packages/navi/src/tool/background-task.ts(153,21): error TS2322: Type 'string' is not assignable to type 'string & Brand<"ModelID">'.
+  Type 'string' is not assignable to type 'Brand<"ModelID">'.
+packages/navi/src/tool/background-task.ts(154,21): error TS2322: Type 'string' is not assignable to type 'string & Brand<"ProviderID">'.
+  Type 'string' is not assignable to type 'Brand<"ProviderID">'.
+packages/navi/src/tool/bash.ts(12,10): error TS2724: '"@/filesystem"' has no exported member named 'Filesystem'. Did you mean 'AppFileSystem'?
+packages/navi/src/tool/checkpoint.ts(34,57): error TS2345: Argument of type '() => Promise<{ description: string; parameters: ZodObject<{ action: ZodEnum<{ list: "list"; create: "create"; restore: "restore"; }>; hash: ZodOptional<ZodString>; name: ZodOptional<...>; message: ZodOptional<...>; }, $strip>; execute(params: { ...; }, ctx: Context<...>): Promise<...>; }>' is not assignable to parameter of type '((ctx?: InitContext | undefined) => Promise<Def<ZodObject<{ action: ZodEnum<{ list: "list"; create: "create"; restore: "restore"; }>; hash: ZodOptional<ZodString>; name: ZodOptional<...>; message: ZodOptional<...>; }, $strip>, { ...; }>>) | Def<...>'.
+  Type '() => Promise<{ description: string; parameters: ZodObject<{ action: ZodEnum<{ list: "list"; create: "create"; restore: "restore"; }>; hash: ZodOptional<ZodString>; name: ZodOptional<...>; message: ZodOptional<...>; }, $strip>; execute(params: { ...; }, ctx: Context<...>): Promise<...>; }>' is not assignable to type '(ctx?: InitContext | undefined) => Promise<Def<ZodObject<{ action: ZodEnum<{ list: "list"; create: "create"; restore: "restore"; }>; hash: ZodOptional<ZodString>; name: ZodOptional<...>; message: ZodOptional<...>; }, $strip>, { ...; }>>'.
+    Type 'Promise<{ description: string; parameters: ZodObject<{ action: ZodEnum<{ list: "list"; create: "create"; restore: "restore"; }>; hash: ZodOptional<ZodString>; name: ZodOptional<ZodString>; message: ZodOptional<...>; }, $strip>; execute(params: { ...; }, ctx: Context<...>): Promise<...>; }>' is not assignable to type 'Promise<Def<ZodObject<{ action: ZodEnum<{ list: "list"; create: "create"; restore: "restore"; }>; hash: ZodOptional<ZodString>; name: ZodOptional<ZodString>; message: ZodOptional<...>; }, $strip>, { ...; }>>'.
+      Type '{ description: string; parameters: ZodObject<{ action: ZodEnum<{ list: "list"; create: "create"; restore: "restore"; }>; hash: ZodOptional<ZodString>; name: ZodOptional<ZodString>; message: ZodOptional<...>; }, $strip>; execute(params: { ...; }, ctx: Context<...>): Promise<...>; }' is not assignable to type 'Def<ZodObject<{ action: ZodEnum<{ list: "list"; create: "create"; restore: "restore"; }>; hash: ZodOptional<ZodString>; name: ZodOptional<ZodString>; message: ZodOptional<...>; }, $strip>, { ...; }>'.
+        The types returned by 'execute(...)' are incompatible between these types.
+          Type 'Promise<{ title: string; output: string; metadata: { hash: undefined; }; } | { title: string; output: string; metadata: { hash: string; }; }>' is not assignable to type 'Promise<{ title: string; metadata: { hash: undefined; }; output: string; attachments?: Omit<{ id: string & Brand<"PartID">; sessionID: string & Brand<"SessionID">; messageID: string & Brand<...>; ... 4 more ...; source?: { ...; } | ... 2 more ... | undefined; }, "id" | ... 1 more ... | "messageID">[] | undefined; }>'.
+            Type '{ title: string; output: string; metadata: { hash: undefined; }; } | { title: string; output: string; metadata: { hash: string; }; }' is not assignable to type '{ title: string; metadata: { hash: undefined; }; output: string; attachments?: Omit<{ id: string & Brand<"PartID">; sessionID: string & Brand<"SessionID">; messageID: string & Brand<...>; ... 4 more ...; source?: { ...; } | ... 2 more ... | undefined; }, "id" | ... 1 more ... | "messageID">[] | undefined; }'.
+              Type '{ title: string; output: string; metadata: { hash: string; }; }' is not assignable to type '{ title: string; metadata: { hash: undefined; }; output: string; attachments?: Omit<{ id: string & Brand<"PartID">; sessionID: string & Brand<"SessionID">; messageID: string & Brand<...>; ... 4 more ...; source?: { ...; } | ... 2 more ... | undefined; }, "id" | ... 1 more ... | "messageID">[] | undefined; }'.
+                The types of 'metadata.hash' are incompatible between these types.
+                  Type 'string' is not assignable to type 'undefined'.
+packages/navi/src/tool/external-directory.ts(4,10): error TS2724: '"@/filesystem"' has no exported member named 'Filesystem'. Did you mean 'AppFileSystem'?
+packages/navi/src/tool/GraphTool.ts(15,9): error TS2322: Type '(params: { symbolName: string; action: "impact_analysis" | "find_callers" | "get_dependencies"; }, ctx: Context<Metadata>) => Promise<{ title: string; output: string; metadata: { ...; }; } | { ...; } | { ...; }>' is not assignable to type '(args: { symbolName: string; action: "impact_analysis" | "find_callers" | "get_dependencies"; }, ctx: Context<Metadata>) => Promise<{ title: string; metadata: { symbolName: string; action: "impact_analysis" | "find_callers"; count: number; impactedFiles?: undefined; }; output: string; attachments?: Omit<...>[] | und...'.
+  Type 'Promise<{ title: string; output: string; metadata: { symbolName: string; action: "impact_analysis" | "find_callers"; count: number; impactedFiles?: undefined; }; } | { title: string; output: string; metadata: { ...; }; } | { ...; }>' is not assignable to type 'Promise<{ title: string; metadata: { symbolName: string; action: "impact_analysis" | "find_callers"; count: number; impactedFiles?: undefined; }; output: string; attachments?: Omit<{ id: string & Brand<...>; ... 6 more ...; source?: { ...; } | ... 2 more ... | undefined; }, "id" | ... 1 more ... | "messageID">[] | u...'.
+    Type '{ title: string; output: string; metadata: { symbolName: string; action: "impact_analysis" | "find_callers"; count: number; impactedFiles?: undefined; }; } | { title: string; output: string; metadata: { ...; }; } | { ...; }' is not assignable to type '{ title: string; metadata: { symbolName: string; action: "impact_analysis" | "find_callers"; count: number; impactedFiles?: undefined; }; output: string; attachments?: Omit<{ id: string & Brand<"PartID">; ... 6 more ...; source?: { ...; } | ... 2 more ... | undefined; }, "id" | ... 1 more ... | "messageID">[] | unde...'.
+      Type '{ title: string; output: string; metadata: { symbolName: string; action: "impact_analysis" | "find_callers"; impactedFiles: string[]; count: number; }; }' is not assignable to type '{ title: string; metadata: { symbolName: string; action: "impact_analysis" | "find_callers"; count: number; impactedFiles?: undefined; }; output: string; attachments?: Omit<{ id: string & Brand<"PartID">; ... 6 more ...; source?: { ...; } | ... 2 more ... | undefined; }, "id" | ... 1 more ... | "messageID">[] | unde...'.
+        The types of 'metadata.impactedFiles' are incompatible between these types.
+          Type 'string[]' is not assignable to type 'undefined'.
+packages/navi/src/tool/gsd.ts(61,21): error TS2322: Type 'string' is not assignable to type 'string & Brand<"MessageID">'.
+  Type 'string' is not assignable to type 'Brand<"MessageID">'.
+packages/navi/src/tool/gsd.ts(63,21): error TS2322: Type '{ modelID: string; providerID: string; } | undefined' is not assignable to type '{ providerID: string & Brand<"ProviderID">; modelID: string & Brand<"ModelID">; } | undefined'.
+  Type '{ modelID: string; providerID: string; }' is not assignable to type '{ providerID: string & Brand<"ProviderID">; modelID: string & Brand<"ModelID">; }'.
+    Types of property 'providerID' are incompatible.
+      Type 'string' is not assignable to type 'string & Brand<"ProviderID">'.
+        Type 'string' is not assignable to type 'Brand<"ProviderID">'.
+packages/navi/src/tool/gsd.ts(248,25): error TS2322: Type 'string' is not assignable to type 'string & Brand<"MessageID">'.
+  Type 'string' is not assignable to type 'Brand<"MessageID">'.
+packages/navi/src/tool/gsd.ts(383,49): error TS2345: Argument of type '"todo"' is not assignable to parameter of type '"message" | "question" | "permission" | "pty" | "tool" | "event" | "session" | "user" | "part" | "workspace"'.
+packages/navi/src/tool/gsd.ts(435,17): error TS2322: Type 'string' is not assignable to type 'string & Brand<"MessageID">'.
+  Type 'string' is not assignable to type 'Brand<"MessageID">'.
+packages/navi/src/tool/memory.ts(16,60): error TS2345: Argument of type 'Layer<MemoryService.Service, never, AppFileSystem.Service>' is not assignable to parameter of type 'Layer<Service, never, never>'.
+  Type 'Service' is not assignable to type 'never'.
+packages/navi/src/tool/parallel.ts(58,21): error TS2322: Type 'string' is not assignable to type 'string & Brand<"MessageID">'.
+  Type 'string' is not assignable to type 'Brand<"MessageID">'.
+packages/navi/src/tool/parallel.ts(60,21): error TS2322: Type '{ modelID: string; providerID: string; } | undefined' is not assignable to type '{ providerID: string & Brand<"ProviderID">; modelID: string & Brand<"ModelID">; } | undefined'.
+  Type '{ modelID: string; providerID: string; }' is not assignable to type '{ providerID: string & Brand<"ProviderID">; modelID: string & Brand<"ModelID">; }'.
+    Types of property 'providerID' are incompatible.
+      Type 'string' is not assignable to type 'string & Brand<"ProviderID">'.
+        Type 'string' is not assignable to type 'Brand<"ProviderID">'.
+packages/navi/src/tool/planning.ts(14,27): error TS2339: Property 'update' does not exist on type 'typeof Session'.
+packages/navi/src/tool/planning.ts(14,50): error TS7006: Parameter 'draft' implicitly has an 'any' type.
+packages/navi/src/tool/planning.ts(35,27): error TS2339: Property 'update' does not exist on type 'typeof Session'.
+packages/navi/src/tool/planning.ts(35,50): error TS7006: Parameter 'draft' implicitly has an 'any' type.
+packages/navi/src/tool/session.ts(51,17): error TS2322: Type 'string' is not assignable to type 'string & Brand<"SessionID">'.
+  Type 'string' is not assignable to type 'Brand<"SessionID">'.
+packages/navi/src/tool/session.ts(94,47): error TS2345: Argument of type 'string' is not assignable to parameter of type 'string & Brand<"SessionID">'.
+  Type 'string' is not assignable to type 'Brand<"SessionID">'.
+packages/navi/src/tool/summarize.ts(51,39): error TS2345: Argument of type 'string' is not assignable to parameter of type 'string & Brand<"ProviderID">'.
+  Type 'string' is not assignable to type 'Brand<"ProviderID">'.
+packages/navi/src/tool/summarize.ts(52,44): error TS2345: Argument of type 'string' is not assignable to parameter of type 'string & Brand<"ProviderID">'.
+  Type 'string' is not assignable to type 'Brand<"ProviderID">'.
+packages/navi/src/tool/summarize.ts(88,17): error TS2322: Type 'string' is not assignable to type 'string & Brand<"MessageID">'.
+  Type 'string' is not assignable to type 'Brand<"MessageID">'.
+packages/navi/src/tool/summarize.ts(89,17): error TS2322: Type 'string' is not assignable to type 'string & Brand<"SessionID">'.
+  Type 'string' is not assignable to type 'Brand<"SessionID">'.
+packages/navi/src/tool/task-tools.ts(18,7): error TS2353: Object literal may only specify known properties, and 'id' does not exist in type '{ content: string; status: string; priority: string; }'.
+packages/navi/src/tool/task-tools.ts(18,32): error TS2345: Argument of type '"todo"' is not assignable to parameter of type '"message" | "question" | "permission" | "pty" | "tool" | "event" | "session" | "user" | "part" | "workspace"'.
+packages/navi/src/tool/task-tools.ts(29,41): error TS2339: Property 'id' does not exist on type '{ content: string; status: string; priority: string; }'.
+packages/navi/src/tool/task-tools.ts(51,34): error TS2339: Property 'id' does not exist on type '{ content: string; status: string; priority: string; }'.
+packages/navi/src/tool/task-tools.ts(65,42): error TS2339: Property 'id' does not exist on type '{ content: string; status: string; priority: string; }'.
+packages/navi/src/tool/task-tools.ts(116,38): error TS2339: Property 'id' does not exist on type '{ content: string; status: string; priority: string; }'.
+packages/navi/src/worktree/index.ts(461,39): error TS2339: Property 'fromRow' does not exist on type 'typeof Project'.
+packages/navi/test/test-antigravity.ts(7,37): error TS2307: Cannot find module './src/provider/antigravity' or its corresponding type declarations.
+packages/navi/test/test-antigravity.ts(8,22): error TS2307: Cannot find module './src/auth' or its corresponding type declarations.
+packages/navi/test/test-antigravity.ts(47,45): error TS2307: Cannot find module './src/provider/antigravity' or its corresponding type declarations.
+packages/navi/test/test-antigravity.ts(64,45): error TS2307: Cannot find module './src/provider/antigravity' or its corresponding type declarations.
+packages/navi/test/test-code-assist.ts(1,32): error TS2307: Cannot find module './src/provider/gemini-cli.ts' or its corresponding type declarations.
+packages/navi/test/test-code-assist.ts(2,34): error TS2307: Cannot find module '../../gemini-cli/packages/core/src/code_assist/server.ts' or its corresponding type declarations.
+packages/navi/test/test-fetch-handling.ts(1,32): error TS2307: Cannot find module './src/provider/gemini-cli' or its corresponding type declarations.
+packages/navi/test/test-fetch-handling.ts(2,21): error TS2307: Cannot find module './src/util/log' or its corresponding type declarations.
+packages/navi/test/test-gemini-fix.ts(2,31): error TS2307: Cannot find module './src/provider/gemini-cli' or its corresponding type declarations.
+packages/navi/test/test-gemini-response.ts(2,32): error TS2307: Cannot find module './src/provider/gemini-cli' or its corresponding type declarations.
+packages/navi/test/test-minimal.ts(4,32): error TS2307: Cannot find module './src/provider/gemini-cli' or its corresponding type declarations.
+packages/navi/test/test-minimal.ts(5,31): error TS2307: Cannot find module './src/provider/gemini-cli' or its corresponding type declarations.
+packages/navi/test/test-minimal.ts(6,22): error TS2307: Cannot find module './src/auth' or its corresponding type declarations.
+packages/navi/test/test_models2.ts(8,17): error TS7053: Element implicitly has an 'any' type because expression of type '"roocode"' can't be used to index type 'Record<string & Brand<"ProviderID">, { id: string & Brand<"ProviderID">; name: string; source: "custom" | "api" | "env" | "config"; env: string[]; options: Record<string, any>; models: Record<...>; key?: string | undefined; }>'.
+  Property 'roocode' does not exist on type 'Record<string & Brand<"ProviderID">, { id: string & Brand<"ProviderID">; name: string; source: "custom" | "api" | "env" | "config"; env: string[]; options: Record<string, any>; models: Record<...>; key?: string | undefined; }>'.
+packages/navi/test/test_models2.ts(14,19): error TS7053: Element implicitly has an 'any' type because expression of type '"cline"' can't be used to index type 'Record<string & Brand<"ProviderID">, { id: string & Brand<"ProviderID">; name: string; source: "custom" | "api" | "env" | "config"; env: string[]; options: Record<string, any>; models: Record<...>; key?: string | undefined; }>'.
+  Property 'cline' does not exist on type 'Record<string & Brand<"ProviderID">, { id: string & Brand<"ProviderID">; name: string; source: "custom" | "api" | "env" | "config"; env: string[]; options: Record<string, any>; models: Record<...>; key?: string | undefined; }>'.
+script/adhoc/get-token.ts(2,22): error TS2307: Cannot find module './packages/navi/src/auth/index.js' or its corresponding type declarations.
+script/adhoc/test-new-agent.ts(1,72): error TS2307: Cannot find module './packages/agent/src' or its corresponding type declarations.
+script/adhoc/test-new-agent.ts(47,32): error TS7006: Parameter 'm' implicitly has an 'any' type.
+script/adhoc/test-new-agent.ts(47,35): error TS7006: Parameter 'i' implicitly has an 'any' type.
+script/adhoc/test-new-agent.ts(62,39): error TS2307: Cannot find module './packages/agent/src/skills/parser' or its corresponding type declarations.
+script/adhoc/test-qwen-auth.ts(6,22): error TS2307: Cannot find module './packages/navi/src/auth/index.ts' or its corresponding type declarations.
+script/adhoc/test-qwen-models.ts(6,22): error TS2307: Cannot find module './packages/navi/src/auth/index.ts' or its corresponding type declarations.
+script/adhoc/verify_rules.ts(1,29): error TS2307: Cannot find module './packages/navi/src/session/rules' or its corresponding type declarations.
+script/adhoc/verify_rules.ts(2,26): error TS2307: Cannot find module './packages/navi/src/project/instance' or its corresponding type declarations.
+script/adhoc/verify_rules.ts(3,28): error TS2307: Cannot find module './packages/navi/src/util/filesystem' or its corresponding type declarations.
+script/changelog.ts(4,10): error TS2724: '"@navi-ai/sdk"' has no exported member named 'createnavi'. Did you mean 'createNavi'?
+script/changelog.ts(157,12): error TS7006: Parameter 'x' implicitly has an 'any' type.
+script/changelog.ts(157,39): error TS7006: Parameter 'y' implicitly has an 'any' type.
+script/publish-start.ts(45,14): error TS2307: Cannot find module '../packages/plugin/script/publish.ts' or its corresponding type declarations.

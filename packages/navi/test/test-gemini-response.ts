@@ -1,5 +1,5 @@
 // Test script to directly test the Gemini CLI provider
-import { getAccessToken } from "./src/provider/gemini-cli"
+import { getAccessToken } from "../src/provider/gemini-cli"
 
 async function testGeminiResponse() {
     console.log("Testing Gemini CLI Provider Response...")

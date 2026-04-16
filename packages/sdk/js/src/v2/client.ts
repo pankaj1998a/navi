@@ -5,6 +5,39 @@ import { type Config } from "./gen/client/types.gen.js"
 import { NaviClient } from "./gen/sdk.gen.js"
 export { type Config as NaviClientConfig, NaviClient }
 
+export type Session = {
+  id: string
+  projectID: string
+  directory: string
+  parentID?: string
+  resumeFrom?: string
+  summary?: {
+    additions: number
+    deletions: number
+    files: number
+    diffs?: Array<any>
+  }
+  share?: {
+    url: string
+  }
+  title: string
+  version: string
+  time: {
+    created: number
+    updated: number
+    compacting?: number
+    archived?: number
+  }
+  permission?: any
+  revert?: {
+    messageID: string
+    partID?: string
+    snapshot?: string
+    diff?: string
+  }
+  status?: "todo" | "in_progress" | "done"
+}
+
 function pick(value: string | null, fallback?: string, encode?: (value: string) => string) {
   if (!value) return
   if (!fallback) return value
@@ -79,4 +112,3 @@ export function createNaviClient(config?: Config & { directory?: string; experim
   )
   return new NaviClient({ client })
 }
-

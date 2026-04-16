@@ -11,7 +11,7 @@ import { Global } from "../../global"
 import { Plugin } from "../../plugin"
 import { Instance } from "../../project/instance"
 import { Provider } from "../../provider/provider"
-import type { Hooks } from "@navi-ai/plugin"
+import type { Hooks } from "@/plugin"
 
 type PluginAuth = NonNullable<Hooks["auth"]>
 

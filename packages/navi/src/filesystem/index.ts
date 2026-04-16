@@ -6,6 +6,9 @@ import { lookup } from "mime-types"
 import { Effect, FileSystem, Layer, Schema, ServiceMap } from "effect"
 import type { PlatformError } from "effect/PlatformError"
 import { Glob } from "../util/glob"
+import { Filesystem } from "../util/filesystem"
+
+export { Filesystem }
 
 export namespace AppFileSystem {
   export class FileSystemError extends Schema.TaggedErrorClass<FileSystemError>()("FileSystemError", {

@@ -70,7 +70,7 @@ export namespace ShareNext {
       await sync(session.id, [
         {
           type: "session",
-          data: session,
+          data: session as any,
         },
       ])
     })
@@ -79,14 +79,14 @@ export namespace ShareNext {
       await sync(info.sessionID, [
         {
           type: "message",
-          data: evt.properties.info,
+          data: evt.properties.info as any,
         },
       ])
       if (info.role === "user") {
         await sync(info.sessionID, [
           {
             type: "model",
-            data: [await Provider.getModel(info.model.providerID, info.model.modelID).then((m) => m)],
+            data: [await Provider.getModel(info.model.providerID, info.model.modelID).then((m) => m as any)],
           },
         ])
       }
@@ -95,7 +95,7 @@ export namespace ShareNext {
       await sync(evt.properties.part.sessionID, [
         {
           type: "part",
-          data: evt.properties.part,
+          data: evt.properties.part as any,
         },
       ])
     })
@@ -103,7 +103,7 @@ export namespace ShareNext {
       await sync(evt.properties.sessionID, [
         {
           type: "session_diff",
-          data: evt.properties.diff,
+          data: evt.properties.diff as any,
         },
       ])
     })
@@ -255,20 +255,20 @@ export namespace ShareNext {
     await sync(sessionID, [
       {
         type: "session",
-        data: session,
+        data: session as any,
       },
       ...messages.map((x) => ({
         type: "message" as const,
-        data: x.info,
+        data: x.info as any,
       })),
-      ...messages.flatMap((x) => x.parts.map((y) => ({ type: "part" as const, data: y }))),
+      ...messages.flatMap((x) => x.parts.map((y) => ({ type: "part" as const, data: y as any }))),
       {
         type: "session_diff",
-        data: diffs,
+        data: diffs as any,
       },
       {
         type: "model",
-        data: models,
+        data: models as any,
       },
     ])
   }

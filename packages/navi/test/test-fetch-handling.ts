@@ -1,5 +1,5 @@
-import { geminiCliFetch } from "./src/provider/gemini-cli"
-import { Log } from "./src/util/log"
+import { geminiCliFetch } from "../src/provider/gemini-cli"
+import { Log } from "../src/util/log"
 
 async function testFetchHandling() {
     console.log("=== Testing Gemini CLI Fetch Error Handling ===")

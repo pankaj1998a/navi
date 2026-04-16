@@ -431,12 +431,20 @@ export function PermissionPrompt(props: { request: PermissionRequest }) {
               title="Permission required"
               header={header()}
               body={current.body}
-              options={{ once: "Allow once", always: "Allow always", reject: "Reject" }}
+              options={{ once: "Allow once", always: "Allow always", "allow-all-session": "Allow all (this session)", reject: "Reject" }}
               escapeKey="reject"
               fullscreen
               onSelect={(option) => {
                 if (option === "always") {
                   setStore("stage", "always")
+                  return
+                }
+                if (option === "allow-all-session") {
+                  // Grant autonomous trust for the rest of this session (no expiry prompt)
+                  sdk.client.permission.reply({
+                    reply: "allow-all-session" as any,
+                    requestID: props.request.id,
+                  })
                   return
                 }
                 if (option === "reject") {

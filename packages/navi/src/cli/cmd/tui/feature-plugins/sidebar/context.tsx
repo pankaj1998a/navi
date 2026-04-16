@@ -1,5 +1,5 @@
 import type { AssistantMessage } from "@navi-ai/sdk/v2"
-import type { TuiPlugin, TuiPluginApi, TuiPluginModule } from "@navi-ai/plugin/tui"
+import type { TuiPlugin, TuiPluginApi, TuiPluginModule } from "@/plugin/tui"
 import { createMemo } from "solid-js"
 import { TextAttributes } from "@opentui/core"
 

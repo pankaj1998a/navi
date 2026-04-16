@@ -69,6 +69,22 @@ export namespace JsonlStorage {
     }
   }
 
+  export function listItemsSync<T>(collection: string): T[] {
+    const dir = path.join(root, collection)
+    try {
+      const files = require("fs").readdirSync(dir)
+      return files
+        .filter((f: string) => f.endsWith(".json"))
+        .map((f: string) => {
+          const content = require("fs").readFileSync(path.join(dir, f), "utf8")
+          return JSON.parse(content) as T
+        })
+    } catch (err) {
+      if ((err as any).code === "ENOENT") return []
+      throw err
+    }
+  }
+
   export function readLogSync(collection: string, id: string): any[] {
     const file = path.join(root, collection, `${id}.jsonl`)
     try {

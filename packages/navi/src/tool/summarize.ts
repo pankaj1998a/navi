@@ -6,6 +6,8 @@ import { Log } from "../util/log"
 import { Provider } from "../provider/provider"
 import { LLM } from "../session/llm"
 import { Agent } from "../agent/agent"
+import { ProviderID, ModelID } from "../provider/schema"
+import { MessageID, SessionID } from "../session/schema"
 
 const log = Log.create({ service: "summarize" })
 
@@ -48,8 +50,8 @@ export async function summarizeLargeResult(response: string, context: Summarizat
         }
 
         const model = agent.model
-            ? await Provider.getModel(agent.model.providerID, agent.model.modelID)
-            : await Provider.getSmallModel("anthropic") // Fallback to a small model
+            ? await Provider.getModel(ProviderID.make(agent.model.providerID), ModelID.make(agent.model.modelID))
+            : await Provider.getSmallModel(ProviderID.make("anthropic")) // Fallback to a small model
 
         if (!model) {
             log.warn("No model available for summarization, falling back to truncation")
@@ -81,12 +83,12 @@ Provide a concise but comprehensive summary.`,
                 },
             ],
             abort: new AbortController().signal,
-            sessionID: context.sessionID,
+            sessionID: SessionID.make(context.sessionID),
             system: [],
             retries: 2,
             user: {
-                id: "summarize-trigger",
-                sessionID: context.sessionID,
+                id: MessageID.make("summarize-trigger"),
+                sessionID: SessionID.make(context.sessionID),
                 role: "user",
                 time: { created: Date.now() },
                 agent: "summarize",

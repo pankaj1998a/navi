@@ -50,7 +50,7 @@ Restoring a checkpoint will revert all files in the working directory to that st
                     return {
                         title: "Checkpoint Disabled",
                         output: "Snapshot tracking is disabled for this project.",
-                        metadata: { hash: undefined },
+                        metadata: { hash: undefined } as any,
                     }
                 }
                 const metadata: CheckpointMeta = {
@@ -64,7 +64,7 @@ Restoring a checkpoint will revert all files in the working directory to that st
                 return {
                     title: "Checkpoint Created",
                     output: `Created checkpoint with hash: ${hash}${params.name ? `\nName: ${params.name}` : ""}${params.message ? `\nDescription: ${params.message}` : ""}`,
-                    metadata: { hash }
+                    metadata: { hash } as any
                 }
             } else if (params.action === "list") {
                 const metadata = await loadCheckpointMeta(Instance.project.id)
@@ -120,7 +120,7 @@ Restoring a checkpoint will revert all files in the working directory to that st
                 return {
                     title: "Checkpoints",
                     output: output || "No checkpoints found.",
-                    metadata: { hash: undefined }
+                    metadata: { hash: undefined } as any
                 }
             } else if (params.action === "restore") {
                 if (!params.hash) throw new Error("Hash is required for restore action")
@@ -158,7 +158,7 @@ Restoring a checkpoint will revert all files in the working directory to that st
                 return {
                     title: "Checkpoint Restored",
                     output: `Restored project state to snapshot ${targetHash}`,
-                    metadata: { hash: undefined }
+                    metadata: { hash: undefined } as any
                 }
             }
 

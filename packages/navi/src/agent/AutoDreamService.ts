@@ -43,7 +43,7 @@ export class AutoDreamService {
             if (!Instance.project) return
             const projectID = Instance.project.id
             const activeSessions = await Array.fromAsync(Session.list())
-            const mainSession = activeSessions.find(s => s.status !== "done")
+            const mainSession = activeSessions.find(s => !s.time.archived)
 
             if (!mainSession) return
 

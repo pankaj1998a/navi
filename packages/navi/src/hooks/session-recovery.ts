@@ -9,7 +9,7 @@
  * Ported from oh-my-navi-dev plugin
  */
 
-import type { Hooks } from "@navi-ai/plugin"
+import type { Hooks } from "@/plugin"
 import { SessionID } from "../session/schema"
 import { Log } from "../util/log"
 import { Session } from "../session"
@@ -237,7 +237,7 @@ export function createSessionRecoveryHook(options?: SessionRecoveryOptions): Ses
     /**
      * Event handler for session errors
      */
-    const event: Hooks["event"] = async (input) => {
+    const event: Hooks["event"] = async (input: { event: any }) => {
         const eventData = input.event as { type: string; properties?: Record<string, unknown> }
         const props = eventData.properties
 

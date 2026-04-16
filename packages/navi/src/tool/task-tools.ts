@@ -2,6 +2,7 @@ import z from "zod"
 import { Tool } from "./tool"
 import { Todo } from "../session/todo"
 import { Identifier } from "../id/id"
+import { SessionID } from "../session/schema"
 
 /**
  * TaskCreateTool adds a new task to the session's TODO list.
@@ -13,7 +14,8 @@ export const TaskCreateTool = Tool.define("TaskCreate", {
     priority: z.enum(["high", "medium", "low"]).default("medium").describe("Priority level of the task"),
   }),
   async execute(params, ctx) {
-    const todos = await Todo.get(ctx.sessionID)
+    const sessionID = SessionID.make(ctx.sessionID)
+    const todos = await Todo.get(sessionID)
     const newTodo: Todo.Info = {
       id: Identifier.ascending("todo"),
       content: params.content,
@@ -21,7 +23,7 @@ export const TaskCreateTool = Tool.define("TaskCreate", {
       priority: params.priority,
     }
     await Todo.update({
-      sessionID: ctx.sessionID,
+      sessionID,
       todos: [...todos, newTodo],
     })
     return {
@@ -41,7 +43,8 @@ export const TaskListTool = Tool.define("TaskList", {
     status: z.enum(["all", "pending", "in_progress", "completed", "cancelled"]).default("all").optional(),
   }),
   async execute(params, ctx) {
-    let todos = await Todo.get(ctx.sessionID)
+    const sessionID = SessionID.make(ctx.sessionID)
+    let todos = await Todo.get(sessionID)
     if (params.status && params.status !== "all") {
       todos = todos.filter((t) => t.status === params.status)
     }
@@ -61,7 +64,8 @@ async function updateTask(params: {
   content?: string
   priority?: "high" | "medium" | "low"
 }, ctx: any) {
-  const todos = await Todo.get(ctx.sessionID)
+  const sessionID = SessionID.make(ctx.sessionID)
+  const todos = await Todo.get(sessionID)
   const index = todos.findIndex((t) => t.id === params.id)
   if (index === -1) {
     throw new Error(`Task with ID ${params.id} not found.`)
@@ -76,7 +80,7 @@ async function updateTask(params: {
   nextTodos[index] = updated
 
   await Todo.update({
-    sessionID: ctx.sessionID,
+    sessionID,
     todos: nextTodos,
   })
 
@@ -112,7 +116,8 @@ export const TaskGetTool = Tool.define("TaskGet", {
     id: z.string().describe("ID of the task to retrieve"),
   }),
   async execute(params, ctx) {
-    const todos = await Todo.get(ctx.sessionID)
+    const sessionID = SessionID.make(ctx.sessionID)
+    const todos = await Todo.get(sessionID)
     const todo = todos.find((t) => t.id === params.id)
     if (!todo) {
       throw new Error(`Task with ID ${params.id} not found.`)

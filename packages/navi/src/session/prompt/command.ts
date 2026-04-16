@@ -13,6 +13,8 @@ import { iife } from "../../util/iife"
 import { Storage } from "../../storage/storage"
 import { Instance } from "../../project/instance"
 import z from "zod"
+import { ProviderID, ModelID } from "../../provider/schema"
+import { MessageID, SessionID, PartID } from "../../session/schema"
 
 const log = Log.create({ service: "session.prompt.command" })
 
@@ -105,13 +107,13 @@ export async function executeCommand(input: CommandInput, deps: {
     })()
 
     try {
-        await Provider.getModel(model.providerID, model.modelID)
+        await Provider.getModel(ProviderID.make(model.providerID), ModelID.make(model.modelID))
     } catch (e) {
         if (Provider.ModelNotFoundError.isInstance(e)) {
             const { providerID, modelID, suggestions } = e.data
             const hint = suggestions?.length ? ` Did you mean: ${suggestions.join(", ")}?` : ""
             Bus.publish(Session.Event.Error, {
-                sessionID: input.sessionID,
+                sessionID: SessionID.make(input.sessionID),
                 error: new NamedError.Unknown({ message: `Model not found: ${providerID}/${modelID}.${hint}` }).toObject(),
             })
         }
@@ -123,7 +125,7 @@ export async function executeCommand(input: CommandInput, deps: {
         const hint = available.length ? ` Available agents: ${available.join(", ")}` : ""
         const error = new NamedError.Unknown({ message: `Agent not found: "${agentName}".${hint}` })
         Bus.publish(Session.Event.Error, {
-            sessionID: input.sessionID,
+            sessionID: SessionID.make(input.sessionID),
             error: error.toObject(),
         })
         throw error
@@ -153,12 +155,15 @@ export async function executeCommand(input: CommandInput, deps: {
         if (!userMessageID) {
             userMessageID = Identifier.ascending("message")
             const userMsg: MessageV2.User = {
-                id: userMessageID,
-                sessionID: input.sessionID,
+                id: MessageID.make(userMessageID),
+                sessionID: SessionID.make(input.sessionID),
                 role: "user",
                 time: { created: Date.now() },
                 agent: agentName,
-                model,
+                model: {
+                    providerID: ProviderID.make(model.providerID),
+                    modelID: ModelID.make(model.modelID)
+                },
                 variant: input.variant,
             }
             await Session.updateMessage(userMsg)
@@ -168,24 +173,24 @@ export async function executeCommand(input: CommandInput, deps: {
                 const partID = Identifier.ascending("part")
                 await Session.updatePart({
                     ...part,
-                    id: partID,
-                    messageID: userMessageID,
-                    sessionID: input.sessionID,
+                    id: PartID.make(partID),
+                    messageID: MessageID.make(userMessageID),
+                    sessionID: SessionID.make(input.sessionID),
                 } as MessageV2.Part)
             }
-            Bus.publish(Session.Event.Updated, { sessionID: input.sessionID, info: await Session.get(input.sessionID) })
+            Bus.publish(Session.Event.Updated, { sessionID: SessionID.make(input.sessionID), info: await Session.get(SessionID.make(input.sessionID)) })
         }
 
         // 2. Create Assistant Response
-        const assistantMessageID = Identifier.ascending("message")
+        const assistantMessageID = MessageID.make(Identifier.ascending("message"))
         const assistantMsg: MessageV2.Assistant = {
             id: assistantMessageID,
-            sessionID: input.sessionID,
+            sessionID: SessionID.make(input.sessionID),
             role: "assistant",
-            parentID: userMessageID,
+            parentID: MessageID.make(userMessageID),
             time: { created: Date.now(), completed: Date.now() },
-            modelID: model.modelID,
-            providerID: model.providerID,
+            modelID: ModelID.make(model.modelID),
+            providerID: ProviderID.make(model.providerID),
             agent: agentName,
             mode: agent.mode,
             path: { cwd: process.cwd(), root: Instance.worktree },
@@ -194,11 +199,11 @@ export async function executeCommand(input: CommandInput, deps: {
         }
         await Session.updateMessage(assistantMsg)
         
-        const responsePartID = Identifier.ascending("part")
+        const responsePartID = PartID.make(Identifier.ascending("part"))
         const responsePart: MessageV2.TextPart = {
             id: responsePartID,
             messageID: assistantMessageID,
-            sessionID: input.sessionID,
+            sessionID: SessionID.make(input.sessionID),
             type: "text",
             text: handlerResult,
         }
@@ -211,7 +216,7 @@ export async function executeCommand(input: CommandInput, deps: {
 
         Bus.publish(Command.Event.Executed, {
             name: input.command,
-            sessionID: input.sessionID,
+            sessionID: SessionID.make(input.sessionID),
             arguments: input.arguments,
             messageID: result.info.id,
         })
@@ -220,9 +225,12 @@ export async function executeCommand(input: CommandInput, deps: {
     }
 
     const result = (await deps.prompt({
-        sessionID: input.sessionID,
-        messageID: input.messageID,
-        model,
+        sessionID: SessionID.make(input.sessionID),
+        messageID: input.messageID ? MessageID.make(input.messageID) : undefined,
+        model: {
+            providerID: ProviderID.make(model.providerID),
+            modelID: ModelID.make(model.modelID)
+        },
         agent: agentName,
         parts,
         variant: input.variant,
@@ -230,7 +238,7 @@ export async function executeCommand(input: CommandInput, deps: {
 
     Bus.publish(Command.Event.Executed, {
         name: input.command,
-        sessionID: input.sessionID,
+        sessionID: SessionID.make(input.sessionID),
         arguments: input.arguments,
         messageID: result.info.id,
     })

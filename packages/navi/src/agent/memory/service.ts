@@ -52,41 +52,42 @@ export namespace MemoryService {
 
             const save = (record: Omit<MemoryRecord, "filepath" | "mtimeMs">) => 
                 Effect.gen(function* () {
-                    try {
-                        yield* fs.ensureDir(memoryDir)
-                        const filename = `${record.type}_${record.name.toLowerCase().replace(/\s+/g, "_")}.md`
-                        const filepath = path.join(memoryDir, filename)
+                    yield* fs.ensureDir(memoryDir)
+                    const filename = `${record.type}_${record.name.toLowerCase().replace(/\s+/g, "_")}.md`
+                    const filepath = path.join(memoryDir, filename)
 
-                        const frontmatter: MemoryMetadata = {
-                            name: record.name,
-                            description: record.description,
-                            type: record.type,
-                            scope: record.scope,
-                        }
-
-                        const content = matter.stringify(record.content, frontmatter)
-                        yield* fs.writeFileString(filepath, content)
-                        log.info("Saved memory", { filepath, type: record.type })
-                    } catch (e) {
-                        log.error("Failed to save memory", { error: e })
+                    const frontmatter: MemoryMetadata = {
+                        name: record.name,
+                        description: record.description,
+                        type: record.type,
+                        scope: record.scope,
                     }
-                })
+
+                    const content = matter.stringify(record.content, frontmatter)
+                    yield* fs.writeFileString(filepath, content)
+                    log.info("Saved memory", { filepath, type: record.type })
+                }).pipe(
+                    Effect.catch((error) => {
+                        log.error("Failed to save memory", { error })
+                        return Effect.void
+                    })
+                )
 
             const findRelevant = (query: string, limit: number = 5) => 
                 Effect.gen(function* () {
-                    try {
-                        const all = yield* scan
-                        if (all.length === 0) return []
+                    const all = yield* scan
+                    if (all.length === 0) return []
 
-                        // Simple recall for now: most recently updated
-                        return all
-                            .sort((a, b) => (b.mtimeMs || 0) - (a.mtimeMs || 0))
-                            .slice(0, limit)
-                    } catch (e) {
-                        log.error("Failed to find memories", { error: e })
-                        return [] as MemoryRecord[]
-                    }
-                })
+                    // Simple recall for now: most recently updated
+                    return all
+                        .sort((a, b) => (b.mtimeMs || 0) - (a.mtimeMs || 0))
+                        .slice(0, limit)
+                }).pipe(
+                    Effect.catch((error) => {
+                        log.error("Failed to find memories", { error })
+                        return Effect.succeed([] as MemoryRecord[])
+                    })
+                )
 
             return Service.of({ save, findRelevant })
         })

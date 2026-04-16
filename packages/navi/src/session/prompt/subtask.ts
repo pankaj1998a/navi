@@ -10,6 +10,8 @@ import { Agent } from "../../agent/agent"
 import { Tool } from "../../tool/tool"
 import { PermissionNext } from "../../permission/next"
 import { Log } from "../../util/log"
+import { ProviderID, ModelID } from "../../provider/schema"
+import { MessageID, SessionID, PartID } from "../../session/schema"
 
 const log = Log.create({ service: "session.prompt.subtask" })
 
@@ -25,10 +27,10 @@ export async function executeSubtask(input: {
     const { task, lastUser, sessionID, model, abort, session, messages } = input
     const taskTool = await TaskTool.init()
     const assistantMessage = (await Session.updateMessage({
-        id: Identifier.ascending("message"),
+        id: MessageID.make(Identifier.ascending("message")),
         role: "assistant",
         parentID: lastUser.id,
-        sessionID,
+        sessionID: SessionID.make(sessionID),
         mode: task.agent,
         agent: task.agent,
         path: {
@@ -42,14 +44,14 @@ export async function executeSubtask(input: {
             reasoning: 0,
             cache: { read: 0, write: 0 },
         },
-        modelID: model.id,
-        providerID: model.providerID,
+        modelID: ModelID.make(model.id),
+        providerID: ProviderID.make(model.providerID),
         time: {
             created: Date.now(),
         },
     })) as MessageV2.Assistant
     let part = (await Session.updatePart({
-        id: Identifier.ascending("part"),
+        id: PartID.make(Identifier.ascending("part")),
         messageID: assistantMessage.id,
         sessionID: assistantMessage.sessionID,
         type: "tool",
@@ -78,7 +80,7 @@ export async function executeSubtask(input: {
         "tool.execute.before",
         {
             tool: "task",
-            sessionID,
+            sessionID: SessionID.make(sessionID),
             callID: part.id,
         },
         { args: taskArgs },
@@ -88,7 +90,7 @@ export async function executeSubtask(input: {
     const taskCtx: Tool.Context = {
         agent: task.agent,
         messageID: assistantMessage.id,
-        sessionID: sessionID,
+        sessionID: SessionID.make(sessionID),
         abort,
         callID: part.callID,
         extra: { bypassAgentCheck: true },
@@ -106,7 +108,7 @@ export async function executeSubtask(input: {
         async ask(req) {
             await PermissionNext.ask({
                 ...req,
-                sessionID: sessionID,
+                sessionID: SessionID.make(sessionID),
                 ruleset: PermissionNext.merge(taskAgent.permission, session.permission ?? []),
             })
         },
@@ -120,7 +122,7 @@ export async function executeSubtask(input: {
         "tool.execute.after",
         {
             tool: "task",
-            sessionID,
+            sessionID: SessionID.make(sessionID),
             callID: part.id,
         },
         result,
@@ -165,8 +167,8 @@ export async function executeSubtask(input: {
     // If we create assistant messages w/ out user ones following mid loop thinking signatures
     // will be missing and it can cause errors for models like gemini for example
     const summaryUserMsg: MessageV2.User = {
-        id: Identifier.ascending("message"),
-        sessionID,
+        id: MessageID.make(Identifier.ascending("message")),
+        sessionID: SessionID.make(sessionID),
         role: "user",
         time: {
             created: Date.now(),
@@ -176,9 +178,9 @@ export async function executeSubtask(input: {
     }
     await Session.updateMessage(summaryUserMsg)
     await Session.updatePart({
-        id: Identifier.ascending("part"),
+        id: PartID.make(Identifier.ascending("part")),
         messageID: summaryUserMsg.id,
-        sessionID,
+        sessionID: SessionID.make(sessionID),
         type: "text",
         text: "Summarize the task tool output above and continue with your task.",
         synthetic: true,

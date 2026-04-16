@@ -1,4 +1,4 @@
-import type { Hooks, AuthHook, AuthOuathResult, PluginInput } from "@navi-ai/plugin"
+import type { Hooks, AuthHook, AuthOAuthResult, PluginInput } from "@/plugin"
 import { Auth } from "../auth"
 import { Log } from "../util/log"
 import http from "http"
@@ -56,7 +56,7 @@ export const ClineAuthHook: AuthHook = {
         {
             type: "oauth",
             label: "OAuth with Cline",
-            async authorize(inputs: Record<string, string> = {}): Promise<AuthOuathResult> {
+            async authorize(inputs: Record<string, string> = {}): Promise<AuthOAuthResult> {
                 log.info("Initiating Cline OAuth")
                 try {
                     const state = randomBytes(16).toString("hex")

@@ -1,7 +1,7 @@
 import { BusEvent } from "@/bus/bus-event"
 import { Bus } from "@/bus"
 import z from "zod"
-import { NamedError } from "@navi-ai/util/error"
+import { NamedError } from "@/util/error"
 import { Log } from "../util/log"
 import { Process } from "@/util/process"
 

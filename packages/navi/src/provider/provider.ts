@@ -8,7 +8,7 @@ import { Log } from "../util/log"
 import { BunProc } from "../bun"
 import { Hash } from "../util/hash"
 import { Plugin } from "../plugin"
-import { NamedError } from "@navi-ai/util/error"
+import { NamedError } from "@/util/error"
 import { type LanguageModelV3 } from "@ai-sdk/provider"
 import { ModelsDev } from "./models"
 import { Auth } from "../auth"
@@ -888,6 +888,9 @@ export namespace Provider {
       key: z.string().optional(),
       options: z.record(z.string(), z.any()),
       models: z.record(z.string(), Model),
+      catalog: z.object({
+        ageMs: z.number().optional(),
+      }).optional(),
     })
     .meta({
       ref: "Provider",
@@ -905,6 +908,7 @@ export namespace Provider {
     ) => Effect.Effect<{ providerID: ProviderID; modelID: string } | undefined>
     readonly getSmallModel: (providerID: ProviderID) => Effect.Effect<Model | undefined>
     readonly defaultModel: () => Effect.Effect<{ providerID: ProviderID; modelID: ModelID }>
+    readonly refreshProviderOnConnect: (providerID: string) => Effect.Effect<void>
   }
 
   interface State {
@@ -1618,7 +1622,12 @@ export namespace Provider {
         }
       })
 
-      return Service.of({ list, getProvider, getModel, getLanguage, closest, getSmallModel, defaultModel })
+      const refreshProviderOnConnect = (providerID: string) => {
+        log.info("refreshing provider on connect", { providerID })
+        return InstanceState.invalidate(cache)
+      }
+
+      return Service.of({ list, getProvider, getModel, getLanguage, closest, getSmallModel, defaultModel, refreshProviderOnConnect })
     }),
   )
 
@@ -1652,6 +1661,10 @@ export namespace Provider {
 
   export async function defaultModel() {
     return runPromise((svc) => svc.defaultModel())
+  }
+
+  export async function refreshProviderOnConnect(providerID: string) {
+    return runPromise((svc) => svc.refreshProviderOnConnect(providerID))
   }
 
   const priority = ["gpt-5", "claude-sonnet-4", "big-pickle", "gemini-3-pro"]

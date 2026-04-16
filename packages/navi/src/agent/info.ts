@@ -1,6 +1,7 @@
 import z from "zod"
 import { PermissionNext } from "../permission/next"
 import { AgentPolicy } from "./policy"
+import { ProviderID, ModelID } from "../provider/schema"
 
 export const AgentContract = z.object({
     allowedActions: z.array(z.string()),
@@ -28,8 +29,8 @@ export const AgentInfo = z
         permission: PermissionNext.Ruleset,
         model: z
             .object({
-                modelID: z.string(),
-                providerID: z.string(),
+                modelID: ModelID.zod,
+                providerID: ProviderID.zod,
             })
             .optional(),
         prompt: z.string().optional(),
@@ -45,7 +46,7 @@ export const AgentInfo = z
         inputSchema: z.any().optional(),
         outputSchema: z.any().optional(),
         modes: z.record(z.string(), z.object({
-            model: z.object({ modelID: z.string(), providerID: z.string() }),
+            model: z.object({ modelID: ModelID.zod, providerID: ProviderID.zod }),
             tokens: z.number().optional(),
             temperature: z.number().optional(),
         })).optional(),

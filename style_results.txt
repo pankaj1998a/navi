@@ -1,2 +1,0 @@
-packages/navi/src/cli/cmd/tui/component/todo-item.tsx:        style={{
-packages/navi/src/cli/cmd/tui/component/todo-item.tsx:        style={{

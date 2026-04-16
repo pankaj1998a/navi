@@ -287,4 +287,3 @@ export const createConfig = <T extends ClientOptions = ClientOptions>(
   querySerializer: defaultQuerySerializer,
   ...override,
 })
-

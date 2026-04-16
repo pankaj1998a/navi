@@ -9,6 +9,26 @@ import { Log } from "@/util/log"
 import { Wildcard } from "@/util/wildcard"
 import z from "zod"
 
+/**
+ * Tools that are safe to auto-allow (read-only, no destructive side effects).
+ * Agents will NEVER be prompted for these — matching the principle that only
+ * dangerous operations (write, edit, delete, bash, terminal) need approval.
+ */
+export const SAFE_TOOLS = [
+  "read",
+  "grep",
+  "glob",
+  "ls",
+  "list",
+  "webfetch",
+  "websearch",
+  "codesearch",
+  "semantic",
+  "info",
+  "mcp",
+  "skill",
+] as const
+
 export namespace PermissionNext {
   const log = Log.create({ service: "permission" })
 
@@ -74,7 +94,7 @@ export namespace PermissionNext {
 
   export type Request = z.infer<typeof Request>
 
-  export const Reply = z.enum(["once", "always", "reject"])
+  export const Reply = z.enum(["once", "always", "reject", "allow-all-session"])
   export type Reply = z.infer<typeof Reply>
 
   export const Approval = z.object({
@@ -131,6 +151,16 @@ export namespace PermissionNext {
     const expiry = s.trusted[sessionID]
     return !!expiry && expiry > Date.now()
   }
+
+  /**
+   * Built-in ruleset that auto-allows safe (read-only) tools.
+   * Merged into every ask() call so agents never prompt for harmless operations.
+   */
+  export const SAFE_RULESET: Ruleset = SAFE_TOOLS.map((tool) => ({
+    permission: tool,
+    pattern: "*",
+    action: "allow" as const,
+  }))
 
   export const ask = fn(
     Request.partial({ id: true }).extend({
@@ -205,6 +235,25 @@ export namespace PermissionNext {
       }
       if (input.reply === "once") {
         existing.resolve()
+        return
+      }
+      if (input.reply === "allow-all-session") {
+        const sessionID = existing.info.sessionID
+        // Grant autonomous trust for the lifetime of this process/session
+        await trust(sessionID, 24 * 60 * 60 * 1000) // 24h effectively "this session"
+        existing.resolve()
+        // Auto-resolve all other pending permissions for this session
+        for (const [id, pending] of Object.entries(s.pending)) {
+          if (pending.info.sessionID !== sessionID) continue
+          delete s.pending[id]
+          Bus.publish(Event.Replied, {
+            sessionID: pending.info.sessionID,
+            requestID: pending.info.id,
+            reply: "once",
+          })
+          pending.resolve()
+        }
+        log.info("Session granted allow-all trust", { sessionID })
         return
       }
       if (input.reply === "always") {

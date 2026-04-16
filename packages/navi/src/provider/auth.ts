@@ -1,5 +1,5 @@
-import type { AuthOAuthResult, Hooks } from "@navi-ai/plugin"
-import { NamedError } from "@navi-ai/util/error"
+import type { AuthOAuthResult, Hooks } from "@/plugin"
+import { NamedError } from "@/util/error"
 import { Auth } from "@/auth"
 import { InstanceState } from "@/effect/instance-state"
 import { makeRuntime } from "@/effect/run-service"

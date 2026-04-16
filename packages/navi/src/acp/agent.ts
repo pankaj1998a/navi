@@ -174,14 +174,14 @@ export namespace ACP {
           if (this.eventAbort.signal.aborted) return
           const payload = (event as any)?.payload
           if (!payload) continue
-          await this.handleEvent(payload as Event).catch((error) => {
+          await this.handleEvent(payload as any).catch((error) => {
             log.error("failed to handle event", { error, type: payload.type })
           })
         }
       }
     }
 
-    private async handleEvent(event: Event) {
+    private async handleEvent(event: any) {
       switch (event.type) {
         case "permission.asked": {
           const permission = event.properties

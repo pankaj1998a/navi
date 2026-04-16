@@ -1,6 +1,6 @@
 import z from "zod"
 import { EOL } from "os"
-import { NamedError } from "@navi-ai/util/error"
+import { NamedError } from "@/util/error"
 import { logo as glyphs } from "./logo"
 
 export namespace UI {
@@ -17,10 +17,13 @@ export namespace UI {
     TEXT_WARNING_BOLD: "\x1b[93m\x1b[1m",
     TEXT_DANGER: "\x1b[91m",
     TEXT_DANGER_BOLD: "\x1b[91m\x1b[1m",
+    TEXT_ERROR: "\x1b[91m",
+    TEXT_ERROR_BOLD: "\x1b[91m\x1b[1m",
     TEXT_SUCCESS: "\x1b[92m",
     TEXT_SUCCESS_BOLD: "\x1b[92m\x1b[1m",
     TEXT_INFO: "\x1b[94m",
     TEXT_INFO_BOLD: "\x1b[94m\x1b[1m",
+    RESET: "\x1b[0m",
   }
 
   export function println(...message: string[]) {

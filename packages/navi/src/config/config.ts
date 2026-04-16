@@ -7,7 +7,7 @@ import { ModelsDev } from "../provider/models"
 import { mergeDeep, pipe, unique } from "remeda"
 import { Global } from "../global"
 import fsNode from "fs/promises"
-import { NamedError } from "@navi-ai/util/error"
+import { NamedError } from "@/util/error"
 import { Flag } from "../flag/flag"
 import { Auth } from "../auth"
 import { Env } from "../env"
@@ -34,7 +34,7 @@ import { iife } from "@/util/iife"
 import { Account } from "@/account"
 import { isRecord } from "@/util/record"
 import { ConfigPaths } from "./paths"
-import { Filesystem } from "@/util/filesystem"
+import { Filesystem } from "@/filesystem"
 import { Process } from "@/util/process"
 import { AppFileSystem } from "@/filesystem"
 import { InstanceState } from "@/effect/instance-state"
@@ -114,7 +114,7 @@ export namespace Config {
     }))
     json.dependencies = {
       ...json.dependencies,
-      "@navi-ai/plugin": target,
+      "@/plugin": target,
     }
     await Filesystem.writeJson(pkg, json)
 
@@ -198,16 +198,16 @@ export namespace Config {
 
     const parsed = await Filesystem.readJson<{ dependencies?: Record<string, string> }>(pkg).catch(() => null)
     const dependencies = parsed?.dependencies ?? {}
-    const depVersion = dependencies["@navi-ai/plugin"]
+    const depVersion = dependencies["@/plugin"]
     if (!depVersion) return true
 
     const targetVersion = Installation.isLocal() ? "latest" : Installation.VERSION
     if (targetVersion === "latest") {
       if (!online()) return false
-      const stale = await PackageRegistry.isOutdated("@navi-ai/plugin", depVersion, dir)
+      const stale = await PackageRegistry.isOutdated("@/plugin", depVersion, dir)
       if (!stale) return false
       log.info("Cached version is outdated, proceeding with install", {
-        pkg: "@navi-ai/plugin",
+        pkg: "@/plugin",
         cachedVersion: depVersion,
       })
       return true
@@ -1075,6 +1075,12 @@ export namespace Config {
             .positive()
             .optional()
             .describe("Timeout in milliseconds for model context protocol (MCP) requests"),
+          modelRouting: z.object({
+            enabled: z.boolean().optional(),
+            allowFallback: z.boolean().optional(),
+            minHealthScore: z.number().optional(),
+            crossProvider: z.boolean().optional(),
+          }).optional(),
         })
         .optional(),
     })

@@ -6,6 +6,8 @@ import { Agent } from "../agent/agent"
 import { MultiAgent, type AgentRole, type CollaborationTask, type Subtask } from "../agent/multi-agent"
 import { MessageV2 } from "../session/message-v2"
 import { Identifier } from "../id/id"
+import { MessageID, SessionID } from "../session/schema"
+import { ProviderID, ModelID } from "../provider/schema"
 
 const log = Log.create({ service: "agent-spawner" })
 
@@ -149,15 +151,18 @@ export class AgentSpawner extends EventEmitter {
         // Run the agent
         const { SessionPrompt } = await import("../session/prompt")
         await SessionPrompt.command({
-            sessionID: session.id,
-            messageID: Identifier.ascending("message"),
-            model: agentDefinition.model?.providerID + '/' + agentDefinition.model?.modelID || 'anthropic/claude-3-5-sonnet-latest',
+            sessionID: SessionID.make(session.id),
+            messageID: MessageID.make(Identifier.ascending("message")),
+            model: {
+                providerID: ProviderID.make(agentDefinition.model?.providerID || 'anthropic'),
+                modelID: ModelID.make(agentDefinition.model?.modelID || 'claude-3-5-sonnet-latest')
+            },
             command: task,
             arguments: '',
         })
 
         // Get the final response
-        const messages = await Session.messages({ sessionID: session.id, limit: 10 })
+        const messages = await Session.messages({ sessionID: SessionID.make(session.id), limit: 10 })
 
         const assistantMessages = messages
             .filter(m => m.info.role === 'assistant')

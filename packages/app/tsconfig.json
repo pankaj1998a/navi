@@ -18,7 +18,8 @@
     "outDir": "node_modules/.ts-dist",
     "isolatedModules": true,
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@navi-ai/util/*": ["../navi/src/util/*"]
     }
   },
   "include": ["src", "package.json"],

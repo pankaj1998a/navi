@@ -24,7 +24,7 @@ export namespace Native {
   export function getBinding() {
     if (binding) return binding
     try {
-      binding = require('@navi-ai/native')
+      binding = require('../native/index')
       return binding
     } catch (e) {
       console.warn('Native binding not found, falling back to slow implementation.', e)

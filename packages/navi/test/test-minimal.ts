@@ -1,9 +1,9 @@
 #!/usr/bin/env bun
 
 // Minimal test script to diagnose Gemini CLI provider issues
-import { getAccessToken } from "./src/provider/gemini-cli"
-import { GEMINI_SCOPES } from "./src/provider/gemini-cli"
-import { Auth } from "./src/auth"
+import { getAccessToken } from "../src/provider/gemini-cli"
+import { GEMINI_SCOPES } from "../src/provider/gemini-cli"
+import { Auth } from "../src/auth"
 
 async function runMinimalTest() {
     console.log("=== Gemini CLI Provider Diagnostics ===")

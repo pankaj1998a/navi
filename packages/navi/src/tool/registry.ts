@@ -11,6 +11,8 @@ import { TodoWriteTool } from "./todo"
 import { MemoryTool } from "./memory"
 import { ScratchpadTool } from "./scratchpad"
 import { WebFetchTool } from "./webfetch"
+import { WebScrapeTool } from "./webscrape"
+import { WebCrawlTool } from "./webcrawl"
 import { WriteTool } from "./write"
 import { InvalidTool } from "./invalid"
 import { SkillTool } from "./skill"
@@ -18,11 +20,12 @@ import type { Agent } from "../agent/agent"
 import { Tool } from "./tool"
 import { Config } from "../config/config"
 import path from "path"
-import { type ToolContext as PluginToolContext, type ToolDefinition } from "@navi-ai/plugin"
+import { type ToolContext as PluginToolContext, type ToolDefinition } from "../plugin/types"
 import z from "zod"
 import { Plugin } from "../plugin"
 import { ProviderID, type ModelID } from "../provider/schema"
 import { WebSearchTool } from "./websearch"
+import { GoogleSearchTool } from "./google-search"
 import { CodeSearchTool } from "./codesearch"
 import { Flag } from "@/flag/flag"
 import { Log } from "@/util/log"
@@ -170,10 +173,13 @@ export namespace ToolRegistry {
           WriteTool,
           TaskTool,
           WebFetchTool,
+          WebScrapeTool,
+          WebCrawlTool,
           TodoWriteTool,
           MemoryTool,
           ScratchpadTool,
           WebSearchTool,
+          GoogleSearchTool,
           CodeSearchTool,
           SkillTool,
           ApplyPatchTool,

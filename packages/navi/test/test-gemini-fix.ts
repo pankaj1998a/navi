@@ -1,5 +1,5 @@
 // Simple test to verify the Gemini CLI provider fix
-import { GEMINI_SCOPES } from "./src/provider/gemini-cli"
+import { GEMINI_SCOPES } from "../src/provider/gemini-cli"
 
 async function testGeminiFix() {
     console.log("=== Gemini CLI Provider Fix Verification ===")

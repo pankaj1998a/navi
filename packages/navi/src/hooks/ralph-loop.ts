@@ -14,7 +14,7 @@
  * Ported from oh-my-navi-dev plugin
  */
 
-import type { Hooks } from "@navi-ai/plugin"
+import type { Hooks } from "@/plugin"
 import { Log } from "../util/log"
 import { existsSync, readFileSync, writeFileSync, mkdirSync, unlinkSync } from "node:fs"
 import { join } from "node:path"
@@ -203,7 +203,7 @@ export function createRalphLoopHook(options: RalphLoopOptions): RalphLoopHook {
     /**
      * Event handler for session.idle - continues the loop if needed
      */
-    const event: Hooks["event"] = async (input) => {
+    const event: Hooks["event"] = async (input: { event: any }) => {
         const eventData = input.event as { type: string; properties?: Record<string, unknown> }
         const props = eventData.properties
 

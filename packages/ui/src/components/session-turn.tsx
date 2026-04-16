@@ -9,9 +9,9 @@ import {
 } from "@navi-ai/sdk/v2/client"
 import { useData } from "../context"
 import { useDiffComponent } from "../context/diff"
-import { getDirectory, getFilename } from "@navi-ai/util/path"
+import { getDirectory, getFilename } from "@navi-ai/sdk/util/path"
 
-import { Binary } from "@navi-ai/util/binary"
+import { Binary } from "@navi-ai/sdk/util/binary"
 import { createEffect, createMemo, createSignal, For, Match, on, onCleanup, ParentProps, Show, Switch } from "solid-js"
 import { createResizeObserver } from "@solid-primitives/resize-observer"
 import { DiffChanges } from "./diff-changes"

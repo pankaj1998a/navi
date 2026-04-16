@@ -14,7 +14,7 @@ export const GenerateCommand = {
           {
             lang: "js",
             source: [
-              `import { createNaviClient } from "@navi-ai/sdk`,
+              `import { createNaviClient } from "@navi-ai/sdk"`,
               ``,
               `const client = createNaviClient()`,
               `await client.${operation.operationId}({`,

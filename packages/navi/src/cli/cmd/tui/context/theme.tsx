@@ -40,10 +40,10 @@ import { useKV } from "./kv"
 import { useRenderer } from "@opentui/solid"
 import { createStore, produce } from "solid-js/store"
 import { Global } from "@/global"
-import { Filesystem } from "@/util/filesystem"
+import { Filesystem } from "@/filesystem"
 import { useTuiConfig } from "./tui-config"
 import { isRecord } from "@/util/record"
-import type { TuiThemeCurrent } from "@navi-ai/plugin/tui"
+import type { TuiThemeCurrent } from "../../../plugin/tui"
 
 type Theme = TuiThemeCurrent & {
   _hasSelectedListItemText: boolean

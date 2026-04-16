@@ -9,7 +9,7 @@ import {
 
 import { ConfigPaths } from "@/config/paths"
 import { Global } from "@/global"
-import { Filesystem } from "@/util/filesystem"
+import { Filesystem } from "@/filesystem"
 import { Flock } from "@/util/flock"
 import { isRecord } from "@/util/record"
 

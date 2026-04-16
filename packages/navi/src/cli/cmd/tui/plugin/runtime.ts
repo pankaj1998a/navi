@@ -8,7 +8,7 @@ import {
   type TuiPluginMeta,
   type TuiPluginStatus,
   type TuiTheme,
-} from "@navi-ai/plugin/tui"
+} from "@/plugin/tui"
 import path from "path"
 import { fileURLToPath } from "url"
 
@@ -24,7 +24,7 @@ import { PluginMeta } from "@/plugin/meta"
 import { installPlugin as installModulePlugin, patchPluginConfig, readPluginManifest } from "@/plugin/install"
 import { hasTheme, upsertTheme } from "../context/theme"
 import { Global } from "@/global"
-import { Filesystem } from "@/util/filesystem"
+import { Filesystem } from "@/filesystem"
 import { Process } from "@/util/process"
 import { Flag } from "@/flag/flag"
 import { INTERNAL_TUI_PLUGINS, type InternalTuiPlugin } from "./internal"

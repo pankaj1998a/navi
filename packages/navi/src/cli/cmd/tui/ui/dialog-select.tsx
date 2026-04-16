@@ -22,6 +22,7 @@ export interface DialogSelectProps<T> {
   onSelect?: (option: DialogSelectOption<T>) => void
   onCancel?: () => void
   skipFilter?: boolean
+  fullHeight?: boolean
   keybind?: {
     keybind?: Keybind.Info
     title: string
@@ -131,7 +132,11 @@ export function DialogSelect<T>(props: DialogSelectProps<T>) {
   })
 
   const dimensions = useTerminalDimensions()
-  const height = createMemo(() => Math.min(rows(), Math.floor(dimensions().height / 2) - 6))
+  const height = createMemo(() => {
+    const available = dimensions().height
+    if (props.fullHeight) return Math.min(rows(), available - 8)
+    return Math.min(rows(), Math.floor(available / 2) - 6)
+  })
 
   const selected = createMemo(() => flat()[store.selected])
 
@@ -276,7 +281,7 @@ export function DialogSelect<T>(props: DialogSelectProps<T>) {
         <scrollbox
           paddingLeft={1}
           paddingRight={1}
-          scrollbarOptions={{ visible: false }}
+          scrollbarOptions={{ visible: props.fullHeight }}
           ref={(r: ScrollBoxRenderable) => (scroll = r)}
           maxHeight={height()}
         >

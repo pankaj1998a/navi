@@ -1,4 +1,4 @@
-import type { Plugin, Hooks } from "@navi-ai/plugin"
+import type { Plugin, Hooks } from "./types"
 import { 
     createCommentCheckerHook, 
     createContextWindowMonitorHook, 

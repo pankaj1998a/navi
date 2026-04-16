@@ -15,14 +15,19 @@ export const SkillTool = Tool.define("skill", async (ctx) => {
       : [
           "Load a specialized skill that provides domain-specific instructions and workflows.",
           "",
-          "When you recognize that a task matches one of the available skills listed below, use this tool to load the full skill instructions.",
+          "IMPORTANT: Only use this tool in these two cases:",
+          "1. The user explicitly asks you to use a skill (e.g. 'use the deploy skill', 'load the writing-skills skill').",
+          "2. You are highly confident the current task is an exact match for one of the available skills below AND the task cannot be completed well without it.",
           "",
-          "The skill will inject detailed instructions, workflows, and access to bundled resources (scripts, references, templates) into the conversation context.",
+          "Do NOT proactively load skills on your own initiative. Do NOT load a skill just because it sounds related.",
+          "Do NOT load a skill unless the user's request or the task clearly requires it.",
+          "",
+          "When a skill is appropriate, use this tool to load the full skill instructions.",
+          "The skill will inject detailed instructions, workflows, and access to bundled resources into the conversation.",
           "",
           'Tool output includes a `<skill_content name="...">` block with the loaded content.',
           "",
-          "The following skills provide specialized sets of instructions for particular tasks",
-          "Invoke this tool to load a skill when a task matches one of the available skills listed below:",
+          "Available skills (only load on explicit request or clear necessity):",
           "",
           Skill.fmt(list, { verbose: false }),
         ].join("\n")
@@ -103,4 +108,3 @@ export const SkillTool = Tool.define("skill", async (ctx) => {
     },
   }
 })
-

@@ -1,6 +1,7 @@
 import z from "zod"
 import { Tool } from "./tool"
 import { Session } from "../session"
+import { SessionID } from "../session/schema"
 
 export const SessionListTool = Tool.define("session_list", {
     description: "List available sessions for the current project.",
@@ -48,7 +49,7 @@ export const SessionReadTool = Tool.define("session_read", {
     execute: async (args) => {
         try {
             const msgs = await Session.messages({
-                sessionID: args.session_id,
+                sessionID: SessionID.make(args.session_id),
                 limit: args.limit,
             })
 
@@ -91,7 +92,7 @@ export const SessionInfoTool = Tool.define("session_info", {
     }),
     execute: async (args) => {
         try {
-            const session = await Session.get(args.session_id)
+            const session = await Session.get(SessionID.make(args.session_id))
             if (!session) {
                 return {
                     title: "Session Info",

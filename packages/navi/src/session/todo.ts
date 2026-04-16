@@ -8,6 +8,7 @@ import { SyncEvent } from "../sync"
 export namespace Todo {
   export const Info = z
     .object({
+      id: z.string().describe("Unique identifier for the task"),
       content: z.string().describe("Brief description of the task"),
       status: z.string().describe("Current status of the task: pending, in_progress, completed, cancelled"),
       priority: z.string().describe("Priority level of the task: high, medium, low"),

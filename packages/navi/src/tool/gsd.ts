@@ -12,6 +12,7 @@ import fs from "fs/promises"
 import path from "path"
 import { SymbolCache } from "../util/symbol-cache"
 import { renderSymbolIndex } from "../agent/codebase-map"
+import { SessionID, MessageID } from "../session/schema"
 
 /**
  * GSD-style Codebase Mapping Tool
@@ -47,14 +48,14 @@ export const MapCodebaseTool = Tool.define("map_codebase", async (ctx) => {
                 if (!agent) throw new Error(`Unknown agent: ${agentName}`)
 
                 const session = await Session.create({
-                    parentID: ctx.sessionID,
+                    parentID: SessionID.make(ctx.sessionID),
                     title: `Map Codebase: ${task.agentName} (@${agentName})`,
                     permission: PermissionNext.merge(
                         PermissionNext.fromConfig(config.permission ?? {}),
                     )
                 })
 
-                const messageID = Identifier.ascending("message")
+                const messageID = MessageID.make(Identifier.ascending("message"))
                 const promptParts = await SessionPrompt.resolvePromptParts(task.prompt)
 
                 const result = await SessionPrompt.prompt({
@@ -239,11 +240,11 @@ export const ExecutePhaseTool = Tool.define("execute_phase", async (ctx) => {
                     if (!agent) throw new Error(`Unknown agent: ${agentName}`)
 
                     const session = await Session.create({
-                        parentID: ctx.sessionID,
+                        parentID: SessionID.make(ctx.sessionID),
                         title: `Executing Task ${task.id}: ${task.name}`,
                     })
 
-                    const messageID = Identifier.ascending("message")
+                    const messageID = MessageID.make(Identifier.ascending("message"))
                     const result = await SessionPrompt.prompt({
                         messageID,
                         sessionID: session.id,
@@ -426,11 +427,11 @@ export const QuickTaskTool = Tool.define("quick_task", async (ctx) => {
             if (!agent) throw new Error(`Unknown agent: ${agentName}`)
 
             const session = await Session.create({
-                parentID: ctx.sessionID,
+                parentID: SessionID.make(ctx.sessionID),
                 title: `Quick Task: ${params.task}`,
             })
 
-            const messageID = Identifier.ascending("message")
+            const messageID = MessageID.make(Identifier.ascending("message"))
             const result = await SessionPrompt.prompt({
                 messageID,
                 sessionID: session.id,
