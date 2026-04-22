@@ -18,6 +18,7 @@ import { Filesystem } from "../util/filesystem"
 import { Instance } from "../project/instance"
 import { Snapshot } from "@/snapshot"
 import { assertExternalDirectory } from "./external-directory"
+import { assertRequired } from "../util/error"
 
 const MAX_DIAGNOSTICS_PER_FILE = 20
 
@@ -164,9 +165,9 @@ export const EditTool = Tool.define("edit", {
     return { success: true }
   },
   async execute(params, ctx) {
-    if (!params.filePath) {
-      throw new Error("filePath is required")
-    }
+    assertRequired(params.filePath, "filePath")
+    assertRequired(params.oldString, "oldString")
+    assertRequired(params.newString, "newString")
 
     if (params.oldString === params.newString) {
       throw new Error("No changes to apply: oldString and newString are identical.")

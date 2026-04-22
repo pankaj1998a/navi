@@ -1,5 +1,37 @@
 import { isRecord } from "./record"
 
+export interface NodeError extends Error {
+  code?: string
+  errno?: number
+  path?: string
+  syscall?: string
+}
+
+export function isNodeError(error: unknown): error is NodeError {
+  return error instanceof Error && "code" in error
+}
+
+export function isEnoent(e: unknown): e is { code: "ENOENT" } {
+  return isNodeError(e) && e.code === "ENOENT"
+}
+
+export class FileNotFoundError extends Error {
+  constructor(public filepath: string, public suggestions?: string[]) {
+    const message = suggestions && suggestions.length > 0 
+      ? `File not found: ${filepath}\n\nDid you mean one of these?\n${suggestions.join("\n")}`
+      : `File not found: ${filepath}`
+    super(message)
+    this.name = "FileNotFoundError"
+  }
+}
+
+export function assertRequired<T>(val: T | undefined | null, name: string): T {
+  if (val === undefined || val === null || (typeof val === "string" && val.trim() === "")) {
+    throw new Error(`${name} is required`)
+  }
+  return val
+}
+
 export function errorFormat(error: unknown): string {
   if (error instanceof Error) {
     return error.stack ?? `${error.name}: ${error.message}`

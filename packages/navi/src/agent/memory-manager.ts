@@ -239,13 +239,17 @@ export namespace MemoryManager {
                 await saveMediumTerm(filtered)
                 return true
             }
-        } catch { }
+        } catch (e) {
+            log.error("failed to load/save medium-term memory during remove", { id, error: e })
+        }
 
         // Try long-term
         try {
             await Storage.remove(["memory", "long", id])
             return true
-        } catch { }
+        } catch (e) {
+            log.error("failed to remove long-term memory", { id, error: e })
+        }
 
         return false
     }
@@ -258,8 +262,14 @@ export namespace MemoryManager {
         mediumTerm: { count: number; maxEntries: number }
         longTerm: { count: number }
     }> {
-        const mediumEntries = await loadMediumTerm().catch(() => [])
-        const longKeys = await Storage.list(["memory", "long"]).catch(() => [])
+        const mediumEntries = await loadMediumTerm().catch((err) => {
+            log.error("Failed to load medium-term memory for stats", { error: err })
+            return []
+        })
+        const longKeys = await Storage.list(["memory", "long"]).catch((err) => {
+            log.error("Failed to list long-term memory for stats", { error: err })
+            return []
+        })
 
         return {
             shortTerm: {
@@ -442,7 +452,10 @@ export namespace MemoryManager {
     }
 
     async function loadMediumTerm(): Promise<MemoryEntry[]> {
-        return await Storage.read<MemoryEntry[]>(["memory", "medium", "entries"]).catch(() => [])
+        return await Storage.read<MemoryEntry[]>(["memory", "medium", "entries"]).catch((err) => {
+            log.debug("No medium-term memories found or failed to read", { error: err })
+            return []
+        })
     }
 
     async function saveMediumTerm(entries: MemoryEntry[]): Promise<void> {
@@ -450,13 +463,18 @@ export namespace MemoryManager {
     }
 
     async function loadLongTerm(): Promise<MemoryEntry[]> {
-        const keys = await Storage.list(["memory", "long"]).catch(() => [])
+        const keys = await Storage.list(["memory", "long"]).catch((err) => {
+            log.debug("No long-term memories found or failed to list", { error: err })
+            return []
+        })
         const entries: MemoryEntry[] = []
         for (const key of keys) {
             try {
                 const entry = await Storage.read<MemoryEntry>(key)
                 entries.push(entry)
-            } catch { }
+            } catch (e) {
+                log.error("failed to read long-term memory entry", { key, error: e })
+            }
         }
         return entries
     }
@@ -468,7 +486,7 @@ export namespace MemoryManager {
         if (cleanupInterval) return
         cleanupInterval = setInterval(() => {
             cleanup().catch(e => log.error("cleanup failed", { error: e }))
-        }, CONFIG.CLEANUP_INTERVAL_MS)
+        }, CONFIG.CLEANUP_INTERVAL_MS).unref?.()
     }
 
     export function stopBackgroundCleanup(): void {

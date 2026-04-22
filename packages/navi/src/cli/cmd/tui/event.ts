@@ -46,5 +46,18 @@ export const TuiEvent = {
       sessionID: SessionID.zod.describe("Session ID to navigate to"),
     }),
   ),
+  SentryActive: BusEvent.define(
+    "tui.sentry.active",
+    z.object({
+      active: z.boolean(),
+    }),
+  ),
+  SentryFixCompleted: BusEvent.define(
+    "tui.sentry.fix_completed",
+    z.object({
+      error: z.string(),
+      success: z.boolean(),
+    }),
+  ),
 }
 

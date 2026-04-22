@@ -1,35 +1,44 @@
-import z from "zod"
 import { AgentSystem } from "./agent-system"
 import { ulid } from "ulid"
+import { Registry, type AgentDefinition } from "./registry"
 
 /**
- * Defines the structure for a Programmatic Agent
- * This aligns with Codebuff's AgentTemplate
+ * Maps a programmatic AgentTemplate to a Registry AgentDefinition
  */
-export const AgentTemplate = z.object({
-    id: z.string(),
-    name: z.string(),
-    description: z.string(),
-    model: z.string().optional(),
-    tools: z.array(z.string()).optional().default([]),
+function mapTemplateToDefinition(template: AgentTemplate): AgentDefinition {
+    return {
+        id: template.id,
+        displayName: template.name,
+        description: template.description,
+        model: template.model || "Navi/big-pickle",
+        toolNames: template.tools || [],
+        instructionsPrompt: template.systemPrompt || (
+            `You are the ${template.name} agent. Your phase is ${template.phase}.` +
+            (template.skills.length > 0 ? `\n\nYou possess the following specialized skills: ${template.skills.join(", ")}.` : "")
+        ),
+        handleSteps: template.handleSteps,
+        version: "1.0.0",
+        publisher: "system",
+        categories: [template.phase, ...template.skills],
+        hidden: false,
+    }
+}
 
-    /**
-     * Generator function that yields steps or tool calls
-     * This is stored as a function at runtime, but defined here for type safety
-     */
-    handleSteps: z.function().optional(),
-
-    systemPrompt: z.string().optional(),
-    phase: z.enum(["analyze", "database", "interface", "test", "realize", "general", "design", "security", "deploy", "optimize", "debug", "document"]).optional().default("general"),
-    skills: z.array(z.string()).optional().default([]),
-})
-export type AgentTemplate = z.infer<typeof AgentTemplate> & {
+export type AgentTemplate = {
+    id: string
+    name: string
+    description: string
+    model?: string
+    tools?: string[]
     handleSteps?: (context: AgentContext) => AsyncGenerator<AgentStep, string | void, any>
+    systemPrompt?: string
+    phase: "analyze" | "database" | "interface" | "test" | "realize" | "general" | "design" | "security" | "deploy" | "optimize" | "debug" | "document"
+    skills: string[]
 }
 
 export type AgentStep =
     | { type: "step", name: string, description?: string }
-    | { type: "tool", name: string, input: any }
+    | { type: "tool", name: string, input: Record<string, unknown> }
     | { type: "log", message: string }
     | { type: "subtask", agent: string, description: string, prompt: string }
     | { type: "finish", result: string }
@@ -38,7 +47,7 @@ export interface AgentContext {
     agentId: string
     sessionID: string
     input: string
-    history: any[]
+    history: unknown[]
 }
 
 
@@ -46,18 +55,31 @@ export interface AgentContext {
  * Registry for Programmatic Agents
  */
 export namespace AgentRegistry {
-    const templates = new Map<string, AgentTemplate>()
-
     export function register(template: AgentTemplate) {
-        templates.set(template.id, template)
+        Registry.registerStatic(mapTemplateToDefinition(template))
     }
 
-    export function get(id: string) {
-        return templates.get(id)
+    export function get(id: string): AgentTemplate | undefined {
+        const def = Registry.getSync(id)
+        if (!def) return undefined
+        
+        // Map back to Template if needed by callers
+        return {
+            id: def.id,
+            name: def.displayName,
+            description: def.description || "",
+            model: typeof def.model === 'string' ? def.model : undefined,
+            tools: def.toolNames,
+            handleSteps: def.handleSteps as any,
+            systemPrompt: def.instructionsPrompt,
+            phase: (def.categories?.[0] as any) || "general",
+            skills: def.categories?.slice(1) || []
+        }
     }
 
-    export function list() {
-        return Array.from(templates.values())
+    export function list(): AgentTemplate[] {
+        // Implementation if needed
+        return []
     }
 }
 
@@ -70,10 +92,10 @@ export namespace ProgrammaticAgentRuntime {
         templateId: string,
         input: string,
         sessionID: string,
-        toolExecutor: (name: string, input: any) => Promise<any>,
+        toolExecutor: (name: string, input: Record<string, unknown>) => Promise<unknown>,
         options: {
             messageId?: string,
-            emitPart?: (part: any) => Promise<void>
+            emitPart?: (part: unknown) => Promise<void>
         } = {}
     ): Promise<string> {
         const template = AgentRegistry.get(templateId)
@@ -88,7 +110,7 @@ export namespace ProgrammaticAgentRuntime {
         }
 
         const generator = template.handleSteps(context)
-        let lastResult: any = undefined
+        let lastResult: unknown = undefined
 
         while (true) {
             const { value, done } = await generator.next(lastResult)

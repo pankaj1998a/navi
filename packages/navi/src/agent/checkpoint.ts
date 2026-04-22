@@ -100,7 +100,9 @@ export namespace AgentCheckpoint {
             try {
                 const cp = await Storage.read<Checkpoint>(key)
                 checkpoints.push(cp)
-            } catch { }
+            } catch (e) {
+                log.error("failed to read individual checkpoint during list", { key, error: e })
+            }
         }
 
         return checkpoints.sort((a, b) => b.createdAt - a.createdAt)

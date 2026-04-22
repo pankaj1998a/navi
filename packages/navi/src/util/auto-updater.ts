@@ -46,7 +46,9 @@ async function loadState(): Promise<UpdaterState> {
       cachedState = await file.json() as UpdaterState
       return cachedState!
     }
-  } catch {}
+  } catch (err) {
+    log.debug("Failed to load updater state", { err })
+  }
   return { lastChecked: "1970-01-01T00:00:00Z", latestVersion: null, dismissed: false }
 }
 

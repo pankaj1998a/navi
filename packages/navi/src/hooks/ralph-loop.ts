@@ -14,7 +14,7 @@
  * Ported from oh-my-navi-dev plugin
  */
 
-import type { Hooks } from "@navi-ai/plugin"
+import type { Hooks, PluginInput } from "@navi-ai/plugin"
 import { Log } from "../util/log"
 import { existsSync, readFileSync, writeFileSync, mkdirSync, unlinkSync } from "node:fs"
 import { join } from "node:path"
@@ -134,8 +134,8 @@ export interface RalphLoopOptions {
 /**
  * Creates the Ralph Loop hook
  */
-export function createRalphLoopHook(options: RalphLoopOptions): RalphLoopHook {
-    const { directory, defaultMaxIterations = DEFAULT_MAX_ITERATIONS, completionPromise: defaultPromise = DEFAULT_COMPLETION_PROMISE } = options
+export function createRalphLoopHook(options: RalphLoopOptions & { input: PluginInput }): RalphLoopHook {
+    const { input, directory, defaultMaxIterations = DEFAULT_MAX_ITERATIONS, completionPromise: defaultPromise = DEFAULT_COMPLETION_PROMISE } = options
 
     // Track sessions in recovery
     const recoveringSessions = new Set<string>()
@@ -203,8 +203,8 @@ export function createRalphLoopHook(options: RalphLoopOptions): RalphLoopHook {
     /**
      * Event handler for session.idle - continues the loop if needed
      */
-    const event: Hooks["event"] = async (input) => {
-        const eventData = input.event as { type: string; properties?: Record<string, unknown> }
+    const event: Hooks["event"] = async (eventInput) => {
+        const eventData = eventInput.event as { type: string; properties?: Record<string, unknown> }
         const props = eventData.properties
 
         // Handle session idle - check if we need to continue the loop
@@ -239,8 +239,25 @@ export function createRalphLoopHook(options: RalphLoopOptions): RalphLoopHook {
                 return
             }
 
-            // TODO: Check if completion promise was output
-            // This requires access to session messages which we'll add later
+            // Check if completion promise was output
+            try {
+                const { data: messages } = await (input.client.session as any).messages({ sessionID, limit: 5 })
+                const lastAiMessage = [...(messages || [])].reverse().find(m => m.info.role === 'assistant')
+                
+                if (lastAiMessage?.parts) {
+                    const text = lastAiMessage.parts
+                        .map((p: any) => p.type === 'text' ? (p as any).text : '')
+                        .join('')
+                    
+                    if (detectCompletion(text, state.completion_promise)) {
+                        log.info("Completion promise detected, loop finished", { sessionID })
+                        clearState(directory)
+                        return
+                    }
+                }
+            } catch (err) {
+                log.error("Failed to check for completion promise", { error: err })
+            }
 
             // Increment iteration
             const newIteration = state.iteration + 1
@@ -263,10 +280,16 @@ export function createRalphLoopHook(options: RalphLoopOptions): RalphLoopHook {
                 .replace("{{PROMISE}}", state.completion_promise)
                 .replace("{{PROMPT}}", state.prompt)
 
-            // TODO: Inject continuation prompt via session API
-            // This requires access to ctx.client.session.prompt which we'll add later
-
-            log.info("Would inject continuation", { sessionID, prompt: continuationPrompt.slice(0, 100) })
+            // Inject continuation prompt
+            try {
+                await (input.client.session as any).prompt({
+                    sessionID,
+                    parts: [{ type: "text", text: continuationPrompt }]
+                })
+                log.info("Injected continuation prompt", { sessionID })
+            } catch (err) {
+                log.error("Failed to inject continuation prompt", { error: err })
+            }
         }
 
         // Handle session deletion

@@ -3,8 +3,10 @@ import { AgentRegistry, AgentTemplate, AgentContext, AgentStep } from "../progra
 const FilePickerAgent: AgentTemplate = {
     id: "file-picker",
     name: "File Picker",
-    description: "Intelligently selects files based on user query",
-    tools: ["grep", "read", "write", "edit", "bash"],
+    description: "Example agent showing how to pick files accurately.",
+    phase: "general",
+    skills: [],
+    tools: ["ls", "grep", "read", "write", "edit", "bash"],
     handleSteps: async function* (context: AgentContext): AsyncGenerator<AgentStep, string | void, any> {
         yield { type: "step", name: "Understanding query" }
 

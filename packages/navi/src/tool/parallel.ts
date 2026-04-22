@@ -9,6 +9,7 @@ import { SessionPrompt } from "../session/prompt"
 import { Identifier } from "../id/id"
 import { Config } from "../config/config"
 import { PermissionNext } from "@/permission/next"
+import { ProviderID, ModelID } from "../provider/schema"
 
 const taskSchema = z.object({
     agent: z.string().describe("The name of the agent to use"),
@@ -58,8 +59,8 @@ export const ParallelTool = Tool.define("parallel", async (ctx) => {
                     messageID,
                     sessionID: session.id,
                     model: task.model ? Provider.parseModel(task.model) : agent.model ? {
-                        modelID: agent.model.modelID,
-                        providerID: agent.model.providerID,
+                        modelID: ModelID.make(agent.model.modelID),
+                        providerID: ProviderID.make(agent.model.providerID),
                     } : undefined,
                     agent: agentName,
                     parts: promptParts,

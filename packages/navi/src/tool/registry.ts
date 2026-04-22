@@ -137,7 +137,7 @@ export namespace ToolRegistry {
           for (const match of matches) {
             const namespace = path.basename(match, path.extname(match))
             const mod = yield* Effect.promise(
-              () => import(process.platform === "win32" ? match : pathToFileURL(match).href),
+              () => import(pathToFileURL(match).href),
             )
             for (const [id, def] of Object.entries<ToolDefinition>(mod)) {
               custom.push(fromPlugin(id === "default" ? namespace : `${namespace}_${id}`, def))

@@ -1,6 +1,7 @@
 import z from "zod"
 import { Tool } from "./tool"
 import { webCrawl } from "./browser-engine"
+import { validateUrl } from "../util/url"
 
 export const WebCrawlTool = Tool.define("webcrawl", {
     description: `Crawl a website starting from a given URL, following links up to a specified depth.
@@ -39,9 +40,7 @@ Use this when you need to:
             .describe("Skip URLs matching this regex pattern (e.g. '/blog/' to skip blog posts)"),
     }),
     async execute(params, ctx) {
-        if (!params.url.startsWith("http://") && !params.url.startsWith("https://")) {
-            throw new Error("URL must start with http:// or https://")
-        }
+        validateUrl(params.url)
 
         await ctx.ask({
             permission: "webfetch",

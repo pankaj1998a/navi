@@ -9,6 +9,7 @@ import DESCRIPTION from "./grep.txt"
 import { Instance } from "../project/instance"
 import path from "path"
 import { assertExternalDirectory } from "./external-directory"
+import { assertRequired } from "../util/error"
 
 const MAX_LINE_LENGTH = 2000
 
@@ -20,9 +21,7 @@ export const GrepTool = Tool.define("grep", {
     include: z.string().optional().describe('File pattern to include in the search (e.g. "*.js", "*.{ts,tsx}")'),
   }),
   async execute(params, ctx) {
-    if (!params.pattern) {
-      throw new Error("pattern is required")
-    }
+    assertRequired(params.pattern, "pattern")
 
     await ctx.ask({
       permission: "grep",

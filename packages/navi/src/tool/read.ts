@@ -11,6 +11,7 @@ import { Instance } from "../project/instance"
 import { assertExternalDirectory } from "./external-directory"
 import { InstructionPrompt } from "../session/instruction"
 import { Filesystem } from "../util/filesystem"
+import { FileNotFoundError } from "../util/error"
 
 const DEFAULT_READ_LIMIT = 2000
 const MAX_LINE_LENGTH = 2000
@@ -69,11 +70,7 @@ export const ReadTool = Tool.define("read", {
         )
         .catch(() => [])
 
-      if (suggestions.length > 0) {
-        throw new Error(`File not found: ${filepath}\n\nDid you mean one of these?\n${suggestions.join("\n")}`)
-      }
-
-      throw new Error(`File not found: ${filepath}`)
+      throw new FileNotFoundError(filepath, suggestions)
     }
 
     if (stat.isDirectory()) {

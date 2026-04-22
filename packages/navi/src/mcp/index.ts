@@ -1,5 +1,5 @@
 import { dynamicTool, type Tool, jsonSchema, type JSONSchema7 } from "ai"
-import { Client } from "@modelcontextprotocol/sdk/client/index.js"
+import { Client } from "@modelcontextprotocol/sdk/client"
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js"
 import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js"
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js"
@@ -12,7 +12,7 @@ import {
 import { Config } from "../config/config"
 import { Log } from "../util/log"
 import { NamedError } from "@navi-ai/util/error"
-import z from "zod/v4"
+import z from "zod"
 import { Instance } from "../project/instance"
 import { Installation } from "../installation"
 import { withTimeout } from "@/util/timeout"
@@ -520,13 +520,16 @@ export namespace MCP {
                 Object.values(s.clients),
                 (client) =>
                   Effect.gen(function* () {
-                    const pid = (client.transport as any)?.pid
+                    const pid = "pid" in client.transport ? (client.transport as { pid: number }).pid : undefined
                     if (typeof pid === "number") {
                       const pids = yield* descendants(pid)
                       for (const dpid of pids) {
                         try {
                           process.kill(dpid, "SIGTERM")
-                        } catch {}
+                        } catch (e) {
+                          // Ignore if process is already dead or we lack permissions
+                          log.debug("failed to kill descendant process", { pid: dpid, error: e })
+                        }
                       }
                     }
                     yield* Effect.tryPromise(() => client.close()).pipe(Effect.ignore)

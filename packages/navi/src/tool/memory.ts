@@ -13,7 +13,18 @@ export const MemoryTool = Tool.define("save_memory", {
         scope: z.enum(["private", "team"] as const).default("private").describe("Whether this is just for this user or shared (default: private)")
     }),
     execute: async (args, _ctx) => {
-        const runtime = makeRuntime(MemoryService.Service, MemoryService.layer)
+        const { NodeFileSystem } = await import("@effect/platform-node")
+        const { Instance } = await import("@/project/instance")
+        const instance = Instance.current
+        const { InstanceRef } = await import("@/effect/instance-ref")
+        const { Layer } = await import("effect")
+        const { AppFileSystem } = await import("@/filesystem")
+
+        const runtime = makeRuntime(MemoryService.Service, MemoryService.layer.pipe(
+            Layer.provide(AppFileSystem.layer),
+            Layer.provide(NodeFileSystem.layer),
+            Layer.provide(Layer.succeed(InstanceRef, instance))
+        ))
         await runtime.runPromise((memory) => memory.save(args))
         return {
             output: `Memory '${args.name}' saved successfully to ${args.scope} storage.`,

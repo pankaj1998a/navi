@@ -3,8 +3,10 @@ import { AgentRegistry, AgentTemplate, AgentContext, AgentStep } from "../progra
 const DebuggerAgent: AgentTemplate = {
     id: "debugger",
     name: "System Debugger",
-    description: "Troubleshoots errors and provides root cause analysis",
-    tools: ["read", "write", "edit", "bash", "grep"],
+    description: "Advanced debugging and root cause discovery expert.",
+    phase: "debug",
+    skills: [],
+    tools: ["ls", "grep", "read", "bash"],
     handleSteps: async function* (context: AgentContext): AsyncGenerator<AgentStep, string | void, any> {
         yield { type: "step", name: "Diagnosing issue" }
 

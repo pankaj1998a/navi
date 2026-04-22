@@ -636,11 +636,7 @@ export namespace Config {
       // Convert legacy maxSteps to steps
       const steps = agent.steps ?? agent.maxSteps
 
-      return { ...agent, options, permission, steps } as typeof agent & {
-        options?: Record<string, unknown>
-        permission?: Permission
-        steps?: number
-      }
+      return { ...agent, options, permission, steps } as any
     })
     .meta({
       ref: "AgentConfig",
@@ -1039,6 +1035,13 @@ export namespace Config {
       layout: Layout.optional().describe("@deprecated Always uses stretch layout."),
       permission: Permission.optional(),
       tools: z.record(z.string(), z.boolean()).optional(),
+      sentry: z
+        .object({
+          dsn: z.string().optional(),
+          environment: z.string().optional(),
+          debug: z.boolean().optional(),
+        })
+        .optional(),
       enterprise: z
         .object({
           url: z.string().optional().describe("Enterprise URL"),
@@ -1075,6 +1078,14 @@ export namespace Config {
             .positive()
             .optional()
             .describe("Timeout in milliseconds for model context protocol (MCP) requests"),
+          modelRouting: z
+            .object({
+              enabled: z.boolean().optional(),
+              allowFallback: z.boolean().optional(),
+              minHealthScore: z.number().optional(),
+              crossProvider: z.boolean().optional(),
+            })
+            .optional(),
         })
         .optional(),
     })

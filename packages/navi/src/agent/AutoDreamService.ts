@@ -26,7 +26,7 @@ export class AutoDreamService {
 
     start() {
         if (this.timer) return
-        this.timer = setInterval(() => this.checkAndDream(), AutoDreamService.INTERVAL_MS)
+        this.timer = setInterval(() => this.checkAndDream(), AutoDreamService.INTERVAL_MS).unref?.()
         log.info("AutoDream service started")
     }
 

@@ -22,7 +22,7 @@ export const StandardHooksPlugin: Plugin = async (_input, _options) => {
         createCommentCheckerHook() as Hooks,
         createContextWindowMonitorHook() as Hooks,
         createKeywordDetectorHook(),
-        createRalphLoopHook({ directory: _input.directory }) as Hooks,
+        createRalphLoopHook({ directory: _input.directory, input: _input }) as Hooks,
         createSessionRecoveryHook() as Hooks,
         { event: createTodoContinuationEnforcerHook().event } as Hooks,
         createThinkModeHook(),

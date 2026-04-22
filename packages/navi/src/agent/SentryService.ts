@@ -25,7 +25,7 @@ export class SentryService {
 
     start() {
         if (this.timer) return
-        this.timer = setInterval(() => this.checkAndFix(), SentryService.INTERVAL_MS)
+        this.timer = setInterval(() => this.checkAndFix(), SentryService.INTERVAL_MS).unref?.()
         log.info("Sentry service started")
     }
 

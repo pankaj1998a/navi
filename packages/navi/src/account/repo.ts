@@ -2,6 +2,15 @@ import { Effect, Layer, Option, Schema, ServiceMap } from "effect"
 import { AccessToken, AccountID, AccountRepoError, Info, OrgID, RefreshToken } from "./schema"
 import { JsonlStorage } from "@/storage/jsonl"
 
+export interface AccountRow {
+  id: AccountID
+  email: string
+  url: string
+  access_token: AccessToken
+  refresh_token: RefreshToken
+  token_expiry: number | null
+}
+
 const ACCOUNT_STATE_ID = "global"
 
 export namespace AccountRepo {

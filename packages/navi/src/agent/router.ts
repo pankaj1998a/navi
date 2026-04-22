@@ -3,7 +3,9 @@ import { Awareness } from "./awareness"
 import { Provider } from "@/provider/provider"
 import { ProviderHealth } from "@/provider/health"
 import { ProviderReliability } from "@/provider/reliability"
-import { AgentPolicy } from "./policy"
+import { ProviderID, ModelID } from "../provider/schema"
+import { SessionID } from "../session/schema"
+import { Session } from "../session"
 
 export namespace AgentRouter {
   export type Decision = {
@@ -13,7 +15,7 @@ export namespace AgentRouter {
   }
 
   export function chooseFromProviders(input: {
-    providers: Array<Pick<Provider.Info, "id" | "source" | "catalog" | "models">>
+    providers: Array<Pick<Provider.Info, "id" | "source" | "models">>
     requested: Provider.Model
     agentName: string
     allowFallback?: boolean
@@ -134,8 +136,9 @@ export namespace AgentRouter {
   }
 
   export async function route(input: {
-    agent: { name: string; model?: { providerID: string; modelID: string }; executionPolicy?: AgentPolicy.Info }
+    agent: { name: string; model?: { providerID: ProviderID; modelID: ModelID }; executionPolicy?: AgentPolicy.Info }
     requested: Provider.Model
+    sessionID?: string
   }): Promise<Decision> {
     if (input.agent.model) {
       const exact = await Provider.getModel(input.agent.model.providerID, input.agent.model.modelID)
@@ -156,8 +159,9 @@ export namespace AgentRouter {
       }
     }
 
+    const providers = await Provider.list()
     return chooseFromProviders({
-      providers: Object.values(await Provider.list()),
+      providers: Object.values(providers) as any,
       requested: input.requested,
       agentName: input.agent.name,
       allowFallback: routing?.allowFallback,

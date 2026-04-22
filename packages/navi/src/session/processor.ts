@@ -11,7 +11,7 @@ import { Session } from "."
 import { LLM } from "./llm"
 import { MessageV2 } from "./message-v2"
 import { isOverflow } from "./overflow"
-import { PartID } from "./schema"
+import { PartID, MessageID } from "./schema"
 import type { SessionID } from "./schema"
 import { SessionRetry } from "./retry"
 import { SessionStatus } from "./status"
@@ -343,11 +343,8 @@ export namespace SessionProcessor {
                 !ctx.assistantMessage.summary &&
                 (ctx.assistantMessage.agent === "build" || ctx.assistantMessage.agent === "general")
               ) {
-                const orchModule = yield* Effect.promise(() => import("../agent/orchestrator"))
-                const vaModule = yield* Effect.promise(() => import("../agent/VerificationAgent"))
-                const sessionPromptModule = yield* Effect.promise(() => import("./prompt"))
-                const orch = new orchModule.Orchestrator()
-                const va = new vaModule.VerificationAgent(orch)
+                const orch = new Orchestrator()
+                const va = new VerificationAgent(orch)
 
                 const lastMsg = ctx.assistantMessage
                 const history = yield* session.messages({ sessionID: ctx.sessionID as any })
@@ -379,8 +376,8 @@ export namespace SessionProcessor {
                   } as any)
 
                   // Trigger a RECOVERY PROMPT
-                  yield* sessionPromptModule.SessionPrompt.prompt({
-                    messageID: Identifier.ascending("message") as any,
+                  yield* Effect.promise(() => SessionPrompt.prompt({
+                    messageID: MessageID.ascending(),
                     sessionID: ctx.sessionID,
                     agent: ctx.assistantMessage.agent,
                     parts: [{ 
@@ -388,7 +385,7 @@ export namespace SessionProcessor {
                       text: `Verification of your last action failed with the following feedback: ${result.output}. Please fix the issues and ensure all requirements are met. Use a high-reasoning approach to avoid further regressions.` 
                     }],
                     variant: "think" // Forced thinking boost
-                  })
+                  }))
                 }
                 ctx.verificationNeeded = false
               }

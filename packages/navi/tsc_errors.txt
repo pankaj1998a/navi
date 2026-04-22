@@ -1,0 +1,148 @@
+src/cli/cmd/stats.ts(92,36): error TS2339: Property 'fromRow' does not exist on type 'typeof Session'.
+src/cli/cmd/tui/context/local.tsx(48,15): error TS2339: Property 'secondary' does not exist on type 'Theme'.
+src/cli/cmd/tui/context/local.tsx(49,15): error TS2339: Property 'accent' does not exist on type 'Theme'.
+src/cli/cmd/tui/context/theme.tsx(239,5): error TS2353: Object literal may only specify known properties, and 'secondary' does not exist in type 'Partial<Record<ThemeColor, RGBA>>'.
+src/cli/cmd/tui/context/theme.tsx(564,7): error TS2353: Object literal may only specify known properties, and 'secondary' does not exist in type 'Partial<Record<ThemeColor, ColorValue>> & { primary: ColorValue; background: ColorValue; selectedListItemText?: ColorValue | undefined; backgroundMenu?: ColorValue | undefined; thinkingOpacity?: number | undefined; }'.
+src/cli/cmd/tui/context/theme.tsx(757,27): error TS2339: Property 'accent' does not exist on type 'Theme'.
+src/cli/cmd/tui/context/theme.tsx(770,27): error TS2339: Property 'secondary' does not exist on type 'Theme'.
+src/cli/cmd/tui/feature-plugins/home/footer.tsx(79,5): error TS2353: Object literal may only specify known properties, and 'order' does not exist in type '{ id?: string | undefined; slots: Record<string, (props: any) => any>; }'.
+src/cli/cmd/tui/feature-plugins/home/tips.tsx(20,14): error TS2801: This condition will always return true since this 'Promise<boolean>' is always defined.
+src/cli/cmd/tui/feature-plugins/home/tips.tsx(33,5): error TS2353: Object literal may only specify known properties, and 'order' does not exist in type '{ id?: string | undefined; slots: Record<string, (props: any) => any>; }'.
+src/cli/cmd/tui/feature-plugins/sidebar/context.tsx(52,7): error TS2322: Type '(_ctx: any, props: any) => any' is not assignable to type '(props: any) => any'.
+  Target signature provides too few arguments. Expected 2 or more, but got 1.
+src/cli/cmd/tui/feature-plugins/sidebar/context.tsx(52,23): error TS7006: Parameter '_ctx' implicitly has an 'any' type.
+src/cli/cmd/tui/feature-plugins/sidebar/context.tsx(52,29): error TS7006: Parameter 'props' implicitly has an 'any' type.
+src/cli/cmd/tui/feature-plugins/sidebar/files.tsx(49,7): error TS2322: Type '(_ctx: any, props: any) => any' is not assignable to type '(props: any) => any'.
+  Target signature provides too few arguments. Expected 2 or more, but got 1.
+src/cli/cmd/tui/feature-plugins/sidebar/files.tsx(49,23): error TS7006: Parameter '_ctx' implicitly has an 'any' type.
+src/cli/cmd/tui/feature-plugins/sidebar/files.tsx(49,29): error TS7006: Parameter 'props' implicitly has an 'any' type.
+src/cli/cmd/tui/feature-plugins/sidebar/footer.tsx(77,5): error TS2353: Object literal may only specify known properties, and 'order' does not exist in type '{ id?: string | undefined; slots: Record<string, (props: any) => any>; }'.
+src/cli/cmd/tui/feature-plugins/sidebar/lsp.tsx(49,5): error TS2353: Object literal may only specify known properties, and 'order' does not exist in type '{ id?: string | undefined; slots: Record<string, (props: any) => any>; }'.
+src/cli/cmd/tui/feature-plugins/sidebar/mcp.tsx(81,5): error TS2353: Object literal may only specify known properties, and 'order' does not exist in type '{ id?: string | undefined; slots: Record<string, (props: any) => any>; }'.
+src/cli/cmd/tui/feature-plugins/sidebar/todo.tsx(35,7): error TS2322: Type '(_ctx: any, props: any) => any' is not assignable to type '(props: any) => any'.
+  Target signature provides too few arguments. Expected 2 or more, but got 1.
+src/cli/cmd/tui/feature-plugins/sidebar/todo.tsx(35,23): error TS7006: Parameter '_ctx' implicitly has an 'any' type.
+src/cli/cmd/tui/feature-plugins/sidebar/todo.tsx(35,29): error TS7006: Parameter 'props' implicitly has an 'any' type.
+src/cli/cmd/tui/feature-plugins/system/plugins.tsx(58,7): error TS2322: Type '() => any' is not assignable to type 'string'.
+src/cli/cmd/tui/feature-plugins/system/plugins.tsx(69,19): error TS7006: Parameter 'raw' implicitly has an 'any' type.
+src/cli/cmd/tui/feature-plugins/system/plugins.tsx(82,25): error TS2345: Argument of type '{ global: boolean; }' is not assignable to parameter of type 'boolean | undefined'.
+src/cli/cmd/tui/feature-plugins/system/plugins.tsx(164,35): error TS2345: Argument of type '"xlarge"' is not assignable to parameter of type '"sm" | "md" | "lg" | "full"'.
+src/cli/cmd/tui/feature-plugins/system/plugins.tsx(168,35): error TS2345: Argument of type '"large"' is not assignable to parameter of type '"sm" | "md" | "lg" | "full"'.
+src/cli/cmd/tui/feature-plugins/system/plugins.tsx(171,33): error TS2345: Argument of type '"medium"' is not assignable to parameter of type '"sm" | "md" | "lg" | "full"'.
+src/cli/cmd/tui/plugin/api.tsx(322,13): error TS2322: Type '"medium" | "large" | "xlarge"' is not assignable to type '"sm" | "md" | "lg" | "full"'.
+  Type '"medium"' is not assignable to type '"sm" | "md" | "lg" | "full"'.
+src/cli/cmd/tui/plugin/api.tsx(351,7): error TS2322: Type '<T>(key: string, value: T) => void' is not assignable to type '<T>(key: string, value: T) => Promise<void>'.
+  Type 'void' is not assignable to type 'Promise<void>'.
+src/cli/cmd/tui/plugin/runtime.ts(160,23): error TS2339: Property 'state' does not exist on type 'TuiPluginMeta'.
+src/cli/cmd/tui/routes/session/question.tsx(267,26): error TS2339: Property 'accent' does not exist on type 'Theme'.
+src/cli/cmd/tui/routes/session/question.tsx(285,33): error TS2339: Property 'accent' does not exist on type 'Theme'.
+src/cli/cmd/tui/routes/session/question.tsx(297,61): error TS2339: Property 'accent' does not exist on type 'Theme'.
+src/cli/cmd/tui/routes/session/question.tsx(313,35): error TS2339: Property 'accent' does not exist on type 'Theme'.
+src/cli/cmd/tui/routes/session/question.tsx(319,69): error TS2339: Property 'accent' does not exist on type 'Theme'.
+src/cli/cmd/tui/routes/session/question.tsx(349,78): error TS2339: Property 'secondary' does not exist on type 'Theme'.
+src/cli/cmd/tui/routes/session/question.tsx(354,56): error TS2339: Property 'secondary' does not exist on type 'Theme'.
+src/cli/cmd/tui/routes/session/question.tsx(378,73): error TS2339: Property 'secondary' does not exist on type 'Theme'.
+src/cli/cmd/tui/routes/session/question.tsx(383,51): error TS2339: Property 'secondary' does not exist on type 'Theme'.
+src/cli/cmd/tui/ui/dialog-alert.tsx(45,27): error TS2551: Property 'selectedListItemText' does not exist on type 'Theme'. Did you mean '_hasSelectedListItemText'?
+src/cli/cmd/tui/ui/dialog-confirm.tsx(63,54): error TS2551: Property 'selectedListItemText' does not exist on type 'Theme'. Did you mean '_hasSelectedListItemText'?
+src/cli/cmd/tui/ui/dialog-context-viz.tsx(68,27): error TS2339: Property 'secondary' does not exist on type 'Theme'.
+src/cli/cmd/tui/ui/dialog-context-viz.tsx(75,31): error TS2339: Property 'accent' does not exist on type 'Theme'.
+src/cli/cmd/tui/ui/dialog-context-viz.tsx(116,33): error TS2339: Property 'secondary' does not exist on type 'Theme'.
+src/cli/cmd/tui/ui/dialog-help.tsx(35,27): error TS2551: Property 'selectedListItemText' does not exist on type 'Theme'. Did you mean '_hasSelectedListItemText'?
+src/cli/cmd/tui/ui/dialog-select.tsx(293,37): error TS2339: Property 'accent' does not exist on type 'Theme'.
+src/permission/mode-types.ts(55,25): error TS2554: Expected 2-3 arguments, but got 1.
+src/plugin/antigravity.ts(18,14): error TS2322: Type '(_ctx: any) => Promise<{ auth: AuthHook; }>' is not assignable to type 'Plugin'.
+src/plugin/antigravity.ts(18,53): error TS7006: Parameter '_ctx' implicitly has an 'any' type.
+src/provider/fetch-models.ts(55,9): error TS2322: Type 'string' is not assignable to type 'string & Brand<"ModelID">'.
+  Type 'string' is not assignable to type 'Brand<"ModelID">'.
+src/provider/fetch-models.ts(56,9): error TS2322: Type 'string' is not assignable to type 'string & Brand<"ProviderID">'.
+  Type 'string' is not assignable to type 'Brand<"ProviderID">'.
+src/provider/health.ts(58,9): error TS2367: This comparison appears to be unintentional because the types '"custom" | "config" | "env" | "api"' and '"free"' have no overlap.
+src/provider/providers/cline.ts(66,33): error TS2322: Type 'string' is not assignable to type 'string & Brand<"ModelID">'.
+  Type 'string' is not assignable to type 'Brand<"ModelID">'.
+src/provider/providers/cline.ts(67,33): error TS2322: Type 'string' is not assignable to type 'string & Brand<"ProviderID">'.
+  Type 'string' is not assignable to type 'Brand<"ProviderID">'.
+src/provider/providers/cohere.ts(49,29): error TS2322: Type 'string' is not assignable to type 'string & Brand<"ModelID">'.
+  Type 'string' is not assignable to type 'Brand<"ModelID">'.
+src/provider/providers/cohere.ts(50,29): error TS2322: Type 'string' is not assignable to type 'string & Brand<"ProviderID">'.
+  Type 'string' is not assignable to type 'Brand<"ProviderID">'.
+src/provider/providers/kilocode.ts(72,29): error TS2322: Type 'string' is not assignable to type 'string & Brand<"ProviderID">'.
+  Type 'string' is not assignable to type 'Brand<"ProviderID">'.
+src/provider/providers/misc.ts(118,29): error TS2353: Object literal may only specify known properties, and 'isFree' does not exist in type '{ id: string & Brand<"ModelID">; providerID: string & Brand<"ProviderID">; api: { id: string; url: string; npm: string; }; name: string; capabilities: { temperature: boolean; ... 5 more ...; interleaved: boolean | { ...; }; }; ... 7 more ...; variants?: Record<...> | undefined; }'.
+src/provider/providers/misc.ts(283,29): error TS2353: Object literal may only specify known properties, and 'isFree' does not exist in type '{ id: string & Brand<"ModelID">; providerID: string & Brand<"ProviderID">; api: { id: string; url: string; npm: string; }; name: string; capabilities: { temperature: boolean; ... 5 more ...; interleaved: boolean | { ...; }; }; ... 7 more ...; variants?: Record<...> | undefined; }'.
+src/provider/providers/roocode.ts(66,33): error TS2322: Type 'string' is not assignable to type 'string & Brand<"ModelID">'.
+  Type 'string' is not assignable to type 'Brand<"ModelID">'.
+src/provider/providers/roocode.ts(67,33): error TS2322: Type 'string' is not assignable to type 'string & Brand<"ProviderID">'.
+  Type 'string' is not assignable to type 'Brand<"ProviderID">'.
+src/provider/sdk/openai-compatible/src/openai-compatible-provider.ts(96,10): error TS2352: Conversion of type '{ (modelId: string): OpenAICompatibleChatLanguageModel; languageModel: (modelId: string) => OpenAICompatibleChatLanguageModel; chat: (modelId: string) => OpenAICompatibleChatLanguageModel; responses: (modelId: string) => OpenAIResponsesLanguageModel; }' to type 'OpenaiCompatibleProvider' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  The types of 'chat(...).specificationVersion' are incompatible between these types.
+    Type '"v3"' is not comparable to type '"v2"'.
+src/provider/sdk/openai-compatible/src/responses/tool/code-interpreter.ts(1,10): error TS2724: '"@ai-sdk/provider-utils"' has no exported member named 'createProviderDefinedToolFactoryWithOutputSchema'. Did you mean 'createProviderToolFactoryWithOutputSchema'?
+src/provider/sdk/openai-compatible/src/responses/tool/file-search.ts(1,10): error TS2724: '"@ai-sdk/provider-utils"' has no exported member named 'createProviderDefinedToolFactoryWithOutputSchema'. Did you mean 'createProviderToolFactoryWithOutputSchema'?
+src/provider/sdk/openai-compatible/src/responses/tool/image-generation.ts(1,10): error TS2724: '"@ai-sdk/provider-utils"' has no exported member named 'createProviderDefinedToolFactoryWithOutputSchema'. Did you mean 'createProviderToolFactoryWithOutputSchema'?
+src/provider/sdk/openai-compatible/src/responses/tool/local-shell.ts(1,10): error TS2724: '"@ai-sdk/provider-utils"' has no exported member named 'createProviderDefinedToolFactoryWithOutputSchema'. Did you mean 'createProviderToolFactoryWithOutputSchema'?
+src/provider/sdk/openai-compatible/src/responses/tool/web-search-preview.ts(1,10): error TS2724: '"@ai-sdk/provider-utils"' has no exported member named 'createProviderDefinedToolFactory'. Did you mean 'createProviderToolFactory'?
+src/provider/sdk/openai-compatible/src/responses/tool/web-search.ts(1,10): error TS2724: '"@ai-sdk/provider-utils"' has no exported member named 'createProviderDefinedToolFactory'. Did you mean 'createProviderToolFactory'?
+src/session/compaction.ts(178,23): error TS18047: 'agent' is possibly 'null'.
+src/session/compaction.ts(179,38): error TS18047: 'agent' is possibly 'null'.
+src/session/compaction.ts(179,62): error TS18047: 'agent' is possibly 'null'.
+src/session/compaction.ts(256,13): error TS2322: Type '{ name: string; mode: "all" | "parallel" | "subagent" | "primary"; permission: { permission: string; pattern: string; action: "ask" | "allow" | "deny"; }[]; options: Record<string, any>; ... 26 more ...; handleSteps?: any; } | null' is not assignable to type '{ name: string; mode: "all" | "parallel" | "subagent" | "primary"; permission: { permission: string; pattern: string; action: "ask" | "allow" | "deny"; }[]; options: Record<string, any>; ... 26 more ...; handleSteps?: any; }'.
+  Type 'null' is not assignable to type '{ name: string; mode: "all" | "parallel" | "subagent" | "primary"; permission: { permission: string; pattern: string; action: "ask" | "allow" | "deny"; }[]; options: Record<string, any>; ... 26 more ...; handleSteps?: any; }'.
+src/session/llm.ts(307,66): error TS2339: Property 'args' does not exist on type 'LanguageModelV3ToolCall'.
+src/session/prompt/command.ts(56,23): error TS18048: 'command' is possibly 'undefined'.
+src/session/prompt/command.ts(61,35): error TS18048: 'command' is possibly 'undefined'.
+src/session/prompt/command.ts(96,13): error TS18048: 'command' is possibly 'undefined'.
+src/session/prompt/command.ts(97,40): error TS18048: 'command' is possibly 'undefined'.
+src/session/prompt/command.ts(99,13): error TS18048: 'command' is possibly 'undefined'.
+src/session/prompt/command.ts(100,46): error TS18048: 'command' is possibly 'undefined'.
+src/session/prompt/command.ts(136,39): error TS18048: 'command' is possibly 'undefined'.
+src/session/prompt/command.ts(136,69): error TS18048: 'command' is possibly 'undefined'.
+src/session/prompt/command.ts(141,34): error TS18048: 'command' is possibly 'undefined'.
+src/session/prompt/command.ts(149,9): error TS18048: 'command' is possibly 'undefined'.
+src/session/prompt/command.ts(149,17): error TS2339: Property 'handler' does not exist on type 'Info'.
+src/session/prompt/command.ts(151,37): error TS18048: 'command' is possibly 'undefined'.
+src/session/prompt/command.ts(151,45): error TS2339: Property 'handler' does not exist on type 'Info'.
+src/session/prompt/reminders.ts(21,13): error TS2322: Type 'string' is not assignable to type 'string & Brand<"PartID">'.
+  Type 'string' is not assignable to type 'Brand<"PartID">'.
+src/session/prompt/reminders.ts(33,13): error TS2322: Type 'string' is not assignable to type 'string & Brand<"PartID">'.
+  Type 'string' is not assignable to type 'Brand<"PartID">'.
+src/session/prompt/shell.ts(51,9): error TS2353: Object literal may only specify known properties, and 'permissionMode' does not exist in type '{ type: "idle"; }'.
+src/session/prompt/shell.ts(70,39): error TS2345: Argument of type 'string' is not assignable to parameter of type 'string & Brand<"SessionID">'.
+  Type 'string' is not assignable to type 'Brand<"SessionID">'.
+src/session/prompt/shell.ts(75,34): error TS18047: 'agent' is possibly 'null'.
+src/session/prompt/subtask.ts(112,47): error TS18047: 'taskAgent' is possibly 'null'.
+src/session/prompt/subtask.ts(142,17): error TS2322: Type 'Omit<{ id: string & Brand<"PartID">; sessionID: string & Brand<"SessionID">; messageID: string & Brand<"MessageID">; type: "file"; mime: string; url: string; filename?: string | undefined; source?: { ...; } | ... 2 more ... | undefined; }, "id" | ... 1 more ... | "sessionID">[] | undefined' is not assignable to type '{ id: string & Brand<"PartID">; sessionID: string & Brand<"SessionID">; messageID: string & Brand<"MessageID">; type: "file"; mime: string; url: string; filename?: string | undefined; source?: { ...; } | ... 2 more ... | undefined; }[] | undefined'.
+  Type 'Omit<{ id: string & Brand<"PartID">; sessionID: string & Brand<"SessionID">; messageID: string & Brand<"MessageID">; type: "file"; mime: string; url: string; filename?: string | undefined; source?: { ...; } | ... 2 more ... | undefined; }, "id" | ... 1 more ... | "sessionID">[]' is not assignable to type '{ id: string & Brand<"PartID">; sessionID: string & Brand<"SessionID">; messageID: string & Brand<"MessageID">; type: "file"; mime: string; url: string; filename?: string | undefined; source?: { ...; } | ... 2 more ... | undefined; }[]'.
+    Type 'Omit<{ id: string & Brand<"PartID">; sessionID: string & Brand<"SessionID">; messageID: string & Brand<"MessageID">; type: "file"; mime: string; url: string; filename?: string | undefined; source?: { ...; } | ... 2 more ... | undefined; }, "id" | ... 1 more ... | "sessionID">' is missing the following properties from type '{ id: string & Brand<"PartID">; sessionID: string & Brand<"SessionID">; messageID: string & Brand<"MessageID">; type: "file"; mime: string; url: string; filename?: string | undefined; source?: { ...; } | ... 2 more ... | undefined; }': id, sessionID, messageID
+src/session/prompt/title.ts(59,9): error TS2322: Type 'Promise<ModelMessage[]> | { role: "user"; content: string; }[]' is not assignable to type 'ModelMessage[]'.
+  Type 'Promise<ModelMessage[]>' is missing the following properties from type 'ModelMessage[]': length, pop, push, concat, and 35 more.
+src/session/prompt/title.ts(62,29): error TS2554: Expected 2-3 arguments, but got 1.
+src/session/prompt/title.ts(65,36): error TS2339: Property 'find' does not exist on type 'Promise<ModelMessage[]> | { role: "user"; content: string; }[]'.
+  Property 'find' does not exist on type 'Promise<ModelMessage[]>'.
+src/session/prompt/title.ts(65,42): error TS7006: Parameter 'm' implicitly has an 'any' type.
+src/session/prompt/title.ts(74,22): error TS2339: Property 'unshift' does not exist on type 'Promise<ModelMessage[]> | { role: "user"; content: string; }[]'.
+  Property 'unshift' does not exist on type 'Promise<ModelMessage[]>'.
+src/session/prompt/user-message.ts(31,27): error TS18047: 'agent' is possibly 'null'.
+src/session/prompt/user-message.ts(42,16): error TS18047: 'agent' is possibly 'null'.
+src/session/prompt/user-message.ts(43,31): error TS18047: 'agent' is possibly 'null'.
+src/session/prompt/user-message.ts(57,9): error TS18047: 'agent' is possibly 'null'.
+src/session/prompt/user-message.ts(73,29): error TS2322: Type 'string' is not assignable to type 'string & Brand<"PartID">'.
+  Type 'string' is not assignable to type 'Brand<"PartID">'.
+src/session/prompt/user-message.ts(96,37): error TS2322: Type 'string' is not assignable to type 'string & Brand<"PartID">'.
+  Type 'string' is not assignable to type 'Brand<"PartID">'.
+src/session/prompt/user-message.ts(104,37): error TS2322: Type 'string' is not assignable to type 'string & Brand<"PartID">'.
+  Type 'string' is not assignable to type 'Brand<"PartID">'.
+src/session/prompt/user-message.ts(118,29): error TS2322: Type '{ id: string; messageID: string & Brand<"MessageID">; sessionID: any; type: "text"; synthetic: true; text: string; }' is not assignable to type '{ id: string & Brand<"PartID">; sessionID: string & Brand<"SessionID">; messageID: string & Brand<"MessageID">; type: "file"; mime: string; url: string; filename?: string | undefined; source?: { ...; } | ... 2 more ... | undefined; } | ... 10 more ... | { ...; }'.
+  Types of property 'id' are incompatible.
+    Type 'string' is not assignable to type 'string & Brand<"PartID">'.
+      Type 'string' is not assignable to type 'Brand<"PartID">'.
+src/session/prompt/user-message.ts(120,33): error TS2322: Type 'string' is not assignable to type 'string & Brand<"PartID">'.
+  Type 'string' is not assignable to type 'Brand<"PartID">'.
+src/session/prompt/user-message.ts(138,33): error TS2322: Type 'string' is not assignable to type 'string & Brand<"PartID">'.
+  Type 'string' is not assignable to type 'Brand<"PartID">'.
+src/session/prompt/user-message.ts(152,33): error TS2322: Type 'string' is not assignable to type 'string & Brand<"PartID">'.
+  Type 'string' is not assignable to type 'Brand<"PartID">'.
+src/session/prompt/user-message.ts(165,29): error TS2322: Type 'string' is not assignable to type 'string & Brand<"PartID">'.
+  Type 'string' is not assignable to type 'Brand<"PartID">'.
+src/session/prompt/user-message.ts(181,29): error TS2322: Type 'string' is not assignable to type 'string & Brand<"PartID">'.
+  Type 'string' is not assignable to type 'Brand<"PartID">'.

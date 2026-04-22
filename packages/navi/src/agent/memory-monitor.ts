@@ -33,7 +33,7 @@ export namespace MemoryMonitor {
             } catch (e) {
                 log.error("memory monitor check failed", { error: e })
             }
-        }, checkIntervalMs)
+        }, checkIntervalMs).unref?.()
 
         log.info("memory monitor started")
     }

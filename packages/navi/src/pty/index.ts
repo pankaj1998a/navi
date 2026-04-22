@@ -121,11 +121,15 @@ export namespace Pty {
       function teardown(session: Active) {
         try {
           session.process.kill()
-        } catch {}
+        } catch (err) {
+          log.debug("Failed to kill session process during teardown", { id: session.info.id, error: err })
+        }
         for (const [key, ws] of session.subscribers.entries()) {
           try {
             if (ws.data === key) ws.close()
-          } catch {}
+          } catch (err) {
+            log.debug("Failed to close socket during teardown", { id: session.info.id, error: err })
+          }
         }
         session.subscribers.clear()
       }

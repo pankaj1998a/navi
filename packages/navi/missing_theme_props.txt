@@ -1,0 +1,24 @@
+src/cli/cmd/tui/context/local.tsx:        theme.secondary,
+src/cli/cmd/tui/context/local.tsx:        theme.accent,
+src/cli/cmd/tui/context/theme.tsx:  const hasSelectedListItemText = theme.theme.selectedListItemText !== undefined
+src/cli/cmd/tui/context/theme.tsx:    ? resolveColor(theme.theme.selectedListItemText!)
+src/cli/cmd/tui/context/theme.tsx:        foreground: theme.accent,
+src/cli/cmd/tui/context/theme.tsx:        foreground: theme.secondary,
+src/cli/cmd/tui/routes/session/index.tsx:                      if (file.mime.startsWith("image/")) return theme.accent ?? theme.primary
+src/cli/cmd/tui/routes/session/index.tsx:                      return theme.secondary ?? theme.primary
+src/cli/cmd/tui/routes/session/question.tsx:      borderColor={theme.accent}
+src/cli/cmd/tui/routes/session/question.tsx:                        ? theme.accent
+src/cli/cmd/tui/routes/session/question.tsx:                          ? selectedForeground(theme, theme.accent)
+src/cli/cmd/tui/routes/session/question.tsx:                confirm() ? theme.accent : tabHover() === "confirm" ? theme.backgroundElement : theme.backgroundPanel
+src/cli/cmd/tui/routes/session/question.tsx:              <text fg={confirm() ? selectedForeground(theme, theme.accent) : theme.textMuted}>Confirm</text>
+src/cli/cmd/tui/routes/session/question.tsx:                            <text fg={active() ? tint(theme.textMuted, theme.secondary, 0.6) : theme.textMuted}>
+src/cli/cmd/tui/routes/session/question.tsx:                            <text fg={active() ? theme.secondary : picked() ? theme.success : theme.text}>
+src/cli/cmd/tui/routes/session/question.tsx:                        <text fg={other() ? tint(theme.textMuted, theme.secondary, 0.6) : theme.textMuted}>
+src/cli/cmd/tui/routes/session/question.tsx:                        <text fg={other() ? theme.secondary : customPicked() ? theme.success : theme.text}>
+src/cli/cmd/tui/ui/dialog-alert.tsx:          <text fg={theme.selectedListItemText}>ok</text>
+src/cli/cmd/tui/ui/dialog-confirm.tsx:              <text fg={key === store.active ? theme.selectedListItemText : theme.textMuted}>
+src/cli/cmd/tui/ui/dialog-context-viz.tsx:          <text fg={theme.secondary} attributes={TextAttributes.BOLD}>
+src/cli/cmd/tui/ui/dialog-context-viz.tsx:              <text fg={theme.accent}>{stats().total.toLocaleString()}</text>
+src/cli/cmd/tui/ui/dialog-context-viz.tsx:                <text fg={theme.secondary} marginBottom={1}>Top Files in Context:</text>
+src/cli/cmd/tui/ui/dialog-help.tsx:          <text fg={theme.selectedListItemText}>ok</text>
+src/cli/cmd/tui/ui/dialog-select.tsx:                    <text fg={theme.accent} attributes={TextAttributes.BOLD}>

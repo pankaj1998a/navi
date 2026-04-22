@@ -37,7 +37,7 @@ export class SentryService {
 
     this.debounceTimer = setTimeout(() => {
       this.runVerification(file)
-    }, debounceMs)
+    }, debounceMs).unref?.()
   }
 
   private static async runVerification(file: string) {
@@ -72,24 +72,28 @@ export class SentryService {
             const { Orchestrator } = await import("../agent/orchestrator")
             const orchestrator = new Orchestrator()
             
-            // Spawn a fixer agent specifically for this error
-            // We use the generatorWorkflow with the error as the goal
-            const fixGoal = `Fix this error in the codebase:\n${errorMsg}`
-            const fixer = orchestrator.generatorWorkflow(fixGoal, root)
-            
-            for await (const step of fixer) {
-              this.log.debug("Sentry fixer step", { step })
+            try {
+              // Spawn a fixer agent specifically for this error
+              // We use the generatorWorkflow with the error as the goal
+              const fixGoal = `Fix this error in the codebase:\n${errorMsg}`
+              const fixer = orchestrator.generatorWorkflow(fixGoal, root)
+              
+              for await (const step of fixer) {
+                this.log.debug("Sentry fixer step", { step })
+              }
+              
+              Bus.publish(BusEvent.define("sentry.fix.completed", z.object({
+                file: z.string(),
+                command: z.string(),
+                error: z.string(),
+              }) as any), {
+                file,
+                command,
+                error: errorMsg,
+              })
+            } finally {
+              orchestrator.stop()
             }
-            
-            Bus.publish(BusEvent.define("sentry.fix.completed", z.object({
-              file: z.string(),
-              command: z.string(),
-              error: z.string(),
-            }) as any), {
-              file,
-              command,
-              error: errorMsg,
-            })
           }
         } else {
           this.log.info(`Verification passed: ${command}`)

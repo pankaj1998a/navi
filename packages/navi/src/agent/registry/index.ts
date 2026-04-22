@@ -4,6 +4,7 @@ import fs from "fs/promises"
 import { watch, type FSWatcher } from "fs"
 import { Log } from "../../util/log"
 import { Global } from "../../global"
+import { pathToFileURL } from "url"
 
 const log = Log.create({ service: "agent-registry" })
 
@@ -11,8 +12,8 @@ export const AgentDefinitionSchema = z.object({
     id: z.string().min(1),
     displayName: z.string().min(1),
     description: z.string().optional(),
-    model: z.string().min(1),
-    toolNames: z.array(z.string()),
+    model: z.string().or(z.object({ providerID: z.string(), modelID: z.string() })).optional(),
+    toolNames: z.array(z.string()).optional().default([]),
     instructionsPrompt: z.string().min(1),
     handleSteps: z.any().optional(),
     version: z.string().default("1.0.0"),
@@ -21,6 +22,7 @@ export const AgentDefinitionSchema = z.object({
     hidden: z.boolean().default(false),
     temperature: z.number().min(0).max(2).optional(),
     topP: z.number().min(0).max(1).optional(),
+    steps: z.number().int().positive().optional(),
 })
 
 export type AgentDefinition = z.infer<typeof AgentDefinitionSchema>
@@ -116,31 +118,53 @@ export class AgentRegistry {
     private async loadAgent(filePath: string): Promise<void> {
         log.info("Loading agent", { filePath })
 
-        const content = await fs.readFile(filePath, 'utf-8')
+        try {
+            // Use dynamic import to load the agent definition
+            // Add a timestamp to bypass the module cache if autoReload is enabled
+            const fetchUrl = process.platform === "win32" 
+                ? pathToFileURL(filePath).href 
+                : filePath
+            
+            const cacheBuster = this.autoReload ? `?t=${Date.now()}` : ""
+            const mod = await import(fetchUrl + cacheBuster)
+            const definition = mod.default
+            
+            if (!definition) {
+                log.warn("No default export found in agent file", { filePath })
+                return
+            }
 
-        // Parse agent definition from file
-        const definition = this.parseAgentDefinition(content, filePath)
+            const parsed = AgentDefinitionSchema.parse(definition)
+            const fullId = this.getFullId(parsed)
 
-        if (!definition) {
-            log.warn("No agent definition found", { filePath })
-            return
+            const entry: AgentRegistryEntry = {
+                definition: parsed,
+                filePath,
+                loadedAt: Date.now(),
+                version: parsed.version,
+            }
+
+            this.agents.set(fullId, entry)
+            log.info("Loaded agent", { id: fullId, displayName: parsed.displayName })
+        } catch (error) {
+            log.error("Failed to load agent definition", { filePath, error })
+            
+            // Fallback to regex parsing if import fails (e.g. syntax error in file)
+            const content = await fs.readFile(filePath, 'utf-8')
+            const definition = this.parseAgentDefinitionFallback(content, filePath)
+            if (definition) {
+                const fullId = this.getFullId(definition)
+                this.agents.set(fullId, {
+                    definition,
+                    filePath,
+                    loadedAt: Date.now(),
+                    version: definition.version
+                })
+            }
         }
-
-        const fullId = this.getFullId(definition)
-
-        const entry: AgentRegistryEntry = {
-            definition,
-            filePath,
-            loadedAt: Date.now(),
-            version: definition.version,
-        }
-
-        this.agents.set(fullId, entry)
-
-        log.info("Loaded agent", { id: fullId, displayName: definition.displayName })
     }
 
-    private parseAgentDefinition(content: string, filePath: string): AgentDefinition | null {
+    private parseAgentDefinitionFallback(content: string, filePath: string): AgentDefinition | null {
         // Look for export default statement
         const defaultExportMatch = content.match(/export\s+default\s+(\{[\s\S]*?\})\s*;?/)
 
@@ -156,26 +180,7 @@ export class AgentRegistry {
                 const parsed = JSON.parse(jsonStr)
                 return AgentDefinitionSchema.parse(parsed)
             } catch (error) {
-                log.warn("Failed to parse agent definition", { filePath, error })
-                return null
-            }
-        }
-
-        // Look for agent object assignment
-        const objectMatch = content.match(/agent\s*=\s*\{[\s\S]*?\}/)
-        if (objectMatch) {
-            try {
-                const jsonStr = objectMatch[0]
-                    .replace(/agent\s*=\s*/, '')
-                    .replace(/\/\/.*$/gm, '')
-                    .replace(/\/\*[\s\S]*?\*\//g, '')
-                    .replace(/'(\w+)':/g, '"$1":')
-                    .replace(/'/g, '"')
-
-                const parsed = JSON.parse(jsonStr)
-                return AgentDefinitionSchema.parse(parsed)
-            } catch (error) {
-                log.warn("Failed to parse agent object", { filePath, error })
+                log.warn("Failed to parse agent definition fallback", { filePath, error })
                 return null
             }
         }
@@ -239,6 +244,10 @@ export class AgentRegistry {
     }
 
     async get(agentId: string): Promise<AgentDefinition | null> {
+        return this.getSync(agentId)
+    }
+
+    getSync(agentId: string): AgentDefinition | null {
         // Try static agents first
         if (this.staticAgents.has(agentId)) {
             return this.staticAgents.get(agentId)!
@@ -249,18 +258,16 @@ export class AgentRegistry {
             return this.agents.get(agentId)!.definition
         }
 
-        // Try without version
-        const withoutVersion = agentId.replace(/@.*$/, '')
+        // Try without version (e.g. system/agent)
         for (const [id, entry] of this.agents.entries()) {
-            if (id.startsWith(withoutVersion + '@')) {
+            if (id.startsWith(agentId + '@')) {
                 return entry.definition
             }
         }
 
-        // Try without publisher
-        const withoutPublisher = withoutVersion.replace(/^[^/]+\//, '')
+        // Try just by ID (if not qualified)
         for (const [id, entry] of this.agents.entries()) {
-            if (id.endsWith('@' + withoutPublisher)) {
+            if (id.includes('/' + agentId + '@')) {
                 return entry.definition
             }
         }
@@ -293,7 +300,9 @@ export class AgentRegistry {
     }
 
     async listAll(): Promise<AgentDefinition[]> {
-        return Array.from(this.agents.values()).map(a => a.definition)
+        const fileAgents = Array.from(this.agents.values()).map(a => a.definition)
+        const staticAgents = Array.from(this.staticAgents.values())
+        return [...fileAgents, ...staticAgents]
     }
 
     async publish(agent: AgentDefinition): Promise<void> {

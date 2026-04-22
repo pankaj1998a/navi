@@ -42,7 +42,7 @@ export namespace ProviderHealth {
     })
   export type Summary = z.infer<typeof Summary>
 
-  export function summarizeProvider(provider: Pick<Provider.Info, "id" | "source" | "models" | "catalog">): Summary {
+  export function summarizeProvider(provider: Pick<Provider.Info, "id" | "source" | "models">): Summary {
     const reasons: string[] = []
     const active = Object.values(provider.models ?? {}).filter((model) => model.status === "active")
     const activeModels = active.length
@@ -55,16 +55,13 @@ export namespace ProviderHealth {
       reasons.push(`${activeModels} active models`)
     }
 
-    if (provider.source === "free") {
-      score -= 10
-      reasons.push("using free-access provider path")
-    }
 
     if (provider.source === "config") {
       score -= 15
       reasons.push("configured but not authenticated")
     }
 
+    /* // ignore - catalog property no longer exists in Provider.Info
     const ageMs = provider.catalog?.ageMs ?? 0
     if (ageMs > 0) {
       const days = Math.floor(ageMs / (24 * 60 * 60 * 1000))
@@ -81,6 +78,7 @@ export namespace ProviderHealth {
       score -= 10
       reasons.push("missing catalog metadata")
     }
+    */
 
     const capabilityStats = summarizeCapabilities(active)
     score += Math.round(
@@ -104,7 +102,7 @@ export namespace ProviderHealth {
     }
   }
 
-  export function summarizeProviders(providers: Array<Pick<Provider.Info, "id" | "source" | "models" | "catalog">>) {
+  export function summarizeProviders(providers: Array<Pick<Provider.Info, "id" | "source" | "models">>) {
     return providers.map(summarizeProvider).sort((a, b) => b.score - a.score)
   }
 

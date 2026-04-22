@@ -584,7 +584,9 @@ async function callCodeAssist(
                             try {
                                 const parsed = JSON.parse(payload) as { response?: unknown }
                                 line = `data: ${JSON.stringify(parsed.response ?? parsed)}`
-                            } catch { }
+                            } catch {
+                                // Ignore malformed JSON in SSE stream
+                            }
                         }
                         controller.enqueue(new TextEncoder().encode(line))
                     }

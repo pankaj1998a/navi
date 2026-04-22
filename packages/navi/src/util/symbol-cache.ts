@@ -65,7 +65,7 @@ export namespace SymbolCache {
                                 symbols.push({
                                     name: match[2],
                                     type: (match[1] === "class" ? "class" :
-                                        match[1] === "interface" ? "interface" : "function") as any,
+                                        match[1] === "interface" ? "interface" : "function") as SymbolInfo["type"],
                                     line: lineNumber,
                                     file: path.join(dir, filePath)
                                 })

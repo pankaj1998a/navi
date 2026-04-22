@@ -1,4 +1,4 @@
-import { Registry } from "./registry"
+import { Registry, type AgentDefinition } from "./registry"
 import { initializeSystemAgents } from "./registry/initialize"
 import { AgentInfo } from "./info"
 import { Effect, Layer, ServiceMap } from "effect"
@@ -62,31 +62,36 @@ export namespace Agent {
       initializeSystemAgents()
       const list = Effect.fn("Agent.list")(function* () {
         return yield* Effect.promise(async () => {
-          let registryAgents: any[] = []
+          let registryAgents: AgentDefinition[] = []
           try {
             registryAgents = await Registry.list()
           } catch (e) {
             // Registry might not be initialized yet
           }
 
-          const mappedRegistry = registryAgents.map((a) => ({
-            ...a,
-            name: a.id,
-            displayName: a.displayName,
-            description: a.description,
-            model:
-              typeof a.model === "string"
-                ? {
-                    providerID: a.model.split("/")[0],
-                    modelID: a.model.split("/").slice(1).join("/"),
-                  }
-                : a.model,
-            toolNames: a.toolNames || [],
-            mode: "subagent" as any,
-            hidden: !!a.hidden,
-            options: a.options || {},
-            permission: a.permission || [],
-          }))
+          const mappedRegistry = registryAgents.map((a) => {
+            let model: any = a.model
+            if (typeof model === "string") {
+              const parts = model.split("/")
+              model = {
+                providerID: parts[0] || "Navi",
+                modelID: parts.slice(1).join("/") || parts[0],
+              }
+            }
+
+            return {
+              ...a,
+              name: a.id,
+              displayName: a.displayName,
+              description: a.description || "",
+              model,
+              toolNames: a.toolNames || [],
+              mode: "subagent" as any,
+              hidden: !!a.hidden,
+              options: (a as any).options || {},
+              permission: (a as any).permission || [],
+            }
+          })
 
           const finalMap = new Map<string, Info>()
           for (const def of defaults) {

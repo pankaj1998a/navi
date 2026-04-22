@@ -1459,9 +1459,10 @@ NOTE: At any point in time through this workflow you should feel free to ask the
         log.info("starting waterfall workflow", { sessionID, goal })
 
         const waterfallStream = yield* Effect.sync(() => Stream.fromAsyncIterable(workflow, (e: unknown) => new Error(String(e))))
-
-        yield* Stream.runForEach(waterfallStream, (result: any) =>
-          Effect.gen(function* () {
+        
+        try {
+          yield* Stream.runForEach(waterfallStream, (result: any) =>
+            Effect.gen(function* () {
             if (typeof result !== "string" && "taskId" in result) {
               // It's an AgentResult
               const assistantMessage: MessageV2.Assistant = yield* sessions.updateMessage({
@@ -1492,7 +1493,10 @@ NOTE: At any point in time through this workflow you should feel free to ask the
           }),
         )
 
-        return yield* lastAssistant(sessionID)
+          return yield* lastAssistant(sessionID)
+        } finally {
+          orchestrator.stop()
+        }
       })
 
       const runLoop: (sessionID: SessionID) => Effect.Effect<MessageV2.WithParts> = Effect.fn("SessionPrompt.run")(

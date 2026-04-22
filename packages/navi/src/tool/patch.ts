@@ -11,6 +11,7 @@ import { createTwoFilesPatch } from "diff"
 import { assertExternalDirectory } from "./external-directory"
 import { LSP } from "../lsp"
 import { Filesystem } from "../util/filesystem"
+import { assertRequired, FileNotFoundError } from "../util/error"
 
 const PatchParams = z.object({
   patchText: z.string().describe("The full patch text that describes all changes to be made"),
@@ -21,9 +22,7 @@ export const PatchTool = Tool.define("patch", {
     "Apply a patch to modify multiple files. Supports adding, updating, and deleting files with context-aware changes.",
   parameters: PatchParams,
   async execute(params, ctx) {
-    if (!params.patchText) {
-      throw new Error("patchText is required")
-    }
+    assertRequired(params.patchText, "patchText")
 
     // Parse the patch to get hunks
     let hunks: Patch.Hunk[]
@@ -77,7 +76,7 @@ export const PatchTool = Tool.define("patch", {
           // Check if file exists for update
           const stats = await fs.stat(filePath).catch(() => null)
           if (!stats || stats.isDirectory()) {
-            throw new Error(`File not found or is directory: ${filePath}`)
+            throw new FileNotFoundError(filePath)
           }
 
           // Read file and update time tracking (like edit tool does)

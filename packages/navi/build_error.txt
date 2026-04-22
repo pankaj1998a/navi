@@ -1,0 +1,27 @@
+Installing native modules for all platforms...
+bun add v1.3.11 (af24e281)
+Resolving dependencies
+Resolved, downloaded and extracted [1]
+error: No version matching "3.12.10" found for specifier "@effect/platform-node" (but package exists)
+
+error: No version matching "0.22.0" found for specifier "@google/genai" (but package exists)
+error: @effect/platform-node@3.12.10 failed to resolve
+error: @google/genai@0.22.0 failed to resolve
+118 | }
+119 | 
+120 | async function build() {
+121 |   if (!skipInstall) {
+122 |     console.log("Installing native modules for all platforms...")
+123 |     await $`bun install --os="*" --cpu="*" @opentui/core@${pkg.dependencies["@opentui/core"]}`
+                     ^
+ShellError: Failed with exit code 1
+ exitCode: 1,
+   stdout: "bun add v1.3.11 (af24e281)\n",
+   stderr: "Resolving dependencies\nResolved, downloaded and extracted [1]\nerror: No version matching \"3.12.10\" found for specifier \"@effect/platform-node\" (but package exists)\n\nerror: No version matching \"0.22.0\" found for specifier \"@google/genai\" (but package exists)\nerror: @effect/platform-node@3.12.10 failed to resolve\nerror: @google/genai@0.22.0 failed to resolve\n",
+
+      at new ShellPromise (75:16)
+      at BunShell2 (190:36)
+      at build (V:\pankaj\navi\packages\navi\script\build.ts:123:11)
+      at V:\pankaj\navi\packages\navi\script\build.ts:304:9
+
+Bun v1.3.11 (Windows x64 baseline)

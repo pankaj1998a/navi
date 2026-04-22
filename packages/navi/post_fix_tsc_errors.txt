@@ -1,0 +1,71 @@
+
+> navi-ai-agent@0.1.8 typecheck
+> tsc --noEmit
+
+src/cli/cmd/tui/feature-plugins/home/footer.tsx(79,5): error TS2353: Object literal may only specify known properties, and 'order' does not exist in type '{ id?: string | undefined; slots: Record<string, (props: any) => any>; }'.
+src/cli/cmd/tui/feature-plugins/home/tips.tsx(20,14): error TS2801: This condition will always return true since this 'Promise<boolean>' is always defined.
+src/cli/cmd/tui/feature-plugins/home/tips.tsx(33,5): error TS2353: Object literal may only specify known properties, and 'order' does not exist in type '{ id?: string | undefined; slots: Record<string, (props: any) => any>; }'.
+src/cli/cmd/tui/feature-plugins/sidebar/context.tsx(52,7): error TS2322: Type '(_ctx: any, props: any) => any' is not assignable to type '(props: any) => any'.
+  Target signature provides too few arguments. Expected 2 or more, but got 1.
+src/cli/cmd/tui/feature-plugins/sidebar/context.tsx(52,23): error TS7006: Parameter '_ctx' implicitly has an 'any' type.
+src/cli/cmd/tui/feature-plugins/sidebar/context.tsx(52,29): error TS7006: Parameter 'props' implicitly has an 'any' type.
+src/cli/cmd/tui/feature-plugins/sidebar/files.tsx(49,7): error TS2322: Type '(_ctx: any, props: any) => any' is not assignable to type '(props: any) => any'.
+  Target signature provides too few arguments. Expected 2 or more, but got 1.
+src/cli/cmd/tui/feature-plugins/sidebar/files.tsx(49,23): error TS7006: Parameter '_ctx' implicitly has an 'any' type.
+src/cli/cmd/tui/feature-plugins/sidebar/files.tsx(49,29): error TS7006: Parameter 'props' implicitly has an 'any' type.
+src/cli/cmd/tui/feature-plugins/sidebar/footer.tsx(77,5): error TS2353: Object literal may only specify known properties, and 'order' does not exist in type '{ id?: string | undefined; slots: Record<string, (props: any) => any>; }'.
+src/cli/cmd/tui/feature-plugins/sidebar/lsp.tsx(49,5): error TS2353: Object literal may only specify known properties, and 'order' does not exist in type '{ id?: string | undefined; slots: Record<string, (props: any) => any>; }'.
+src/cli/cmd/tui/feature-plugins/sidebar/mcp.tsx(81,5): error TS2353: Object literal may only specify known properties, and 'order' does not exist in type '{ id?: string | undefined; slots: Record<string, (props: any) => any>; }'.
+src/cli/cmd/tui/feature-plugins/sidebar/todo.tsx(35,7): error TS2322: Type '(_ctx: any, props: any) => any' is not assignable to type '(props: any) => any'.
+  Target signature provides too few arguments. Expected 2 or more, but got 1.
+src/cli/cmd/tui/feature-plugins/sidebar/todo.tsx(35,23): error TS7006: Parameter '_ctx' implicitly has an 'any' type.
+src/cli/cmd/tui/feature-plugins/sidebar/todo.tsx(35,29): error TS7006: Parameter 'props' implicitly has an 'any' type.
+src/cli/cmd/tui/feature-plugins/system/plugins.tsx(58,7): error TS2322: Type '() => any' is not assignable to type 'string'.
+src/cli/cmd/tui/feature-plugins/system/plugins.tsx(69,19): error TS7006: Parameter 'raw' implicitly has an 'any' type.
+src/cli/cmd/tui/feature-plugins/system/plugins.tsx(82,25): error TS2345: Argument of type '{ global: boolean; }' is not assignable to parameter of type 'boolean | undefined'.
+src/cli/cmd/tui/feature-plugins/system/plugins.tsx(164,35): error TS2345: Argument of type '"xlarge"' is not assignable to parameter of type '"sm" | "md" | "lg" | "full"'.
+src/cli/cmd/tui/feature-plugins/system/plugins.tsx(168,35): error TS2345: Argument of type '"large"' is not assignable to parameter of type '"sm" | "md" | "lg" | "full"'.
+src/cli/cmd/tui/feature-plugins/system/plugins.tsx(171,33): error TS2345: Argument of type '"medium"' is not assignable to parameter of type '"sm" | "md" | "lg" | "full"'.
+src/cli/cmd/tui/plugin/api.tsx(322,13): error TS2322: Type '"medium" | "large" | "xlarge"' is not assignable to type '"sm" | "md" | "lg" | "full"'.
+  Type '"medium"' is not assignable to type '"sm" | "md" | "lg" | "full"'.
+src/cli/cmd/tui/plugin/api.tsx(351,7): error TS2322: Type '<T>(key: string, value: T) => void' is not assignable to type '<T>(key: string, value: T) => Promise<void>'.
+  Type 'void' is not assignable to type 'Promise<void>'.
+src/cli/cmd/tui/plugin/runtime.ts(160,23): error TS2339: Property 'state' does not exist on type 'TuiPluginMeta'.
+src/plugin/antigravity.ts(18,14): error TS2322: Type '(_ctx: any) => Promise<{ auth: AuthHook; }>' is not assignable to type 'Plugin'.
+src/plugin/antigravity.ts(18,53): error TS7006: Parameter '_ctx' implicitly has an 'any' type.
+src/provider/providers/cline.ts(66,33): error TS2322: Type 'string' is not assignable to type 'string & Brand<"ModelID">'.
+  Type 'string' is not assignable to type 'Brand<"ModelID">'.
+src/provider/providers/cline.ts(67,33): error TS2322: Type 'string' is not assignable to type 'string & Brand<"ProviderID">'.
+  Type 'string' is not assignable to type 'Brand<"ProviderID">'.
+src/provider/providers/cohere.ts(49,29): error TS2322: Type 'string' is not assignable to type 'string & Brand<"ModelID">'.
+  Type 'string' is not assignable to type 'Brand<"ModelID">'.
+src/provider/providers/cohere.ts(50,29): error TS2322: Type 'string' is not assignable to type 'string & Brand<"ProviderID">'.
+  Type 'string' is not assignable to type 'Brand<"ProviderID">'.
+src/provider/providers/kilocode.ts(72,29): error TS2322: Type 'string' is not assignable to type 'string & Brand<"ProviderID">'.
+  Type 'string' is not assignable to type 'Brand<"ProviderID">'.
+src/provider/providers/misc.ts(119,29): error TS2353: Object literal may only specify known properties, and 'isFree' does not exist in type '{ id: string & Brand<"ModelID">; providerID: string & Brand<"ProviderID">; api: { id: string; url: string; npm: string; }; name: string; capabilities: { temperature: boolean; ... 5 more ...; interleaved: boolean | { ...; }; }; ... 7 more ...; variants?: Record<...> | undefined; }'.
+src/provider/providers/misc.ts(284,29): error TS2353: Object literal may only specify known properties, and 'isFree' does not exist in type '{ id: string & Brand<"ModelID">; providerID: string & Brand<"ProviderID">; api: { id: string; url: string; npm: string; }; name: string; capabilities: { temperature: boolean; ... 5 more ...; interleaved: boolean | { ...; }; }; ... 7 more ...; variants?: Record<...> | undefined; }'.
+src/provider/providers/roocode.ts(66,33): error TS2322: Type 'string' is not assignable to type 'string & Brand<"ModelID">'.
+  Type 'string' is not assignable to type 'Brand<"ModelID">'.
+src/provider/providers/roocode.ts(67,33): error TS2322: Type 'string' is not assignable to type 'string & Brand<"ProviderID">'.
+  Type 'string' is not assignable to type 'Brand<"ProviderID">'.
+src/provider/sdk/openai-compatible/src/openai-compatible-provider.ts(96,10): error TS2352: Conversion of type '{ (modelId: string): OpenAICompatibleChatLanguageModel; languageModel: (modelId: string) => OpenAICompatibleChatLanguageModel; chat: (modelId: string) => OpenAICompatibleChatLanguageModel; responses: (modelId: string) => OpenAIResponsesLanguageModel; }' to type 'OpenaiCompatibleProvider' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  The types of 'chat(...).specificationVersion' are incompatible between these types.
+    Type '"v3"' is not comparable to type '"v2"'.
+src/provider/sdk/openai-compatible/src/responses/tool/code-interpreter.ts(1,10): error TS2724: '"@ai-sdk/provider-utils"' has no exported member named 'createProviderDefinedToolFactoryWithOutputSchema'. Did you mean 'createProviderToolFactoryWithOutputSchema'?
+src/provider/sdk/openai-compatible/src/responses/tool/file-search.ts(1,10): error TS2724: '"@ai-sdk/provider-utils"' has no exported member named 'createProviderDefinedToolFactoryWithOutputSchema'. Did you mean 'createProviderToolFactoryWithOutputSchema'?
+src/provider/sdk/openai-compatible/src/responses/tool/image-generation.ts(1,10): error TS2724: '"@ai-sdk/provider-utils"' has no exported member named 'createProviderDefinedToolFactoryWithOutputSchema'. Did you mean 'createProviderToolFactoryWithOutputSchema'?
+src/provider/sdk/openai-compatible/src/responses/tool/local-shell.ts(1,10): error TS2724: '"@ai-sdk/provider-utils"' has no exported member named 'createProviderDefinedToolFactoryWithOutputSchema'. Did you mean 'createProviderToolFactoryWithOutputSchema'?
+src/provider/sdk/openai-compatible/src/responses/tool/web-search-preview.ts(1,10): error TS2724: '"@ai-sdk/provider-utils"' has no exported member named 'createProviderDefinedToolFactory'. Did you mean 'createProviderToolFactory'?
+src/provider/sdk/openai-compatible/src/responses/tool/web-search.ts(1,10): error TS2724: '"@ai-sdk/provider-utils"' has no exported member named 'createProviderDefinedToolFactory'. Did you mean 'createProviderToolFactory'?
+src/session/prompt/subtask.ts(112,47): error TS18047: 'taskAgent' is possibly 'null'.
+src/session/prompt/subtask.ts(142,17): error TS2322: Type 'Omit<{ id: string & Brand<"PartID">; sessionID: string & Brand<"SessionID">; messageID: string & Brand<"MessageID">; type: "file"; mime: string; url: string; filename?: string | undefined; source?: { ...; } | ... 2 more ... | undefined; }, "id" | ... 1 more ... | "sessionID">[] | undefined' is not assignable to type '{ id: string & Brand<"PartID">; sessionID: string & Brand<"SessionID">; messageID: string & Brand<"MessageID">; type: "file"; mime: string; url: string; filename?: string | undefined; source?: { ...; } | ... 2 more ... | undefined; }[] | undefined'.
+  Type 'Omit<{ id: string & Brand<"PartID">; sessionID: string & Brand<"SessionID">; messageID: string & Brand<"MessageID">; type: "file"; mime: string; url: string; filename?: string | undefined; source?: { ...; } | ... 2 more ... | undefined; }, "id" | ... 1 more ... | "sessionID">[]' is not assignable to type '{ id: string & Brand<"PartID">; sessionID: string & Brand<"SessionID">; messageID: string & Brand<"MessageID">; type: "file"; mime: string; url: string; filename?: string | undefined; source?: { ...; } | ... 2 more ... | undefined; }[]'.
+    Type 'Omit<{ id: string & Brand<"PartID">; sessionID: string & Brand<"SessionID">; messageID: string & Brand<"MessageID">; type: "file"; mime: string; url: string; filename?: string | undefined; source?: { ...; } | ... 2 more ... | undefined; }, "id" | ... 1 more ... | "sessionID">' is missing the following properties from type '{ id: string & Brand<"PartID">; sessionID: string & Brand<"SessionID">; messageID: string & Brand<"MessageID">; type: "file"; mime: string; url: string; filename?: string | undefined; source?: { ...; } | ... 2 more ... | undefined; }': id, sessionID, messageID
+npm error Lifecycle script `typecheck` failed with error:
+npm error code 2
+npm error path V:\pankaj\navi\packages\navi
+npm error workspace navi-ai-agent@0.1.8
+npm error location V:\pankaj\navi\packages\navi
+npm error command failed
+npm error command C:\WINDOWS\system32\cmd.exe /d /s /c tsc --noEmit

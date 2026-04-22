@@ -141,6 +141,12 @@ export class Orchestrator {
         })
     }
 
+    stop() {
+        this.autoDreamService.stop()
+        this.sentryService.stop()
+        log.info("Orchestrator stopped")
+    }
+
     async spawnAgent(agentType: AgentType, task: AgentTask, options: { autoVerify?: boolean, sessionID?: string } = {}): Promise<AgentResult> {
         const start = Date.now()
 

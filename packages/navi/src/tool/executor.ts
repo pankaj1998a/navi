@@ -5,6 +5,7 @@ import { Plugin } from "../plugin"
 import { Config } from "../config/config"
 import z from "zod"
 import type { Provider } from "../provider/provider"
+import type { JSONSchema7 } from "@ai-sdk/provider"
 
 export class ToolExecutor {
     static createAITool(
@@ -22,11 +23,11 @@ export class ToolExecutor {
         return tool({
             id: item.id as any,
             description: item.description,
-            inputSchema: jsonSchema(schema as any),
+            inputSchema: jsonSchema(schema as JSONSchema7),
             async execute(args, options) {
                 const ctx = contextFactory(args, options)
                 const config = await Config.get()
-                const timeoutMs = (config.experimental as any)?.mcp_timeout ?? 60000
+                const timeoutMs = config.experimental?.mcp_timeout ?? 60000
 
                 // Combined abort signal for context abort and timeout
                 const timeoutController = new AbortController()

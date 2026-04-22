@@ -1,6 +1,7 @@
 import z from "zod"
 import { Tool } from "./tool"
 import { webScrape, autoScrape } from "./browser-engine"
+import { validateUrl } from "../util/url"
 
 const ScrapeFieldSchema = z.object({
     name: z.string().describe("Field name for the extracted data"),
@@ -39,9 +40,7 @@ Two modes:
             .describe("Required when mode is 'custom'. List of fields to extract with CSS selectors."),
     }),
     async execute(params, ctx) {
-        if (!params.url.startsWith("http://") && !params.url.startsWith("https://")) {
-            throw new Error("URL must start with http:// or https://")
-        }
+        validateUrl(params.url)
 
         await ctx.ask({
             permission: "webfetch",

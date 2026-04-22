@@ -1018,7 +1018,10 @@ export namespace MessageV2 {
               },
             ).toObject()
           }
-        } catch {}
+        } catch (e) {
+          // Log parsing error if provider-specific error parsing fails
+          console.debug("Failed to parse stream error", { error: e })
+        }
         return new NamedError.Unknown({ message: JSON.stringify(e) }, { cause: e }).toObject()
     }
   }

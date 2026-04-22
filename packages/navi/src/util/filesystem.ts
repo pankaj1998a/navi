@@ -6,6 +6,7 @@ import { dirname, join, relative, resolve as pathResolve, win32 } from "path"
 import { Readable } from "stream"
 import { pipeline } from "stream/promises"
 import { Glob } from "./glob"
+import { isEnoent, isNodeError } from "./error"
 
 export namespace Filesystem {
   // Fast sync version for metadata checks
@@ -54,8 +55,8 @@ export namespace Filesystem {
     return buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength) as ArrayBuffer
   }
 
-  function isEnoent(e: unknown): e is { code: "ENOENT" } {
-    return typeof e === "object" && e !== null && "code" in e && (e as { code: string }).code === "ENOENT"
+  function isEnoentCheck(e: unknown): e is { code: "ENOENT" } {
+    return isEnoent(e)
   }
 
   export async function write(p: string, content: string | Buffer | Uint8Array, mode?: number): Promise<void> {
@@ -66,7 +67,7 @@ export namespace Filesystem {
         await writeFile(p, content)
       }
     } catch (e) {
-      if (isEnoent(e)) {
+      if (isNodeError(e) && e.code === "ENOENT") {
         await mkdir(dirname(p), { recursive: true })
         if (mode) {
           await writeFile(p, content, { mode })

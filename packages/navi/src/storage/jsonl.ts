@@ -3,6 +3,7 @@ import path from "path"
 import { Global } from "../global"
 import { Flock } from "../util/flock"
 import { Filesystem } from "../util/filesystem"
+import { isEnoent } from "../util/error"
 
 export namespace JsonlStorage {
   const root = path.join(Global.Path.data, "jsonl")
@@ -30,7 +31,7 @@ export namespace JsonlStorage {
         .filter((line) => line.trim())
         .map((line) => JSON.parse(line))
     } catch (err) {
-      if ((err as any).code === "ENOENT") return []
+      if (isEnoent(err)) return []
       throw err
     }
   }
@@ -50,7 +51,7 @@ export namespace JsonlStorage {
     try {
       return await Filesystem.readJson(file) as T
     } catch (err) {
-      if ((err as any).code === "ENOENT") return undefined
+      if (isEnoent(err)) return undefined
       throw err
     }
   }
@@ -64,7 +65,7 @@ export namespace JsonlStorage {
       const results = await Promise.all(tasks)
       return results as T[]
     } catch (err) {
-      if ((err as any).code === "ENOENT") return []
+      if (isEnoent(err)) return []
       throw err
     }
   }
@@ -78,7 +79,7 @@ export namespace JsonlStorage {
         .filter((line: string) => line.trim())
         .map((line: string) => JSON.parse(line))
     } catch (err) {
-      if ((err as any).code === "ENOENT") return []
+      if (isEnoent(err)) return []
       throw err
     }
   }

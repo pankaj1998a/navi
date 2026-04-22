@@ -1,0 +1,699 @@
+$ tsc --noEmit
+../console/app/script/generate-sitemap.ts(5,24): error TS6307: File 'V:/pankaj/navi/packages/console/app/src/config.ts' is not listed within the file list of project 'V:/pankaj/navi/packages/navi/tsconfig.json'. Projects must list all files or use an 'include' pattern.
+../console/core/script/credit-workspace.ts(1,25): error TS6307: File 'V:/pankaj/navi/packages/console/core/src/billing.ts' is not listed within the file list of project 'V:/pankaj/navi/packages/navi/tsconfig.json'. Projects must list all files or use an 'include' pattern.
+  The file is in the program because:
+    Imported via "../src/billing.js" from file 'V:/pankaj/navi/packages/console/core/script/credit-workspace.ts'
+    Imported via "../src/billing.js" from file 'V:/pankaj/navi/packages/console/core/script/onboard-zen-black.ts'
+    Imported via "../src/billing.js" from file 'V:/pankaj/navi/packages/console/core/script/remove-black.ts'
+../console/core/script/lookup-user.ts(1,20): error TS2305: Module '"../src/drizzle/index.js"' has no exported member 'and'.
+../console/core/script/lookup-user.ts(1,25): error TS2305: Module '"../src/drizzle/index.js"' has no exported member 'eq'.
+../console/core/script/lookup-user.ts(1,29): error TS2305: Module '"../src/drizzle/index.js"' has no exported member 'sql'.
+../console/core/script/lookup-user.ts(6,27): error TS6307: File 'V:/pankaj/navi/packages/console/core/src/black.ts' is not listed within the file list of project 'V:/pankaj/navi/packages/navi/tsconfig.json'. Projects must list all files or use an 'include' pattern.
+  The file is in the program because:
+    Imported via "../src/black.js" from file 'V:/pankaj/navi/packages/console/core/script/lookup-user.ts'
+    Imported via "../src/black" from file 'V:/pankaj/navi/packages/console/core/script/promote-black.ts'
+    Imported via "../src/black" from file 'V:/pankaj/navi/packages/console/core/script/update-black.ts'
+../console/core/script/lookup-user.ts(8,31): error TS6307: File 'V:/pankaj/navi/packages/console/core/src/util/date.ts' is not listed within the file list of project 'V:/pankaj/navi/packages/navi/tsconfig.json'. Projects must list all files or use an 'include' pattern.
+../console/core/script/lookup-user.ts(47,14): error TS7006: Parameter 'rows' implicitly has an 'any' type.
+../console/core/script/lookup-user.ts(48,19): error TS7006: Parameter 'row' implicitly has an 'any' type.
+../console/core/script/lookup-user.ts(68,14): error TS7006: Parameter 'rows' implicitly has an 'any' type.
+../console/core/script/lookup-user.ts(93,14): error TS7006: Parameter 'rows' implicitly has an 'any' type.
+../console/core/script/lookup-user.ts(94,19): error TS7006: Parameter 'row' implicitly has an 'any' type.
+../console/core/script/lookup-user.ts(122,10): error TS7006: Parameter 'rows' implicitly has an 'any' type.
+../console/core/script/lookup-user.ts(123,21): error TS7006: Parameter 'row' implicitly has an 'any' type.
+../console/core/script/lookup-user.ts(143,14): error TS7006: Parameter 'rows' implicitly has an 'any' type.
+../console/core/script/lookup-user.ts(144,19): error TS7006: Parameter 'row' implicitly has an 'any' type.
+../console/core/script/onboard-zen-black.ts(2,10): error TS2305: Module '"../src/drizzle/index.js"' has no exported member 'and'.
+../console/core/script/onboard-zen-black.ts(2,25): error TS2305: Module '"../src/drizzle/index.js"' has no exported member 'eq'.
+../console/core/script/onboard-zen-black.ts(2,29): error TS2305: Module '"../src/drizzle/index.js"' has no exported member 'isNull'.
+../console/core/script/onboard-zen-black.ts(2,37): error TS2305: Module '"../src/drizzle/index.js"' has no exported member 'sql'.
+../console/core/script/onboard-zen-black.ts(25,39): error TS7006: Parameter 'c' implicitly has an 'any' type.
+../console/core/script/onboard-zen-black.ts(54,12): error TS7006: Parameter 'rows' implicitly has an 'any' type.
+../console/core/script/onboard-zen-black.ts(69,12): error TS7006: Parameter 'rows' implicitly has an 'any' type.
+../console/core/script/onboard-zen-black.ts(111,58): error TS7006: Parameter 'u' implicitly has an 'any' type.
+../console/core/script/promote-models.ts(5,25): error TS6307: File 'V:/pankaj/navi/packages/console/core/src/model.ts' is not listed within the file list of project 'V:/pankaj/navi/packages/navi/tsconfig.json'. Projects must list all files or use an 'include' pattern.
+  The file is in the program because:
+    Imported via "../src/model" from file 'V:/pankaj/navi/packages/console/core/script/promote-models.ts'
+    Imported via "../src/model" from file 'V:/pankaj/navi/packages/console/core/script/pull-models.ts'
+    Imported via "../src/model" from file 'V:/pankaj/navi/packages/console/core/script/update-models.ts'
+../console/core/script/remove-black.ts(2,10): error TS2305: Module '"../src/drizzle/index.js"' has no exported member 'and'.
+../console/core/script/remove-black.ts(2,25): error TS2305: Module '"../src/drizzle/index.js"' has no exported member 'eq'.
+../console/core/script/remove-black.ts(23,12): error TS7006: Parameter 'rows' implicitly has an 'any' type.
+../console/core/script/reset-db.ts(1,26): error TS2307: Cannot find module '@navi-ai/console-resource' or its corresponding type declarations.
+../console/core/script/reset-db.ts(4,30): error TS6307: File 'V:/pankaj/navi/packages/console/core/src/schema/account.sql.ts' is not listed within the file list of project 'V:/pankaj/navi/packages/navi/tsconfig.json'. Projects must list all files or use an 'include' pattern.
+../console/core/src/actor.ts(2,26): error TS6307: File 'V:/pankaj/navi/packages/console/core/src/schema/user.sql.ts' is not listed within the file list of project 'V:/pankaj/navi/packages/navi/tsconfig.json'. Projects must list all files or use an 'include' pattern.
+  The file is in the program because:
+    Imported via "./schema/user.sql" from file 'V:/pankaj/navi/packages/console/core/src/actor.ts'
+    Imported via "./schema/user.sql" from file 'V:/pankaj/navi/packages/console/core/src/user.ts'
+    Imported via "./schema/user.sql" from file 'V:/pankaj/navi/packages/console/core/src/key.ts'
+    Imported via "../src/schema/user.sql.js" from file 'V:/pankaj/navi/packages/console/core/script/lookup-user.ts'
+    Imported via "../src/schema/user.sql.js" from file 'V:/pankaj/navi/packages/console/core/script/onboard-zen-black.ts'
+    Imported via "../src/schema/user.sql.js" from file 'V:/pankaj/navi/packages/console/core/script/reset-db.ts'
+../console/core/src/actor.ts(3,21): error TS6307: File 'V:/pankaj/navi/packages/console/core/src/util/log.ts' is not listed within the file list of project 'V:/pankaj/navi/packages/navi/tsconfig.json'. Projects must list all files or use an 'include' pattern.
+../console/core/src/aws.ts(2,26): error TS2307: Cannot find module '@navi-ai/console-resource' or its corresponding type declarations.
+../console/core/src/billing.ts(1,24): error TS2307: Cannot find module 'stripe' or its corresponding type declarations.
+../console/core/src/billing.ts(2,20): error TS2305: Module '"./drizzle"' has no exported member 'eq'.
+../console/core/src/billing.ts(2,24): error TS2305: Module '"./drizzle"' has no exported member 'sql'.
+../console/core/src/billing.ts(2,35): error TS6307: File 'V:/pankaj/navi/packages/console/core/src/drizzle/index.ts' is not listed within the file list of project 'V:/pankaj/navi/packages/navi/tsconfig.json'. Projects must list all files or use an 'include' pattern.
+  The file is in the program because:
+    Imported via "./drizzle" from file 'V:/pankaj/navi/packages/console/core/src/billing.ts'
+    Imported via "./drizzle" from file 'V:/pankaj/navi/packages/console/core/src/user.ts'
+    Imported via "./drizzle" from file 'V:/pankaj/navi/packages/console/core/src/key.ts'
+    Imported via "../src/drizzle/index.js" from file 'V:/pankaj/navi/packages/console/core/script/lookup-user.ts'
+    Imported via "../src/drizzle/index.js" from file 'V:/pankaj/navi/packages/console/core/script/onboard-zen-black.ts'
+    Imported via "./drizzle" from file 'V:/pankaj/navi/packages/console/core/src/model.ts'
+    Imported via "../src/drizzle/index.js" from file 'V:/pankaj/navi/packages/console/core/script/remove-black.ts'
+    Imported via "../src/drizzle/index.js" from file 'V:/pankaj/navi/packages/console/core/script/reset-db.ts'
+../console/core/src/billing.ts(3,56): error TS6307: File 'V:/pankaj/navi/packages/console/core/src/schema/billing.sql.ts' is not listed within the file list of project 'V:/pankaj/navi/packages/navi/tsconfig.json'. Projects must list all files or use an 'include' pattern.
+  The file is in the program because:
+    Imported via "./schema/billing.sql" from file 'V:/pankaj/navi/packages/console/core/src/billing.ts'
+    Imported via "../src/schema/billing.sql.js" from file 'V:/pankaj/navi/packages/console/core/script/lookup-user.ts'
+    Imported via "../src/schema/billing.sql.js" from file 'V:/pankaj/navi/packages/console/core/script/onboard-zen-black.ts'
+    Imported via "../src/schema/billing.sql.js" from file 'V:/pankaj/navi/packages/console/core/script/remove-black.ts'
+    Imported via "../src/schema/billing.sql.js" from file 'V:/pankaj/navi/packages/console/core/script/reset-db.ts'
+../console/core/src/billing.ts(4,23): error TS6307: File 'V:/pankaj/navi/packages/console/core/src/actor.ts' is not listed within the file list of project 'V:/pankaj/navi/packages/navi/tsconfig.json'. Projects must list all files or use an 'include' pattern.
+  The file is in the program because:
+    Imported via "./actor" from file 'V:/pankaj/navi/packages/console/core/src/billing.ts'
+    Imported via "./actor" from file 'V:/pankaj/navi/packages/console/core/src/user.ts'
+    Imported via "./actor" from file 'V:/pankaj/navi/packages/console/core/src/key.ts'
+    Imported via "./actor" from file 'V:/pankaj/navi/packages/console/core/src/model.ts'
+../console/core/src/billing.ts(5,20): error TS6307: File 'V:/pankaj/navi/packages/console/core/src/util/fn.ts' is not listed within the file list of project 'V:/pankaj/navi/packages/navi/tsconfig.json'. Projects must list all files or use an 'include' pattern.
+  The file is in the program because:
+    Imported via "./util/fn" from file 'V:/pankaj/navi/packages/console/core/src/billing.ts'
+    Imported via "./util/fn" from file 'V:/pankaj/navi/packages/console/core/src/user.ts'
+    Imported via "./util/fn" from file 'V:/pankaj/navi/packages/console/core/src/aws.ts'
+    Imported via "./util/fn" from file 'V:/pankaj/navi/packages/console/core/src/key.ts'
+    Imported via "./util/fn" from file 'V:/pankaj/navi/packages/console/core/src/black.ts'
+    Imported via "./util/fn" from file 'V:/pankaj/navi/packages/console/core/src/model.ts'
+../console/core/src/billing.ts(7,26): error TS2307: Cannot find module '@navi-ai/console-resource' or its corresponding type declarations.
+../console/core/src/billing.ts(8,28): error TS6307: File 'V:/pankaj/navi/packages/console/core/src/identifier.ts' is not listed within the file list of project 'V:/pankaj/navi/packages/navi/tsconfig.json'. Projects must list all files or use an 'include' pattern.
+  The file is in the program because:
+    Imported via "./identifier" from file 'V:/pankaj/navi/packages/console/core/src/billing.ts'
+    Imported via "./identifier" from file 'V:/pankaj/navi/packages/console/core/src/user.ts'
+    Imported via "./identifier" from file 'V:/pankaj/navi/packages/console/core/src/key.ts'
+    Imported via "../src/identifier.js" from file 'V:/pankaj/navi/packages/console/core/script/onboard-zen-black.ts'
+    Imported via "./identifier" from file 'V:/pankaj/navi/packages/console/core/src/model.ts'
+../console/core/src/billing.ts(9,35): error TS6307: File 'V:/pankaj/navi/packages/console/core/src/util/price.ts' is not listed within the file list of project 'V:/pankaj/navi/packages/navi/tsconfig.json'. Projects must list all files or use an 'include' pattern.
+  The file is in the program because:
+    Imported via "./util/price" from file 'V:/pankaj/navi/packages/console/core/src/billing.ts'
+    Imported via "../src/util/price.js" from file 'V:/pankaj/navi/packages/console/core/script/lookup-user.ts'
+    Imported via "../src/util/price.js" from file 'V:/pankaj/navi/packages/console/core/script/onboard-zen-black.ts'
+../console/core/src/billing.ts(10,22): error TS6307: File 'V:/pankaj/navi/packages/console/core/src/user.ts' is not listed within the file list of project 'V:/pankaj/navi/packages/navi/tsconfig.json'. Projects must list all files or use an 'include' pattern.
+../console/core/src/billing.ts(46,16): error TS7006: Parameter 'r' implicitly has an 'any' type.
+../console/core/src/billing.ts(90,16): error TS7006: Parameter 'rows' implicitly has an 'any' type.
+../console/core/src/black.ts(3,26): error TS2307: Cannot find module '@navi-ai/console-resource' or its corresponding type declarations.
+../console/core/src/drizzle/index.ts(1,25): error TS2307: Cannot find module 'drizzle-orm/planetscale-serverless' or its corresponding type declarations.
+../console/core/src/drizzle/index.ts(2,26): error TS2307: Cannot find module '@navi-ai/console-resource' or its corresponding type declarations.
+../console/core/src/drizzle/index.ts(3,15): error TS2307: Cannot find module 'drizzle-orm' or its corresponding type declarations.
+../console/core/src/drizzle/index.ts(4,24): error TS2307: Cannot find module '@planetscale/database' or its corresponding type declarations.
+../console/core/src/drizzle/index.ts(6,63): error TS2307: Cannot find module 'drizzle-orm/mysql-core' or its corresponding type declarations.
+../console/core/src/drizzle/index.ts(7,49): error TS2307: Cannot find module 'drizzle-orm' or its corresponding type declarations.
+../console/core/src/drizzle/index.ts(8,77): error TS2307: Cannot find module 'drizzle-orm/planetscale-serverless' or its corresponding type declarations.
+../console/core/src/drizzle/index.ts(9,25): error TS6307: File 'V:/pankaj/navi/packages/console/core/src/context.ts' is not listed within the file list of project 'V:/pankaj/navi/packages/navi/tsconfig.json'. Projects must list all files or use an 'include' pattern.
+  The file is in the program because:
+    Imported via "../context" from file 'V:/pankaj/navi/packages/console/core/src/drizzle/index.ts'
+    Imported via "./context" from file 'V:/pankaj/navi/packages/console/core/src/actor.ts'
+    Imported via "../context" from file 'V:/pankaj/navi/packages/console/core/src/util/log.ts'
+../console/core/src/drizzle/index.ts(10,22): error TS6307: File 'V:/pankaj/navi/packages/console/core/src/util/memo.ts' is not listed within the file list of project 'V:/pankaj/navi/packages/navi/tsconfig.json'. Projects must list all files or use an 'include' pattern.
+../console/core/src/drizzle/index.ts(77,58): error TS7006: Parameter 'tx' implicitly has an 'any' type.
+../console/core/src/drizzle/types.ts(1,21): error TS2307: Cannot find module 'drizzle-orm' or its corresponding type declarations.
+../console/core/src/drizzle/types.ts(2,44): error TS2307: Cannot find module 'drizzle-orm/mysql-core' or its corresponding type declarations.
+../console/core/src/key.ts(4,10): error TS2305: Module '"./drizzle"' has no exported member 'and'.
+../console/core/src/key.ts(4,25): error TS2305: Module '"./drizzle"' has no exported member 'eq'.
+../console/core/src/key.ts(4,29): error TS2305: Module '"./drizzle"' has no exported member 'isNull'.
+../console/core/src/key.ts(4,37): error TS2305: Module '"./drizzle"' has no exported member 'sql'.
+../console/core/src/key.ts(6,26): error TS6307: File 'V:/pankaj/navi/packages/console/core/src/schema/key.sql.ts' is not listed within the file list of project 'V:/pankaj/navi/packages/navi/tsconfig.json'. Projects must list all files or use an 'include' pattern.
+  The file is in the program because:
+    Imported via "./schema/key.sql" from file 'V:/pankaj/navi/packages/console/core/src/key.ts'
+    Imported via "./schema/key.sql" from file 'V:/pankaj/navi/packages/console/core/src/user.ts'
+    Imported via "../src/schema/key.sql.js" from file 'V:/pankaj/navi/packages/console/core/script/reset-db.ts'
+../console/core/src/key.ts(8,27): error TS6307: File 'V:/pankaj/navi/packages/console/core/src/schema/auth.sql.ts' is not listed within the file list of project 'V:/pankaj/navi/packages/navi/tsconfig.json'. Projects must list all files or use an 'include' pattern.
+  The file is in the program because:
+    Imported via "./schema/auth.sql" from file 'V:/pankaj/navi/packages/console/core/src/key.ts'
+    Imported via "./schema/auth.sql" from file 'V:/pankaj/navi/packages/console/core/src/user.ts'
+    Imported via "../src/schema/auth.sql.js" from file 'V:/pankaj/navi/packages/console/core/script/lookup-user.ts'
+    Imported via "../src/schema/auth.sql.js" from file 'V:/pankaj/navi/packages/console/core/script/onboard-zen-black.ts'
+../console/core/src/key.ts(37,22): error TS7006: Parameter 'key' implicitly has an 'any' type.
+../console/core/src/model.ts(2,25): error TS2307: Cannot find module 'drizzle-orm' or its corresponding type declarations.
+../console/core/src/model.ts(4,28): error TS6307: File 'V:/pankaj/navi/packages/console/core/src/schema/model.sql.ts' is not listed within the file list of project 'V:/pankaj/navi/packages/navi/tsconfig.json'. Projects must list all files or use an 'include' pattern.
+../console/core/src/model.ts(8,26): error TS2307: Cannot find module '@navi-ai/console-resource' or its corresponding type declarations.
+../console/core/src/model.ts(115,16): error TS7006: Parameter 'rows' implicitly has an 'any' type.
+../console/core/src/model.ts(115,35): error TS7006: Parameter 'row' implicitly has an 'any' type.
+../console/core/src/schema/account.sql.ts(1,40): error TS2307: Cannot find module 'drizzle-orm/mysql-core' or its corresponding type declarations.
+../console/core/src/schema/account.sql.ts(10,4): error TS7006: Parameter 'table' implicitly has an 'any' type.
+../console/core/src/schema/auth.sql.ts(1,80): error TS2307: Cannot find module 'drizzle-orm/mysql-core' or its corresponding type declarations.
+../console/core/src/schema/auth.sql.ts(15,4): error TS7006: Parameter 'table' implicitly has an 'any' type.
+../console/core/src/schema/billing.sql.ts(1,85): error TS2307: Cannot find module 'drizzle-orm/mysql-core' or its corresponding type declarations.
+../console/core/src/schema/billing.sql.ts(2,57): error TS6307: File 'V:/pankaj/navi/packages/console/core/src/drizzle/types.ts' is not listed within the file list of project 'V:/pankaj/navi/packages/navi/tsconfig.json'. Projects must list all files or use an 'include' pattern.
+  The file is in the program because:
+    Imported via "../drizzle/types" from file 'V:/pankaj/navi/packages/console/core/src/schema/billing.sql.ts'
+    Imported via "../drizzle/types" from file 'V:/pankaj/navi/packages/console/core/src/schema/workspace.sql.ts'
+    Imported via "../drizzle/types" from file 'V:/pankaj/navi/packages/console/core/src/schema/user.sql.ts'
+    Imported via "../drizzle/types" from file 'V:/pankaj/navi/packages/console/core/src/schema/key.sql.ts'
+    Imported via "../drizzle/types" from file 'V:/pankaj/navi/packages/console/core/src/schema/auth.sql.ts'
+    Imported via "../drizzle/types" from file 'V:/pankaj/navi/packages/console/core/src/schema/model.sql.ts'
+    Imported via "../drizzle/types" from file 'V:/pankaj/navi/packages/console/core/src/schema/account.sql.ts'
+../console/core/src/schema/billing.sql.ts(3,34): error TS6307: File 'V:/pankaj/navi/packages/console/core/src/schema/workspace.sql.ts' is not listed within the file list of project 'V:/pankaj/navi/packages/navi/tsconfig.json'. Projects must list all files or use an 'include' pattern.
+  The file is in the program because:
+    Imported via "./workspace.sql" from file 'V:/pankaj/navi/packages/console/core/src/schema/billing.sql.ts'
+    Imported via "./workspace.sql" from file 'V:/pankaj/navi/packages/console/core/src/schema/user.sql.ts'
+    Imported via "./workspace.sql" from file 'V:/pankaj/navi/packages/console/core/src/schema/key.sql.ts'
+    Imported via "./schema/workspace.sql" from file 'V:/pankaj/navi/packages/console/core/src/user.ts'
+    Imported via "../src/schema/workspace.sql.js" from file 'V:/pankaj/navi/packages/console/core/script/lookup-user.ts'
+    Imported via "./workspace.sql" from file 'V:/pankaj/navi/packages/console/core/src/schema/model.sql.ts'
+    Imported via "../src/schema/workspace.sql.js" from file 'V:/pankaj/navi/packages/console/core/script/reset-db.ts'
+../console/core/src/schema/billing.sql.ts(27,4): error TS7006: Parameter 'table' implicitly has an 'any' type.
+../console/core/src/schema/billing.sql.ts(45,4): error TS7006: Parameter 'table' implicitly has an 'any' type.
+../console/core/src/schema/billing.sql.ts(68,4): error TS7006: Parameter 'table' implicitly has an 'any' type.
+../console/core/src/schema/billing.sql.ts(90,4): error TS7006: Parameter 'table' implicitly has an 'any' type.
+../console/core/src/schema/key.sql.ts(1,50): error TS2307: Cannot find module 'drizzle-orm/mysql-core' or its corresponding type declarations.
+../console/core/src/schema/key.sql.ts(15,4): error TS7006: Parameter 'table' implicitly has an 'any' type.
+../console/core/src/schema/model.sql.ts(1,50): error TS2307: Cannot find module 'drizzle-orm/mysql-core' or its corresponding type declarations.
+../console/core/src/schema/model.sql.ts(12,4): error TS7006: Parameter 'table' implicitly has an 'any' type.
+../console/core/src/schema/user.sql.ts(1,81): error TS2307: Cannot find module 'drizzle-orm/mysql-core' or its corresponding type declarations.
+../console/core/src/schema/user.sql.ts(22,4): error TS7006: Parameter 'table' implicitly has an 'any' type.
+../console/core/src/schema/workspace.sql.ts(1,62): error TS2307: Cannot find module 'drizzle-orm/mysql-core' or its corresponding type declarations.
+../console/core/src/schema/workspace.sql.ts(12,4): error TS7006: Parameter 'table' implicitly has an 'any' type.
+../console/core/src/user.ts(2,55): error TS2307: Cannot find module 'drizzle-orm' or its corresponding type declarations.
+../console/core/src/user.ts(8,24): error TS2307: Cannot find module '@jsx-email/render' or its corresponding type declarations.
+../console/core/src/user.ts(9,21): error TS6307: File 'V:/pankaj/navi/packages/console/core/src/aws.ts' is not listed within the file list of project 'V:/pankaj/navi/packages/navi/tsconfig.json'. Projects must list all files or use an 'include' pattern.
+../console/core/src/user.ts(10,21): error TS6307: File 'V:/pankaj/navi/packages/console/core/src/key.ts' is not listed within the file list of project 'V:/pankaj/navi/packages/navi/tsconfig.json'. Projects must list all files or use an 'include' pattern.
+../console/core/src/user.ts(40,16): error TS7006: Parameter 'rows' implicitly has an 'any' type.
+../console/core/src/user.ts(53,16): error TS7006: Parameter 'rows' implicitly has an 'any' type.
+../console/core/src/user.ts(75,18): error TS7006: Parameter 'rows' implicitly has an 'any' type.
+../console/core/src/user.ts(110,20): error TS7006: Parameter 'rows' implicitly has an 'any' type.
+../console/core/src/user.ts(116,20): error TS7006: Parameter 'rows' implicitly has an 'any' type.
+../console/core/src/user.ts(138,20): error TS7006: Parameter 'rows' implicitly has an 'any' type.
+../console/core/src/user.ts(141,46): error TS2307: Cannot find module '@navi-ai/console-mail/InviteEmail.jsx' or its corresponding type declarations.
+../console/core/src/user.ts(183,24): error TS7006: Parameter 'invite' implicitly has an 'any' type.
+../enterprise/script/scrap.ts(1,25): error TS6307: File 'V:/pankaj/navi/packages/enterprise/src/core/storage.ts' is not listed within the file list of project 'V:/pankaj/navi/packages/navi/tsconfig.json'. Projects must list all files or use an 'include' pattern.
+src/agent/memory/service.ts(91,33): error TS2322: Type '(record: Omit<MemoryRecord, "filepath" | "mtimeMs">) => Effect.Effect<void, AppFileSystem.Error, never>' is not assignable to type '(record: Omit<MemoryRecord, "filepath" | "mtimeMs">) => Effect<void, never, never>'.
+  Type 'Effect<void, Error, never>' is not assignable to type 'Effect<void, never, never>'.
+    Type 'Error' is not assignable to type 'never'.
+      Type 'PlatformError' is not assignable to type 'never'.
+src/agent/memory/service.ts(91,39): error TS2322: Type '(query: string, limit?: number) => Effect.Effect<MemoryRecord[], AppFileSystem.Error, never>' is not assignable to type '(query: string, limit?: number | undefined) => Effect<MemoryRecord[], never, never>'.
+  Type 'Effect<MemoryRecord[], Error, never>' is not assignable to type 'Effect<MemoryRecord[], never, never>'.
+    Type 'Error' is not assignable to type 'never'.
+      Type 'PlatformError' is not assignable to type 'never'.
+src/agent/roles/docs-writer.ts(3,7): error TS2322: Type '{ id: string; name: string; description: string; tools: string[]; handleSteps: (context: AgentContext) => AsyncGenerator<AgentStep, string | void, any>; }' is not assignable to type 'AgentTemplate'.
+  Type '{ id: string; name: string; description: string; tools: string[]; handleSteps: (context: AgentContext) => AsyncGenerator<AgentStep, string | void, any>; }' is missing the following properties from type '{ id: string; name: string; description: string; tools: string[]; phase: "general" | "debug" | "interface" | "security" | "test" | "database" | "document" | "analyze" | "realize" | "design" | "deploy" | "optimize"; skills: string[]; model?: string | undefined; handleSteps?: $InferOuterFunctionType<...> | undefined; ...': phase, skills
+src/agent/roles/editor.ts(3,7): error TS2322: Type '{ id: string; name: string; description: string; tools: string[]; handleSteps: (context: AgentContext) => AsyncGenerator<AgentStep, string | void, any>; }' is not assignable to type 'AgentTemplate'.
+  Type '{ id: string; name: string; description: string; tools: string[]; handleSteps: (context: AgentContext) => AsyncGenerator<AgentStep, string | void, any>; }' is missing the following properties from type '{ id: string; name: string; description: string; tools: string[]; phase: "general" | "debug" | "interface" | "security" | "test" | "database" | "document" | "analyze" | "realize" | "design" | "deploy" | "optimize"; skills: string[]; model?: string | undefined; handleSteps?: $InferOuterFunctionType<...> | undefined; ...': phase, skills
+src/agent/roles/planner.ts(3,7): error TS2322: Type '{ id: string; name: string; description: string; tools: string[]; handleSteps: (context: AgentContext) => AsyncGenerator<AgentStep, string | void, any>; }' is not assignable to type 'AgentTemplate'.
+  Type '{ id: string; name: string; description: string; tools: string[]; handleSteps: (context: AgentContext) => AsyncGenerator<AgentStep, string | void, any>; }' is missing the following properties from type '{ id: string; name: string; description: string; tools: string[]; phase: "general" | "debug" | "interface" | "security" | "test" | "database" | "document" | "analyze" | "realize" | "design" | "deploy" | "optimize"; skills: string[]; model?: string | undefined; handleSteps?: $InferOuterFunctionType<...> | undefined; ...': phase, skills
+src/agent/roles/researcher.ts(8,7): error TS2322: Type '{ id: string; name: string; description: string; tools: string[]; handleSteps(context: AgentContext): AsyncGenerator<AgentStep, string | void, any>; }' is not assignable to type 'AgentTemplate'.
+  Type '{ id: string; name: string; description: string; tools: string[]; handleSteps(context: AgentContext): AsyncGenerator<AgentStep, string | void, any>; }' is missing the following properties from type '{ id: string; name: string; description: string; tools: string[]; phase: "general" | "debug" | "interface" | "security" | "test" | "database" | "document" | "analyze" | "realize" | "design" | "deploy" | "optimize"; skills: string[]; model?: string | undefined; handleSteps?: $InferOuterFunctionType<...> | undefined; ...': phase, skills
+src/agent/roles/reviewer.ts(3,7): error TS2322: Type '{ id: string; name: string; description: string; tools: string[]; handleSteps: (context: AgentContext) => AsyncGenerator<AgentStep, string | void, any>; }' is not assignable to type 'AgentTemplate'.
+  Type '{ id: string; name: string; description: string; tools: string[]; handleSteps: (context: AgentContext) => AsyncGenerator<AgentStep, string | void, any>; }' is missing the following properties from type '{ id: string; name: string; description: string; tools: string[]; phase: "general" | "debug" | "interface" | "security" | "test" | "database" | "document" | "analyze" | "realize" | "design" | "deploy" | "optimize"; skills: string[]; model?: string | undefined; handleSteps?: $InferOuterFunctionType<...> | undefined; ...': phase, skills
+src/agent/roles/security-sentinel.ts(3,7): error TS2322: Type '{ id: string; name: string; description: string; tools: string[]; systemPrompt: string; handleSteps: (context: AgentContext) => AsyncGenerator<AgentStep, string | void, any>; }' is not assignable to type 'AgentTemplate'.
+  Type '{ id: string; name: string; description: string; tools: string[]; systemPrompt: string; handleSteps: (context: AgentContext) => AsyncGenerator<AgentStep, string | void, any>; }' is missing the following properties from type '{ id: string; name: string; description: string; tools: string[]; phase: "general" | "debug" | "interface" | "security" | "test" | "database" | "document" | "analyze" | "realize" | "design" | "deploy" | "optimize"; skills: string[]; model?: string | undefined; handleSteps?: $InferOuterFunctionType<...> | undefined; ...': phase, skills
+src/agent/roles/sentry-fixer.ts(7,14): error TS2322: Type '{ id: string; name: string; description: string; tools: string[]; handleSteps: (context: AgentContext) => AsyncGenerator<AgentStep, string | void, any>; }' is not assignable to type 'AgentTemplate'.
+  Type '{ id: string; name: string; description: string; tools: string[]; handleSteps: (context: AgentContext) => AsyncGenerator<AgentStep, string | void, any>; }' is missing the following properties from type '{ id: string; name: string; description: string; tools: string[]; phase: "general" | "debug" | "interface" | "security" | "test" | "database" | "document" | "analyze" | "realize" | "design" | "deploy" | "optimize"; skills: string[]; model?: string | undefined; handleSteps?: $InferOuterFunctionType<...> | undefined; ...': phase, skills
+src/agent/roles/surfer.ts(7,7): error TS2322: Type '{ id: string; name: string; description: string; tools: string[]; handleSteps(context: AgentContext): AsyncGenerator<AgentStep, string | void, any>; }' is not assignable to type 'AgentTemplate'.
+  Type '{ id: string; name: string; description: string; tools: string[]; handleSteps(context: AgentContext): AsyncGenerator<AgentStep, string | void, any>; }' is missing the following properties from type '{ id: string; name: string; description: string; tools: string[]; phase: "general" | "debug" | "interface" | "security" | "test" | "database" | "document" | "analyze" | "realize" | "design" | "deploy" | "optimize"; skills: string[]; model?: string | undefined; handleSteps?: $InferOuterFunctionType<...> | undefined; ...': phase, skills
+src/agent/router.ts(29,82): error TS2345: Argument of type 'Pick<{ id: string & Brand<"ProviderID">; name: string; source: "custom" | "api" | "env" | "config"; env: string[]; options: Record<string, any>; models: Record<string, { id: string & Brand<...>; ... 11 more ...; variants?: Record<...> | undefined; }>; key?: string | undefined; }, "id" | ... 1 more ... | "source">' is not assignable to parameter of type 'Pick<{ id: string & Brand<"ProviderID">; name: string; source: "custom" | "api" | "env" | "config"; env: string[]; options: Record<string, any>; models: Record<string, { id: string & Brand<...>; ... 11 more ...; variants?: Record<...> | undefined; }>; key?: string | undefined; }, "id" | ... 2 more ... | "catalog">'.
+  Property 'catalog' is missing in type 'Pick<{ id: string & Brand<"ProviderID">; name: string; source: "custom" | "api" | "env" | "config"; env: string[]; options: Record<string, any>; models: Record<string, { id: string & Brand<...>; ... 11 more ...; variants?: Record<...> | undefined; }>; key?: string | undefined; }, "id" | ... 1 more ... | "source">' but required in type 'Pick<{ id: string & Brand<"ProviderID">; name: string; source: "custom" | "api" | "env" | "config"; env: string[]; options: Record<string, any>; models: Record<string, { id: string & Brand<...>; ... 11 more ...; variants?: Record<...> | undefined; }>; key?: string | undefined; }, "id" | ... 2 more ... | "catalog">'.
+src/agent/router.ts(45,96): error TS2345: Argument of type 'Pick<{ id: string & Brand<"ProviderID">; name: string; source: "custom" | "api" | "env" | "config"; env: string[]; options: Record<string, any>; models: Record<string, { id: string & Brand<...>; ... 11 more ...; variants?: Record<...> | undefined; }>; key?: string | undefined; }, "id" | ... 1 more ... | "source">' is not assignable to parameter of type 'Pick<{ id: string & Brand<"ProviderID">; name: string; source: "custom" | "api" | "env" | "config"; env: string[]; options: Record<string, any>; models: Record<string, { id: string & Brand<...>; ... 11 more ...; variants?: Record<...> | undefined; }>; key?: string | undefined; }, "id" | ... 2 more ... | "catalog">'.
+  Property 'catalog' is missing in type 'Pick<{ id: string & Brand<"ProviderID">; name: string; source: "custom" | "api" | "env" | "config"; env: string[]; options: Record<string, any>; models: Record<string, { id: string & Brand<...>; ... 11 more ...; variants?: Record<...> | undefined; }>; key?: string | undefined; }, "id" | ... 1 more ... | "source">' but required in type 'Pick<{ id: string & Brand<"ProviderID">; name: string; source: "custom" | "api" | "env" | "config"; env: string[]; options: Record<string, any>; models: Record<string, { id: string & Brand<...>; ... 11 more ...; variants?: Record<...> | undefined; }>; key?: string | undefined; }, "id" | ... 2 more ... | "catalog">'.
+src/agent/router.ts(67,100): error TS2345: Argument of type 'Pick<{ id: string & Brand<"ProviderID">; name: string; source: "custom" | "api" | "env" | "config"; env: string[]; options: Record<string, any>; models: Record<string, { id: string & Brand<...>; ... 11 more ...; variants?: Record<...> | undefined; }>; key?: string | undefined; }, "id" | ... 1 more ... | "source">' is not assignable to parameter of type 'Pick<{ id: string & Brand<"ProviderID">; name: string; source: "custom" | "api" | "env" | "config"; env: string[]; options: Record<string, any>; models: Record<string, { id: string & Brand<...>; ... 11 more ...; variants?: Record<...> | undefined; }>; key?: string | undefined; }, "id" | ... 2 more ... | "catalog">'.
+  Property 'catalog' is missing in type 'Pick<{ id: string & Brand<"ProviderID">; name: string; source: "custom" | "api" | "env" | "config"; env: string[]; options: Record<string, any>; models: Record<string, { id: string & Brand<...>; ... 11 more ...; variants?: Record<...> | undefined; }>; key?: string | undefined; }, "id" | ... 1 more ... | "source">' but required in type 'Pick<{ id: string & Brand<"ProviderID">; name: string; source: "custom" | "api" | "env" | "config"; env: string[]; options: Record<string, any>; models: Record<string, { id: string & Brand<...>; ... 11 more ...; variants?: Record<...> | undefined; }>; key?: string | undefined; }, "id" | ... 2 more ... | "catalog">'.
+src/agent/router.ts(82,68): error TS2345: Argument of type 'Pick<{ id: string & Brand<"ProviderID">; name: string; source: "custom" | "api" | "env" | "config"; env: string[]; options: Record<string, any>; models: Record<string, { id: string & Brand<...>; ... 11 more ...; variants?: Record<...> | undefined; }>; key?: string | undefined; }, "id" | ... 1 more ... | "source">' is not assignable to parameter of type 'Pick<{ id: string & Brand<"ProviderID">; name: string; source: "custom" | "api" | "env" | "config"; env: string[]; options: Record<string, any>; models: Record<string, { id: string & Brand<...>; ... 11 more ...; variants?: Record<...> | undefined; }>; key?: string | undefined; }, "id" | ... 2 more ... | "catalog">'.
+  Property 'catalog' is missing in type 'Pick<{ id: string & Brand<"ProviderID">; name: string; source: "custom" | "api" | "env" | "config"; env: string[]; options: Record<string, any>; models: Record<string, { id: string & Brand<...>; ... 11 more ...; variants?: Record<...> | undefined; }>; key?: string | undefined; }, "id" | ... 1 more ... | "source">' but required in type 'Pick<{ id: string & Brand<"ProviderID">; name: string; source: "custom" | "api" | "env" | "config"; env: string[]; options: Record<string, any>; models: Record<string, { id: string & Brand<...>; ... 11 more ...; variants?: Record<...> | undefined; }>; key?: string | undefined; }, "id" | ... 2 more ... | "catalog">'.
+src/agent/router.ts(139,100): error TS2503: Cannot find namespace 'AgentPolicy'.
+src/agent/scorecard.ts(56,24): error TS2554: Expected 2-3 arguments, but got 1.
+src/agent/scorecard.ts(57,31): error TS2322: Type 'Record<string | number | symbol, unknown>' is not assignable to type 'Store'.
+  'string' index signatures are incompatible.
+    Type 'unknown' is not assignable to type '{ taskClass: string; agentName: string; successes: number; failures: number; totalLatencyMs: number; totalCost: number; totalToolCalls: number; totalQuestions: number; samples: number; lastRunAt?: number | undefined; lastSuccessAt?: number | undefined; lastFailureAt?: number | undefined; }'.
+src/agent/SentryService.ts(106,17): error TS2353: Object literal may only specify known properties, and 'file' does not exist in type '{ error: string; success: boolean; }'.
+src/agent/spawner.ts(153,13): error TS2322: Type 'string' is not assignable to type 'string & Brand<"MessageID">'.
+  Type 'string' is not assignable to type 'Brand<"MessageID">'.
+src/cli/cmd/auth.ts(121,24): error TS2339: Property 'refreshProviderOnConnect' does not exist on type 'typeof Provider'.
+src/cli/cmd/auth.ts(155,24): error TS2339: Property 'refreshProviderOnConnect' does not exist on type 'typeof Provider'.
+src/cli/cmd/auth.ts(177,24): error TS2339: Property 'refreshProviderOnConnect' does not exist on type 'typeof Provider'.
+src/cli/cmd/auth.ts(481,26): error TS2339: Property 'refreshProviderOnConnect' does not exist on type 'typeof Provider'.
+src/cli/cmd/browse.ts(14,29): error TS2722: Cannot invoke an object which is possibly 'undefined'.
+src/cli/cmd/browse.ts(14,40): error TS2349: This expression is not callable.
+  Not all constituents of type 'CommandBuilder<{}, WithDoubleDash<{ message: string[] | never[]; } & { command: string | undefined; } & { continue: boolean | undefined; } & { session: string | undefined; } & { fork: boolean | undefined; } & { ...; } & ... 10 more ... & { ...; }>>' are callable.
+    Type '{ [key: string]: Options; }' has no call signatures.
+src/cli/cmd/browse.ts(17,33): error TS2559: Type 'ArgumentsCamelCase<{ "--"?: string[] | undefined; }>' has no properties in common with type '{ message?: unknown[] | undefined; command?: string | undefined; }'.
+src/cli/cmd/checkpoint.ts(61,47): error TS2322: Type 'string' is not assignable to type 'string & Brand<"SessionID">'.
+  Type 'string' is not assignable to type 'Brand<"SessionID">'.
+src/cli/cmd/collab.ts(161,70): error TS2339: Property 'RESET' does not exist on type '{ TEXT_HIGHLIGHT: string; TEXT_HIGHLIGHT_BOLD: string; TEXT_DIM: string; TEXT_DIM_BOLD: string; TEXT_NORMAL: string; TEXT_NORMAL_BOLD: string; TEXT_WARNING: string; TEXT_WARNING_BOLD: string; ... 5 more ...; TEXT_INFO_BOLD: string; }'.
+src/cli/cmd/collab.ts(162,70): error TS2339: Property 'RESET' does not exist on type '{ TEXT_HIGHLIGHT: string; TEXT_HIGHLIGHT_BOLD: string; TEXT_DIM: string; TEXT_DIM_BOLD: string; TEXT_NORMAL: string; TEXT_NORMAL_BOLD: string; TEXT_WARNING: string; TEXT_WARNING_BOLD: string; ... 5 more ...; TEXT_INFO_BOLD: string; }'.
+src/cli/cmd/collab.ts(267,70): error TS2339: Property 'RESET' does not exist on type '{ TEXT_HIGHLIGHT: string; TEXT_HIGHLIGHT_BOLD: string; TEXT_DIM: string; TEXT_DIM_BOLD: string; TEXT_NORMAL: string; TEXT_NORMAL_BOLD: string; TEXT_WARNING: string; TEXT_WARNING_BOLD: string; ... 5 more ...; TEXT_INFO_BOLD: string; }'.
+src/cli/cmd/collab.ts(268,70): error TS2339: Property 'RESET' does not exist on type '{ TEXT_HIGHLIGHT: string; TEXT_HIGHLIGHT_BOLD: string; TEXT_DIM: string; TEXT_DIM_BOLD: string; TEXT_NORMAL: string; TEXT_NORMAL_BOLD: string; TEXT_WARNING: string; TEXT_WARNING_BOLD: string; ... 5 more ...; TEXT_INFO_BOLD: string; }'.
+src/cli/cmd/collab.ts(325,16): error TS2339: Property 'RESET' does not exist on type '{ TEXT_HIGHLIGHT: string; TEXT_HIGHLIGHT_BOLD: string; TEXT_DIM: string; TEXT_DIM_BOLD: string; TEXT_NORMAL: string; TEXT_NORMAL_BOLD: string; TEXT_WARNING: string; TEXT_WARNING_BOLD: string; ... 5 more ...; TEXT_INFO_BOLD: string; }'.
+src/cli/cmd/collab.ts(349,70): error TS2339: Property 'RESET' does not exist on type '{ TEXT_HIGHLIGHT: string; TEXT_HIGHLIGHT_BOLD: string; TEXT_DIM: string; TEXT_DIM_BOLD: string; TEXT_NORMAL: string; TEXT_NORMAL_BOLD: string; TEXT_WARNING: string; TEXT_WARNING_BOLD: string; ... 5 more ...; TEXT_INFO_BOLD: string; }'.
+src/cli/cmd/collab.ts(350,70): error TS2339: Property 'RESET' does not exist on type '{ TEXT_HIGHLIGHT: string; TEXT_HIGHLIGHT_BOLD: string; TEXT_DIM: string; TEXT_DIM_BOLD: string; TEXT_NORMAL: string; TEXT_NORMAL_BOLD: string; TEXT_WARNING: string; TEXT_WARNING_BOLD: string; ... 5 more ...; TEXT_INFO_BOLD: string; }'.
+src/cli/cmd/collab.ts(354,72): error TS2339: Property 'RESET' does not exist on type '{ TEXT_HIGHLIGHT: string; TEXT_HIGHLIGHT_BOLD: string; TEXT_DIM: string; TEXT_DIM_BOLD: string; TEXT_NORMAL: string; TEXT_NORMAL_BOLD: string; TEXT_WARNING: string; TEXT_WARNING_BOLD: string; ... 5 more ...; TEXT_INFO_BOLD: string; }'.
+src/cli/cmd/collab.ts(357,70): error TS2339: Property 'RESET' does not exist on type '{ TEXT_HIGHLIGHT: string; TEXT_HIGHLIGHT_BOLD: string; TEXT_DIM: string; TEXT_DIM_BOLD: string; TEXT_NORMAL: string; TEXT_NORMAL_BOLD: string; TEXT_WARNING: string; TEXT_WARNING_BOLD: string; ... 5 more ...; TEXT_INFO_BOLD: string; }'.
+src/cli/cmd/critic.ts(14,29): error TS2722: Cannot invoke an object which is possibly 'undefined'.
+src/cli/cmd/critic.ts(14,40): error TS2349: This expression is not callable.
+  Not all constituents of type 'CommandBuilder<{}, WithDoubleDash<{ message: string[] | never[]; } & { command: string | undefined; } & { continue: boolean | undefined; } & { session: string | undefined; } & { fork: boolean | undefined; } & { ...; } & ... 10 more ... & { ...; }>>' are callable.
+    Type '{ [key: string]: Options; }' has no call signatures.
+src/cli/cmd/critic.ts(17,33): error TS2559: Type 'ArgumentsCamelCase<{ "--"?: string[] | undefined; }>' has no properties in common with type '{ message?: unknown[] | undefined; command?: string | undefined; }'.
+src/cli/cmd/debug.ts(14,29): error TS2722: Cannot invoke an object which is possibly 'undefined'.
+src/cli/cmd/debug.ts(14,40): error TS2349: This expression is not callable.
+  Not all constituents of type 'CommandBuilder<{}, WithDoubleDash<{ message: string[] | never[]; } & { command: string | undefined; } & { continue: boolean | undefined; } & { session: string | undefined; } & { fork: boolean | undefined; } & { ...; } & ... 10 more ... & { ...; }>>' are callable.
+    Type '{ [key: string]: Options; }' has no call signatures.
+src/cli/cmd/debug.ts(17,33): error TS2559: Type 'ArgumentsCamelCase<{ "--"?: string[] | undefined; }>' has no properties in common with type '{ message?: unknown[] | undefined; command?: string | undefined; }'.
+src/cli/cmd/debug/agent.ts(74,29): error TS2345: Argument of type '{ modelID: string; providerID: string; }' is not assignable to parameter of type '{ providerID: string & Brand<"ProviderID">; modelID: string & Brand<"ModelID">; }'.
+  Types of property 'providerID' are incompatible.
+    Type 'string' is not assignable to type 'string & Brand<"ProviderID">'.
+      Type 'string' is not assignable to type 'Brand<"ProviderID">'.
+src/cli/cmd/debug/agent.ts(127,5): error TS2322: Type 'string' is not assignable to type 'string & Brand<"ModelID">'.
+  Type 'string' is not assignable to type 'Brand<"ModelID">'.
+src/cli/cmd/debug/agent.ts(128,5): error TS2322: Type 'string' is not assignable to type 'string & Brand<"ProviderID">'.
+  Type 'string' is not assignable to type 'Brand<"ProviderID">'.
+src/cli/cmd/health.ts(25,3): error TS2322: Type '(args: Args) => Promise<void>' is not assignable to type '(args: ArgumentsCamelCase<{}>) => void | Promise<void>'.
+  Types of parameters 'args' and 'args' are incompatible.
+    Type 'ArgumentsCamelCase<{}>' has no properties in common with type 'Args'.
+src/cli/cmd/history.ts(81,22): error TS2339: Property 'RESET' does not exist on type '{ TEXT_HIGHLIGHT: string; TEXT_HIGHLIGHT_BOLD: string; TEXT_DIM: string; TEXT_DIM_BOLD: string; TEXT_NORMAL: string; TEXT_NORMAL_BOLD: string; TEXT_WARNING: string; TEXT_WARNING_BOLD: string; ... 5 more ...; TEXT_INFO_BOLD: string; }'.
+src/cli/cmd/import.ts(160,27): error TS2339: Property 'toRow' does not exist on type 'typeof Session'.
+src/cli/cmd/peers.ts(190,71): error TS2339: Property 'RESET' does not exist on type '{ TEXT_HIGHLIGHT: string; TEXT_HIGHLIGHT_BOLD: string; TEXT_DIM: string; TEXT_DIM_BOLD: string; TEXT_NORMAL: string; TEXT_NORMAL_BOLD: string; TEXT_WARNING: string; TEXT_WARNING_BOLD: string; ... 5 more ...; TEXT_INFO_BOLD: string; }'.
+src/cli/cmd/peers.ts(221,69): error TS2339: Property 'RESET' does not exist on type '{ TEXT_HIGHLIGHT: string; TEXT_HIGHLIGHT_BOLD: string; TEXT_DIM: string; TEXT_DIM_BOLD: string; TEXT_NORMAL: string; TEXT_NORMAL_BOLD: string; TEXT_WARNING: string; TEXT_WARNING_BOLD: string; ... 5 more ...; TEXT_INFO_BOLD: string; }'.
+src/cli/cmd/peers.ts(222,69): error TS2339: Property 'RESET' does not exist on type '{ TEXT_HIGHLIGHT: string; TEXT_HIGHLIGHT_BOLD: string; TEXT_DIM: string; TEXT_DIM_BOLD: string; TEXT_NORMAL: string; TEXT_NORMAL_BOLD: string; TEXT_WARNING: string; TEXT_WARNING_BOLD: string; ... 5 more ...; TEXT_INFO_BOLD: string; }'.
+src/cli/cmd/peers.ts(223,69): error TS2339: Property 'RESET' does not exist on type '{ TEXT_HIGHLIGHT: string; TEXT_HIGHLIGHT_BOLD: string; TEXT_DIM: string; TEXT_DIM_BOLD: string; TEXT_NORMAL: string; TEXT_NORMAL_BOLD: string; TEXT_WARNING: string; TEXT_WARNING_BOLD: string; ... 5 more ...; TEXT_INFO_BOLD: string; }'.
+src/cli/cmd/peers.ts(224,69): error TS2339: Property 'RESET' does not exist on type '{ TEXT_HIGHLIGHT: string; TEXT_HIGHLIGHT_BOLD: string; TEXT_DIM: string; TEXT_DIM_BOLD: string; TEXT_NORMAL: string; TEXT_NORMAL_BOLD: string; TEXT_WARNING: string; TEXT_WARNING_BOLD: string; ... 5 more ...; TEXT_INFO_BOLD: string; }'.
+src/cli/cmd/peers.ts(226,71): error TS2339: Property 'RESET' does not exist on type '{ TEXT_HIGHLIGHT: string; TEXT_HIGHLIGHT_BOLD: string; TEXT_DIM: string; TEXT_DIM_BOLD: string; TEXT_NORMAL: string; TEXT_NORMAL_BOLD: string; TEXT_WARNING: string; TEXT_WARNING_BOLD: string; ... 5 more ...; TEXT_INFO_BOLD: string; }'.
+src/cli/cmd/peers.ts(229,71): error TS2339: Property 'RESET' does not exist on type '{ TEXT_HIGHLIGHT: string; TEXT_HIGHLIGHT_BOLD: string; TEXT_DIM: string; TEXT_DIM_BOLD: string; TEXT_NORMAL: string; TEXT_NORMAL_BOLD: string; TEXT_WARNING: string; TEXT_WARNING_BOLD: string; ... 5 more ...; TEXT_INFO_BOLD: string; }'.
+src/cli/cmd/peers.ts(232,71): error TS2339: Property 'RESET' does not exist on type '{ TEXT_HIGHLIGHT: string; TEXT_HIGHLIGHT_BOLD: string; TEXT_DIM: string; TEXT_DIM_BOLD: string; TEXT_NORMAL: string; TEXT_NORMAL_BOLD: string; TEXT_WARNING: string; TEXT_WARNING_BOLD: string; ... 5 more ...; TEXT_INFO_BOLD: string; }'.
+src/cli/cmd/peers.ts(236,71): error TS2339: Property 'RESET' does not exist on type '{ TEXT_HIGHLIGHT: string; TEXT_HIGHLIGHT_BOLD: string; TEXT_DIM: string; TEXT_DIM_BOLD: string; TEXT_NORMAL: string; TEXT_NORMAL_BOLD: string; TEXT_WARNING: string; TEXT_WARNING_BOLD: string; ... 5 more ...; TEXT_INFO_BOLD: string; }'.
+src/cli/cmd/peers.ts(348,87): error TS2339: Property 'RESET' does not exist on type '{ TEXT_HIGHLIGHT: string; TEXT_HIGHLIGHT_BOLD: string; TEXT_DIM: string; TEXT_DIM_BOLD: string; TEXT_NORMAL: string; TEXT_NORMAL_BOLD: string; TEXT_WARNING: string; TEXT_WARNING_BOLD: string; ... 5 more ...; TEXT_INFO_BOLD: string; }'.
+src/cli/cmd/peers.ts(350,89): error TS2339: Property 'RESET' does not exist on type '{ TEXT_HIGHLIGHT: string; TEXT_HIGHLIGHT_BOLD: string; TEXT_DIM: string; TEXT_DIM_BOLD: string; TEXT_NORMAL: string; TEXT_NORMAL_BOLD: string; TEXT_WARNING: string; TEXT_WARNING_BOLD: string; ... 5 more ...; TEXT_INFO_BOLD: string; }'.
+src/cli/cmd/peers.ts(374,68): error TS2339: Property 'RESET' does not exist on type '{ TEXT_HIGHLIGHT: string; TEXT_HIGHLIGHT_BOLD: string; TEXT_DIM: string; TEXT_DIM_BOLD: string; TEXT_NORMAL: string; TEXT_NORMAL_BOLD: string; TEXT_WARNING: string; TEXT_WARNING_BOLD: string; ... 5 more ...; TEXT_INFO_BOLD: string; }'.
+src/cli/cmd/peers.ts(375,68): error TS2339: Property 'RESET' does not exist on type '{ TEXT_HIGHLIGHT: string; TEXT_HIGHLIGHT_BOLD: string; TEXT_DIM: string; TEXT_DIM_BOLD: string; TEXT_NORMAL: string; TEXT_NORMAL_BOLD: string; TEXT_WARNING: string; TEXT_WARNING_BOLD: string; ... 5 more ...; TEXT_INFO_BOLD: string; }'.
+src/cli/cmd/peers.ts(405,69): error TS2339: Property 'RESET' does not exist on type '{ TEXT_HIGHLIGHT: string; TEXT_HIGHLIGHT_BOLD: string; TEXT_DIM: string; TEXT_DIM_BOLD: string; TEXT_NORMAL: string; TEXT_NORMAL_BOLD: string; TEXT_WARNING: string; TEXT_WARNING_BOLD: string; ... 5 more ...; TEXT_INFO_BOLD: string; }'.
+src/cli/cmd/peers.ts(406,69): error TS2339: Property 'RESET' does not exist on type '{ TEXT_HIGHLIGHT: string; TEXT_HIGHLIGHT_BOLD: string; TEXT_DIM: string; TEXT_DIM_BOLD: string; TEXT_NORMAL: string; TEXT_NORMAL_BOLD: string; TEXT_WARNING: string; TEXT_WARNING_BOLD: string; ... 5 more ...; TEXT_INFO_BOLD: string; }'.
+src/cli/cmd/peers.ts(407,69): error TS2339: Property 'RESET' does not exist on type '{ TEXT_HIGHLIGHT: string; TEXT_HIGHLIGHT_BOLD: string; TEXT_DIM: string; TEXT_DIM_BOLD: string; TEXT_NORMAL: string; TEXT_NORMAL_BOLD: string; TEXT_WARNING: string; TEXT_WARNING_BOLD: string; ... 5 more ...; TEXT_INFO_BOLD: string; }'.
+src/cli/cmd/peers.ts(408,69): error TS2339: Property 'RESET' does not exist on type '{ TEXT_HIGHLIGHT: string; TEXT_HIGHLIGHT_BOLD: string; TEXT_DIM: string; TEXT_DIM_BOLD: string; TEXT_NORMAL: string; TEXT_NORMAL_BOLD: string; TEXT_WARNING: string; TEXT_WARNING_BOLD: string; ... 5 more ...; TEXT_INFO_BOLD: string; }'.
+src/cli/cmd/peers.ts(410,71): error TS2339: Property 'RESET' does not exist on type '{ TEXT_HIGHLIGHT: string; TEXT_HIGHLIGHT_BOLD: string; TEXT_DIM: string; TEXT_DIM_BOLD: string; TEXT_NORMAL: string; TEXT_NORMAL_BOLD: string; TEXT_WARNING: string; TEXT_WARNING_BOLD: string; ... 5 more ...; TEXT_INFO_BOLD: string; }'.
+src/cli/cmd/peers.ts(413,71): error TS2339: Property 'RESET' does not exist on type '{ TEXT_HIGHLIGHT: string; TEXT_HIGHLIGHT_BOLD: string; TEXT_DIM: string; TEXT_DIM_BOLD: string; TEXT_NORMAL: string; TEXT_NORMAL_BOLD: string; TEXT_WARNING: string; TEXT_WARNING_BOLD: string; ... 5 more ...; TEXT_INFO_BOLD: string; }'.
+src/cli/cmd/peers.ts(416,71): error TS2339: Property 'RESET' does not exist on type '{ TEXT_HIGHLIGHT: string; TEXT_HIGHLIGHT_BOLD: string; TEXT_DIM: string; TEXT_DIM_BOLD: string; TEXT_NORMAL: string; TEXT_NORMAL_BOLD: string; TEXT_WARNING: string; TEXT_WARNING_BOLD: string; ... 5 more ...; TEXT_INFO_BOLD: string; }'.
+src/cli/cmd/peers.ts(426,53): error TS2339: Property 'RESET' does not exist on type '{ TEXT_HIGHLIGHT: string; TEXT_HIGHLIGHT_BOLD: string; TEXT_DIM: string; TEXT_DIM_BOLD: string; TEXT_NORMAL: string; TEXT_NORMAL_BOLD: string; TEXT_WARNING: string; TEXT_WARNING_BOLD: string; ... 5 more ...; TEXT_INFO_BOLD: string; }'.
+src/cli/cmd/peers.ts(428,53): error TS2339: Property 'RESET' does not exist on type '{ TEXT_HIGHLIGHT: string; TEXT_HIGHLIGHT_BOLD: string; TEXT_DIM: string; TEXT_DIM_BOLD: string; TEXT_NORMAL: string; TEXT_NORMAL_BOLD: string; TEXT_WARNING: string; TEXT_WARNING_BOLD: string; ... 5 more ...; TEXT_INFO_BOLD: string; }'.
+src/cli/cmd/peers.ts(430,52): error TS2339: Property 'RESET' does not exist on type '{ TEXT_HIGHLIGHT: string; TEXT_HIGHLIGHT_BOLD: string; TEXT_DIM: string; TEXT_DIM_BOLD: string; TEXT_NORMAL: string; TEXT_NORMAL_BOLD: string; TEXT_WARNING: string; TEXT_WARNING_BOLD: string; ... 5 more ...; TEXT_INFO_BOLD: string; }'.
+src/cli/cmd/peers.ts(432,49): error TS2339: Property 'RESET' does not exist on type '{ TEXT_HIGHLIGHT: string; TEXT_HIGHLIGHT_BOLD: string; TEXT_DIM: string; TEXT_DIM_BOLD: string; TEXT_NORMAL: string; TEXT_NORMAL_BOLD: string; TEXT_WARNING: string; TEXT_WARNING_BOLD: string; ... 5 more ...; TEXT_INFO_BOLD: string; }'.
+src/cli/cmd/peers.ts(439,58): error TS2339: Property 'RESET' does not exist on type '{ TEXT_HIGHLIGHT: string; TEXT_HIGHLIGHT_BOLD: string; TEXT_DIM: string; TEXT_DIM_BOLD: string; TEXT_NORMAL: string; TEXT_NORMAL_BOLD: string; TEXT_WARNING: string; TEXT_WARNING_BOLD: string; ... 5 more ...; TEXT_INFO_BOLD: string; }'.
+src/cli/cmd/peers.ts(441,56): error TS2339: Property 'RESET' does not exist on type '{ TEXT_HIGHLIGHT: string; TEXT_HIGHLIGHT_BOLD: string; TEXT_DIM: string; TEXT_DIM_BOLD: string; TEXT_NORMAL: string; TEXT_NORMAL_BOLD: string; TEXT_WARNING: string; TEXT_WARNING_BOLD: string; ... 5 more ...; TEXT_INFO_BOLD: string; }'.
+src/cli/cmd/peers.ts(443,23): error TS2339: Property 'TEXT_ERROR' does not exist on type '{ TEXT_HIGHLIGHT: string; TEXT_HIGHLIGHT_BOLD: string; TEXT_DIM: string; TEXT_DIM_BOLD: string; TEXT_NORMAL: string; TEXT_NORMAL_BOLD: string; TEXT_WARNING: string; TEXT_WARNING_BOLD: string; ... 5 more ...; TEXT_INFO_BOLD: string; }'.
+src/cli/cmd/peers.ts(443,57): error TS2339: Property 'RESET' does not exist on type '{ TEXT_HIGHLIGHT: string; TEXT_HIGHLIGHT_BOLD: string; TEXT_DIM: string; TEXT_DIM_BOLD: string; TEXT_NORMAL: string; TEXT_NORMAL_BOLD: string; TEXT_WARNING: string; TEXT_WARNING_BOLD: string; ... 5 more ...; TEXT_INFO_BOLD: string; }'.
+src/cli/cmd/peers.ts(445,55): error TS2339: Property 'RESET' does not exist on type '{ TEXT_HIGHLIGHT: string; TEXT_HIGHLIGHT_BOLD: string; TEXT_DIM: string; TEXT_DIM_BOLD: string; TEXT_NORMAL: string; TEXT_NORMAL_BOLD: string; TEXT_WARNING: string; TEXT_WARNING_BOLD: string; ... 5 more ...; TEXT_INFO_BOLD: string; }'.
+src/cli/cmd/plan.ts(14,29): error TS2722: Cannot invoke an object which is possibly 'undefined'.
+src/cli/cmd/plan.ts(14,40): error TS2349: This expression is not callable.
+  Not all constituents of type 'CommandBuilder<{}, WithDoubleDash<{ message: string[] | never[]; } & { command: string | undefined; } & { continue: boolean | undefined; } & { session: string | undefined; } & { fork: boolean | undefined; } & { ...; } & ... 10 more ... & { ...; }>>' are callable.
+    Type '{ [key: string]: Options; }' has no call signatures.
+src/cli/cmd/plan.ts(17,33): error TS2559: Type 'ArgumentsCamelCase<{ "--"?: string[] | undefined; }>' has no properties in common with type '{ message?: unknown[] | undefined; command?: string | undefined; }'.
+src/cli/cmd/research.ts(15,5): error TS2722: Cannot invoke an object which is possibly 'undefined'.
+src/cli/cmd/research.ts(15,16): error TS2349: This expression is not callable.
+  Not all constituents of type 'CommandBuilder<{}, WithDoubleDash<{ message: string[] | never[]; } & { command: string | undefined; } & { continue: boolean | undefined; } & { session: string | undefined; } & { fork: boolean | undefined; } & { ...; } & ... 10 more ... & { ...; }>>' are callable.
+    Type '{ [key: string]: Options; }' has no call signatures.
+src/cli/cmd/research.ts(22,33): error TS2559: Type 'ArgumentsCamelCase<{ "--"?: string[] | undefined; }>' has no properties in common with type '{ message?: unknown[] | undefined; command?: string | undefined; }'.
+src/cli/cmd/review.ts(14,29): error TS2722: Cannot invoke an object which is possibly 'undefined'.
+src/cli/cmd/review.ts(14,40): error TS2349: This expression is not callable.
+  Not all constituents of type 'CommandBuilder<{}, WithDoubleDash<{ message: string[] | never[]; } & { command: string | undefined; } & { continue: boolean | undefined; } & { session: string | undefined; } & { fork: boolean | undefined; } & { ...; } & ... 10 more ... & { ...; }>>' are callable.
+    Type '{ [key: string]: Options; }' has no call signatures.
+src/cli/cmd/review.ts(17,33): error TS2559: Type 'ArgumentsCamelCase<{ "--"?: string[] | undefined; }>' has no properties in common with type '{ message?: unknown[] | undefined; command?: string | undefined; }'.
+src/cli/cmd/spec.ts(14,29): error TS2722: Cannot invoke an object which is possibly 'undefined'.
+src/cli/cmd/spec.ts(14,40): error TS2349: This expression is not callable.
+  Not all constituents of type 'CommandBuilder<{}, WithDoubleDash<{ message: string[] | never[]; } & { command: string | undefined; } & { continue: boolean | undefined; } & { session: string | undefined; } & { fork: boolean | undefined; } & { ...; } & ... 10 more ... & { ...; }>>' are callable.
+    Type '{ [key: string]: Options; }' has no call signatures.
+src/cli/cmd/spec.ts(17,33): error TS2559: Type 'ArgumentsCamelCase<{ "--"?: string[] | undefined; }>' has no properties in common with type '{ message?: unknown[] | undefined; command?: string | undefined; }'.
+src/cli/cmd/stats.ts(92,36): error TS2339: Property 'fromRow' does not exist on type 'typeof Session'.
+src/cli/cmd/teleport.ts(75,44): error TS2339: Property 'serialize' does not exist on type 'typeof Session'.
+src/cli/cmd/trace.ts(29,36): error TS2339: Property 'sessionTracing' does not exist on type '{ disable_paste_summary?: boolean | undefined; batch_tool?: boolean | undefined; openTelemetry?: boolean | undefined; primary_tools?: string[] | undefined; continue_loop_on_deny?: boolean | undefined; mcp_timeout?: number | undefined; modelRouting?: { ...; } | undefined; }'.
+src/cli/cmd/trace.ts(30,40): error TS2339: Property 'sessionTracing' does not exist on type '{ disable_paste_summary?: boolean | undefined; batch_tool?: boolean | undefined; openTelemetry?: boolean | undefined; primary_tools?: string[] | undefined; continue_loop_on_deny?: boolean | undefined; mcp_timeout?: number | undefined; modelRouting?: { ...; } | undefined; }'.
+src/cli/cmd/trace.ts(86,35): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/cli/cmd/tui/routes/session/subagent-footer.tsx(79,47): error TS2304: Cannot find name 'TextAttributes'.
+src/cli/cmd/vibe.ts(22,108): error TS2339: Property 'RESET' does not exist on type '{ TEXT_HIGHLIGHT: string; TEXT_HIGHLIGHT_BOLD: string; TEXT_DIM: string; TEXT_DIM_BOLD: string; TEXT_NORMAL: string; TEXT_NORMAL_BOLD: string; TEXT_WARNING: string; TEXT_WARNING_BOLD: string; ... 5 more ...; TEXT_INFO_BOLD: string; }'.
+src/cli/cmd/vibe.ts(30,60): error TS2339: Property 'RESET' does not exist on type '{ TEXT_HIGHLIGHT: string; TEXT_HIGHLIGHT_BOLD: string; TEXT_DIM: string; TEXT_DIM_BOLD: string; TEXT_NORMAL: string; TEXT_NORMAL_BOLD: string; TEXT_WARNING: string; TEXT_WARNING_BOLD: string; ... 5 more ...; TEXT_INFO_BOLD: string; }'.
+src/cli/cmd/vibe.ts(34,116): error TS2339: Property 'RESET' does not exist on type '{ TEXT_HIGHLIGHT: string; TEXT_HIGHLIGHT_BOLD: string; TEXT_DIM: string; TEXT_DIM_BOLD: string; TEXT_NORMAL: string; TEXT_NORMAL_BOLD: string; TEXT_WARNING: string; TEXT_WARNING_BOLD: string; ... 5 more ...; TEXT_INFO_BOLD: string; }'.
+src/cli/cmd/vibe.ts(37,81): error TS2339: Property 'RESET' does not exist on type '{ TEXT_HIGHLIGHT: string; TEXT_HIGHLIGHT_BOLD: string; TEXT_DIM: string; TEXT_DIM_BOLD: string; TEXT_NORMAL: string; TEXT_NORMAL_BOLD: string; TEXT_WARNING: string; TEXT_WARNING_BOLD: string; ... 5 more ...; TEXT_INFO_BOLD: string; }'.
+src/cli/cmd/vibe.ts(41,106): error TS2339: Property 'RESET' does not exist on type '{ TEXT_HIGHLIGHT: string; TEXT_HIGHLIGHT_BOLD: string; TEXT_DIM: string; TEXT_DIM_BOLD: string; TEXT_NORMAL: string; TEXT_NORMAL_BOLD: string; TEXT_WARNING: string; TEXT_WARNING_BOLD: string; ... 5 more ...; TEXT_INFO_BOLD: string; }'.
+src/cli/cmd/vibe.ts(42,67): error TS2339: Property 'RESET' does not exist on type '{ TEXT_HIGHLIGHT: string; TEXT_HIGHLIGHT_BOLD: string; TEXT_DIM: string; TEXT_DIM_BOLD: string; TEXT_NORMAL: string; TEXT_NORMAL_BOLD: string; TEXT_WARNING: string; TEXT_WARNING_BOLD: string; ... 5 more ...; TEXT_INFO_BOLD: string; }'.
+src/cli/cmd/vibe.ts(46,92): error TS2339: Property 'RESET' does not exist on type '{ TEXT_HIGHLIGHT: string; TEXT_HIGHLIGHT_BOLD: string; TEXT_DIM: string; TEXT_DIM_BOLD: string; TEXT_NORMAL: string; TEXT_NORMAL_BOLD: string; TEXT_WARNING: string; TEXT_WARNING_BOLD: string; ... 5 more ...; TEXT_INFO_BOLD: string; }'.
+src/cli/cmd/vibe.ts(48,90): error TS2339: Property 'RESET' does not exist on type '{ TEXT_HIGHLIGHT: string; TEXT_HIGHLIGHT_BOLD: string; TEXT_DIM: string; TEXT_DIM_BOLD: string; TEXT_NORMAL: string; TEXT_NORMAL_BOLD: string; TEXT_WARNING: string; TEXT_WARNING_BOLD: string; ... 5 more ...; TEXT_INFO_BOLD: string; }'.
+src/cli/cmd/vibe.ts(53,78): error TS2339: Property 'RESET' does not exist on type '{ TEXT_HIGHLIGHT: string; TEXT_HIGHLIGHT_BOLD: string; TEXT_DIM: string; TEXT_DIM_BOLD: string; TEXT_NORMAL: string; TEXT_NORMAL_BOLD: string; TEXT_WARNING: string; TEXT_WARNING_BOLD: string; ... 5 more ...; TEXT_INFO_BOLD: string; }'.
+src/cli/cmd/vibe.ts(58,85): error TS2339: Property 'RESET' does not exist on type '{ TEXT_HIGHLIGHT: string; TEXT_HIGHLIGHT_BOLD: string; TEXT_DIM: string; TEXT_DIM_BOLD: string; TEXT_NORMAL: string; TEXT_NORMAL_BOLD: string; TEXT_WARNING: string; TEXT_WARNING_BOLD: string; ... 5 more ...; TEXT_INFO_BOLD: string; }'.
+src/codebase/sentry-service.ts(32,36): error TS2339: Property 'debounceMs' does not exist on type '{ dsn?: string | undefined; environment?: string | undefined; debug?: boolean | undefined; }'.
+src/codebase/sentry-service.ts(50,21): error TS2339: Property 'enabled' does not exist on type '{ dsn?: string | undefined; environment?: string | undefined; debug?: boolean | undefined; }'.
+src/codebase/sentry-service.ts(60,36): error TS2339: Property 'commands' does not exist on type '{ dsn?: string | undefined; environment?: string | undefined; debug?: boolean | undefined; }'.
+src/codebase/sentry-service.ts(70,27): error TS2339: Property 'autoFix' does not exist on type '{ dsn?: string | undefined; environment?: string | undefined; debug?: boolean | undefined; }'.
+src/control-plane/workspace.ts(67,30): error TS2551: Property 'listItemsSync' does not exist on type 'typeof JsonlStorage'. Did you mean 'listItems'?
+src/control-plane/workspace.ts(69,16): error TS7006: Parameter 'w' implicitly has an 'any' type.
+src/control-plane/workspace.ts(70,14): error TS7006: Parameter 'a' implicitly has an 'any' type.
+src/control-plane/workspace.ts(70,17): error TS7006: Parameter 'b' implicitly has an 'any' type.
+src/control-plane/workspace.ts(109,42): error TS7006: Parameter 'space' implicitly has an 'any' type.
+src/control-plane/workspace.ts(111,21): error TS7006: Parameter 'space' implicitly has an 'any' type.
+src/eval/framework.ts(51,38): error TS2339: Property 'evaluation' does not exist on type '{ disable_paste_summary?: boolean | undefined; batch_tool?: boolean | undefined; openTelemetry?: boolean | undefined; primary_tools?: string[] | undefined; continue_loop_on_deny?: boolean | undefined; mcp_timeout?: number | undefined; modelRouting?: { ...; } | undefined; }'.
+src/eval/framework.ts(52,42): error TS2339: Property 'evaluation' does not exist on type '{ disable_paste_summary?: boolean | undefined; batch_tool?: boolean | undefined; openTelemetry?: boolean | undefined; primary_tools?: string[] | undefined; continue_loop_on_deny?: boolean | undefined; mcp_timeout?: number | undefined; modelRouting?: { ...; } | undefined; }'.
+src/eval/framework.ts(60,30): error TS2339: Property 'evaluation' does not exist on type '{ disable_paste_summary?: boolean | undefined; batch_tool?: boolean | undefined; openTelemetry?: boolean | undefined; primary_tools?: string[] | undefined; continue_loop_on_deny?: boolean | undefined; mcp_timeout?: number | undefined; modelRouting?: { ...; } | undefined; }'.
+src/file/index.ts(582,47): error TS2322: Type 'ParsedDiff' is not assignable to type '{ oldFileName: string; newFileName: string; hunks: { oldStart: number; oldLines: number; newStart: number; newLines: number; lines: string[]; }[]; oldHeader?: string | undefined; newHeader?: string | undefined; index?: string | undefined; }'.
+  Types of property 'oldFileName' are incompatible.
+    Type 'string | undefined' is not assignable to type 'string'.
+      Type 'undefined' is not assignable to type 'string'.
+src/mcp/index.ts(523,42): error TS18048: 'client.transport' is possibly 'undefined'.
+src/native/browser-runtime.ts(1,72): error TS2307: Cannot find module 'playwright-core' or its corresponding type declarations.
+src/permission/mode-types.ts(55,25): error TS2554: Expected 2-3 arguments, but got 1.
+src/plugin/types.ts(3,3): error TS2724: '"@navi-ai/sdk"' has no exported member named 'createnaviClient'. Did you mean 'createNaviClient'?
+src/provider/fetch-models.ts(55,9): error TS2322: Type 'string' is not assignable to type 'string & Brand<"ModelID">'.
+  Type 'string' is not assignable to type 'Brand<"ModelID">'.
+src/provider/fetch-models.ts(56,9): error TS2322: Type 'string' is not assignable to type 'string & Brand<"ProviderID">'.
+  Type 'string' is not assignable to type 'Brand<"ProviderID">'.
+src/provider/health.ts(45,67): error TS2344: Type '"id" | "models" | "source" | "catalog"' does not satisfy the constraint '"id" | "options" | "key" | "name" | "env" | "models" | "source"'.
+  Type '"catalog"' is not assignable to type '"id" | "options" | "key" | "name" | "env" | "models" | "source"'.
+src/provider/health.ts(58,9): error TS2367: This comparison appears to be unintentional because the types '"custom" | "api" | "env" | "config"' and '"free"' have no overlap.
+src/provider/health.ts(68,37): error TS2339: Property 'ageMs' does not exist on type '{}'.
+src/provider/health.ts(107,75): error TS2344: Type '"id" | "models" | "source" | "catalog"' does not satisfy the constraint '"id" | "options" | "key" | "name" | "env" | "models" | "source"'.
+  Type '"catalog"' is not assignable to type '"id" | "options" | "key" | "name" | "env" | "models" | "source"'.
+src/provider/health.ts(112,31): error TS2345: Argument of type '{ id: string & Brand<"ProviderID">; name: string; source: "custom" | "api" | "env" | "config"; env: string[]; options: Record<string, any>; models: Record<string, { id: string & Brand<...>; ... 11 more ...; variants?: Record<...> | undefined; }>; key?: string | undefined; }[]' is not assignable to parameter of type 'Pick<{ id: string & Brand<"ProviderID">; name: string; source: "custom" | "api" | "env" | "config"; env: string[]; options: Record<string, any>; models: Record<string, { id: string & Brand<...>; ... 11 more ...; variants?: Record<...> | undefined; }>; key?: string | undefined; }, "id" | ... 2 more ... | "catalog">[]'.
+  Property 'catalog' is missing in type '{ id: string & Brand<"ProviderID">; name: string; source: "custom" | "api" | "env" | "config"; env: string[]; options: Record<string, any>; models: Record<string, { id: string & Brand<...>; ... 11 more ...; variants?: Record<...> | undefined; }>; key?: string | undefined; }' but required in type 'Pick<{ id: string & Brand<"ProviderID">; name: string; source: "custom" | "api" | "env" | "config"; env: string[]; options: Record<string, any>; models: Record<string, { id: string & Brand<...>; ... 11 more ...; variants?: Record<...> | undefined; }>; key?: string | undefined; }, "id" | ... 2 more ... | "catalog">'.
+src/provider/providers/cline.ts(66,33): error TS2322: Type 'string' is not assignable to type 'string & Brand<"ModelID">'.
+  Type 'string' is not assignable to type 'Brand<"ModelID">'.
+src/provider/providers/cline.ts(67,33): error TS2322: Type 'string' is not assignable to type 'string & Brand<"ProviderID">'.
+  Type 'string' is not assignable to type 'Brand<"ProviderID">'.
+src/provider/providers/cohere.ts(49,29): error TS2322: Type 'string' is not assignable to type 'string & Brand<"ModelID">'.
+  Type 'string' is not assignable to type 'Brand<"ModelID">'.
+src/provider/providers/cohere.ts(50,29): error TS2322: Type 'string' is not assignable to type 'string & Brand<"ProviderID">'.
+  Type 'string' is not assignable to type 'Brand<"ProviderID">'.
+src/provider/providers/kilocode.ts(72,29): error TS2322: Type 'string' is not assignable to type 'string & Brand<"ProviderID">'.
+  Type 'string' is not assignable to type 'Brand<"ProviderID">'.
+src/provider/providers/misc.ts(118,29): error TS2353: Object literal may only specify known properties, and 'isFree' does not exist in type '{ id: string & Brand<"ModelID">; providerID: string & Brand<"ProviderID">; api: { id: string; url: string; npm: string; }; name: string; capabilities: { temperature: boolean; ... 5 more ...; interleaved: boolean | { ...; }; }; ... 7 more ...; variants?: Record<...> | undefined; }'.
+src/provider/providers/misc.ts(283,29): error TS2353: Object literal may only specify known properties, and 'isFree' does not exist in type '{ id: string & Brand<"ModelID">; providerID: string & Brand<"ProviderID">; api: { id: string; url: string; npm: string; }; name: string; capabilities: { temperature: boolean; ... 5 more ...; interleaved: boolean | { ...; }; }; ... 7 more ...; variants?: Record<...> | undefined; }'.
+src/provider/providers/roocode.ts(66,33): error TS2322: Type 'string' is not assignable to type 'string & Brand<"ModelID">'.
+  Type 'string' is not assignable to type 'Brand<"ModelID">'.
+src/provider/providers/roocode.ts(67,33): error TS2322: Type 'string' is not assignable to type 'string & Brand<"ProviderID">'.
+  Type 'string' is not assignable to type 'Brand<"ProviderID">'.
+src/provider/sdk/openai-compatible/src/openai-compatible-provider.ts(96,10): error TS2352: Conversion of type '{ (modelId: string): OpenAICompatibleChatLanguageModel; languageModel: (modelId: string) => OpenAICompatibleChatLanguageModel; chat: (modelId: string) => OpenAICompatibleChatLanguageModel; responses: (modelId: string) => OpenAIResponsesLanguageModel; }' to type 'OpenaiCompatibleProvider' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  The types of 'chat(...).specificationVersion' are incompatible between these types.
+    Type '"v3"' is not comparable to type '"v2"'.
+src/provider/sdk/openai-compatible/src/responses/tool/code-interpreter.ts(1,10): error TS2724: '"@ai-sdk/provider-utils"' has no exported member named 'createProviderDefinedToolFactoryWithOutputSchema'. Did you mean 'createProviderToolFactoryWithOutputSchema'?
+src/provider/sdk/openai-compatible/src/responses/tool/file-search.ts(1,10): error TS2724: '"@ai-sdk/provider-utils"' has no exported member named 'createProviderDefinedToolFactoryWithOutputSchema'. Did you mean 'createProviderToolFactoryWithOutputSchema'?
+src/provider/sdk/openai-compatible/src/responses/tool/image-generation.ts(1,10): error TS2724: '"@ai-sdk/provider-utils"' has no exported member named 'createProviderDefinedToolFactoryWithOutputSchema'. Did you mean 'createProviderToolFactoryWithOutputSchema'?
+src/provider/sdk/openai-compatible/src/responses/tool/local-shell.ts(1,10): error TS2724: '"@ai-sdk/provider-utils"' has no exported member named 'createProviderDefinedToolFactoryWithOutputSchema'. Did you mean 'createProviderToolFactoryWithOutputSchema'?
+src/provider/sdk/openai-compatible/src/responses/tool/web-search-preview.ts(1,10): error TS2724: '"@ai-sdk/provider-utils"' has no exported member named 'createProviderDefinedToolFactory'. Did you mean 'createProviderToolFactory'?
+src/provider/sdk/openai-compatible/src/responses/tool/web-search.ts(1,10): error TS2724: '"@ai-sdk/provider-utils"' has no exported member named 'createProviderDefinedToolFactory'. Did you mean 'createProviderToolFactory'?
+src/server/project.ts(72,38): error TS2339: Property 'schema' does not exist on type '(input: { projectID: string & Brand<"ProjectID">; name?: string | undefined; icon?: { url?: string | undefined; override?: string | undefined; color?: string | undefined; } | undefined; commands?: { ...; } | undefined; }) => Promise<...>'.
+src/server/pty.ts(74,34): error TS2345: Argument of type 'string' is not assignable to parameter of type 'string & Brand<"PtyID">'.
+  Type 'string' is not assignable to type 'Brand<"PtyID">'.
+src/server/pty.ts(102,43): error TS2345: Argument of type 'string' is not assignable to parameter of type 'string & Brand<"PtyID">'.
+  Type 'string' is not assignable to type 'Brand<"PtyID">'.
+src/server/pty.ts(126,30): error TS2345: Argument of type 'string' is not assignable to parameter of type 'string & Brand<"PtyID">'.
+  Type 'string' is not assignable to type 'Brand<"PtyID">'.
+src/server/question.ts(60,9): error TS2322: Type 'string' is not assignable to type 'QuestionID'.
+src/server/question.ts(92,29): error TS2345: Argument of type 'string' is not assignable to parameter of type 'QuestionID'.
+src/server/routes/app.ts(86,72): error TS2339: Property 'Info' does not exist on type 'typeof Permission'.
+src/server/routes/app.ts(107,20): error TS2339: Property 'respond' does not exist on type 'typeof Permission'.
+src/session/AwaySummaryService.ts(18,51): error TS2322: Type 'string' is not assignable to type 'string & Brand<"SessionID">'.
+  Type 'string' is not assignable to type 'Brand<"SessionID">'.
+src/session/AwaySummaryService.ts(32,54): error TS2322: Type 'string' is not assignable to type 'string & Brand<"SessionID">'.
+  Type 'string' is not assignable to type 'Brand<"SessionID">'.
+src/session/compaction.ts(178,23): error TS18047: 'agent' is possibly 'null'.
+src/session/compaction.ts(179,38): error TS18047: 'agent' is possibly 'null'.
+src/session/compaction.ts(179,38): error TS2345: Argument of type 'string' is not assignable to parameter of type 'string & Brand<"ProviderID">'.
+  Type 'string' is not assignable to type 'Brand<"ProviderID">'.
+src/session/compaction.ts(179,62): error TS18047: 'agent' is possibly 'null'.
+src/session/compaction.ts(256,13): error TS2322: Type '{ name: string; mode: "subagent" | "primary" | "all" | "parallel"; permission: { permission: string; pattern: string; action: "ask" | "allow" | "deny"; }[]; options: Record<string, any>; ... 26 more ...; handleSteps?: any; } | null' is not assignable to type '{ name: string; mode: "subagent" | "primary" | "all" | "parallel"; permission: { permission: string; pattern: string; action: "ask" | "allow" | "deny"; }[]; options: Record<string, any>; ... 26 more ...; handleSteps?: any; }'.
+  Type 'null' is not assignable to type '{ name: string; mode: "subagent" | "primary" | "all" | "parallel"; permission: { permission: string; pattern: string; action: "ask" | "allow" | "deny"; }[]; options: Record<string, any>; ... 26 more ...; handleSteps?: any; }'.
+src/session/index.ts(638,9): error TS2353: Object literal may only specify known properties, and 'setScratchpad' does not exist in type 'Interface'.
+src/session/index.ts(717,30): error TS2551: Property 'listItemsSync' does not exist on type 'typeof JsonlStorage'. Did you mean 'listItems'?
+src/session/index.ts(720,56): error TS7006: Parameter 's' implicitly has an 'any' type.
+src/session/index.ts(721,54): error TS7006: Parameter 's' implicitly has an 'any' type.
+src/session/index.ts(722,50): error TS7006: Parameter 's' implicitly has an 'any' type.
+src/session/index.ts(723,50): error TS7006: Parameter 's' implicitly has an 'any' type.
+src/session/index.ts(723,73): error TS18048: 'input.start' is possibly 'undefined'.
+src/session/index.ts(726,34): error TS7006: Parameter 's' implicitly has an 'any' type.
+src/session/index.ts(729,20): error TS7006: Parameter 'a' implicitly has an 'any' type.
+src/session/index.ts(729,23): error TS7006: Parameter 'b' implicitly has an 'any' type.
+src/session/index.ts(746,30): error TS2551: Property 'listItemsSync' does not exist on type 'typeof JsonlStorage'. Did you mean 'listItems'?
+src/session/index.ts(749,54): error TS7006: Parameter 's' implicitly has an 'any' type.
+src/session/index.ts(750,50): error TS7006: Parameter 's' implicitly has an 'any' type.
+src/session/index.ts(751,50): error TS7006: Parameter 's' implicitly has an 'any' type.
+src/session/index.ts(751,73): error TS18048: 'input.start' is possibly 'undefined'.
+src/session/index.ts(752,51): error TS7006: Parameter 's' implicitly has an 'any' type.
+src/session/index.ts(752,73): error TS18048: 'input.cursor' is possibly 'undefined'.
+src/session/index.ts(755,34): error TS7006: Parameter 's' implicitly has an 'any' type.
+src/session/index.ts(758,34): error TS7006: Parameter 's' implicitly has an 'any' type.
+src/session/index.ts(761,20): error TS7006: Parameter 'a' implicitly has an 'any' type.
+src/session/index.ts(761,23): error TS7006: Parameter 'b' implicitly has an 'any' type.
+src/session/index.ts(766,45): error TS7006: Parameter 's' implicitly has an 'any' type.
+src/session/index.ts(770,62): error TS2345: Argument of type 'unknown' is not assignable to parameter of type 'string'.
+src/session/index.ts(772,26): error TS2345: Argument of type 'unknown' is not assignable to parameter of type 'string'.
+src/session/index.ts(809,29): error TS2339: Property 'setScratchpad' does not exist on type 'Interface'.
+src/session/llm.ts(307,66): error TS2339: Property 'args' does not exist on type 'LanguageModelV3ToolCall'.
+src/session/processor.ts(382,26): error TS2488: Type 'Promise<{ info: { id: string & Brand<"MessageID">; sessionID: string & Brand<"SessionID">; role: "user"; time: { created: number; }; agent: string; model: { providerID: string & Brand<...>; modelID: string & Brand<...>; }; ... 4 more ...; variant?: string | undefined; } | { ...; }; parts: ({ ...; } | ... 10 more ......' must have a '[Symbol.iterator]()' method that returns an iterator.
+src/session/processor.ts(590,11): error TS2322: Type '(streamInput: StreamInput) => Effect<"stop" | "continue" | "compact", never, unknown>' is not assignable to type '(streamInput: StreamInput) => Effect<Result, never, never>'.
+  Type 'Effect<"stop" | "continue" | "compact", never, unknown>' is not assignable to type 'Effect<Result, never, never>'.
+    Type 'unknown' is not assignable to type 'never'.
+src/session/processor.ts(594,27): error TS2322: Type '(input: Input) => Effect<{ readonly message: { id: string & Brand<"MessageID">; sessionID: string & Brand<"SessionID">; role: "assistant"; time: { created: number; completed?: number | undefined; }; ... 12 more ...; finish?: string | undefined; }; partFromToolCall(toolCallID: string): { ...; }; abort: () => Effect<....' is not assignable to type '(input: Input) => Effect<Handle, never, never>'.
+  Type 'Effect<{ readonly message: { id: string & Brand<"MessageID">; sessionID: string & Brand<"SessionID">; role: "assistant"; time: { created: number; completed?: number | undefined; }; parentID: string & Brand<...>; ... 11 more ...; finish?: string | undefined; }; partFromToolCall(toolCallID: string): { ...; }; abort: (...' is not assignable to type 'Effect<Handle, never, never>'.
+    Type '{ readonly message: { id: string & Brand<"MessageID">; sessionID: string & Brand<"SessionID">; role: "assistant"; time: { created: number; completed?: number | undefined; }; parentID: string & Brand<...>; ... 11 more ...; finish?: string | undefined; }; partFromToolCall(toolCallID: string): { ...; }; abort: () => Ef...' is not assignable to type 'Handle'.
+      The types returned by 'process(...)' are incompatible between these types.
+        Type 'Effect<"stop" | "continue" | "compact", never, unknown>' is not assignable to type 'Effect<Result, never, never>'.
+          Type 'unknown' is not assignable to type 'never'.
+src/session/prompt/command.ts(54,23): error TS18048: 'command' is possibly 'undefined'.
+src/session/prompt/command.ts(59,35): error TS18048: 'command' is possibly 'undefined'.
+src/session/prompt/command.ts(94,13): error TS18048: 'command' is possibly 'undefined'.
+src/session/prompt/command.ts(95,40): error TS18048: 'command' is possibly 'undefined'.
+src/session/prompt/command.ts(97,13): error TS18048: 'command' is possibly 'undefined'.
+src/session/prompt/command.ts(98,46): error TS18048: 'command' is possibly 'undefined'.
+src/session/prompt/command.ts(108,33): error TS2345: Argument of type 'string' is not assignable to parameter of type 'string & Brand<"ProviderID">'.
+  Type 'string' is not assignable to type 'Brand<"ProviderID">'.
+src/session/prompt/command.ts(114,17): error TS2322: Type 'string' is not assignable to type 'string & Brand<"SessionID">'.
+  Type 'string' is not assignable to type 'Brand<"SessionID">'.
+src/session/prompt/command.ts(126,13): error TS2322: Type 'string' is not assignable to type 'string & Brand<"SessionID">'.
+  Type 'string' is not assignable to type 'Brand<"SessionID">'.
+src/session/prompt/command.ts(134,39): error TS18048: 'command' is possibly 'undefined'.
+src/session/prompt/command.ts(134,69): error TS18048: 'command' is possibly 'undefined'.
+src/session/prompt/command.ts(139,34): error TS18048: 'command' is possibly 'undefined'.
+src/session/prompt/command.ts(147,9): error TS18048: 'command' is possibly 'undefined'.
+src/session/prompt/command.ts(147,17): error TS2339: Property 'handler' does not exist on type 'Info'.
+src/session/prompt/command.ts(149,37): error TS18048: 'command' is possibly 'undefined'.
+src/session/prompt/command.ts(149,45): error TS2339: Property 'handler' does not exist on type 'Info'.
+src/session/prompt/command.ts(156,17): error TS2322: Type 'string' is not assignable to type 'string & Brand<"MessageID">'.
+  Type 'string' is not assignable to type 'Brand<"MessageID">'.
+src/session/prompt/command.ts(157,17): error TS2322: Type 'string' is not assignable to type 'string & Brand<"SessionID">'.
+  Type 'string' is not assignable to type 'Brand<"SessionID">'.
+src/session/prompt/command.ts(161,17): error TS2322: Type '{ modelID: string; providerID: string; }' is not assignable to type '{ providerID: string & Brand<"ProviderID">; modelID: string & Brand<"ModelID">; }'.
+  Types of property 'providerID' are incompatible.
+    Type 'string' is not assignable to type 'string & Brand<"ProviderID">'.
+      Type 'string' is not assignable to type 'Brand<"ProviderID">'.
+src/session/prompt/command.ts(176,50): error TS2322: Type 'string' is not assignable to type 'string & Brand<"SessionID">'.
+  Type 'string' is not assignable to type 'Brand<"SessionID">'.
+src/session/prompt/command.ts(176,102): error TS2345: Argument of type 'string' is not assignable to parameter of type 'string & Brand<"SessionID">'.
+  Type 'string' is not assignable to type 'Brand<"SessionID">'.
+src/session/prompt/command.ts(182,13): error TS2322: Type 'string' is not assignable to type 'string & Brand<"MessageID">'.
+  Type 'string' is not assignable to type 'Brand<"MessageID">'.
+src/session/prompt/command.ts(183,13): error TS2322: Type 'string' is not assignable to type 'string & Brand<"SessionID">'.
+  Type 'string' is not assignable to type 'Brand<"SessionID">'.
+src/session/prompt/command.ts(185,13): error TS2322: Type 'string' is not assignable to type 'string & Brand<"MessageID">'.
+  Type 'string' is not assignable to type 'Brand<"MessageID">'.
+src/session/prompt/command.ts(187,13): error TS2322: Type 'string' is not assignable to type 'string & Brand<"ModelID">'.
+  Type 'string' is not assignable to type 'Brand<"ModelID">'.
+src/session/prompt/command.ts(188,13): error TS2322: Type 'string' is not assignable to type 'string & Brand<"ProviderID">'.
+  Type 'string' is not assignable to type 'Brand<"ProviderID">'.
+src/session/prompt/command.ts(199,13): error TS2322: Type 'string' is not assignable to type 'string & Brand<"PartID">'.
+  Type 'string' is not assignable to type 'Brand<"PartID">'.
+src/session/prompt/command.ts(200,13): error TS2322: Type 'string' is not assignable to type 'string & Brand<"MessageID">'.
+  Type 'string' is not assignable to type 'Brand<"MessageID">'.
+src/session/prompt/command.ts(201,13): error TS2322: Type 'string' is not assignable to type 'string & Brand<"SessionID">'.
+  Type 'string' is not assignable to type 'Brand<"SessionID">'.
+src/session/prompt/command.ts(214,13): error TS2322: Type 'string' is not assignable to type 'string & Brand<"SessionID">'.
+  Type 'string' is not assignable to type 'Brand<"SessionID">'.
+src/session/prompt/command.ts(233,9): error TS2322: Type 'string' is not assignable to type 'string & Brand<"SessionID">'.
+  Type 'string' is not assignable to type 'Brand<"SessionID">'.
+src/session/prompt/reminders.ts(21,13): error TS2322: Type 'string' is not assignable to type 'string & Brand<"PartID">'.
+  Type 'string' is not assignable to type 'Brand<"PartID">'.
+src/session/prompt/reminders.ts(33,13): error TS2322: Type 'string' is not assignable to type 'string & Brand<"PartID">'.
+  Type 'string' is not assignable to type 'Brand<"PartID">'.
+src/session/prompt/shell.ts(45,23): error TS2345: Argument of type 'string' is not assignable to parameter of type 'string & Brand<"SessionID">'.
+  Type 'string' is not assignable to type 'Brand<"SessionID">'.
+src/session/prompt/shell.ts(66,39): error TS2345: Argument of type 'string' is not assignable to parameter of type 'string & Brand<"SessionID">'.
+  Type 'string' is not assignable to type 'Brand<"SessionID">'.
+src/session/prompt/shell.ts(71,34): error TS18047: 'agent' is possibly 'null'.
+src/session/prompt/shell.ts(73,9): error TS2322: Type 'string' is not assignable to type 'string & Brand<"MessageID">'.
+  Type 'string' is not assignable to type 'Brand<"MessageID">'.
+src/session/prompt/shell.ts(74,9): error TS2322: Type 'string' is not assignable to type 'string & Brand<"SessionID">'.
+  Type 'string' is not assignable to type 'Brand<"SessionID">'.
+src/session/prompt/shell.ts(81,13): error TS2322: Type 'string' is not assignable to type 'string & Brand<"ProviderID">'.
+  Type 'string' is not assignable to type 'Brand<"ProviderID">'.
+src/session/prompt/shell.ts(82,13): error TS2322: Type 'string' is not assignable to type 'string & Brand<"ModelID">'.
+  Type 'string' is not assignable to type 'Brand<"ModelID">'.
+src/session/prompt/shell.ts(88,9): error TS2322: Type 'string' is not assignable to type 'string & Brand<"PartID">'.
+  Type 'string' is not assignable to type 'Brand<"PartID">'.
+src/session/prompt/shell.ts(90,9): error TS2322: Type 'string' is not assignable to type 'string & Brand<"SessionID">'.
+  Type 'string' is not assignable to type 'Brand<"SessionID">'.
+src/session/prompt/shell.ts(97,9): error TS2322: Type 'string' is not assignable to type 'string & Brand<"MessageID">'.
+  Type 'string' is not assignable to type 'Brand<"MessageID">'.
+src/session/prompt/shell.ts(98,9): error TS2322: Type 'string' is not assignable to type 'string & Brand<"SessionID">'.
+  Type 'string' is not assignable to type 'Brand<"SessionID">'.
+src/session/prompt/shell.ts(117,9): error TS2322: Type 'string' is not assignable to type 'string & Brand<"ModelID">'.
+  Type 'string' is not assignable to type 'Brand<"ModelID">'.
+src/session/prompt/shell.ts(118,9): error TS2322: Type 'string' is not assignable to type 'string & Brand<"ProviderID">'.
+  Type 'string' is not assignable to type 'Brand<"ProviderID">'.
+src/session/prompt/shell.ts(123,9): error TS2322: Type 'string' is not assignable to type 'string & Brand<"PartID">'.
+  Type 'string' is not assignable to type 'Brand<"PartID">'.
+src/session/prompt/shell.ts(125,9): error TS2322: Type 'string' is not assignable to type 'string & Brand<"SessionID">'.
+  Type 'string' is not assignable to type 'Brand<"SessionID">'.
+src/session/prompt/shell.ts(192,18): error TS2339: Property 'state' does not exist on type '{ id: string & Brand<"PartID">; sessionID: string & Brand<"SessionID">; messageID: string & Brand<"MessageID">; type: "file"; mime: string; url: string; filename?: string | undefined; source?: { ...; } | ... 2 more ... | undefined; } | ... 10 more ... | { ...; }'.
+  Property 'state' does not exist on type '{ id: string & Brand<"PartID">; sessionID: string & Brand<"SessionID">; messageID: string & Brand<"MessageID">; type: "file"; mime: string; url: string; filename?: string | undefined; source?: { ...; } | ... 2 more ... | undefined; }'.
+src/session/prompt/shell.ts(193,18): error TS2339: Property 'state' does not exist on type '{ id: string & Brand<"PartID">; sessionID: string & Brand<"SessionID">; messageID: string & Brand<"MessageID">; type: "file"; mime: string; url: string; filename?: string | undefined; source?: { ...; } | ... 2 more ... | undefined; } | ... 10 more ... | { ...; }'.
+  Property 'state' does not exist on type '{ id: string & Brand<"PartID">; sessionID: string & Brand<"SessionID">; messageID: string & Brand<"MessageID">; type: "file"; mime: string; url: string; filename?: string | undefined; source?: { ...; } | ... 2 more ... | undefined; }'.
+src/session/prompt/shell.ts(203,18): error TS2339: Property 'state' does not exist on type '{ id: string & Brand<"PartID">; sessionID: string & Brand<"SessionID">; messageID: string & Brand<"MessageID">; type: "file"; mime: string; url: string; filename?: string | undefined; source?: { ...; } | ... 2 more ... | undefined; } | ... 10 more ... | { ...; }'.
+  Property 'state' does not exist on type '{ id: string & Brand<"PartID">; sessionID: string & Brand<"SessionID">; messageID: string & Brand<"MessageID">; type: "file"; mime: string; url: string; filename?: string | undefined; source?: { ...; } | ... 2 more ... | undefined; }'.
+src/session/prompt/shell.ts(204,18): error TS2339: Property 'state' does not exist on type '{ id: string & Brand<"PartID">; sessionID: string & Brand<"SessionID">; messageID: string & Brand<"MessageID">; type: "file"; mime: string; url: string; filename?: string | undefined; source?: { ...; } | ... 2 more ... | undefined; } | ... 10 more ... | { ...; }'.
+  Property 'state' does not exist on type '{ id: string & Brand<"PartID">; sessionID: string & Brand<"SessionID">; messageID: string & Brand<"MessageID">; type: "file"; mime: string; url: string; filename?: string | undefined; source?: { ...; } | ... 2 more ... | undefined; }'.
+src/session/prompt/shell.ts(242,14): error TS2339: Property 'state' does not exist on type '{ id: string & Brand<"PartID">; sessionID: string & Brand<"SessionID">; messageID: string & Brand<"MessageID">; type: "file"; mime: string; url: string; filename?: string | undefined; source?: { ...; } | ... 2 more ... | undefined; } | ... 10 more ... | { ...; }'.
+  Property 'state' does not exist on type '{ id: string & Brand<"PartID">; sessionID: string & Brand<"SessionID">; messageID: string & Brand<"MessageID">; type: "file"; mime: string; url: string; filename?: string | undefined; source?: { ...; } | ... 2 more ... | undefined; }'.
+src/session/prompt/shell.ts(243,14): error TS2339: Property 'state' does not exist on type '{ id: string & Brand<"PartID">; sessionID: string & Brand<"SessionID">; messageID: string & Brand<"MessageID">; type: "file"; mime: string; url: string; filename?: string | undefined; source?: { ...; } | ... 2 more ... | undefined; } | ... 10 more ... | { ...; }'.
+  Property 'state' does not exist on type '{ id: string & Brand<"PartID">; sessionID: string & Brand<"SessionID">; messageID: string & Brand<"MessageID">; type: "file"; mime: string; url: string; filename?: string | undefined; source?: { ...; } | ... 2 more ... | undefined; }'.
+src/session/prompt/shell.ts(246,25): error TS2339: Property 'state' does not exist on type '{ id: string & Brand<"PartID">; sessionID: string & Brand<"SessionID">; messageID: string & Brand<"MessageID">; type: "file"; mime: string; url: string; filename?: string | undefined; source?: { ...; } | ... 2 more ... | undefined; } | ... 10 more ... | { ...; }'.
+  Property 'state' does not exist on type '{ id: string & Brand<"PartID">; sessionID: string & Brand<"SessionID">; messageID: string & Brand<"MessageID">; type: "file"; mime: string; url: string; filename?: string | undefined; source?: { ...; } | ... 2 more ... | undefined; }'.
+src/session/prompt/shell.ts(249,25): error TS2339: Property 'state' does not exist on type '{ id: string & Brand<"PartID">; sessionID: string & Brand<"SessionID">; messageID: string & Brand<"MessageID">; type: "file"; mime: string; url: string; filename?: string | undefined; source?: { ...; } | ... 2 more ... | undefined; } | ... 10 more ... | { ...; }'.
+  Property 'state' does not exist on type '{ id: string & Brand<"PartID">; sessionID: string & Brand<"SessionID">; messageID: string & Brand<"MessageID">; type: "file"; mime: string; url: string; filename?: string | undefined; source?: { ...; } | ... 2 more ... | undefined; }'.
+src/session/prompt/subtask.ts(28,9): error TS2322: Type 'string' is not assignable to type 'string & Brand<"MessageID">'.
+  Type 'string' is not assignable to type 'Brand<"MessageID">'.
+src/session/prompt/subtask.ts(31,9): error TS2322: Type 'string' is not assignable to type 'string & Brand<"SessionID">'.
+  Type 'string' is not assignable to type 'Brand<"SessionID">'.
+src/session/prompt/subtask.ts(52,9): error TS2322: Type 'string' is not assignable to type 'string & Brand<"PartID">'.
+  Type 'string' is not assignable to type 'Brand<"PartID">'.
+src/session/prompt/subtask.ts(91,9): error TS2322: Type 'string' is not assignable to type 'string & Brand<"SessionID">'.
+  Type 'string' is not assignable to type 'Brand<"SessionID">'.
+src/session/prompt/subtask.ts(110,47): error TS18047: 'taskAgent' is possibly 'null'.
+src/session/prompt/subtask.ts(140,17): error TS2322: Type 'Omit<{ id: string & Brand<"PartID">; sessionID: string & Brand<"SessionID">; messageID: string & Brand<"MessageID">; type: "file"; mime: string; url: string; filename?: string | undefined; source?: { ...; } | ... 2 more ... | undefined; }, "id" | ... 1 more ... | "messageID">[] | undefined' is not assignable to type '{ id: string & Brand<"PartID">; sessionID: string & Brand<"SessionID">; messageID: string & Brand<"MessageID">; type: "file"; mime: string; url: string; filename?: string | undefined; source?: { ...; } | ... 2 more ... | undefined; }[] | undefined'.
+  Type 'Omit<{ id: string & Brand<"PartID">; sessionID: string & Brand<"SessionID">; messageID: string & Brand<"MessageID">; type: "file"; mime: string; url: string; filename?: string | undefined; source?: { ...; } | ... 2 more ... | undefined; }, "id" | ... 1 more ... | "messageID">[]' is not assignable to type '{ id: string & Brand<"PartID">; sessionID: string & Brand<"SessionID">; messageID: string & Brand<"MessageID">; type: "file"; mime: string; url: string; filename?: string | undefined; source?: { ...; } | ... 2 more ... | undefined; }[]'.
+    Type 'Omit<{ id: string & Brand<"PartID">; sessionID: string & Brand<"SessionID">; messageID: string & Brand<"MessageID">; type: "file"; mime: string; url: string; filename?: string | undefined; source?: { ...; } | ... 2 more ... | undefined; }, "id" | ... 1 more ... | "messageID">' is missing the following properties from type '{ id: string & Brand<"PartID">; sessionID: string & Brand<"SessionID">; messageID: string & Brand<"MessageID">; type: "file"; mime: string; url: string; filename?: string | undefined; source?: { ...; } | ... 2 more ... | undefined; }': id, sessionID, messageID
+src/session/prompt/subtask.ts(168,9): error TS2322: Type 'string' is not assignable to type 'string & Brand<"MessageID">'.
+  Type 'string' is not assignable to type 'Brand<"MessageID">'.
+src/session/prompt/subtask.ts(169,9): error TS2322: Type 'string' is not assignable to type 'string & Brand<"SessionID">'.
+  Type 'string' is not assignable to type 'Brand<"SessionID">'.
+src/session/prompt/subtask.ts(179,9): error TS2322: Type 'string' is not assignable to type 'string & Brand<"PartID">'.
+  Type 'string' is not assignable to type 'Brand<"PartID">'.
+src/session/prompt/subtask.ts(181,9): error TS2322: Type 'string' is not assignable to type 'string & Brand<"SessionID">'.
+  Type 'string' is not assignable to type 'Brand<"SessionID">'.
+src/session/prompt/title.ts(50,61): error TS2345: Argument of type 'string' is not assignable to parameter of type 'string & Brand<"ProviderID">'.
+  Type 'string' is not assignable to type 'Brand<"ProviderID">'.
+src/session/prompt/title.ts(52,47): error TS2345: Argument of type 'string' is not assignable to parameter of type 'string & Brand<"ProviderID">'.
+  Type 'string' is not assignable to type 'Brand<"ProviderID">'.
+src/session/prompt/title.ts(52,94): error TS2345: Argument of type 'string' is not assignable to parameter of type 'string & Brand<"ProviderID">'.
+  Type 'string' is not assignable to type 'Brand<"ProviderID">'.
+src/session/prompt/title.ts(61,29): error TS2551: Property 'toModelMessage' does not exist on type 'typeof MessageV2'. Did you mean 'toModelMessages'?
+src/session/prompt/title.ts(64,42): error TS7006: Parameter 'm' implicitly has an 'any' type.
+src/session/prompt/title.ts(81,43): error TS7006: Parameter 'err' implicitly has an 'any' type.
+src/session/prompt/title.ts(83,24): error TS2339: Property 'update' does not exist on type 'typeof Session'.
+src/session/prompt/title.ts(83,50): error TS7006: Parameter 'draft' implicitly has an 'any' type.
+src/session/prompt/title.ts(87,23): error TS7006: Parameter 'line' implicitly has an 'any' type.
+src/session/prompt/title.ts(88,24): error TS7006: Parameter 'line' implicitly has an 'any' type.
+src/session/prompt/tools.ts(26,33): error TS2694: Namespace '"V:/pankaj/navi/packages/navi/src/session/processor".SessionProcessor' has no exported member 'Info'.
+src/session/prompt/tools.ts(65,90): error TS2554: Expected 0-2 arguments, but got 5.
+src/session/prompt/tools.ts(74,90): error TS2554: Expected 0-2 arguments, but got 5.
+src/session/prompt/tools.ts(87,49): error TS2345: Argument of type 'string & Brand<"ProviderID">' is not assignable to parameter of type '{ providerID: string & Brand<"ProviderID">; modelID: string & Brand<"ModelID">; }'.
+  Type 'String & Brand<"ProviderID">' is missing the following properties from type '{ providerID: string & Brand<"ProviderID">; modelID: string & Brand<"ModelID">; }': providerID, modelID
+src/session/prompt/tools.ts(131,25): error TS2322: Type 'string' is not assignable to type 'string & Brand<"PartID">'.
+  Type 'string' is not assignable to type 'Brand<"PartID">'.
+src/session/prompt/tools.ts(141,25): error TS2322: Type 'string' is not assignable to type 'string & Brand<"PartID">'.
+  Type 'string' is not assignable to type 'Brand<"PartID">'.
+src/session/prompt/tools.ts(155,29): error TS2322: Type 'string' is not assignable to type 'string & Brand<"PartID">'.
+  Type 'string' is not assignable to type 'Brand<"PartID">'.
+src/session/prompt/user-message.ts(31,27): error TS18047: 'agent' is possibly 'null'.
+src/session/prompt/user-message.ts(42,16): error TS18047: 'agent' is possibly 'null'.
+src/session/prompt/user-message.ts(43,31): error TS18047: 'agent' is possibly 'null'.
+src/session/prompt/user-message.ts(57,9): error TS18047: 'agent' is possibly 'null'.
+src/session/prompt/user-message.ts(73,29): error TS2322: Type 'string' is not assignable to type 'string & Brand<"PartID">'.
+  Type 'string' is not assignable to type 'Brand<"PartID">'.
+src/session/prompt/user-message.ts(96,37): error TS2322: Type 'string' is not assignable to type 'string & Brand<"PartID">'.
+  Type 'string' is not assignable to type 'Brand<"PartID">'.
+src/session/prompt/user-message.ts(104,37): error TS2322: Type 'string' is not assignable to type 'string & Brand<"PartID">'.
+  Type 'string' is not assignable to type 'Brand<"PartID">'.
+src/session/prompt/user-message.ts(118,29): error TS2322: Type '{ id: string; messageID: string & Brand<"MessageID">; sessionID: any; type: "text"; synthetic: true; text: string; }' is not assignable to type '{ id: string & Brand<"PartID">; sessionID: string & Brand<"SessionID">; messageID: string & Brand<"MessageID">; type: "file"; mime: string; url: string; filename?: string | undefined; source?: { ...; } | ... 2 more ... | undefined; } | ... 10 more ... | { ...; }'.
+  Types of property 'id' are incompatible.
+    Type 'string' is not assignable to type 'string & Brand<"PartID">'.
+      Type 'string' is not assignable to type 'Brand<"PartID">'.
+src/session/prompt/user-message.ts(120,33): error TS2322: Type 'string' is not assignable to type 'string & Brand<"PartID">'.
+  Type 'string' is not assignable to type 'Brand<"PartID">'.
+src/session/prompt/user-message.ts(138,33): error TS2322: Type 'string' is not assignable to type 'string & Brand<"PartID">'.
+  Type 'string' is not assignable to type 'Brand<"PartID">'.
+src/session/prompt/user-message.ts(152,33): error TS2322: Type 'string' is not assignable to type 'string & Brand<"PartID">'.
+  Type 'string' is not assignable to type 'Brand<"PartID">'.
+src/session/prompt/user-message.ts(165,29): error TS2322: Type 'string' is not assignable to type 'string & Brand<"PartID">'.
+  Type 'string' is not assignable to type 'Brand<"PartID">'.
+src/session/prompt/user-message.ts(181,29): error TS2322: Type 'string' is not assignable to type 'string & Brand<"PartID">'.
+  Type 'string' is not assignable to type 'Brand<"PartID">'.
+src/session/trace.ts(48,38): error TS2339: Property 'sessionTracing' does not exist on type '{ disable_paste_summary?: boolean | undefined; batch_tool?: boolean | undefined; openTelemetry?: boolean | undefined; primary_tools?: string[] | undefined; continue_loop_on_deny?: boolean | undefined; mcp_timeout?: number | undefined; modelRouting?: { ...; } | undefined; }'.
+src/session/trace.ts(49,42): error TS2339: Property 'sessionTracing' does not exist on type '{ disable_paste_summary?: boolean | undefined; batch_tool?: boolean | undefined; openTelemetry?: boolean | undefined; primary_tools?: string[] | undefined; continue_loop_on_deny?: boolean | undefined; mcp_timeout?: number | undefined; modelRouting?: { ...; } | undefined; }'.
+src/session/trace.ts(57,30): error TS2339: Property 'sessionTracing' does not exist on type '{ disable_paste_summary?: boolean | undefined; batch_tool?: boolean | undefined; openTelemetry?: boolean | undefined; primary_tools?: string[] | undefined; continue_loop_on_deny?: boolean | undefined; mcp_timeout?: number | undefined; modelRouting?: { ...; } | undefined; }'.
+src/share/share.ts(18,33): error TS2339: Property 'getShare' does not exist on type 'typeof Session'.
+src/tool/background-task.ts(68,26): error TS2345: Argument of type 'string' is not assignable to parameter of type 'string & Brand<"SessionID">'.
+  Type 'string' is not assignable to type 'Brand<"SessionID">'.
+src/tool/background-task.ts(150,17): error TS2322: Type 'string' is not assignable to type 'string & Brand<"MessageID">'.
+  Type 'string' is not assignable to type 'Brand<"MessageID">'.
+src/tool/background-task.ts(153,21): error TS2322: Type 'string' is not assignable to type 'string & Brand<"ModelID">'.
+  Type 'string' is not assignable to type 'Brand<"ModelID">'.
+src/tool/background-task.ts(154,21): error TS2322: Type 'string' is not assignable to type 'string & Brand<"ProviderID">'.
+  Type 'string' is not assignable to type 'Brand<"ProviderID">'.
+src/tool/GraphTool.ts(15,9): error TS2322: Type '(params: { symbolName: string; action: "impact_analysis" | "find_callers" | "get_dependencies"; }, ctx: Context<Metadata>) => Promise<{ title: string; output: string; metadata: { ...; }; } | { ...; } | { ...; }>' is not assignable to type '(args: { symbolName: string; action: "impact_analysis" | "find_callers" | "get_dependencies"; }, ctx: Context<Metadata>) => Promise<{ title: string; metadata: { symbolName: string; action: "impact_analysis" | "find_callers"; count: number; impactedFiles?: undefined; }; output: string; attachments?: Omit<...>[] | und...'.
+  Type 'Promise<{ title: string; output: string; metadata: { symbolName: string; action: "impact_analysis" | "find_callers"; count: number; impactedFiles?: undefined; }; } | { title: string; output: string; metadata: { ...; }; } | { ...; }>' is not assignable to type 'Promise<{ title: string; metadata: { symbolName: string; action: "impact_analysis" | "find_callers"; count: number; impactedFiles?: undefined; }; output: string; attachments?: Omit<{ id: string & Brand<...>; ... 6 more ...; source?: { ...; } | ... 2 more ... | undefined; }, "id" | ... 1 more ... | "messageID">[] | u...'.
+    Type '{ title: string; output: string; metadata: { symbolName: string; action: "impact_analysis" | "find_callers"; count: number; impactedFiles?: undefined; }; } | { title: string; output: string; metadata: { ...; }; } | { ...; }' is not assignable to type '{ title: string; metadata: { symbolName: string; action: "impact_analysis" | "find_callers"; count: number; impactedFiles?: undefined; }; output: string; attachments?: Omit<{ id: string & Brand<"PartID">; ... 6 more ...; source?: { ...; } | ... 2 more ... | undefined; }, "id" | ... 1 more ... | "messageID">[] | unde...'.
+      Type '{ title: string; output: string; metadata: { symbolName: string; action: "impact_analysis" | "find_callers"; impactedFiles: string[]; count: number; }; }' is not assignable to type '{ title: string; metadata: { symbolName: string; action: "impact_analysis" | "find_callers"; count: number; impactedFiles?: undefined; }; output: string; attachments?: Omit<{ id: string & Brand<"PartID">; ... 6 more ...; source?: { ...; } | ... 2 more ... | undefined; }, "id" | ... 1 more ... | "messageID">[] | unde...'.
+        The types of 'metadata.impactedFiles' are incompatible between these types.
+          Type 'string[]' is not assignable to type 'undefined'.
+src/tool/gsd.ts(61,21): error TS2322: Type 'string' is not assignable to type 'string & Brand<"MessageID">'.
+  Type 'string' is not assignable to type 'Brand<"MessageID">'.
+src/tool/gsd.ts(63,21): error TS2322: Type '{ modelID: string; providerID: string; } | undefined' is not assignable to type '{ providerID: string & Brand<"ProviderID">; modelID: string & Brand<"ModelID">; } | undefined'.
+  Type '{ modelID: string; providerID: string; }' is not assignable to type '{ providerID: string & Brand<"ProviderID">; modelID: string & Brand<"ModelID">; }'.
+    Types of property 'providerID' are incompatible.
+      Type 'string' is not assignable to type 'string & Brand<"ProviderID">'.
+        Type 'string' is not assignable to type 'Brand<"ProviderID">'.
+src/tool/gsd.ts(248,25): error TS2322: Type 'string' is not assignable to type 'string & Brand<"MessageID">'.
+  Type 'string' is not assignable to type 'Brand<"MessageID">'.
+src/tool/gsd.ts(383,49): error TS2345: Argument of type '"todo"' is not assignable to parameter of type '"message" | "question" | "permission" | "pty" | "tool" | "event" | "session" | "user" | "part" | "workspace" | "checkpoint"'.
+src/tool/gsd.ts(435,17): error TS2322: Type 'string' is not assignable to type 'string & Brand<"MessageID">'.
+  Type 'string' is not assignable to type 'Brand<"MessageID">'.
+src/tool/parallel.ts(59,21): error TS2322: Type 'string' is not assignable to type 'string & Brand<"MessageID">'.
+  Type 'string' is not assignable to type 'Brand<"MessageID">'.
+src/tool/patch.ts(79,23): error TS2304: Cannot find name 'FileNotFoundError'.
+src/tool/planning.ts(14,27): error TS2339: Property 'update' does not exist on type 'typeof Session'.
+src/tool/planning.ts(14,50): error TS7006: Parameter 'draft' implicitly has an 'any' type.
+src/tool/planning.ts(35,27): error TS2339: Property 'update' does not exist on type 'typeof Session'.
+src/tool/planning.ts(35,50): error TS7006: Parameter 'draft' implicitly has an 'any' type.
+src/tool/session.ts(51,17): error TS2322: Type 'string' is not assignable to type 'string & Brand<"SessionID">'.
+  Type 'string' is not assignable to type 'Brand<"SessionID">'.
+src/tool/session.ts(94,47): error TS2345: Argument of type 'string' is not assignable to parameter of type 'string & Brand<"SessionID">'.
+  Type 'string' is not assignable to type 'Brand<"SessionID">'.
+src/tool/summarize.ts(51,39): error TS2345: Argument of type 'string' is not assignable to parameter of type 'string & Brand<"ProviderID">'.
+  Type 'string' is not assignable to type 'Brand<"ProviderID">'.
+src/tool/summarize.ts(52,44): error TS2345: Argument of type 'string' is not assignable to parameter of type 'string & Brand<"ProviderID">'.
+  Type 'string' is not assignable to type 'Brand<"ProviderID">'.
+src/tool/summarize.ts(88,17): error TS2322: Type 'string' is not assignable to type 'string & Brand<"MessageID">'.
+  Type 'string' is not assignable to type 'Brand<"MessageID">'.
+src/tool/summarize.ts(89,17): error TS2322: Type 'string' is not assignable to type 'string & Brand<"SessionID">'.
+  Type 'string' is not assignable to type 'Brand<"SessionID">'.
+src/tool/task-tools.ts(18,7): error TS2353: Object literal may only specify known properties, and 'id' does not exist in type '{ content: string; status: string; priority: string; }'.
+src/tool/task-tools.ts(18,32): error TS2345: Argument of type '"todo"' is not assignable to parameter of type '"message" | "question" | "permission" | "pty" | "tool" | "event" | "session" | "user" | "part" | "workspace" | "checkpoint"'.
+src/tool/task-tools.ts(29,41): error TS2339: Property 'id' does not exist on type '{ content: string; status: string; priority: string; }'.
+src/tool/task-tools.ts(51,34): error TS2339: Property 'id' does not exist on type '{ content: string; status: string; priority: string; }'.
+src/tool/task-tools.ts(65,42): error TS2339: Property 'id' does not exist on type '{ content: string; status: string; priority: string; }'.
+src/tool/task-tools.ts(116,38): error TS2339: Property 'id' does not exist on type '{ content: string; status: string; priority: string; }'.
+src/worktree/index.ts(461,39): error TS2339: Property 'fromRow' does not exist on type 'typeof Project'.
+test/test-antigravity.ts(7,37): error TS2307: Cannot find module './src/provider/antigravity' or its corresponding type declarations.
+test/test-antigravity.ts(8,22): error TS2307: Cannot find module './src/auth' or its corresponding type declarations.
+test/test-antigravity.ts(47,45): error TS2307: Cannot find module './src/provider/antigravity' or its corresponding type declarations.
+test/test-antigravity.ts(64,45): error TS2307: Cannot find module './src/provider/antigravity' or its corresponding type declarations.
+test/test-code-assist.ts(1,32): error TS2307: Cannot find module './src/provider/gemini-cli.ts' or its corresponding type declarations.
+test/test-code-assist.ts(2,34): error TS2307: Cannot find module '../../gemini-cli/packages/core/src/code_assist/server.ts' or its corresponding type declarations.
+test/test-fetch-handling.ts(1,32): error TS2307: Cannot find module './src/provider/gemini-cli' or its corresponding type declarations.
+test/test-fetch-handling.ts(2,21): error TS2307: Cannot find module './src/util/log' or its corresponding type declarations.
+test/test-gemini-fix.ts(2,31): error TS2307: Cannot find module './src/provider/gemini-cli' or its corresponding type declarations.
+test/test-gemini-response.ts(2,32): error TS2307: Cannot find module './src/provider/gemini-cli' or its corresponding type declarations.
+test/test-minimal.ts(4,32): error TS2307: Cannot find module './src/provider/gemini-cli' or its corresponding type declarations.
+test/test-minimal.ts(5,31): error TS2307: Cannot find module './src/provider/gemini-cli' or its corresponding type declarations.
+test/test-minimal.ts(6,22): error TS2307: Cannot find module './src/auth' or its corresponding type declarations.
+test/test_models2.ts(8,17): error TS7053: Element implicitly has an 'any' type because expression of type '"roocode"' can't be used to index type 'Record<string & Brand<"ProviderID">, { id: string & Brand<"ProviderID">; name: string; source: "custom" | "api" | "env" | "config"; env: string[]; options: Record<string, any>; models: Record<...>; key?: string | undefined; }>'.
+  Property 'roocode' does not exist on type 'Record<string & Brand<"ProviderID">, { id: string & Brand<"ProviderID">; name: string; source: "custom" | "api" | "env" | "config"; env: string[]; options: Record<string, any>; models: Record<...>; key?: string | undefined; }>'.
+test/test_models2.ts(14,19): error TS7053: Element implicitly has an 'any' type because expression of type '"cline"' can't be used to index type 'Record<string & Brand<"ProviderID">, { id: string & Brand<"ProviderID">; name: string; source: "custom" | "api" | "env" | "config"; env: string[]; options: Record<string, any>; models: Record<...>; key?: string | undefined; }>'.
+  Property 'cline' does not exist on type 'Record<string & Brand<"ProviderID">, { id: string & Brand<"ProviderID">; name: string; source: "custom" | "api" | "env" | "config"; env: string[]; options: Record<string, any>; models: Record<...>; key?: string | undefined; }>'.
+../../script/adhoc/get-token.ts(2,22): error TS2307: Cannot find module './packages/navi/src/auth/index.js' or its corresponding type declarations.
+../../script/changelog.ts(4,10): error TS2724: '"@navi-ai/sdk"' has no exported member named 'createnavi'. Did you mean 'createNavi'?
+../../script/changelog.ts(157,12): error TS7006: Parameter 'x' implicitly has an 'any' type.
+../../script/changelog.ts(157,39): error TS7006: Parameter 'y' implicitly has an 'any' type.

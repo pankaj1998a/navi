@@ -25,7 +25,9 @@ async function loadCheckpointMeta(projectID: string) {
         if (!hash) continue
         try {
             meta.set(hash, await Storage.read<CheckpointMeta>(key))
-        } catch { }
+        } catch (e) {
+            log.error("failed to read checkpoint meta", { key, error: e })
+        }
     }
 
     return meta
@@ -50,7 +52,7 @@ Restoring a checkpoint will revert all files in the working directory to that st
                     return {
                         title: "Checkpoint Disabled",
                         output: "Snapshot tracking is disabled for this project.",
-                        metadata: { hash: undefined },
+                        metadata: { hash: undefined as string | undefined },
                     }
                 }
                 const metadata: CheckpointMeta = {
@@ -120,7 +122,7 @@ Restoring a checkpoint will revert all files in the working directory to that st
                 return {
                     title: "Checkpoints",
                     output: output || "No checkpoints found.",
-                    metadata: { hash: undefined }
+                    metadata: { hash: undefined as string | undefined }
                 }
             } else if (params.action === "restore") {
                 if (!params.hash) throw new Error("Hash is required for restore action")
@@ -158,7 +160,7 @@ Restoring a checkpoint will revert all files in the working directory to that st
                 return {
                     title: "Checkpoint Restored",
                     output: `Restored project state to snapshot ${targetHash}`,
-                    metadata: { hash: undefined }
+                    metadata: { hash: undefined as string | undefined }
                 }
             }
 

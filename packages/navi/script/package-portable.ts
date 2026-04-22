@@ -28,7 +28,8 @@ const skipBuild = process.argv.includes("--skip-build")
 // ─── Step 1: Build ────────────────────────────────────────────────────────────
 if (!skipBuild) {
   console.log("🔨 Building Navi for Windows x64…")
-  await $`bun run script/build.ts`.cwd(root)
+  const skipInstall = process.argv.includes("--skip-install") ? "--skip-install" : ""
+  await $`bun run script/build.ts --single ${skipInstall}`.cwd(root)
   console.log("✅ Build complete")
 } else {
   console.log("⏩ Skipping build (--skip-build)")
