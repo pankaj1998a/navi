@@ -25,48 +25,6 @@ const allTargets: {
   abi?: "musl"
   avx2?: false
 }[] = [
-    // {
-    //   os: "linux",
-    //   arch: "arm64",
-    // },
-    // {
-    //   os: "linux",
-    //   arch: "x64",
-    // },
-    // {
-    //   os: "linux",
-    //   arch: "x64",
-    //   avx2: false,
-    // },
-    // {
-    //   os: "linux",
-    //   arch: "arm64",
-    //   abi: "musl",
-    // },
-    // {
-    //   os: "linux",
-    //   arch: "x64",
-    //   abi: "musl",
-    // },
-    // {
-    //   os: "linux",
-    //   arch: "x64",
-    //   abi: "musl",
-    //   avx2: false,
-    // },
-    // {
-    //   os: "darwin",
-    //   arch: "arm64",
-    // },
-    // {
-    //   os: "darwin",
-    //   arch: "x64",
-    // },
-    // {
-    //   os: "darwin",
-    //   arch: "x64",
-    //   avx2: false,
-    // },
     {
       os: "win32",
       arch: "x64",
@@ -76,10 +34,6 @@ const allTargets: {
       arch: "x64",
       avx2: false,
     },
-    // {
-    //   os: "win32",
-    //   arch: "arm64",
-    // },
   ]
 
 const targets = singleFlag
@@ -87,35 +41,14 @@ const targets = singleFlag
     if (item.os !== process.platform || item.arch !== process.arch) {
       return false
     }
-
-    // When building for the current platform, prefer a single native binary by default.
-    // Baseline binaries require additional Bun artifacts and can be flaky to download.
     if (item.avx2 === false) {
       return baselineFlag
     }
-
     return true
   })
   : allTargets
 
-// try {
-//   await Bun.$`rm -rf dist`
-// } catch (e) {
-//   console.error("Failed to clean dist:", e)
-// }
-
 const binaries: Record<string, string> = {}
-
-async function buildRust() {
-  console.log("Building Rust components...")
-  try {
-    await $`cargo build --release`.cwd(path.resolve(dir, "../../navi-rs"))
-    console.log("Rust components built successfully.")
-  } catch (e) {
-    console.error("Failed to build Rust components:", e)
-    throw e
-  }
-}
 
 async function build() {
   if (!skipInstall) {
@@ -124,10 +57,38 @@ async function build() {
     await $`bun install --os="*" --cpu="*" @parcel/watcher@${pkg.dependencies["@parcel/watcher"]}`
     console.log("Native modules installed.")
   }
+
+  const migrationDir = path.resolve(dir, "./migration")
+  const migrations = fs
+    .readdirSync(migrationDir, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => entry.name)
+    .map((name) => {
+      const file = path.join(migrationDir, name, "migration.sql")
+      if (!fs.existsSync(file)) return
+      const match = /^(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})/.exec(name)
+      const timestamp = match
+        ? Date.UTC(
+            Number(match[1]),
+            Number(match[2]) - 1,
+            Number(match[3]),
+            Number(match[4]),
+            Number(match[5]),
+            Number(match[6]),
+          )
+        : 0
+      return {
+        sql: fs.readFileSync(file, "utf-8"),
+        timestamp,
+        name,
+      }
+    })
+    .filter(Boolean)
+    .sort((a: any, b: any) => a.timestamp - b.timestamp)
+
   for (const item of targets) {
     const name = [
       pkg.name,
-      // changing to win32 flags npm for some reason
       item.os === "win32" ? "windows" : item.os,
       item.arch,
       item.avx2 === false ? "baseline" : undefined,
@@ -151,13 +112,27 @@ async function build() {
     const parserWorker = fs.realpathSync(path.resolve(dir, "./node_modules/@opentui/core/parser.worker.js"))
     const workerPath = "./src/cli/cmd/tui/worker.ts"
 
-    // Use platform-specific bunfs root path based on target OS
     const bunfsRoot = item.os === "win32" ? "B:/~BUN/root/" : "/$bunfs/root/"
     const workerRelativePath = path.relative(dir, parserWorker).replaceAll("\\", "/")
-
-    // Path to worker file in the built executable
-    // The worker file will be at bin/cli/cmd/tui/worker relative to the executable
     const builtWorkerPath = "./cli/cmd/tui/worker.js"
+
+    const define = {
+      NAVI_VERSION: `'${Script.version}'`,
+      OTUI_TREE_SITTER_WORKER_PATH: `'${bunfsRoot + workerRelativePath}'`,
+      NAVI_WORKER_PATH: `'${builtWorkerPath}'`,
+      NAVI_CHANNEL: `'${Script.channel}'`,
+      navi_VERSION: `'${Script.version}'`,
+      navi_WORKER_PATH: `'${builtWorkerPath}'`,
+      navi_CHANNEL: `'${Script.channel}'`,
+      NAVI_LIBC: item.os === "linux" ? `'${item.abi ?? "glibc"}'` : "''",
+      FEATURE_VOICE: "true",
+      FEATURE_TELEPORT: "true",
+      FEATURE_BRIDGE: "true",
+      FEATURE_SENTRY: "true",
+      FEATURE_SPECULATION: "true",
+      FEATURE_SYMBOL_GRAPH: "true",
+      NAVI_MIGRATIONS: JSON.stringify(migrations),
+    }
 
     try {
       // Build main navi binary
@@ -165,12 +140,12 @@ async function build() {
         conditions: ["browser"],
         tsconfig: "./tsconfig.json",
         plugins: [solidPlugin],
-        sourcemap: "external",
-        minify: true,
+        sourcemap: "none",
+        minify: false,
         compile: {
           autoloadBunfig: false,
           autoloadDotenv: false,
-          //@ts-ignore (bun types aren't up to date)
+          //@ts-ignore
           autoloadTsconfig: true,
           target: bunTarget as any,
           outfile: `dist/${name}/bin/navi`,
@@ -178,100 +153,37 @@ async function build() {
           windows: {},
         },
         entrypoints: ["./src/index.ts"],
-        define: {
-          NAVI_VERSION: `'${Script.version}'`,
-          OTUI_TREE_SITTER_WORKER_PATH: `'${bunfsRoot + workerRelativePath}'`,
-          NAVI_WORKER_PATH: `'${builtWorkerPath}'`,
-          NAVI_CHANNEL: `'${Script.channel}'`,
-          // Backward compatibility
-          navi_VERSION: `'${Script.version}'`,
-          navi_WORKER_PATH: `'${builtWorkerPath}'`,
-          navi_CHANNEL: `'${Script.channel}'`,
-          NAVI_LIBC: item.os === "linux" ? `'${item.abi ?? "glibc"}'` : "''",
-          FEATURE_VOICE: "true",
-          FEATURE_TELEPORT: "true",
-          FEATURE_BRIDGE: "true",
-          FEATURE_SENTRY: "true",
-          FEATURE_SPECULATION: "true",
-          FEATURE_SYMBOL_GRAPH: "true",
-        },
+        define,
       })
 
-      // Build TUI worker separately to the expected location
+      // Build TUI worker
       await Bun.$`mkdir -p dist/${name}/bin/cli/cmd/tui`
       await Bun.build({
         conditions: ["browser"],
         tsconfig: "./tsconfig.json",
         plugins: [solidPlugin],
-        sourcemap: "external",
-        minify: true,
+        sourcemap: "none",
+        minify: false,
         target: "bun",
         outdir: `dist/${name}/bin/cli/cmd/tui`,
         naming: "[name].js",
         entrypoints: [workerPath],
-        define: {
-          NAVI_VERSION: `'${Script.version}'`,
-          OTUI_TREE_SITTER_WORKER_PATH: `'${bunfsRoot + workerRelativePath}'`,
-          NAVI_WORKER_PATH: `'${builtWorkerPath}'`,
-          NAVI_CHANNEL: `'${Script.channel}'`,
-          // Backward compatibility
-          navi_VERSION: `'${Script.version}'`,
-          navi_WORKER_PATH: `'${builtWorkerPath}'`,
-          navi_CHANNEL: `'${Script.channel}'`,
-          NAVI_LIBC: item.os === "linux" ? `'${item.abi ?? "glibc"}'` : "''",
-          FEATURE_VOICE: "true",
-          FEATURE_TELEPORT: "true",
-          FEATURE_BRIDGE: "true",
-          FEATURE_SENTRY: "true",
-          FEATURE_SPECULATION: "true",
-          FEATURE_SYMBOL_GRAPH: "true",
-        },
+        define,
       })
 
-      // Build parser worker separately
+      // Build parser worker
       await Bun.build({
         conditions: ["browser"],
         tsconfig: "./tsconfig.json",
         plugins: [solidPlugin],
-        sourcemap: "external",
-        minify: true,
+        sourcemap: "none",
+        minify: false,
         target: "bun",
         outdir: `dist/${name}/bin/cli/cmd/tui`,
         naming: "[name].js",
         entrypoints: [parserWorker],
-        define: {
-          NAVI_VERSION: `'${Script.version}'`,
-          OTUI_TREE_SITTER_WORKER_PATH: `'${bunfsRoot + workerRelativePath}'`,
-          NAVI_WORKER_PATH: `'${builtWorkerPath}'`,
-          NAVI_CHANNEL: `'${Script.channel}'`,
-          // Backward compatibility
-          navi_VERSION: `'${Script.version}'`,
-          navi_WORKER_PATH: `'${builtWorkerPath}'`,
-          navi_CHANNEL: `'${Script.channel}'`,
-          NAVI_LIBC: item.os === "linux" ? `'${item.abi ?? "glibc"}'` : "''",
-          FEATURE_VOICE: "true",
-          FEATURE_TELEPORT: "true",
-          FEATURE_BRIDGE: "true",
-          FEATURE_SENTRY: "true",
-          FEATURE_SPECULATION: "true",
-          FEATURE_SYMBOL_GRAPH: "true",
-        },
+        define,
       })
-
-      // Rust binaries removed
-      /*
-      const rustBinaryName = item.os === "win32" ? "navi-mcp.exe" : "navi-mcp"
-      const rustBinaryPath = path.resolve(dir, `../../navi-rs/target/release/${rustBinaryName}`)
-      if (fs.existsSync(rustBinaryPath)) {
-        await Bun.$`cp ${rustBinaryPath} dist/${name}/bin/${rustBinaryName}`
-      }
-
-      const rustCliName = item.os === "win32" ? "navi-cli.exe" : "navi-cli"
-      const rustCliPath = path.resolve(dir, `../../navi-rs/target/release/${rustCliName}`)
-      if (fs.existsSync(rustCliPath)) {
-        await Bun.$`cp ${rustCliPath} dist/${name}/bin/${rustCliName}`
-      }
-      */
 
       await Bun.file(`dist/${name}/package.json`).write(
         JSON.stringify(
@@ -299,8 +211,6 @@ async function build() {
 }
 
 if (import.meta.main) {
-  // await Bun.$`rm -rf dist`
-  // await buildRust() // Rust removed
   await build()
 }
 

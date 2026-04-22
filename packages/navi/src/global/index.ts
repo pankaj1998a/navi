@@ -6,10 +6,10 @@ import { Filesystem } from "../util/filesystem"
 
 const app = "Navi"
 
-const data = path.join(xdgData!, app)
-const cache = path.join(xdgCache!, app)
-const config = path.join(xdgConfig!, app)
-const state = path.join(xdgState!, app)
+const data = process.platform === "win32" ? path.join(os.homedir(), "AppData", "Local", app) : path.join(xdgData!, app)
+const cache = process.platform === "win32" ? path.join(os.homedir(), "AppData", "Local", app, "Cache") : path.join(xdgCache!, app)
+const config = process.platform === "win32" ? path.join(os.homedir(), "AppData", "Roaming", app) : path.join(xdgConfig!, app)
+const state = process.platform === "win32" ? path.join(os.homedir(), "AppData", "Local", app, "State") : path.join(xdgState!, app)
 
 export namespace Global {
   export const Path = {
