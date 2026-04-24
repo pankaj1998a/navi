@@ -15,6 +15,7 @@
  */
 
 import type { Hooks, PluginInput } from "@navi-ai/plugin"
+import type { Message } from "../session/message"
 import { Log } from "../util/log"
 import { existsSync, readFileSync, writeFileSync, mkdirSync, unlinkSync } from "node:fs"
 import { join } from "node:path"
@@ -241,18 +242,30 @@ export function createRalphLoopHook(options: RalphLoopOptions & { input: PluginI
 
             // Check if completion promise was output
             try {
-                const { data: messages } = await (input.client.session as any).messages({ sessionID, limit: 5 })
-                const lastAiMessage = [...(messages || [])].reverse().find(m => m.info.role === 'assistant')
+                const { data: messages } = await input.client.session.messages({
+                    path: { id: sessionID },
+                    query: { limit: 10 }
+                })
                 
-                if (lastAiMessage?.parts) {
-                    const text = lastAiMessage.parts
-                        .map((p: any) => p.type === 'text' ? (p as any).text : '')
-                        .join('')
+                if (messages && Array.isArray(messages)) {
+                    // Check for completion promise in the most recent assistant message
+                    const assistantMessages = (messages as Message.Info[]).filter(m => m.role === 'assistant')
+                    const lastAiMessage = assistantMessages[assistantMessages.length - 1]
                     
-                    if (detectCompletion(text, state.completion_promise)) {
-                        log.info("Completion promise detected, loop finished", { sessionID })
-                        clearState(directory)
-                        return
+                    if (lastAiMessage) {
+                        const text = lastAiMessage.parts
+                            .map((p) => {
+                                if (p.type === 'text') return p.text
+                                if (p.type === 'reasoning') return p.text
+                                return ''
+                            })
+                            .join('')
+                        
+                        if (detectCompletion(text, state.completion_promise)) {
+                            log.info("Completion promise detected, loop finished", { sessionID })
+                            clearState(directory)
+                            return
+                        }
                     }
                 }
             } catch (err) {
@@ -282,9 +295,11 @@ export function createRalphLoopHook(options: RalphLoopOptions & { input: PluginI
 
             // Inject continuation prompt
             try {
-                await (input.client.session as any).prompt({
-                    sessionID,
-                    parts: [{ type: "text", text: continuationPrompt }]
+                await input.client.session.prompt({
+                    path: { id: sessionID },
+                    body: {
+                        parts: [{ type: "text", text: continuationPrompt }]
+                    }
                 })
                 log.info("Injected continuation prompt", { sessionID })
             } catch (err) {

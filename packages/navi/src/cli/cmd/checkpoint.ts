@@ -2,6 +2,7 @@ import * as prompts from "@clack/prompts"
 import { cmd } from "./cmd"
 import { bootstrap } from "../bootstrap"
 import { Session } from "../../session"
+import { SessionID, MessageID } from "../../session/schema"
 import { Snapshot } from "../../snapshot"
 import { Storage } from "../../storage/storage"
 import { Instance } from "../../project/instance"
@@ -9,19 +10,19 @@ import { Instance } from "../../project/instance"
 type CheckpointMeta = {
     name?: string
     note?: string
-    sessionID?: string
+    sessionID?: SessionID
     createdAt: number
     source: "cli"
 }
 
 type CheckpointItem = {
     hash: string
-    messageID: string
+    messageID: MessageID
     type: "start" | "finish" | "manual"
     time: number
     name?: string
     note?: string
-    sessionID?: string
+    sessionID?: SessionID
 }
 
 export const CheckpointCommand = cmd({
@@ -55,7 +56,7 @@ async function loadCheckpointMeta(projectID: string) {
     return meta
 }
 
-async function collectCheckpoints(sessionID: string) {
+async function collectCheckpoints(sessionID: SessionID) {
     const projectID = Instance.project.id
     const metadata = await loadCheckpointMeta(projectID)
     const messages = await Session.messages({ sessionID })
@@ -114,7 +115,7 @@ const ListCommand = cmd({
         }),
     async handler(args) {
         await bootstrap(process.cwd(), async () => {
-            const sessionID = args.session ?? (await latestSessionID())
+            const sessionID = args.session ? SessionID.make(args.session) : (await latestSessionID())
             if (!sessionID) {
                 console.log("No sessions found.")
                 return

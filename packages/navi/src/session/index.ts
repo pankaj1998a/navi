@@ -300,6 +300,7 @@ export namespace Session {
       providerID: ProviderID
       messageID: MessageID
     }) => Effect.Effect<void>
+    readonly setScratchpad: (input: { sessionID: SessionID; content: string }) => Effect.Effect<void>
   }
 
   export class Service extends ServiceMap.Service<Service, Interface>()("@navi/Session") {}
@@ -419,7 +420,7 @@ export namespace Session {
           if (!part.sessionID) {
             log.error("SyncEvent.run: missing sessionID in part", {
               partID: part.id,
-              messageID: (part as any).messageID,
+              messageID: part.messageID,
               type: part.type,
               stack: new Error().stack
             })
@@ -717,16 +718,16 @@ export namespace Session {
     const all = JsonlStorage.listItemsSync<Info>("sessions")
     
     let filtered = all
-    if (input?.workspaceID) filtered = filtered.filter(s => s.workspaceID === input.workspaceID)
-    if (input?.directory) filtered = filtered.filter(s => s.directory === input.directory)
-    if (input?.roots) filtered = filtered.filter(s => !s.parentID)
-    if (input?.start) filtered = filtered.filter(s => s.time.updated >= input.start)
+    if (input?.workspaceID) filtered = filtered.filter((s: Info) => s.workspaceID === input.workspaceID)
+    if (input?.directory) filtered = filtered.filter((s: Info) => s.directory === input.directory)
+    if (input?.roots) filtered = filtered.filter((s: Info) => !s.parentID)
+    if (input?.start) filtered = filtered.filter((s: Info) => s.time.updated >= input.start!)
     if (input?.search) {
       const search = input.search.toLowerCase()
-      filtered = filtered.filter(s => s.title.toLowerCase().includes(search))
+      filtered = filtered.filter((s: Info) => s.title.toLowerCase().includes(search))
     }
 
-    filtered.sort((a, b) => b.time.updated - a.time.updated)
+    filtered.sort((a: Info, b: Info) => b.time.updated - a.time.updated)
     const limit = input?.limit ?? 100
     
     for (const item of filtered.slice(0, limit)) {
@@ -746,24 +747,24 @@ export namespace Session {
     const all = JsonlStorage.listItemsSync<Info>("sessions")
     
     let filtered = all
-    if (input?.directory) filtered = filtered.filter(s => s.directory === input.directory)
-    if (input?.roots) filtered = filtered.filter(s => !s.parentID)
-    if (input?.start) filtered = filtered.filter(s => s.time.updated >= input.start)
-    if (input?.cursor) filtered = filtered.filter(s => s.time.updated < input.cursor)
+    if (input?.directory) filtered = filtered.filter((s: Info) => s.directory === input.directory)
+    if (input?.roots) filtered = filtered.filter((s: Info) => !s.parentID)
+    if (input?.start) filtered = filtered.filter((s: Info) => s.time.updated >= input.start!)
+    if (input?.cursor) filtered = filtered.filter((s: Info) => s.time.updated < input.cursor!)
     if (input?.search) {
       const search = input.search.toLowerCase()
-      filtered = filtered.filter(s => s.title.toLowerCase().includes(search))
+      filtered = filtered.filter((s: Info) => s.title.toLowerCase().includes(search))
     }
     if (!input?.archived) {
-      filtered = filtered.filter(s => !s.time.archived)
+      filtered = filtered.filter((s: Info) => !s.time.archived)
     }
 
-    filtered.sort((a, b) => b.time.updated - a.time.updated)
+    filtered.sort((a: Info, b: Info) => b.time.updated - a.time.updated)
 
     const limit = input?.limit ?? 100
     const page = filtered.slice(0, limit)
 
-    const projectIDs = [...new Set(page.map(s => s.projectID))]
+    const projectIDs = [...new Set(page.map((s: Info) => s.projectID))]
     const projects = new Map<string, ProjectInfo>()
 
     for (const pid of projectIDs) {

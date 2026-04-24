@@ -39,7 +39,7 @@
     "format": "prettier --write 'src/**/*.ts'",
     "format:check": "prettier --check 'src/**/*.ts'",
     "build": "bun run script/build.ts",
-    "build:single": "bun run script/build.ts --single",
+    "build:single": "bun run script/build.ts --single --skip-install",
     "dev": "bun run --conditions=browser ./src/index.ts",
     "package:portable": "bun run script/package-portable.ts",
     "package:portable:fast": "bun run script/package-portable.ts --skip-build",
@@ -47,6 +47,9 @@
   },
   "exports": {
     "./*": "./src/*.ts"
+  },
+  "bin": {
+    "navi": "./bin/navi"
   },
   "imports": {
     "#db": {
@@ -145,8 +148,6 @@
     "minimatch": "10.0.3",
     "mnemonist": "0.39.8",
     "open": "10.1.2",
-    "opencode-gitlab-auth": "2.0.1",
-    "opencode-poe-auth": "0.0.1",
     "opentui-spinner": "0.0.6",
     "partial-json": "0.1.7",
     "pdf-parse": "2.4.5",
@@ -165,7 +166,6 @@
     "tree-sitter-typescript": "0.23.2",
     "turndown": "7.2.0",
     "ulid": "3.0.1",
-    "undici": "6.23.0",
     "uuid": "13.0.0",
     "vscode-jsonrpc": "8.2.1",
     "web-tree-sitter": "0.25.10",

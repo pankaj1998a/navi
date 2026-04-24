@@ -53,7 +53,7 @@ export function DialogModel(props: {
             description: provider.name,
             category,
             disabled: provider.id === "Navi" && model.id.includes("-nano"),
-            footer: model.cost?.input === 0 && provider.id === "Navi" ? "Free" : undefined,
+            footer: model.cost?.input === 0 ? "Free" : undefined,
             onSelect: () => {
               onSelect(provider.id, model.id)
             },
@@ -90,7 +90,7 @@ export function DialogModel(props: {
               : undefined,
             category: connected() ? provider.name : undefined,
             disabled: provider.id === "Navi" && model.includes("-nano"),
-            footer: info.cost?.input === 0 && provider.id === "Navi" ? "Free" : undefined,
+            footer: info.cost?.input === 0 ? "Free" : undefined,
             onSelect() {
               onSelect(provider.id, model)
             },

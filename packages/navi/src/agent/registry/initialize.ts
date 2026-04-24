@@ -1,4 +1,5 @@
 import { Registry, AgentDefinition } from "./index"
+import "../roles"
 import * as SpecializedAgents from "../specialized"
 import { AgentTemplate } from "../programmatic"
 
@@ -10,7 +11,7 @@ function mapTemplateToDefinition(template: AgentTemplate): AgentDefinition {
         id: template.id,
         displayName: template.name,
         description: template.description,
-        model: template.model || "Navi/big-pickle",
+        model: template.model,
         toolNames: template.tools || [],
         instructionsPrompt: template.systemPrompt || (
             `You are the ${template.name} agent. Your phase is ${template.phase}.` +

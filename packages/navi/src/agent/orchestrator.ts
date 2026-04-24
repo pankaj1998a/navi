@@ -164,8 +164,8 @@ export class Orchestrator {
             result = results[0]
         }
         
-        if (result && options.sessionID && (options.autoVerify ?? (agentType === 'editor' || agentType === 'commander'))) {
-            // Claude-style Verification Hook
+        if (result && options.sessionID && options.autoVerify === true) {
+            // Verification is opt-in to avoid interrupting normal edit flows.
             result = await this.verificationAgent.verify(options.sessionID, task, result)
         }
 

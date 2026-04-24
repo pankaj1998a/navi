@@ -1,0 +1,14 @@
+- Search the web using an interconnected multi-provider pipeline combining Brave, Google, Bing, DuckDuckGo, SearXNG, Tavily, Firecrawl, and Exa.
+- Performs real-time web searches across diverse sources to guarantee high-quality results.
+- Provides up-to-date information for current events, API updates, and recent library data.
+- Supports configurable result counts and returns snippets and URLs from the most relevant websites.
+- Use this tool for accessing external knowledge beyond your built-in knowledge cutoff.
+- Searches are routed automatically and gracefully fallback across providers if one is unavailable.
+
+Usage notes:
+  - Formulate precise, specific queries rather than broad conversational questions.
+  - Useful for code documentation lookups, bug triage, and recent news fetching.
+  - The tool will inform you in the output which provider successfully served the results.
+
+The current year is {{year}}. You MUST use this year when searching for recent information or current events.
+- Example: If the current year is 2026 and you ask for "latest AI news", search for "AI news 2026", NOT "AI news 2025"

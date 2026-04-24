@@ -4,7 +4,6 @@ import { ulid } from "ulid"
 import { Bus } from "@/bus"
 import { TuiEvent } from "../cli/cmd/tui/event"
 import { $ } from "bun"
-import path from "path"
 
 const log = Log.create({ service: "sentry" })
 
@@ -15,7 +14,7 @@ const log = Log.create({ service: "sentry" })
  */
 export class SentryService {
     private static INTERVAL_MS = 45000 // Check every 45 seconds to be conservative
-    private timer?: any
+    private timer?: ReturnType<typeof setInterval>
     private orchestrator: Orchestrator
     private isWorking: boolean = false
 
@@ -94,19 +93,20 @@ export class SentryService {
         
         const task: AgentTask = {
             id: ulid(),
-            type: 'fixer' as any,
+            type: 'fixer',
             description: `Fix the following TypeScript error in ${error.file}: ${error.message}`,
             context: { file: error.file, error: error.message }
         }
 
-        const result = await this.orchestrator.spawnAgent('fixer' as any, task, { autoVerify: true })
+        const result = await this.orchestrator.spawnAgent('fixer', task, { autoVerify: true })
+        const success = result.success
         
-        if (result.success) {
-            Bus.publish(TuiEvent.SentryFixCompleted, {
-                file: error.file,
-                error: error.message,
-                command: 'sentry-fixer'
-            })
+        Bus.publish(TuiEvent.SentryFixCompleted, {
+            error: error.message,
+            success,
+        })
+
+        if (success) {
             log.info("Sentry fix successful", { file: error.file })
         } else {
             log.warn("Sentry fix attempt failed", { file: error.file, error: result.error })

@@ -340,6 +340,7 @@ import { Agent } from "../agent/agent"
 import { Session } from "../session"
 import { SessionPrompt } from "../session/prompt"
 import { Identifier } from "../id/id"
+import { Provider } from "../provider/provider"
 
 export const RunSwarmTool = Tool.define("run_swarm", {
     description: "Run a swarm of agents in parallel on a task with configurable models",
@@ -354,7 +355,7 @@ export const RunSwarmTool = Tool.define("run_swarm", {
         const tasks = args.agents.map((agent, index) => ({
             agent,
             prompt: args.task,
-            model: args.models && args.models[index] ? args.models[index] : "default",
+            model: args.models && args.models[index] ? args.models[index] : undefined,
         }))
 
         // Run the swarm using AgentSystem
@@ -371,11 +372,12 @@ export const RunSwarmTool = Tool.define("run_swarm", {
 
             const messageID = MessageID.ascending()
             const promptParts = await SessionPrompt.resolvePromptParts(task.prompt)
+            const selectedModel = task.model ? Provider.parseModel(task.model) : agent.model
 
             const result = await SessionPrompt.prompt({
                 messageID,
                 sessionID: session.id,
-                model: agent.model as any,
+                model: selectedModel,
                 agent: agent.name,
                 parts: promptParts,
             })

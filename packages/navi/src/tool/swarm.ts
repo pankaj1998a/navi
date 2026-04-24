@@ -88,7 +88,7 @@ Use this to break large features into parallelizable subtasks and ensure they pa
 
                 // MODEL PROMOTION: If this is a retry, use a "premium" model if configured
                 let selectedModel = task.model ? Provider.parseModel(task.model) : agent.model
-                if (iteration > 2) {
+                if (iteration > 2 && !task.model) {
                     const generalAgent = await Agent.get("general")
                     if (generalAgent?.model) {
                         log.info(`Promoting task "${task.agentName}" to premium model for stability.`, { from: selectedModel?.modelID, to: generalAgent.model.modelID })

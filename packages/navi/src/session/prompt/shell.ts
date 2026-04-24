@@ -1,6 +1,5 @@
 import path from "path"
 import { spawn } from "child_process"
-import { Identifier } from "../../id/id"
 import { MessageV2 } from "../message-v2"
 import { Agent } from "../../agent/agent"
 import { Session } from ".."
@@ -14,6 +13,8 @@ import { state } from "./state"
 import { SessionStatus } from "../status"
 import { getPermissionMode, Permission } from "../../permission"
 import { getThinkingLevel } from "../../agent/thinking-levels"
+import { SessionID, MessageID, PartID } from "../schema"
+import { ProviderID, ModelID } from "../../provider/schema"
 
 const log = Log.create({ service: "session.prompt.shell" })
 
@@ -21,7 +22,7 @@ const log = Log.create({ service: "session.prompt.shell" })
  * Extracted shell handler from prompt.ts
  */
 
-function start(sessionID: string) {
+function start(sessionID: SessionID) {
     const s = state()
     if (s[sessionID]) return
     const controller = new AbortController()
@@ -32,7 +33,7 @@ function start(sessionID: string) {
     return controller.signal
 }
 
-function cancel(sessionID: string) {
+function cancel(sessionID: SessionID) {
     log.info("cancel", { sessionID })
     const s = state()
     const match = s[sessionID]
@@ -51,11 +52,11 @@ function cancel(sessionID: string) {
 }
 
 export async function executeShell(input: {
-    sessionID: string
+    sessionID: SessionID
     agent: string
     command: string
-    model?: { providerID: string; modelID: string }
-    lastModel: (sessionID: string) => Promise<{ providerID: string; modelID: string }>
+    model?: { providerID: ProviderID; modelID: ModelID }
+    lastModel: (sessionID: SessionID) => Promise<{ providerID: ProviderID; modelID: ModelID }>
 }) {
     const abort = start(input.sessionID)
     if (!abort) {
@@ -70,7 +71,7 @@ export async function executeShell(input: {
     const agent = await Agent.get(input.agent)
     const model = input.model ?? agent.model ?? (await input.lastModel(input.sessionID))
     const userMsg: MessageV2.User = {
-        id: Identifier.ascending("message"),
+        id: MessageID.ascending(),
         sessionID: input.sessionID,
         time: {
             created: Date.now(),
@@ -78,14 +79,14 @@ export async function executeShell(input: {
         role: "user",
         agent: input.agent,
         model: {
-            providerID: model.providerID,
-            modelID: model.modelID,
+            providerID: ProviderID.make(model.providerID),
+            modelID: ModelID.make(model.modelID),
         },
     }
     await Session.updateMessage(userMsg)
     const userPart: MessageV2.Part = {
         type: "text",
-        id: Identifier.ascending("part"),
+        id: PartID.ascending(),
         messageID: userMsg.id,
         sessionID: input.sessionID,
         text: "The following tool was executed by the user",
@@ -94,7 +95,7 @@ export async function executeShell(input: {
     await Session.updatePart(userPart)
 
     const msg: MessageV2.Assistant = {
-        id: Identifier.ascending("message"),
+        id: MessageID.ascending(),
         sessionID: input.sessionID,
         parentID: userMsg.id,
         mode: input.agent,
@@ -114,13 +115,13 @@ export async function executeShell(input: {
             reasoning: 0,
             cache: { read: 0, write: 0 },
         },
-        modelID: model.modelID,
-        providerID: model.providerID,
+        modelID: ModelID.make(model.modelID),
+        providerID: ProviderID.make(model.providerID),
     }
     await Session.updateMessage(msg)
-    const part: MessageV2.Part = {
+    const part: MessageV2.PartTyped<"tool"> = {
         type: "tool",
-        id: Identifier.ascending("part"),
+        id: PartID.ascending(),
         messageID: msg.id,
         sessionID: input.sessionID,
         tool: "bash",

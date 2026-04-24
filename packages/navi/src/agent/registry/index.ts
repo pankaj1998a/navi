@@ -398,7 +398,7 @@ export class AgentRegistry {
     registerStatic(definition: AgentDefinition): void {
         const fullId = this.getFullId(definition)
         this.staticAgents.set(fullId, definition)
-        log.info("Registered static agent", { id: fullId })
+        log.debug("Registered static agent", { id: fullId })
     }
 }
 

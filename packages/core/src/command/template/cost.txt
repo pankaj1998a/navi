@@ -1,0 +1,11 @@
+Show me the estimated costs and token usage for this session.
+
+Include:
+1. Input tokens used
+2. Output tokens used  
+3. Cache read/write tokens (if any)
+4. Estimated USD cost
+5. A breakdown by model if multiple were used
+
+Use the cost data that has been tracked automatically during this session.
+Format the output as a clean table.

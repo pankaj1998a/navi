@@ -4,6 +4,8 @@ const SecuritySentinelAgent: AgentTemplate = {
   id: "security-sentinel",
   name: "Security Sentinel",
   description: "Comprehensive security audit: auth, injection, secrets, CVEs, best practices.",
+  phase: "security",
+  skills: ["security", "audit"],
   tools: ["read", "grep", "glob", "bash", "websearch", "write"],
   systemPrompt: `You are a senior application security engineer.
 You perform exhaustive security audits across the full stack.

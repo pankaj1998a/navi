@@ -516,7 +516,7 @@ function App(props: { onSnapshot?: () => Promise<string[]> }) {
       category: "Debug",
       slash: {
         name: "ctx_viz",
-        aliases: ["viz", "cost"],
+        aliases: ["viz"],
       },
       onSelect: () => {
         dialog.replace(() => <DialogContextViz />)

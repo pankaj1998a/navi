@@ -12,9 +12,10 @@ import { fileURLToPath } from "node:url";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-function run(target, args = process.argv.slice(2)) {
+function run(target, args = process.argv.slice(2), opts = {}) {
   const result = spawnSync(target, args, {
     stdio: "inherit",
+    cwd: opts.cwd || process.cwd()
   });
   if (result.error) {
     console.error(result.error.message);
@@ -38,7 +39,7 @@ const rootDir = join(scriptDir, "..");
 const sourceEntry = join(rootDir, "src", "index.ts");
 if (existsSync(sourceEntry)) {
   // If we are in the source tree, run using bun
-  run("bun", ["run", "--conditions=browser", sourceEntry, ...process.argv.slice(2)]);
+  run("bun", ["run", "--conditions=browser", sourceEntry, ...process.argv.slice(2)], { cwd: rootDir });
 }
 
 const platformMap = {

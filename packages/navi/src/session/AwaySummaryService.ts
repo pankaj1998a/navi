@@ -1,6 +1,6 @@
 import { Session } from "./index"
 import { Log } from "../util/log"
-import { Identifier } from "../id/id"
+import { SessionID, MessageID } from "./schema"
 
 const log = Log.create({ service: "away-summary" })
 
@@ -9,12 +9,12 @@ const log = Log.create({ service: "away-summary" })
  * of background agent activity when the user returns.
  */
 export class AwaySummaryService {
-    private static lastReadMessageId = new Map<string, string>()
+    private static lastReadMessageId = new Map<SessionID, MessageID>()
 
     /**
      * Mark all current messages in a session as "Read" by the user.
      */
-    static async markAsRead(sessionID: string) {
+    static async markAsRead(sessionID: SessionID) {
         const messages = await Session.messages({ sessionID, limit: 1 })
         if (messages.length > 0) {
             this.lastReadMessageId.set(sessionID, messages[0].info.id)
@@ -25,7 +25,7 @@ export class AwaySummaryService {
     /**
      * Checks if there is significant unread activity to summarize.
      */
-    static async getUnreadSummary(sessionID: string): Promise<string | null> {
+    static async getUnreadSummary(sessionID: SessionID): Promise<string | null> {
         const lastRead = this.lastReadMessageId.get(sessionID)
         if (!lastRead) return null
 

@@ -1,0 +1,10 @@
+Export the current session to a portable .navi-session archive file that can be imported on another machine.
+
+Use the teleport tool with operation="export" to create the archive.
+Then display:
+1. The path to the saved archive
+2. How to import it on another machine
+3. What was included (number of messages, etc.)
+
+If the user specified a path as $ARGUMENTS, use that as the archive_path parameter.
+Otherwise, save it to the current directory with an auto-generated filename.

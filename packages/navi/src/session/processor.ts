@@ -18,11 +18,6 @@ import { SessionStatus } from "./status"
 import { SessionSummary } from "./summary"
 import type { Provider } from "@/provider/provider"
 import { Question } from "@/question"
-import { VerificationAgent } from "@/agent/VerificationAgent"
-import { Orchestrator } from "@/agent/orchestrator"
-import { SessionPrompt } from "./prompt"
-import { Identifier } from "@/id/id"
-
 export namespace SessionProcessor {
   const DOOM_LOOP_THRESHOLD = 3
   const log = Log.create({ service: "session.processor" })
@@ -56,7 +51,6 @@ export namespace SessionProcessor {
     needsCompaction: boolean
     currentText: MessageV2.TextPart | undefined
     reasoningMap: Record<string, MessageV2.ReasoningPart>
-    verificationNeeded: boolean
   }
 
   type StreamEvent = Event
@@ -100,7 +94,6 @@ export namespace SessionProcessor {
           needsCompaction: false,
           currentText: undefined,
           reasoningMap: {},
-          verificationNeeded: false,
         }
         let aborted = false
 
@@ -232,11 +225,6 @@ export namespace SessionProcessor {
                 },
               })
               
-              const sensitiveTools = ["write", "edit", "bash", "apply_patch", "execute_phase", "quick_task"]
-              if (sensitiveTools.includes(match.tool)) {
-                ctx.verificationNeeded = true
-              }
-
               delete ctx.toolcalls[value.toolCallId]
               return
             }
@@ -337,58 +325,6 @@ export namespace SessionProcessor {
                 ctx.needsCompaction = true
               }
               
-              // NEW: Trigger implicit verification for primary agents after sensitive changes
-              if (
-                ctx.verificationNeeded &&
-                !ctx.assistantMessage.summary &&
-                (ctx.assistantMessage.agent === "build" || ctx.assistantMessage.agent === "general")
-              ) {
-                const orch = new Orchestrator()
-                const va = new VerificationAgent(orch)
-
-                const lastMsg = ctx.assistantMessage
-                const history = yield* session.messages({ sessionID: ctx.sessionID as any })
-                const lastFullMsg = (history as any[]).find((m: any) => m.info.id === lastMsg.id)
-                const outputStr = lastFullMsg?.parts?.filter((p: any) => p.type === "text").map((p: any) => p.text).join("\n") ?? ""
-
-                const task = {
-                  id: lastMsg.id,
-                  description: "Verify the recent implementation for regressions or hallucinations.",
-                  type: lastMsg.agent
-                } as any
-                
-                const result = yield* Effect.promise(() => va.verify(ctx.sessionID, task, {
-                  output: outputStr,
-                  success: true
-                } as any))
-                
-                if (!result.success) {
-                  log.warn("Adversarial verification failed. Triggering auto-recovery turn.", { taskId: task.id })
-                  
-                  // Inject failure into the conversation
-                  yield* session.updatePart({
-                    id: PartID.ascending(),
-                    messageID: ctx.assistantMessage.id,
-                    sessionID: ctx.sessionID,
-                    type: "text",
-                    text: `\n\n> [!CAUTION]\n> **ADVERSARIAL VERIFICATION FAILED**\n> ${result.output}\n\nNavi is attempting to auto-fix the issue...`,
-                    synthetic: true
-                  } as any)
-
-                  // Trigger a RECOVERY PROMPT
-                  yield* Effect.promise(() => SessionPrompt.prompt({
-                    messageID: MessageID.ascending(),
-                    sessionID: ctx.sessionID,
-                    agent: ctx.assistantMessage.agent,
-                    parts: [{ 
-                      type: "text", 
-                      text: `Verification of your last action failed with the following feedback: ${result.output}. Please fix the issues and ensure all requirements are met. Use a high-reasoning approach to avoid further regressions.` 
-                    }],
-                    variant: "think" // Forced thinking boost
-                  }))
-                }
-                ctx.verificationNeeded = false
-              }
               return
             }
 

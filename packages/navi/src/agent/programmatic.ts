@@ -2,6 +2,25 @@ import { AgentSystem } from "./agent-system"
 import { ulid } from "ulid"
 import { Registry, type AgentDefinition } from "./registry"
 
+const AGENT_PHASES = new Set<string>([
+    "analyze",
+    "database",
+    "interface",
+    "test",
+    "realize",
+    "general",
+    "design",
+    "security",
+    "deploy",
+    "optimize",
+    "debug",
+    "document",
+])
+
+function isAgentPhase(value: string | undefined): value is AgentTemplate["phase"] {
+    return value !== undefined && AGENT_PHASES.has(value)
+}
+
 /**
  * Maps a programmatic AgentTemplate to a Registry AgentDefinition
  */
@@ -10,7 +29,7 @@ function mapTemplateToDefinition(template: AgentTemplate): AgentDefinition {
         id: template.id,
         displayName: template.name,
         description: template.description,
-        model: template.model || "Navi/big-pickle",
+        model: template.model,
         toolNames: template.tools || [],
         instructionsPrompt: template.systemPrompt || (
             `You are the ${template.name} agent. Your phase is ${template.phase}.` +
@@ -70,9 +89,9 @@ export namespace AgentRegistry {
             description: def.description || "",
             model: typeof def.model === 'string' ? def.model : undefined,
             tools: def.toolNames,
-            handleSteps: def.handleSteps as any,
+            handleSteps: def.handleSteps,
             systemPrompt: def.instructionsPrompt,
-            phase: (def.categories?.[0] as any) || "general",
+            phase: isAgentPhase(def.categories?.[0]) ? def.categories[0] : "general",
             skills: def.categories?.slice(1) || []
         }
     }
@@ -125,7 +144,9 @@ export namespace ProgrammaticAgentRuntime {
                         tokens: { input: 0, output: 0, reasoning: 0, cache: { read: 0, write: 0 } }
                     })
                 }
-                return (value as any) || "Agent finished without result"
+                return typeof value === "string" && value.length > 0
+                    ? value
+                    : "Agent finished without result"
             }
 
             if (value.type === "tool") {

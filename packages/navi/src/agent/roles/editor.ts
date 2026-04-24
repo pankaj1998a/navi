@@ -4,6 +4,8 @@ const EditorAgent: AgentTemplate = {
     id: "editor",
     name: "Code Editor",
     description: "Specialized in making precise code modifications",
+    phase: "realize",
+    skills: ["editing"],
     tools: ["read", "write", "edit", "patch", "bash"],
     handleSteps: async function* (context: AgentContext): AsyncGenerator<AgentStep, string | void, any> {
         yield { type: "step", name: "Applying changes" }

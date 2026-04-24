@@ -8,6 +8,8 @@ const SurferAgent: AgentTemplate = {
     id: "surfer",
     name: "Web Surfer",
     description: "Focused on fast and accurate web browsing and summarization.",
+    phase: "analyze",
+    skills: ["web-browsing"],
     tools: ["googlesearch", "websearch", "webfetch", "webcrawl", "webscrape", "read", "write", "edit", "bash"],
 
     async *handleSteps(context): AsyncGenerator<AgentStep, string | void, any> {

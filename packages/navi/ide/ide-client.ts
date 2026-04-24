@@ -21,7 +21,7 @@ import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
 import { CallToolResultSchema } from '@modelcontextprotocol/sdk/types.js';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { EnvHttpProxyAgent } from 'undici';
+// import { EnvHttpProxyAgent } from 'undici';
 import { ListToolsResultSchema } from '@modelcontextprotocol/sdk/types.js';
 import { IDE_REQUEST_TIMEOUT_MS } from './constants.js';
 import { debugLogger } from '../utils/debugLogger.js';
@@ -672,8 +672,17 @@ export class IdeClient {
   }
 
   private createProxyAwareFetch() {
+    // In Bun, we can use the native fetch which handles proxies via environment variables automatically.
+    // This avoids the ReferenceError: undici is not defined when running as a compiled binary.
+    if (typeof (globalThis as any).Bun !== "undefined") {
+      return async (url: string | URL, init?: RequestInit): Promise<Response> => {
+        return fetch(url, init);
+      };
+    }
+
     // ignore proxy for '127.0.0.1' by default to allow connecting to the ide mcp server
     const existingNoProxy = process.env['NO_PROXY'] || '';
+    const { EnvHttpProxyAgent } = await import('undici');
     const agent = new EnvHttpProxyAgent({
       noProxy: [existingNoProxy, '127.0.0.1'].filter(Boolean).join(','),
     });

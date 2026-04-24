@@ -124,27 +124,37 @@ export class AgentStore {
             return AgentManifest.parse(json)
         }
 
-        // 3. Registry Lookup (Mock)
+        // 3. Registry Lookup
         if (source.match(/^[a-z0-9-]+\/[a-z0-9-]+$/)) {
-            // TODO: Implement actual registry
-            if (source === "navi/demo") {
-                return {
-                    name: "navi/demo",
-                    version: "1.0.0",
-                    description: "A demo agent from the store",
-                    author: "Navi Team",
-                    license: "MIT",
-                    tags: ["demo"],
-                    config: {
-                        name: "demo",
-                        mode: "primary",
-                        prompt: "You are a demo agent. Be helpful.",
-                        options: {},
-                        permission: []
+            const [author, name] = source.split("/")
+            const manifestPath = path.join(this.root, author, name, "manifest.json")
+            
+            try {
+                await fs.access(manifestPath)
+                const content = await fs.readFile(manifestPath, "utf-8")
+                const json = JSON.parse(content)
+                return AgentManifest.parse(json)
+            } catch (e) {
+                // Not found in local store, check for hardcoded demos
+                if (source === "navi/demo") {
+                    return {
+                        name: "navi/demo",
+                        version: "1.0.0",
+                        description: "A demo agent from the store",
+                        author: "Navi Team",
+                        license: "MIT",
+                        tags: ["demo"],
+                        config: {
+                            name: "demo",
+                            mode: "primary",
+                            prompt: "You are a demo agent. Be helpful.",
+                            options: {},
+                            permission: []
+                        }
                     }
                 }
+                throw new Error(`Agent ${source} not found locally. Multi-tenant registry lookup not yet implemented.`)
             }
-            throw new Error(`Agent ${source} not found in registry (Registry is not yet implemented)`)
         }
 
         throw new Error(`Invalid agent source: ${source}`)

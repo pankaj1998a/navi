@@ -21,7 +21,6 @@ export const PROVIDER_ALIASES: Record<string, string> = {
 }
 
 export const EXTRA_PROVIDER_ENTRIES: Array<{ id: string; name: string }> = [
-  { id: "google-antigravity", name: "Antigravity (Google OAuth)" },
   { id: "gemini-cli", name: "Gemini CLI" },
   { id: "claude-code", name: "Claude Code" },
   { id: "qwen-code", name: "Qwen Code" },
@@ -317,7 +316,6 @@ export const AuthLoginCommand = cmd({
         const priority: Record<string, number> = {
           "gemini-cli": 0,
           "qwen-code": 0,
-          "google-antigravity": 0,
           "claude-code": 1,
           navi: 1,
           anthropic: 2,
@@ -350,7 +348,6 @@ export const AuthLoginCommand = cmd({
                     anthropic: "Claude Max or API key",
                     "claude-code": "Use Claude Code account auth",
                     openai: "ChatGPT Plus/Pro or API key",
-                    "google-antigravity": "Gemini 3/2.5 & Claude 4.6/3.5 via Google OAuth",
                     "gemini-cli": "Run Gemini models via Google OAuth",
                     "qwen-code": "Run Qwen models via Qwen Device Flow",
                   } as Record<string, string | undefined>)[x.id],
@@ -372,11 +369,7 @@ export const AuthLoginCommand = cmd({
 
         let pluginAuth = await Plugin.list().then((x) => x.find((x) => x.auth?.provider === authProvider)?.auth)
 
-        // Built-in handlers for internal providers that aren't loaded as plugins
-        if (!pluginAuth && authProvider === "google-antigravity") {
-          const { AntigravityAuthHook } = await import("../../provider/antigravity")
-          pluginAuth = AntigravityAuthHook
-        }
+
 
         if (!pluginAuth && authProvider === "gemini-cli") {
           const { GeminiAuthHook } = await import("../../provider/gemini-cli")

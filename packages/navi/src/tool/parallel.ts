@@ -6,15 +6,16 @@ import { Agent } from "../agent/agent"
 import { Provider } from "../provider/provider"
 import { Session } from "../session"
 import { SessionPrompt } from "../session/prompt"
-import { Identifier } from "../id/id"
 import { Config } from "../config/config"
 import { PermissionNext } from "@/permission/next"
+import { SessionID, MessageID } from "../session/schema"
 import { ProviderID, ModelID } from "../provider/schema"
 
 const taskSchema = z.object({
     agent: z.string().describe("The name of the agent to use"),
     prompt: z.string().describe("The prompt/task for the agent"),
     priority: z.number().optional().describe("Priority of the task (higher is more important)"),
+    model: z.string().optional().describe("Optional identifier for a specific model to use for this task"),
 })
 
 const parameters = z.object({
@@ -52,13 +53,13 @@ export const ParallelTool = Tool.define("parallel", async (ctx) => {
                 })
 
                 // Execute the prompt in the sub-session
-                const messageID = Identifier.ascending("message")
+                const messageID = MessageID.ascending()
                 const promptParts = await SessionPrompt.resolvePromptParts(task.prompt)
 
                 const result = await SessionPrompt.prompt({
                     messageID,
                     sessionID: session.id,
-                    model: task.model ? Provider.parseModel(task.model) : agent.model ? {
+                    model: task.model ? (Provider.parseModel(task.model) as { providerID: ProviderID, modelID: ModelID }) : agent.model ? {
                         modelID: ModelID.make(agent.model.modelID),
                         providerID: ProviderID.make(agent.model.providerID),
                     } : undefined,
@@ -81,7 +82,8 @@ export const ParallelTool = Tool.define("parallel", async (ctx) => {
                 params.tasks.map(t => ({
                     agent: t.agent,
                     prompt: t.prompt,
-                    priority: t.priority
+                    priority: t.priority,
+                    model: t.model,
                 })),
                 executor,
                 {

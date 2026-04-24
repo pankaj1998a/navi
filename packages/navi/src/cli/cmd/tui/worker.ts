@@ -12,7 +12,13 @@ import type { Event } from "@navi-ai/sdk/v2"
 import { Flag } from "@/flag/flag"
 import { setTimeout as sleep } from "node:timers/promises"
 import { writeHeapSnapshot } from "node:v8"
-import { WorkspaceID } from "@/control-plane/schema"
+import { Registry, AgentDefinition } from "@/agent/registry"
+import { ToolRegistry } from "@/tool/registry"
+import { AgentRunner } from "@/agent/agent-runner"
+import { MCP } from "@/mcp"
+import { Project } from "@/project/project"
+import { ProjectID } from "@/project/schema"
+import { Network } from "@/server/schema"
 
 await Log.init({
   print: process.argv.includes("--print-logs"),
@@ -23,15 +29,29 @@ await Log.init({
   })(),
 })
 
-process.on("unhandledRejection", (e) => {
+process.on("unhandledRejection", (e: any) => {
   Log.Default.error("rejection", {
-    e: e instanceof Error ? e.message : e,
+    message: e?.message || String(e),
+    stack: e?.stack,
+    error: e
   })
 })
 
-process.on("uncaughtException", (e) => {
+process.on("uncaughtException", (e: any) => {
   Log.Default.error("exception", {
-    e: e instanceof Error ? e.message : e,
+    message: e?.message || String(e),
+    stack: e?.stack,
+    error: e
+  })
+})
+
+self.addEventListener("error", (e) => {
+  Log.Default.error("worker process error", {
+    message: e.message,
+    filename: e.filename,
+    lineno: e.lineno,
+    colno: e.colno,
+    error: e.error
   })
 })
 
@@ -108,8 +128,6 @@ const startEventStream = (input: { directory: string; workspaceID?: string }) =>
   })
 }
 
-startEventStream({ directory: process.cwd() })
-
 export const rpc = {
   async fetch(input: { url: string; method: string; headers: Record<string, string>; body?: string }) {
     const headers = { ...input.headers }
@@ -160,9 +178,50 @@ export const rpc = {
     await Instance.disposeAll()
     if (server) await server.stop(true)
   },
+  "project.upsert": async (input: Project.UpdateInput) => {
+    return Project.update(input)
+  },
+  "project.get": async (id: ProjectID) => {
+    return Project.get(id)
+  },
+  "project.list": async () => {
+    return Project.list()
+  },
+  "project.sandboxes": async (id: ProjectID) => {
+    return Project.sandboxes(id)
+  },
+  "project.addSandbox": async (input: { id: ProjectID; directory: string }) => {
+    return Project.addSandbox(input.id, input.directory)
+  },
+  "project.removeSandbox": async (input: { id: ProjectID; directory: string }) => {
+    return Project.removeSandbox(input.id, input.directory)
+  },
+  "instance.provide": async (input: { directory: string; network?: Network.Config }) => {
+    return Instance.provide({
+      directory: input.directory,
+      init: InstanceBootstrap,
+      fn: async () => {},
+    })
+  },
+  "config.get": async (id: ProjectID) => {
+    return Config.get(id)
+  },
+  "tools.list": async () => {
+    return ToolRegistry.list()
+  },
+  "tools.get": async (id: string) => {
+    return ToolRegistry.get(id)
+  },
+  "agents.list": async () => {
+    return Registry.list()
+  },
+  "agents.get": async (id: string) => {
+    return Registry.get(id)
+  },
 }
 
 Rpc.listen(rpc)
+startEventStream({ directory: process.cwd() })
 
 function getAuthorizationHeader(): string | undefined {
   const password = Flag.NAVI_SERVER_PASSWORD
@@ -170,4 +229,3 @@ function getAuthorizationHeader(): string | undefined {
   const username = Flag.NAVI_SERVER_USERNAME ?? "Navi"
   return `Basic ${btoa(`${username}:${password}`)}`
 }
-

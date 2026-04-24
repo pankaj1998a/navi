@@ -4,17 +4,34 @@ export namespace Rpc {
   }
 
   export function listen(rpc: Definition) {
-    onmessage = async (evt) => {
-      const parsed = JSON.parse(evt.data)
-      if (parsed.type === "rpc.request") {
-        const result = await rpc[parsed.method](parsed.input)
-        postMessage(JSON.stringify({ type: "rpc.result", result, id: parsed.id }))
+    self.addEventListener("message", async (evt) => {
+      try {
+        const parsed = JSON.parse(evt.data)
+        if (parsed.type === "rpc.request") {
+          const result = await rpc[parsed.method](parsed.input)
+          postMessage(JSON.stringify({ type: "rpc.result", result, id: parsed.id }))
+        }
+      } catch (err) {
+        // Ignore if not JSON or other errors
       }
-    }
+    })
   }
 
   export function emit(event: string, data: unknown) {
-    postMessage(JSON.stringify({ type: "rpc.event", event, data }))
+    try {
+      postMessage(JSON.stringify({ type: "rpc.event", event, data }))
+    } catch (err) {
+      // If serialization fails, try to stringify a simpler version or just log
+      try {
+        postMessage(JSON.stringify({ 
+          type: "rpc.event", 
+          event: "rpc.error", 
+          data: { originalEvent: event, error: "Serialization failed" } 
+        }))
+      } catch {
+        // Absolute failure
+      }
+    }
   }
 
   export function client<T extends Definition>(target: {

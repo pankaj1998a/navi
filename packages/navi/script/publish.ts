@@ -53,7 +53,7 @@ for (const name of binaryList) {
     continue
   }
 
-  const version = (binaries as any)[name]
+  const version = binaries[name]
   console.log(`  ${name}@${version}`)
 
   if (dryRun) {
@@ -64,8 +64,9 @@ for (const name of binaryList) {
       if (otp) args.push(`--otp=${otp}`)
       await $`cd ${pkgDir} && npm ${args}`
       console.log(`    ✅ Published`)
-    } catch (e: any) {
-      console.log(`    ❌ Failed: ${e.message || e}`)
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : String(e)
+      console.log(`    ❌ Failed: ${message}`)
     }
   }
 }
@@ -73,7 +74,11 @@ for (const name of binaryList) {
 // Step 3: Update main package for publishing
 console.log("\n📦 Preparing main package...")
 
-const mainPkg: any = JSON.parse(JSON.stringify(pkg))
+const mainPkg = JSON.parse(JSON.stringify(pkg)) as typeof pkg & {
+  optionalDependencies?: Record<string, string>
+  devDependencies?: Record<string, string>
+  dependencies?: Record<string, string>
+}
 mainPkg.version = Script.version
 
 // Update optionalDependencies versions to match current release
@@ -86,7 +91,7 @@ mainPkg.optionalDependencies = optionalDeps
 // Clean up dependencies for npm (remove workspace/catalog)
 if (mainPkg.devDependencies) delete mainPkg.devDependencies
 const deps = mainPkg.dependencies || {}
-const catalog = (rootPkg as any).workspaces?.catalog || {}
+const catalog = (rootPkg as { workspaces?: { catalog?: Record<string, string> } }).workspaces?.catalog || {}
 
 for (const dep of Object.keys(deps)) {
   const version = deps[dep]
@@ -104,10 +109,14 @@ fs.writeFileSync(publishPkgPath, JSON.stringify(mainPkg, null, 2))
 // Step 4: Final Publish
 if (dryRun) {
   console.log("\n📦 Packing main package (dry run)...")
-  fs.copyFileSync(publishPkgPath, path.join(dir, "package.json"))
-  await $`npm pack`
-  fs.writeFileSync(path.join(dir, "package.json"), JSON.stringify(pkg, null, 2))
-  console.log("\n✅ Dry run complete! Run with --publish to go live.")
+  const packageJsonPath = path.join(dir, "package.json")
+  try {
+    fs.copyFileSync(publishPkgPath, packageJsonPath)
+    await $`npm pack`
+    console.log("\n✅ Dry run complete! Run with --publish to go live.")
+  } finally {
+    fs.writeFileSync(packageJsonPath, JSON.stringify(pkg, null, 2))
+  }
 } else {
   console.log("\n🚀 Publishing main package to npm...")
   try {
@@ -116,8 +125,9 @@ if (dryRun) {
     if (otp) args.push(`--otp=${otp}`)
     await $`npm ${args}`
     console.log(`\n✅ Successfully published ${mainPkg.name}@${Script.version}!`)
-  } catch (e: any) {
-    console.error(`❌ Publish failed: ${e.message || e}`)
+  } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : String(e)
+    console.error(`❌ Publish failed: ${message}`)
   } finally {
     // Restore original
     fs.writeFileSync(path.join(dir, "package.json"), JSON.stringify(pkg, null, 2))

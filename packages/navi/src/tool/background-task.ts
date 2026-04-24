@@ -18,6 +18,8 @@ import { SessionPrompt } from "../session/prompt"
 import { Config } from "../config/config"
 import { Log } from "../util/log"
 import { canSpawnAgent, filterSpawnableAgents } from "../agent/spawn"
+import { SessionID, MessageID } from "../session/schema"
+import { ProviderID, ModelID } from "../provider/schema"
 
 const log = Log.create({ service: "background-task" })
 
@@ -29,8 +31,8 @@ const parameters = z.object({
 
 // Track running background tasks
 interface BackgroundTask {
-    id: string
-    sessionID: string
+    id: SessionID
+    sessionID: SessionID
     agent: string
     description: string
     status: "running" | "completed" | "failed" | "cancelled"
@@ -40,19 +42,19 @@ interface BackgroundTask {
     error?: string
 }
 
-const backgroundTasks = new Map<string, BackgroundTask>()
+const backgroundTasks = new Map<SessionID, BackgroundTask>()
 
 /**
  * Get a background task by ID
  */
-export function getBackgroundTask(taskId: string): BackgroundTask | undefined {
+export function getBackgroundTask(taskId: SessionID): BackgroundTask | undefined {
     return backgroundTasks.get(taskId)
 }
 
 /**
  * Get all background tasks for a parent session
  */
-export function getBackgroundTasksByParent(parentSessionID: string): BackgroundTask[] {
+export function getBackgroundTasksByParent(parentSessionID: SessionID): BackgroundTask[] {
     return Array.from(backgroundTasks.values()).filter((task) =>
         task.id.startsWith(parentSessionID.slice(0, 8))
     )
@@ -61,7 +63,7 @@ export function getBackgroundTasksByParent(parentSessionID: string): BackgroundT
 /**
  * Cancel a background task
  */
-export function cancelBackgroundTask(taskId: string): boolean {
+export function cancelBackgroundTask(taskId: SessionID): boolean {
     const task = backgroundTasks.get(taskId)
     if (!task || task.status !== "running") return false
 
@@ -107,7 +109,7 @@ export const BackgroundTaskTool = Tool.define("background_task", async (ctx) => 
             }
 
             // Create a task ID using session identifier type
-            const taskId = Identifier.ascending("session")
+            const taskId = SessionID.descending()
 
             // Create session for background task
             const session = await Session.create({
@@ -138,11 +140,11 @@ export const BackgroundTaskTool = Tool.define("background_task", async (ctx) => 
             if (msg.info.role !== "assistant") throw new Error("Not an assistant message")
 
             const model = agent.model ?? {
-                modelID: msg.info.modelID,
-                providerID: msg.info.providerID,
+                modelID: ModelID.make(msg.info.modelID),
+                providerID: ProviderID.make(msg.info.providerID),
             }
 
-            const messageID = Identifier.ascending("message")
+            const messageID = MessageID.ascending()
             const promptParts = await SessionPrompt.resolvePromptParts(params.prompt)
 
             // Run in background
@@ -150,8 +152,8 @@ export const BackgroundTaskTool = Tool.define("background_task", async (ctx) => 
                 messageID,
                 sessionID: session.id,
                 model: {
-                    modelID: model.modelID,
-                    providerID: model.providerID,
+                    modelID: ModelID.make(model.modelID),
+                    providerID: ProviderID.make(model.providerID),
                 },
                 agent: agent.name,
                 tools: {
@@ -203,7 +205,7 @@ Continue with other work - this task runs in parallel.`,
 
 // Tool to get background task output
 const outputParameters = z.object({
-    task_id: z.string().describe("The task_id from a previous background_task call"),
+    task_id: SessionID.zod.describe("The task_id from a previous background_task call"),
 })
 
 export const BackgroundOutputTool = Tool.define("background_output", async () => {
@@ -286,7 +288,7 @@ ${task.result ?? "(no output)"}`,
 
 // Tool to cancel background tasks
 const cancelParameters = z.object({
-    task_id: z.string().describe("The task_id of the background task to cancel"),
+    task_id: SessionID.zod.describe("The task_id of the background task to cancel"),
 })
 
 export const BackgroundCancelTool = Tool.define("background_cancel", async () => {

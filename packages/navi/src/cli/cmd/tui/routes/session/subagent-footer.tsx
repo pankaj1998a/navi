@@ -8,6 +8,7 @@ import { useCommandDialog } from "@tui/component/dialog-command"
 import { useKeybind } from "../../context/keybind"
 import { Locale } from "@/util/locale"
 import { useTerminalDimensions } from "@opentui/solid"
+import { TextAttributes } from "@opentui/core"
 
 export function SubagentFooter() {
   const route = useRouteData("session")
@@ -96,30 +97,33 @@ export function SubagentFooter() {
               onMouseOut={() => setHover(null)}
               onMouseUp={() => command.trigger("session.parent")}
               backgroundColor={hover() === "parent" ? theme.backgroundElement : theme.backgroundPanel}
+              flexDirection="row"
+              gap={1}
             >
-              <text fg={theme.text}>
-                Parent <text fg={theme.textMuted}>{keybind.print("session_parent")}</text>
-              </text>
+              <text fg={theme.text}>Parent</text>
+              <text fg={theme.textMuted}>{keybind.print("session_parent")}</text>
             </box>
             <box
               onMouseOver={() => setHover("prev")}
               onMouseOut={() => setHover(null)}
               onMouseUp={() => command.trigger("session.child.previous")}
               backgroundColor={hover() === "prev" ? theme.backgroundElement : theme.backgroundPanel}
+              flexDirection="row"
+              gap={1}
             >
-              <text fg={theme.text}>
-                Prev <text fg={theme.textMuted}>{keybind.print("session_child_cycle_reverse")}</text>
-              </text>
+              <text fg={theme.text}>Prev</text>
+              <text fg={theme.textMuted}>{keybind.print("session_child_cycle_reverse")}</text>
             </box>
             <box
               onMouseOver={() => setHover("next")}
               onMouseOut={() => setHover(null)}
               onMouseUp={() => command.trigger("session.child.next")}
               backgroundColor={hover() === "next" ? theme.backgroundElement : theme.backgroundPanel}
+              flexDirection="row"
+              gap={1}
             >
-              <text fg={theme.text}>
-                Next <text fg={theme.textMuted}>{keybind.print("session_child_cycle")}</text>
-              </text>
+              <text fg={theme.text}>Next</text>
+              <text fg={theme.textMuted}>{keybind.print("session_child_cycle")}</text>
             </box>
           </box>
         </box>

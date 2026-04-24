@@ -8,6 +8,8 @@ export const SentryFixerAgent: AgentTemplate = {
   id: "sentry-fixer",
   name: "Sentry Fixer",
   description: "Specialized in resolving background verification failures (lints, type errors).",
+  phase: "debug",
+  skills: ["debugging", "verification"],
   tools: ["read", "edit", "patch", "lsp", "bash"],
   handleSteps: async function* (context: AgentContext): AsyncGenerator<AgentStep, string | void, any> {
     yield { type: "step", name: "Analyzing verification failure" }

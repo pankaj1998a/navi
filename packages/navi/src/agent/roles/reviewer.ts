@@ -4,6 +4,8 @@ const ReviewerAgent: AgentTemplate = {
     id: "reviewer",
     name: "Code Reviewer",
     description: "Evaluates code changes for correctness and quality",
+    phase: "analyze",
+    skills: ["code-review"],
     tools: ["read", "write", "edit", "bash"],
     handleSteps: async function* (context: AgentContext): AsyncGenerator<AgentStep, string | void, any> {
         yield { type: "step", name: "Reviewing code" }

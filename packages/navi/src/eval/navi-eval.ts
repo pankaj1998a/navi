@@ -7,6 +7,8 @@ import { SessionPrompt } from '../session/prompt';
 import { SessionID, MessageID } from '../session/schema';
 import { ProviderID, ModelID } from '../provider/schema';
 import { Identifier } from '@/id/id';
+import { Provider } from '../provider/provider';
+
 
 /**
  * Navi-Eval: Iterative Learning System for Navi.
@@ -150,7 +152,7 @@ ${diff.slice(0, 5000)}
       const response = await SessionPrompt.prompt({
         sessionID: SessionID.make(Identifier.ascending('session')),
         messageID: MessageID.ascending(),
-        model: { providerID: ProviderID.Navi, modelID: ModelID.make('big-pickle') },
+        model: await Provider.defaultModel(),
         agent: 'general',
         parts: [{ type: "text", text: generatorPrompt }]
       });
@@ -199,7 +201,7 @@ ${diff.slice(0, 5000)}
         await SessionPrompt.prompt({
           sessionID,
           messageID: MessageID.ascending(),
-          model: { providerID: ProviderID.Navi, modelID: ModelID.make('big-pickle') },
+          model: await Provider.defaultModel(),
           agent: 'build',
           parts: [{ type: "text", text: task.prompt }]
         });
@@ -262,7 +264,7 @@ Respond with ONLY the markdown content.
       const response = await SessionPrompt.prompt({
         sessionID: SessionID.make(Identifier.ascending('session')),
         messageID: MessageID.ascending(),
-        model: { providerID: ProviderID.Navi, modelID: ModelID.make('big-pickle') },
+        model: await Provider.defaultModel(),
         agent: 'general',
         parts: [{ type: "text", text: analysisPrompt }]
       });

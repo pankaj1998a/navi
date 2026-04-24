@@ -15,7 +15,7 @@ export interface SymbolInfo {
 export namespace SymbolCache {
     let cache: SymbolInfo[] | null = null
     let lastUpdate = 0
-    let updating = false
+    let updatePromise: Promise<void> | null = null
     const CACHE_TTL = 1000 * 60 * 5 // 5 minutes
 
     export async function getSymbols(directory?: string): Promise<SymbolInfo[]> {
@@ -27,62 +27,85 @@ export namespace SymbolCache {
     }
 
     export async function update(directory?: string) {
-        if (updating) return
-        updating = true
+        if (updatePromise) return updatePromise
+
         log.info("updating symbol cache")
-        const symbols: SymbolInfo[] = []
+        updatePromise = (async () => {
+            const symbols: SymbolInfo[] = []
 
-        try {
-            // Priority: provided directory > Instance.directory > cwd
-            let dir = directory
-            if (!dir) {
-                try {
-                    dir = Instance.directory
-                } catch {
-                    dir = process.cwd()
-                }
-            }
-
-            // Use ripgrep to quickly find common definitions
-            const result = await $`rg --line-number --json -e "^(export\\s+)?(class|function|interface|const|let|var)\\s+([a-zA-Z0-9_]+)"`
-                .cwd(dir)
-                .nothrow()
-                .quiet()
-                .text()
-
-            if (result) {
-                const lines = result.trim().split("\n")
-                for (const line of lines) {
+            try {
+                // Priority: provided directory > Instance.directory > cwd
+                let dir = directory
+                if (!dir) {
                     try {
-                        const data = JSON.parse(line)
-                        if (data.type === "match") {
-                            const filePath = data.data.path.text
-                            const lineNumber = data.data.line_number
-                            const content = data.data.lines.text
-
-                            const match = content.match(/(class|function|interface|const|let|var)\s+([a-zA-Z0-9_]+)/)
-                            if (match) {
-                                symbols.push({
-                                    name: match[2],
-                                    type: (match[1] === "class" ? "class" :
-                                        match[1] === "interface" ? "interface" : "function") as SymbolInfo["type"],
-                                    line: lineNumber,
-                                    file: path.join(dir, filePath)
-                                })
-                            }
-                        }
-                    } catch (e) {
-                        // Ignore individual line parse errors
+                        dir = Instance.directory
+                    } catch {
+                        dir = process.cwd()
                     }
                 }
+
+                // Use ripgrep to quickly find common definitions
+                const result = await $`rg --line-number --json -e "^(export\\s+)?(class|function|interface|const|let|var)\\s+([a-zA-Z0-9_]+)"`
+                    .cwd(dir)
+                    .nothrow()
+                    .quiet()
+                    .text()
+
+                if (result) {
+                    const lines = result.trim().split("\n")
+                    for (const line of lines) {
+                        try {
+                            const data = JSON.parse(line)
+                            if (data.type === "match") {
+                                const filePath = data.data.path.text
+                                const lineNumber = data.data.line_number
+                                const content = data.data.lines.text
+
+                                const match = content.match(/(class|function|interface|const|let|var)\s+([a-zA-Z0-9_]+)/)
+                                if (match) {
+                                    let type: SymbolInfo["type"] | undefined
+                                    switch (match[1]) {
+                                        case "class":
+                                            type = "class"
+                                            break
+                                        case "interface":
+                                            type = "interface"
+                                            break
+                                        case "function":
+                                        case "const":
+                                        case "let":
+                                        case "var":
+                                            type = "function"
+                                            break
+                                        default:
+                                            type = undefined
+                                    }
+
+                                    if (!type) continue
+
+                                    symbols.push({
+                                        name: match[2],
+                                        type,
+                                        line: lineNumber,
+                                        file: path.join(dir, filePath)
+                                    })
+                                }
+                            }
+                        } catch (e) {
+                            // Ignore individual line parse errors
+                        }
+                    }
+                }
+                cache = symbols
+                lastUpdate = Date.now()
+            } catch (e) {
+                log.error("failed to update symbol cache", { error: e })
+            } finally {
+                updatePromise = null
             }
-            cache = symbols
-            lastUpdate = Date.now()
-        } catch (e) {
-            log.error("failed to update symbol cache", { error: e })
-        } finally {
-            updating = false
-        }
+        })()
+
+        return updatePromise
     }
 }
 

@@ -1563,9 +1563,6 @@ export namespace ACP {
 
     const NaviProvider = providers.find((p) => p.id === "Navi")
     if (NaviProvider) {
-      if (NaviProvider.models["big-pickle"]) {
-        return { providerID: ProviderID.Navi, modelID: ModelID.make("big-pickle") }
-      }
       const [best] = Provider.sort(Object.values(NaviProvider.models))
       if (best) {
         return {
@@ -1576,17 +1573,19 @@ export namespace ACP {
     }
 
     const models = providers.flatMap((p) => Object.values(p.models))
-    const [best] = Provider.sort(models)
-    if (best) {
-      return {
-        providerID: ProviderID.make(best.providerID),
-        modelID: ModelID.make(best.id),
+    if (models.length > 0) {
+      const [best] = Provider.sort(models)
+      if (best) {
+        return {
+          providerID: ProviderID.make(best.providerID),
+          modelID: ModelID.make(best.id),
+        }
       }
     }
 
     if (specified) return specified
 
-    return { providerID: ProviderID.Navi, modelID: ModelID.make("big-pickle") }
+    throw new Error("No available models found. Please configure a provider in your navi config.")
   }
 
   function parseUri(

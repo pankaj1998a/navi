@@ -13,8 +13,8 @@
 
 import path from "path"
 import fs from "fs"
-import { $ } from "bun"
 import { fileURLToPath } from "url"
+import { build as buildNavi } from "./build"
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const root = path.resolve(__dirname, "..")          // packages/navi/
@@ -28,8 +28,11 @@ const skipBuild = process.argv.includes("--skip-build")
 // ─── Step 1: Build ────────────────────────────────────────────────────────────
 if (!skipBuild) {
   console.log("🔨 Building Navi for Windows x64…")
-  const skipInstall = process.argv.includes("--skip-install") ? "--skip-install" : ""
-  await $`bun run script/build.ts --single ${skipInstall}`.cwd(root)
+  await buildNavi({
+    singleFlag: true,
+    baselineFlag: false,
+    skipInstall: process.argv.includes("--skip-install"),
+  })
   console.log("✅ Build complete")
 } else {
   console.log("⏩ Skipping build (--skip-build)")
@@ -44,6 +47,7 @@ if (!fs.existsSync(exeSrc)) {
 
 // ─── Step 2: Refresh navi-portable/ ──────────────────────────────────────────
 console.log("📦 Refreshing navi-portable/…")
+fs.rmSync(portableDir, { recursive: true, force: true })
 fs.mkdirSync(portableDir, { recursive: true })
 
 // Copy navi.exe

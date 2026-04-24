@@ -3,16 +3,27 @@ import { hideBin } from "yargs/helpers"
 import { Log } from "./util/log"
 import { UI } from "./cli/ui"
 import { Installation } from "./installation"
-import { NamedError } from "@navi-ai/util/error"
-import { FormatError } from "./cli/error"
 import { Filesystem } from "./util/filesystem"
 import { EOL } from "os"
 import path from "path"
 import { Global } from "./global"
 import { Database } from "./storage/db"
 import { errorMessage } from "./util/error"
+import { FormatError } from "./cli/error"
 
 const __start = performance.now()
+const argv = hideBin(process.argv)
+
+function isLightweightStartupRequest(args: string[]): boolean {
+  return (
+    args.includes("--help") ||
+    args.includes("-h") ||
+    args.includes("--version") ||
+    args.includes("-v") ||
+    args[0] === "help" ||
+    args[0] === "completion"
+  )
+}
 
 /**
  * Helper to lazy-load command modules. 
@@ -76,7 +87,7 @@ process.on("uncaughtException", (e) => {
   })
 })
 
-const cli = yargs(hideBin(process.argv))
+const cli = yargs(argv)
   .parserConfiguration({ "populate--": true })
   .scriptName("Navi")
   .wrap(100)
@@ -98,8 +109,6 @@ const cli = yargs(hideBin(process.argv))
     type: "boolean",
   })
   .middleware(async (opts) => {
-    await Global.init()
-    
     if (opts.pure) {
       process.env.NAVI_PURE = "1"
     }
@@ -109,7 +118,6 @@ const cli = yargs(hideBin(process.argv))
       dev: Installation.isLocal(),
       level: (() => {
         if (opts.logLevel) return opts.logLevel as Log.Level
-        if (Installation.isLocal()) return "DEBUG"
         return "INFO"
       })(),
     })
@@ -118,7 +126,13 @@ const cli = yargs(hideBin(process.argv))
     process.env.Navi = "1"
     process.env.NAVI_PID = String(process.pid)
 
-    Log.Default.info("Navi", {
+    if (isLightweightStartupRequest(argv)) {
+      return
+    }
+
+    await Global.init()
+
+    Log.Default.debug("Navi", {
       version: Installation.VERSION,
       args: process.argv.slice(2),
     })
@@ -127,7 +141,6 @@ const cli = yargs(hideBin(process.argv))
     if (!(await Filesystem.exists(marker))) {
       const { JsonMigration } = await import("./storage/json-migration")
       const tty = process.stderr.isTTY
-      process.stderr.write("Performing one time database migration, may take a few minutes..." + EOL)
       const width = 36
       const orange = "\x1b[38;5;214m"
       const muted = "\x1b[0;2m"
@@ -158,20 +171,16 @@ const cli = yargs(hideBin(process.argv))
           process.stderr.write(`sqlite-migration:done${EOL}`)
         }
       }
-      process.stderr.write("Database migration complete." + EOL)
     }
 
     const jsonlMarker = path.join(Global.Path.data, "jsonl-migration.done")
     if (await Filesystem.exists(marker) && !(await Filesystem.exists(jsonlMarker))) {
       const { JsonlMigration } = await import("./storage/sqlite-to-jsonl")
-      process.stderr.write("Performing one time JSONL migration..." + EOL)
       try {
         await JsonlMigration.run(marker)
         await Filesystem.write(jsonlMarker, "done")
-        process.stderr.write("JSONL migration complete." + EOL)
       } catch (err) {
         Log.Default.error("jsonl migration failed", { err: errorMessage(err) })
-        process.stderr.write("JSONL migration failed, check logs for details." + EOL)
       }
     }
 
@@ -186,7 +195,7 @@ const cli = yargs(hideBin(process.argv))
   })
   .usage("\n" + UI.logo())
   .completion("completion", "generate shell completion script")
-  .command(lazy("$0", "Start the Navi TUI", "./cli/cmd/tui/thread"))
+  .command(lazy("$0", "Start the main TUI", "./cli/cmd/tui/thread"))
   .command(lazy("acp", "Agent Client Protocol server mode", "./cli/cmd/acp"))
   .command(lazy("mcp", "Model Context Protocol server mode", "./cli/cmd/mcp"))
   .command(lazy("thread", "TUI thread mode", "./cli/cmd/tui/thread"))
@@ -229,59 +238,11 @@ const cli = yargs(hideBin(process.argv))
 
 try {
   const parse_start = performance.now()
-  await cli.parse()
+  await cli.parse(argv)
   if (Installation.isLocal() && process.env.NAVI_PERF) {
-    console.log(`cli.parse: ${Math.round(performance.now() - parse_start)}ms`)
+    console.log(`Total command run (parse to end): ${Math.round(performance.now() - parse_start)}ms`)
   }
-} catch (e) {
-  let data: Record<string, any> = {}
-  if (e instanceof NamedError) {
-    const obj = e.toObject()
-    Object.assign(data, {
-      ...obj.data,
-    })
-  }
-
-  if (e instanceof Error) {
-    Object.assign(data, {
-      name: e.name,
-      message: e.message,
-      cause: e.cause?.toString(),
-      stack: e.stack,
-    })
-  }
-
-  // @ts-ignore
-  if (typeof ResolveMessage !== 'undefined' && e instanceof ResolveMessage) {
-    Object.assign(data, {
-      // @ts-ignore
-      name: e.name,
-      // @ts-ignore
-      message: e.message,
-      // @ts-ignore
-      code: e.code,
-      // @ts-ignore
-      specifier: e.specifier,
-      // @ts-ignore
-      referrer: e.referrer,
-      // @ts-ignore
-      position: e.position,
-      // @ts-ignore
-      importKind: e.importKind,
-    })
-  }
-  Log.Default.error("fatal", data)
-  const formatted = FormatError(e)
-  if (formatted) UI.error(formatted)
-  if (formatted === undefined) {
-    UI.error("Unexpected error, check log file at " + Log.file() + " for more details" + EOL)
-    process.stderr.write(errorMessage(e) + EOL)
-  }
-  process.exitCode = 1
-} finally {
-  // Some subprocesses don't react properly to SIGTERM and similar signals.
-  // Most notably, some docker-container-based MCP servers don't handle such signals unless
-  // run using `docker run --init`.
-  // Explicitly exit to avoid any hanging subprocesses.
-  process.exit()
+} catch (err) {
+  process.stderr.write(FormatError(err) + EOL)
+  process.exit(1)
 }

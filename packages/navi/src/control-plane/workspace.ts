@@ -66,8 +66,8 @@ export namespace Workspace {
   export function list(project: Project.Info) {
     const all = JsonlStorage.listItemsSync<Info>("workspaces")
     return all
-      .filter((w) => w.projectID === project.id)
-      .sort((a, b) => a.id.localeCompare(b.id))
+      .filter((w: Info) => w.projectID === project.id)
+      .sort((a: Info, b: Info) => a.id.localeCompare(b.id))
   }
 
   export const get = fn(WorkspaceID.zod, async (id) => {

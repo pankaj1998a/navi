@@ -759,30 +759,16 @@ export namespace Provider {
         },
       }
     },
-    kilo: async () => {
-      return {
-        autoload: true,
-        options: {
-          headers: {
-            "HTTP-Referer": "https://Navi.ai/",
-            "X-Title": "Navi",
-          },
-        },
-      }
+    kilo: async (input) => {
+      const { KilocodeProvider } = await import("./providers/kilocode")
+      return KilocodeProvider.load(input)
     },
-    kilocode: async () => {
-      return {
-        autoload: true,
-        options: {
-          headers: {
-            "HTTP-Referer": "https://Navi.ai/",
-            "X-Title": "Navi",
-          },
-        },
-      }
+    kilocode: async (input) => {
+      const { KilocodeProvider } = await import("./providers/kilocode")
+      return KilocodeProvider.load(input)
     },
     "gemini-cli": async () => {
-      const { geminiCliFetch, resolveGeminiModelID } = await import("./gemini-cli")
+      const { geminiCliFetch, resolveGeminiModelID, discoverModels } = await import("./gemini-cli")
       return {
         autoload: true,
         options: {
@@ -791,6 +777,7 @@ export namespace Provider {
         async getModel(sdk: any, modelID: string) {
           return sdk.languageModel(resolveGeminiModelID(modelID))
         },
+        discoverModels,
       }
     },
     "qwen-cli": async (provider) => {
@@ -1021,7 +1008,7 @@ export namespace Provider {
               id: "gemini-cli",
               name: "Gemini CLI",
               env: [],
-              api: "https://cloudcode-pa.googleapis.com",
+              api: "https://generativelanguage.googleapis.com/v1beta",
               npm: "@ai-sdk/google",
               models: mapValues(GEMINI_MODELS, (m: any, id) => ({
                 ...m,
@@ -1029,11 +1016,14 @@ export namespace Provider {
                 cost: { input: 0, output: 0 },
                 release_date: "",
                 status: "active",
-                temperature: true,
-                reasoning: m.thinking ?? false,
-                attachment: true,
-                tool_call: true,
-                modalities: { input: ["text"], output: ["text"] },
+                temperature: m.capabilities?.temperature ?? true,
+                reasoning: m.capabilities?.reasoning ?? false,
+                attachment: m.capabilities?.attachment ?? true,
+                tool_call: m.capabilities?.toolcall ?? true,
+                modalities: m.modalities ?? {
+                  input: ["text", ...(id.includes("pro") || id.includes("flash") ? ["image", "video", "audio", "pdf"] : [])],
+                  output: ["text"],
+                },
               })),
             } as any),
             "qwen-cli": fromModelsDevProvider({
@@ -1302,20 +1292,22 @@ export namespace Provider {
             log.info("found", { providerID })
           }
 
-          const gitlab = ProviderID.make("gitlab")
-          if (discoveryLoaders[gitlab] && providers[gitlab]) {
-            yield* Effect.promise(async () => {
-              try {
-                const discovered = await discoveryLoaders[gitlab]()
-                for (const [modelID, model] of Object.entries(discovered)) {
-                  if (!providers[gitlab].models[modelID]) {
-                    providers[gitlab].models[modelID] = model
+          for (const [id, discover] of Object.entries(discoveryLoaders)) {
+            const providerID = ProviderID.make(id)
+            if (providers[providerID]) {
+              yield* Effect.promise(async () => {
+                try {
+                  const discovered = await discover()
+                  for (const [modelID, model] of Object.entries(discovered)) {
+                    if (!providers[providerID].models[modelID]) {
+                      providers[providerID].models[modelID] = model
+                    }
                   }
+                } catch (e) {
+                  log.warn("state discovery error", { id, error: e })
                 }
-              } catch (e) {
-                log.warn("state discovery error", { id: "gitlab", error: e })
-              }
-            })
+              })
+            }
           }
 
           return {

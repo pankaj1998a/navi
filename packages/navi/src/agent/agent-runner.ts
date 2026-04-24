@@ -4,6 +4,8 @@ import { Session } from "../session"
 import { SessionPrompt } from "../session/prompt"
 import { Identifier } from "../id/id"
 import { v4 as uuid } from "uuid"
+import { Provider } from "../provider/provider"
+
 
 export type AgentConfig = Agent.Info
 
@@ -32,22 +34,21 @@ export class AgentInstance {
         this.sessionID = session.id
 
         // Determine model
-        let modelString = 'Navi/big-pickle' // Default to Navi provider if all else fails
+        let model: { providerID: any; modelID: any }
         if (this.config.model) {
-            modelString = `${this.config.model.providerID}/${this.config.model.modelID}`
+            model = {
+                providerID: this.config.model.providerID,
+                modelID: this.config.model.modelID
+            }
         } else {
-            // Default to Navi/big-pickle if no specific configuration is found
-            modelString = 'Navi/big-pickle'
+            model = await Provider.defaultModel()
         }
 
         // Execute prompt using SessionPrompt
         await SessionPrompt.prompt({
             sessionID: session.id,
             messageID: Identifier.ascending("message") as any,
-            model: {
-                providerID: modelString.split('/')[0] as any,
-                modelID: modelString.split('/').slice(1).join('/') as any
-            },
+            model,
             agent: this.config.name,
             parts: [{ type: "text", text: finalInput }]
         })

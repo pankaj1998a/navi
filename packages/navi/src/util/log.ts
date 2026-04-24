@@ -16,7 +16,7 @@ export namespace Log {
     ERROR: 3,
   }
 
-  let level: Level = "DEBUG"
+  let level: Level = "INFO"
 
   function shouldLog(input: Level): boolean {
     return levelPriority[input] >= levelPriority[level]

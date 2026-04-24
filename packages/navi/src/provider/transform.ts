@@ -17,6 +17,10 @@ function mimeToModality(mime: string): Modality | undefined {
   return undefined
 }
 
+function isKimiK25Like(id: string): boolean {
+  return ["k2.", "k2p", "k2-5"].some((marker) => id.includes(marker))
+}
+
 export namespace ProviderTransform {
   export const OUTPUT_TOKEN_MAX = Flag.NAVI_EXPERIMENTAL_OUTPUT_TOKEN_MAX || 32_000
 
@@ -330,8 +334,7 @@ export namespace ProviderTransform {
     if (id.includes("glm-4.7")) return 1.0
     if (id.includes("minimax-m2")) return 1.0
     if (id.includes("kimi-k2")) {
-      // kimi-k2-thinking & kimi-k2.5 && kimi-k2p5 && kimi-k2-5
-      if (["thinking", "k2.", "k2p", "k2-5"].some((s) => id.includes(s))) {
+      if (id.includes("thinking") || isKimiK25Like(id)) {
         return 1.0
       }
       return 0.6
@@ -342,7 +345,7 @@ export namespace ProviderTransform {
   export function topP(model: Provider.Model) {
     const id = model.id.toLowerCase()
     if (id.includes("qwen")) return 1
-    if (["minimax-m2", "gemini", "kimi-k2.5", "kimi-k2p5", "kimi-k2-5"].some((s) => id.includes(s))) {
+    if (id.includes("minimax-m2") || id.includes("gemini") || isKimiK25Like(id)) {
       return 0.95
     }
     return undefined
@@ -375,8 +378,7 @@ export namespace ProviderTransform {
       id.includes("glm") ||
       id.includes("mistral") ||
       id.includes("kimi") ||
-      // TODO: Remove this after models.dev data is fixed to use "kimi-k2.5" instead of "k2p5"
-      id.includes("k2p5")
+      isKimiK25Like(id)
     )
       return {}
 
@@ -797,11 +799,11 @@ export namespace ProviderTransform {
       }
     }
 
-    // Enable thinking by default for kimi-k2.5/k2p5 models using anthropic SDK
+    // Enable thinking by default for Kimi K2.5 variants using anthropic SDK.
     const modelId = input.model.api.id.toLowerCase()
     if (
       (input.model.api.npm === "@ai-sdk/anthropic" || input.model.api.npm === "@ai-sdk/google-vertex/anthropic") &&
-      (modelId.includes("k2p5") || modelId.includes("kimi-k2.5") || modelId.includes("kimi-k2p5"))
+      isKimiK25Like(modelId)
     ) {
       result["thinking"] = {
         type: "enabled",

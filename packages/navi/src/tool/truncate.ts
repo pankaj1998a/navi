@@ -1,4 +1,4 @@
-import { NodePath } from "@effect/platform-node"
+import * as NodePath from "@effect/platform-node/NodePath"
 import { Cause, Duration, Effect, Layer, Schedule, ServiceMap } from "effect"
 import path from "path"
 import type { Agent } from "../agent/agent"

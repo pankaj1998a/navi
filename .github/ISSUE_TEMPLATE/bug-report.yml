@@ -20,10 +20,10 @@ body:
       required: false
 
   - type: input
-    id: opencode-version
+    id: navi-version
     attributes:
-      label: OpenCode version
-      description: What version of OpenCode are you using?
+      label: Navi version
+      description: What version of Navi are you using?
     validations:
       required: false
 

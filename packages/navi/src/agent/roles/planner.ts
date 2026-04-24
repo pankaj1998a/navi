@@ -4,6 +4,8 @@ const PlannerAgent: AgentTemplate = {
     id: "planner",
     name: "Architect Planner",
     description: "Analyzes requirements and creates a detailed execution plan",
+    phase: "analyze",
+    skills: ["planning"],
     tools: ["read", "grep", "write", "edit", "bash"],
     handleSteps: async function* (context: AgentContext): AsyncGenerator<AgentStep, string | void, any> {
         yield { type: "step", name: "Analyzing requirements", description: context.input }

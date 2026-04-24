@@ -6,20 +6,6 @@ Write-Host "                Navi AI Agent - Installer" -ForegroundColor Cyan
 Write-Host "====================================================" -ForegroundColor Cyan
 Write-Host ""
 
-# 1. Check for Bun
-if (-not (Get-Command bun -ErrorAction SilentlyContinue)) {
-    Write-Host "ℹ️  Bun is not installed. Navi requires Bun to run from source." -ForegroundColor Yellow
-    $installBun = Read-Host "Would you like to install Bun now? (y/n)"
-    if ($installBun -eq "y" -or $installBun -eq "Y") {
-        Write-Host "📥 Installing Bun..." -ForegroundColor Cyan
-        irm bun.sh/install.ps1 | iex
-        $env:PATH = "$env:USERPROFILE\.bun\bin;$env:PATH"
-    } else {
-        Write-Host "❌ Installation cancelled. Bun is required." -ForegroundColor Red
-        exit 1
-    }
-}
-
 # 2. Install Dependencies
 Write-Host "📦 Installing project dependencies..." -ForegroundColor Cyan
 bun install
@@ -38,12 +24,16 @@ Set-Content -Path $BIN_PATH -Value $launcherContent
 # 4. Add to PATH
 $profilePath = $PROFILE
 if (-not (Test-Path $profilePath)) {
+    $profileDir = Split-Path -Parent $profilePath
+    if (-not (Test-Path $profileDir)) {
+        New-Item -Path $profileDir -ItemType Directory -Force | Out-Null
+    }
     New-Item -Path $profilePath -ItemType File -Force | Out-Null
 }
 
-$aliasLine = "function navi { & `"$BIN_PATH`" `$args }"
+$aliasLine = "`nfunction navi { & `"$BIN_PATH`" `$args }"
 
-if (Select-String -Path $profilePath -Pattern "function navi" -Quiet) {
+if (Get-Content $profilePath | Select-String -Pattern "function navi" -Quiet) {
     Write-Host "ℹ️  Navi function already exists in PowerShell profile." -ForegroundColor Yellow
 } else {
     Add-Content -Path $profilePath -Value "`n# Navi"

@@ -54,3 +54,5 @@ export function createNaviClient(config?: Config & { directory?: string }) {
   return new NaviClient({ client })
 }
 
+export const createnaviClient = createNaviClient
+

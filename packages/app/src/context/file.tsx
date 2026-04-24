@@ -301,7 +301,7 @@ export const { use: useFile, provider: FileProvider } = createSimpleContext({
 
       const promise = sdk.client.file
         .read({ path })
-        .then((x) => {
+        .then((x: any) => {
           setStore(
             "file",
             path,
@@ -312,7 +312,7 @@ export const { use: useFile, provider: FileProvider } = createSimpleContext({
             }),
           )
         })
-        .catch((e) => {
+        .catch((e: any) => {
           setStore(
             "file",
             path,
@@ -385,9 +385,9 @@ export const { use: useFile, provider: FileProvider } = createSimpleContext({
       selectedLines,
       setSelectedLines,
       searchFiles: (query: string) =>
-        sdk.client.find.files({ query, dirs: "false" }).then((x) => (x.data ?? []).map(normalize)),
+        sdk.client.find.files({ query, dirs: "false" }).then((x: any) => (x.data ?? []).map((p: string) => normalize(p))),
       searchFilesAndDirectories: (query: string) =>
-        sdk.client.find.files({ query, dirs: "true" }).then((x) => (x.data ?? []).map(normalize)),
+        sdk.client.find.files({ query, dirs: "true" }).then((x: any) => (x.data ?? []).map((p: string) => normalize(p))),
     }
   },
 })

@@ -1,0 +1,108 @@
+src/components/dialog-connect-provider.tsx(69,16): error TS7006: Parameter 'x' implicitly has an 'any' type.
+src/components/dialog-connect-provider.tsx(83,17): error TS7006: Parameter 'e' implicitly has an 'any' type.
+src/components/dialog-fork.tsx(66,70): error TS7006: Parameter 'forked' implicitly has an 'any' type.
+src/components/dialog-select-directory.tsx(66,14): error TS7006: Parameter 'x' implicitly has an 'any' type.
+src/components/dialog-select-directory.tsx(69,25): error TS7006: Parameter 'x' implicitly has an 'any' type.
+src/components/dialog-select-directory.tsx(89,21): error TS2322: Type 'unknown' is not assignable to type 'string'.
+src/components/dialog-select-directory.tsx(92,19): error TS2345: Argument of type '{}' is not assignable to parameter of type 'string'.
+src/components/dialog-select-directory.tsx(96,32): error TS2345: Argument of type 'unknown' is not assignable to parameter of type 'string'.
+src/components/dialog-select-directory.tsx(100,35): error TS2322: Type 'unknown' is not assignable to type 'string'.
+src/components/dialog-select-file.tsx(25,21): error TS2322: Type 'unknown' is not assignable to type 'string'.
+src/components/dialog-select-file.tsx(28,36): error TS2345: Argument of type '{}' is not assignable to parameter of type 'string'.
+src/components/dialog-select-file.tsx(30,23): error TS2345: Argument of type '{}' is not assignable to parameter of type 'string'.
+src/components/dialog-select-file.tsx(39,33): error TS2322: Type 'unknown' is not assignable to type 'string'.
+src/components/dialog-select-file.tsx(42,33): error TS2345: Argument of type 'unknown' is not assignable to parameter of type 'string | undefined'.
+src/components/dialog-select-file.tsx(44,79): error TS2345: Argument of type 'unknown' is not assignable to parameter of type 'string | undefined'.
+src/components/dialog-select-server.tsx(11,10): error TS2724: '"@navi-ai/sdk/v2/client"' has no exported member named 'createnaviClient'. Did you mean 'createNaviClient'?
+src/components/dialog-select-server.tsx(24,12): error TS7006: Parameter 'x' implicitly has an 'any' type.
+src/components/prompt-input.tsx(52,10): error TS2724: '"@navi-ai/sdk/v2/client"' has no exported member named 'createnaviClient'. Did you mean 'createNaviClient'?
+src/components/prompt-input.tsx(409,50): error TS7006: Parameter 'path' implicitly has an 'any' type.
+src/components/prompt-input.tsx(1070,18): error TS7006: Parameter 'x' implicitly has an 'any' type.
+src/components/prompt-input.tsx(1071,19): error TS7006: Parameter 'err' implicitly has an 'any' type.
+src/components/prompt-input.tsx(1108,53): error TS7006: Parameter 'x' implicitly has an 'any' type.
+src/components/prompt-input.tsx(1146,17): error TS7006: Parameter 'err' implicitly has an 'any' type.
+src/components/prompt-input.tsx(1178,19): error TS7006: Parameter 'err' implicitly has an 'any' type.
+src/components/prompt-input.tsx(1346,15): error TS7006: Parameter 'err' implicitly has an 'any' type.
+src/components/session/session-header.tsx(245,32): error TS7006: Parameter 'r' implicitly has an 'any' type.
+src/components/session/session-header.tsx(246,33): error TS7006: Parameter 'e' implicitly has an 'any' type.
+src/context/file.tsx(304,16): error TS7006: Parameter 'x' implicitly has an 'any' type.
+src/context/file.tsx(315,17): error TS7006: Parameter 'e' implicitly has an 'any' type.
+src/context/file.tsx(388,63): error TS7006: Parameter 'x' implicitly has an 'any' type.
+src/context/file.tsx(390,62): error TS7006: Parameter 'x' implicitly has an 'any' type.
+src/context/global-sdk.tsx(1,10): error TS2724: '"@navi-ai/sdk/v2/client"' has no exported member named 'createnaviClient'. Did you mean 'createNaviClient'?
+src/context/global-sync.tsx(19,3): error TS2724: '"@navi-ai/sdk/v2/client"' has no exported member named 'createnaviClient'. Did you mean 'createNaviClient'?
+src/context/global-sync.tsx(117,14): error TS7006: Parameter 'x' implicitly has an 'any' type.
+src/context/global-sync.tsx(120,20): error TS7006: Parameter 's' implicitly has an 'any' type.
+src/context/global-sync.tsx(121,20): error TS7006: Parameter 's' implicitly has an 'any' type.
+src/context/global-sync.tsx(123,18): error TS7006: Parameter 'a' implicitly has an 'any' type.
+src/context/global-sync.tsx(123,21): error TS7006: Parameter 'b' implicitly has an 'any' type.
+src/context/global-sync.tsx(125,46): error TS7006: Parameter 's' implicitly has an 'any' type.
+src/context/global-sync.tsx(125,49): error TS7006: Parameter 'i' implicitly has an 'any' type.
+src/context/global-sync.tsx(132,15): error TS7006: Parameter 'err' implicitly has an 'any' type.
+src/context/global-sync.tsx(150,50): error TS7006: Parameter 'x' implicitly has an 'any' type.
+src/context/global-sync.tsx(152,35): error TS7006: Parameter 'x' implicitly has an 'any' type.
+src/context/global-sync.tsx(156,32): error TS7006: Parameter 'provider' implicitly has an 'any' type.
+src/context/global-sync.tsx(159,70): error TS18046: 'info' is of type 'unknown'.
+src/context/global-sync.tsx(164,43): error TS7006: Parameter 'x' implicitly has an 'any' type.
+src/context/global-sync.tsx(165,44): error TS7006: Parameter 'x' implicitly has an 'any' type.
+src/context/global-sync.tsx(172,32): error TS7006: Parameter 'x' implicitly has an 'any' type.
+src/context/global-sync.tsx(173,36): error TS7006: Parameter 'x' implicitly has an 'any' type.
+src/context/global-sync.tsx(174,38): error TS7006: Parameter 'x' implicitly has an 'any' type.
+src/context/global-sync.tsx(176,34): error TS7006: Parameter 'x' implicitly has an 'any' type.
+src/context/global-sync.tsx(177,34): error TS7006: Parameter 'x' implicitly has an 'any' type.
+src/context/global-sync.tsx(178,31): error TS7006: Parameter 'x' implicitly has an 'any' type.
+src/context/global-sync.tsx(179,39): error TS7006: Parameter 'x' implicitly has an 'any' type.
+src/context/global-sync.tsx(388,68): error TS2339: Property 'permissionID' does not exist on type '{ sessionID: string; requestID: string; reply: "once" | "always" | "reject"; }'.
+src/context/global-sync.tsx(406,32): error TS7006: Parameter 'x' implicitly has an 'any' type.
+src/context/global-sync.tsx(416,14): error TS7006: Parameter 'x' implicitly has an 'any' type.
+src/context/global-sync.tsx(428,43): error TS7006: Parameter 'x' implicitly has an 'any' type.
+src/context/global-sync.tsx(433,53): error TS7006: Parameter 'x' implicitly has an 'any' type.
+src/context/global-sync.tsx(435,22): error TS7006: Parameter 'p' implicitly has an 'any' type.
+src/context/global-sync.tsx(436,22): error TS7006: Parameter 'p' implicitly has an 'any' type.
+src/context/global-sync.tsx(438,20): error TS7006: Parameter 'a' implicitly has an 'any' type.
+src/context/global-sync.tsx(438,23): error TS7006: Parameter 'b' implicitly has an 'any' type.
+src/context/global-sync.tsx(443,48): error TS7006: Parameter 'x' implicitly has an 'any' type.
+src/context/global-sync.tsx(447,32): error TS7006: Parameter 'provider' implicitly has an 'any' type.
+src/context/global-sync.tsx(450,70): error TS18046: 'info' is of type 'unknown'.
+src/context/global-sync.tsx(457,48): error TS7006: Parameter 'x' implicitly has an 'any' type.
+src/context/local.tsx(398,18): error TS7006: Parameter 'x' implicitly has an 'any' type.
+src/context/local.tsx(409,19): error TS7006: Parameter 'e' implicitly has an 'any' type.
+src/context/local.tsx(456,18): error TS7006: Parameter 'x' implicitly has an 'any' type.
+src/context/local.tsx(460,34): error TS7006: Parameter 'node' implicitly has an 'any' type.
+src/context/local.tsx(470,100): error TS7006: Parameter 'x' implicitly has an 'any' type.
+src/context/local.tsx(472,62): error TS7006: Parameter 'x' implicitly has an 'any' type.
+src/context/permission.tsx(121,16): error TS7006: Parameter 'x' implicitly has an 'any' type.
+src/context/sdk.tsx(1,10): error TS2724: '"@navi-ai/sdk/v2/client"' has no exported member named 'createnaviClient'. Did you mean 'createNaviClient'?
+src/context/server.tsx(1,10): error TS2724: '"@navi-ai/sdk/v2/client"' has no exported member named 'createnaviClient'. Did you mean 'createNaviClient'?
+src/context/server.tsx(101,16): error TS7006: Parameter 'x' implicitly has an 'any' type.
+src/context/server.tsx(118,18): error TS7006: Parameter 'next' implicitly has an 'any' type.
+src/context/sync.tsx(55,26): error TS18046: 'messages' is of type 'unknown'.
+src/context/sync.tsx(55,55): error TS7006: Parameter 'x' implicitly has an 'any' type.
+src/context/sync.tsx(57,19): error TS7006: Parameter 'x' implicitly has an 'any' type.
+src/context/sync.tsx(58,22): error TS7006: Parameter 'm' implicitly has an 'any' type.
+src/context/sync.tsx(60,20): error TS7006: Parameter 'a' implicitly has an 'any' type.
+src/context/sync.tsx(60,23): error TS7006: Parameter 'b' implicitly has an 'any' type.
+src/context/sync.tsx(71,30): error TS7006: Parameter 'p' implicitly has an 'any' type.
+src/context/sync.tsx(73,28): error TS7006: Parameter 'a' implicitly has an 'any' type.
+src/context/sync.tsx(73,31): error TS7006: Parameter 'b' implicitly has an 'any' type.
+src/context/sync.tsx(150,30): error TS18046: 'session' is of type 'unknown'.
+src/context/sync.tsx(184,61): error TS18046: 'diff' is of type 'unknown'.
+src/context/sync.tsx(201,53): error TS18046: 'todo' is of type 'unknown'.
+src/context/sync.tsx(230,49): error TS7006: Parameter 'x' implicitly has an 'any' type.
+src/context/sync.tsx(232,24): error TS7006: Parameter 's' implicitly has an 'any' type.
+src/context/sync.tsx(234,22): error TS7006: Parameter 'a' implicitly has an 'any' type.
+src/context/sync.tsx(234,25): error TS7006: Parameter 'b' implicitly has an 'any' type.
+src/context/terminal.tsx(60,16): error TS7006: Parameter 'pty' implicitly has an 'any' type.
+src/context/terminal.tsx(73,17): error TS7006: Parameter 'e' implicitly has an 'any' type.
+src/context/terminal.tsx(85,17): error TS7006: Parameter 'e' implicitly has an 'any' type.
+src/context/terminal.tsx(97,17): error TS7006: Parameter 'e' implicitly has an 'any' type.
+src/context/terminal.tsx(125,57): error TS7006: Parameter 'e' implicitly has an 'any' type.
+src/pages/layout.tsx(336,24): error TS18046: 'messages' is of type 'unknown'.
+src/pages/layout.tsx(336,53): error TS7006: Parameter 'x' implicitly has an 'any' type.
+src/pages/layout.tsx(338,17): error TS7006: Parameter 'x' implicitly has an 'any' type.
+src/pages/layout.tsx(339,20): error TS7006: Parameter 'm' implicitly has an 'any' type.
+src/pages/layout.tsx(341,18): error TS7006: Parameter 'a' implicitly has an 'any' type.
+src/pages/layout.tsx(341,21): error TS7006: Parameter 'b' implicitly has an 'any' type.
+src/pages/layout.tsx(352,28): error TS7006: Parameter 'p' implicitly has an 'any' type.
+src/pages/layout.tsx(354,26): error TS7006: Parameter 'a' implicitly has an 'any' type.
+src/pages/layout.tsx(354,29): error TS7006: Parameter 'b' implicitly has an 'any' type.

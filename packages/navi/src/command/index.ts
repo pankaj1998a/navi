@@ -68,7 +68,6 @@ export namespace Command {
     INIT: "init",
     REVIEW: "review",
     FORGE: "forge",
-    COST: "cost",
     TELEPORT: "teleport",
     AGENT: "agent",
   } as const
@@ -119,15 +118,6 @@ export namespace Command {
             return "FORGE: $ARGUMENTS" // The orchestrator will intercept this or the architect will handle it.
           },
           hints: ["$ARGUMENTS"],
-        }
-        commands[Default.COST] = {
-          name: Default.COST,
-          description: "Show token usage and estimated cost for this session",
-          source: "command",
-          get template() {
-            return PROMPT_COST
-          },
-          hints: hints(PROMPT_COST),
         }
         commands[Default.TELEPORT] = {
           name: Default.TELEPORT,

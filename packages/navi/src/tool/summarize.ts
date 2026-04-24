@@ -6,6 +6,9 @@ import { Log } from "../util/log"
 import { Provider } from "../provider/provider"
 import { LLM } from "../session/llm"
 import { Agent } from "../agent/agent"
+import { MessageID, SessionID } from "../session/schema"
+import { ProviderID, ModelID } from "../provider/schema"
+import { MessageV2 } from "../session/message-v2"
 
 const log = Log.create({ service: "summarize" })
 
@@ -48,8 +51,8 @@ export async function summarizeLargeResult(response: string, context: Summarizat
         }
 
         const model = agent.model
-            ? await Provider.getModel(agent.model.providerID, agent.model.modelID)
-            : await Provider.getSmallModel("anthropic") // Fallback to a small model
+            ? await Provider.getModel(ProviderID.make(agent.model.providerID), ModelID.make(agent.model.modelID))
+            : await resolveSmallModelForSession(context.sessionID)
 
         if (!model) {
             log.warn("No model available for summarization, falling back to truncation")
@@ -85,8 +88,8 @@ Provide a concise but comprehensive summary.`,
             system: [],
             retries: 2,
             user: {
-                id: "summarize-trigger",
-                sessionID: context.sessionID,
+                id: MessageID.ascending(),
+                sessionID: SessionID.make(context.sessionID),
                 role: "user",
                 time: { created: Date.now() },
                 agent: "summarize",
@@ -101,6 +104,24 @@ Provide a concise but comprehensive summary.`,
         log.error("Summarization failed", { error })
         return response.substring(0, 40000) + "\n\n[Result truncated - summarization failed]"
     }
+}
+
+async function resolveSmallModelForSession(sessionID: string): Promise<Awaited<ReturnType<typeof Provider.getModel>>> {
+    if (sessionID) {
+        for await (const item of MessageV2.stream(SessionID.make(sessionID))) {
+            if (item.info.role === "user" && item.info.model) {
+                const providerID = ProviderID.make(item.info.model.providerID)
+                const model = await Provider.getSmallModel(providerID)
+                if (model) return model
+                return await Provider.getModel(providerID, ModelID.make(item.info.model.modelID))
+            }
+        }
+    }
+
+    const fallback = await Provider.defaultModel()
+    const fallbackSmall = await Provider.getSmallModel(fallback.providerID)
+    if (fallbackSmall) return fallbackSmall
+    return await Provider.getModel(fallback.providerID, fallback.modelID)
 }
 
 

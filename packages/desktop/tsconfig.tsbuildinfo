@@ -1,0 +1,1 @@
+{"version":"7.0.0-dev.20251207.1","root":["./src/cli.ts","./src/index.tsx","./src/menu.ts","./src/updater.ts","./package.json"],"semanticErrors":true}

@@ -849,7 +849,7 @@ class EditToolInvocation
 
       return {
         llmContent: llmSuccessMessageParts.join(' '),
-        returnDisplay: displayResult as any,
+        returnDisplay: displayResult,
       };
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);

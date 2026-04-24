@@ -13,7 +13,7 @@ const log = Log.create({ service: 'agent-specialization' })
 export const AgentDefinitionSchema = z.object({
     id: z.string().min(1),
     publisher: z.string().default('navi'),
-    model: z.string(),
+    model: z.string().optional(),
     displayName: z.string(),
     spawnerPrompt: z.string(),
     inputSchema: z.record(z.string(), z.object({
@@ -39,7 +39,6 @@ export const SPECIALIZED_AGENTS: Record<string, AgentDefinition> = {
     filePicker: {
         id: 'file-picker',
         publisher: 'navi',
-        model: 'anthropic/claude-3-5-sonnet-latest',
         displayName: 'File Picker Agent',
         spawnerPrompt: 'Scans codebase to understand architecture and find relevant files for a task.',
         toolNames: ['glob', 'grep', 'read', 'list'],
@@ -65,7 +64,6 @@ Provide a JSON array of file paths sorted by relevance.`,
     planner: {
         id: 'planner',
         publisher: 'navi',
-        model: 'anthropic/claude-3-5-sonnet-latest',
         displayName: 'Planner Agent',
         spawnerPrompt: 'Creates detailed implementation plans for coding tasks.',
         toolNames: ['read', 'grep', 'glob'],
@@ -93,7 +91,6 @@ Output a JSON plan with phases and dependencies.`,
     editor: {
         id: 'editor',
         publisher: 'navi',
-        model: 'anthropic/claude-3-5-sonnet-latest',
         displayName: 'Editor Agent',
         spawnerPrompt: 'Makes precise code edits based on requirements.',
         toolNames: ['read', 'write', 'edit', 'bash'],
@@ -120,7 +117,7 @@ export function createAgentDefinition(agent: Partial<AgentDefinition>): AgentDef
     const result: AgentDefinition = {
         id: agent.id || 'custom-agent',
         publisher: agent.publisher || 'navi',
-        model: agent.model || 'anthropic/claude-3-5-sonnet-latest',
+        model: agent.model,
         displayName: agent.displayName || 'Custom Agent',
         spawnerPrompt: agent.spawnerPrompt || 'Custom agent for specific tasks',
         toolNames: agent.toolNames || ['read', 'write'],

@@ -8,8 +8,14 @@ import { Process } from "@/util/process"
 
 export namespace Editor {
   export async function open(opts: { value: string; renderer: CliRenderer }): Promise<string | undefined> {
-    const editor = process.env["VISUAL"] || process.env["EDITOR"]
-    if (!editor) return
+    let editor = process.env["VISUAL"] || process.env["EDITOR"]
+    if (!editor) {
+      if (process.platform === "win32") {
+        editor = "notepad"
+      } else {
+        return
+      }
+    }
 
     const filepath = join(tmpdir(), `${Date.now()}.md`)
     await using _ = defer(async () => rm(filepath, { force: true }))

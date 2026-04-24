@@ -6,12 +6,18 @@ import { Agent } from "../agent/agent"
 import { Session } from "../session"
 import { SessionPrompt } from "../session/prompt"
 import { Identifier } from "../id/id"
+import { MessageID } from "../session/schema"
+import { ProviderID, ModelID } from "../provider/schema"
 import { Config } from "../config/config"
 import { PermissionNext } from "@/permission/next"
 import fs from "fs/promises"
 import path from "path"
 import { SymbolCache } from "../util/symbol-cache"
+import type { SymbolInfo } from "../util/symbol-cache"
 import { renderSymbolIndex } from "../agent/codebase-map"
+import { Log } from "../util/log"
+
+const log = Log.create({ service: "tool.gsd" })
 
 /**
  * GSD-style Codebase Mapping Tool
@@ -54,15 +60,15 @@ export const MapCodebaseTool = Tool.define("map_codebase", async (ctx) => {
                     )
                 })
 
-                const messageID = Identifier.ascending("message")
+                const messageID = MessageID.ascending()
                 const promptParts = await SessionPrompt.resolvePromptParts(task.prompt)
 
                 const result = await SessionPrompt.prompt({
                     messageID,
                     sessionID: session.id,
                     model: agent.model ? {
-                        modelID: agent.model.modelID,
-                        providerID: agent.model.providerID,
+                        modelID: ModelID.make(agent.model.modelID),
+                        providerID: ProviderID.make(agent.model.providerID),
                     } : undefined,
                     agent: agentName,
                     parts: promptParts,
@@ -86,8 +92,20 @@ export const MapCodebaseTool = Tool.define("map_codebase", async (ctx) => {
                 { maxConcurrent }
             )
 
-            await SymbolCache.update().catch(() => undefined)
-            const symbolIndex = renderSymbolIndex(await SymbolCache.getSymbols().catch(() => []), process.cwd())
+            try {
+                await SymbolCache.update()
+            } catch (error) {
+                log.warn("symbol cache update failed", { error })
+            }
+
+            let symbols: SymbolInfo[] = []
+            try {
+              symbols = await SymbolCache.getSymbols()
+            } catch (error) {
+              log.warn("symbol cache read failed", { error })
+            }
+
+            const symbolIndex = renderSymbolIndex(symbols, process.cwd())
             await fs.writeFile(path.join(planningDir, "SYMBOL_INDEX.md"), symbolIndex)
             const changedFiles = await collectChangedFiles(process.cwd())
             await fs.writeFile(path.join(planningDir, "CHANGED_FILES.md"), renderChangedFiles(changedFiles))
@@ -152,7 +170,8 @@ async function collectChangedFiles(root: string) {
             .split(/\r?\n/)
             .map((line) => line.slice(3).trim())
             .filter(Boolean)
-    } catch {
+    } catch (error) {
+        log.warn("failed to collect changed files", { root, error })
         return []
     }
 }
@@ -243,7 +262,7 @@ export const ExecutePhaseTool = Tool.define("execute_phase", async (ctx) => {
                         title: `Executing Task ${task.id}: ${task.name}`,
                     })
 
-                    const messageID = Identifier.ascending("message")
+                    const messageID = MessageID.ascending()
                     const result = await SessionPrompt.prompt({
                         messageID,
                         sessionID: session.id,
@@ -264,8 +283,8 @@ export const ExecutePhaseTool = Tool.define("execute_phase", async (ctx) => {
                     try {
                         const { execSync } = require("child_process")
                         execSync(`git add . && git commit -m "feat: ${task.name}"`, { stdio: 'ignore' })
-                    } catch (e) {
-                        // Ignore
+                    } catch (error) {
+                        log.warn("atomic commit failed", { task: task.name, error })
                     }
 
                     waveResults.push({ task: task.name, result: text })
@@ -304,6 +323,7 @@ export const StateTrackerTool = Tool.define("state_tracker", async (ctx) => {
             try {
                 content = await fs.readFile(stateFile, "utf-8")
             } catch (e) {
+                log.warn("failed to read state file", { stateFile, error: e })
                 content = `# Project State
 
 ## Current Status
@@ -375,12 +395,13 @@ export const GsdTodoTool = Tool.define("gsd_todo", async (ctx) => {
             try {
                 content = await fs.readFile(todoFile, "utf-8")
             } catch (e) {
+                log.warn("failed to read todo file", { todoFile, error: e })
                 content = "# PROJECT TODOS\n\n"
             }
 
             if (params.action === "add") {
                 if (!params.content) throw new Error("Content is required for adding a todo")
-                const id = Identifier.ascending("todo")
+                const id = Identifier.ascending("checkpoint")
                 content += `- [ ] ${params.content} (id: ${id}) [${params.category ?? "general"}]\n`
                 await fs.writeFile(todoFile, content)
                 return { title: "Todo Added", output: `Added todo: ${params.content} (id: ${id})`, metadata: { id } as { id: string | undefined } }
@@ -430,7 +451,7 @@ export const QuickTaskTool = Tool.define("quick_task", async (ctx) => {
                 title: `Quick Task: ${params.task}`,
             })
 
-            const messageID = Identifier.ascending("message")
+            const messageID = MessageID.ascending()
             const result = await SessionPrompt.prompt({
                 messageID,
                 sessionID: session.id,
@@ -445,7 +466,7 @@ export const QuickTaskTool = Tool.define("quick_task", async (ctx) => {
                 const { execSync } = require("child_process")
                 execSync(`git add . && git commit -m "feat(quick): ${params.task}"`, { stdio: 'ignore' })
             } catch (e) {
-                // Ignore
+                log.warn("quick task commit failed", { task: params.task, error: e })
             }
 
             return {

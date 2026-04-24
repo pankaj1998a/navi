@@ -1,7 +1,7 @@
 # PROJECT: Navi
 
 ## Overview
-Navi is a powerful AI coding assistant that runs directly in your terminal. It features a beautiful TUI (Terminal User Interface) and supports multiple AI providers including Claude, GPT, Gemini, and more. Navi is an enhanced fork of opencode with significant improvements and additional features.
+Navi is a powerful AI coding assistant that runs directly in your terminal. It features a beautiful TUI (Terminal User Interface) and supports multiple AI providers including Claude, GPT, Gemini, and more. Navi is built for performance and scale, providing a complete development cycle directly from your command line.
 
 ## Vision
 To become a complete AI-augmented project manager and coding assistant that provides repeatable, version-controlled development cycles (plan → execute → verify) without overloading the LLM context.

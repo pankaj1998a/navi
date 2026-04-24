@@ -1,0 +1,349 @@
+import { PlanEnterTool, PlanExitTool } from "./plan"
+import { QuestionTool } from "./question"
+import { BashTool } from "./bash"
+import { EditTool } from "./edit"
+import { GlobTool } from "./glob"
+import { GrepTool } from "./grep"
+import { BatchTool } from "./batch"
+import { ReadTool } from "./read"
+import { TaskTool } from "./task"
+import { TodoWriteTool } from "./todo"
+import { MemoryTool } from "./memory"
+import { ScratchpadTool } from "./scratchpad"
+import { WebFetchTool } from "./webfetch"
+import { WebScrapeTool } from "./webscrape"
+import { WebCrawlTool } from "./webcrawl"
+import { WriteTool } from "./write"
+import { InvalidTool } from "./invalid"
+import { SkillTool } from "./skill"
+import type { Agent } from "../agent/agent"
+import { Tool } from "./tool"
+import { Config } from "../config/config"
+import path from "path"
+import { type ToolContext as PluginToolContext, type ToolDefinition } from "../plugin/types"
+import z from "zod"
+import { Plugin } from "../plugin"
+import { ProviderID, type ModelID } from "../provider/schema"
+import { WebSearchTool } from "./websearch"
+import { GoogleSearchTool } from "./google-search"
+import { CodeSearchTool } from "./codesearch"
+import { Flag } from "@/flag/flag"
+import { Log } from "@/util/log"
+import { LspTool } from "./lsp"
+import { Truncate } from "./truncate"
+import { ApplyPatchTool } from "./apply_patch"
+import { SleepTool } from "./sleep"
+import { ScheduleCronTool } from "./cron"
+import { ReplTool } from "./repl"
+import { ToolSearchTool } from "./tool-search"
+import { TeamCreateTool, TeamDeleteTool, SendMessageTool as TeamSendMessageTool } from "./team"
+import { ExternalMessageTool } from "./external-message"
+import { SandboxExecTool } from "./sandbox-exec"
+import { MemoryQueryTool } from "./memory-query"
+import { TavilySearchTool } from "./tavily-search"
+import { ExaSearchTool } from "./exa-search"
+import { DuckDuckGoSearchTool } from "./duckduckgo-search"
+import { FirecrawlTool } from "./firecrawl-tool"
+import { BriefTool, VerifyPlanExecutionTool } from "./brief"
+import { EnterWorktreeTool, ExitWorktreeTool, ResetWorktreeTool } from "./worktree"
+import { TeleportTool } from "./teleport"
+import { HooksInfoTool } from "./hooks-info"
+import { SyntheticOutputTool } from "./synthetic-output"
+import { NotebookEditTool } from "./notebook"
+import { UndoTool } from "./undo"
+import { CheckpointTool } from "./checkpoint"
+import {
+  AnalyzeTaskComplexityTool,
+  GetAdaptiveThinkingTool,
+  SuggestThinkingLevelTool,
+  AutoAdjustThinkingTool,
+  SuggestPermissionModeTool,
+  SuggestPermissionRulesTool,
+  AnalyzeSessionForRecoveryTool,
+  GetRecoveryPromptTool,
+  SuggestRecoveryActionsTool,
+  SelectToolsForTaskTool,
+  SuggestToolForTaskTool,
+  SuggestSwarmTool,
+  CreateSwarmPlanTool,
+  RunSwarmTool,
+  GenerateLearningSummaryTool,
+  LearnFromTaskTool,
+  SuggestToolFromLearningTool
+} from "./advanced-features"
+import { ParallelTool } from "./parallel"
+import {
+    MapCodebaseTool,
+    PlanPhaseTool,
+    ExecutePhaseTool,
+    StateTrackerTool,
+    GsdTodoTool,
+    QuickTaskTool
+} from "./gsd"
+import { ConfigureAgentModelTool, ListSubAgentsTool, ListAvailableModelsTool } from "./config-models"
+import { Glob } from "../util/glob"
+import { pathToFileURL } from "url"
+import { Effect, Layer, ServiceMap } from "effect"
+import { InstanceState } from "@/effect/instance-state"
+import { makeRuntime } from "@/effect/run-service"
+
+export namespace ToolRegistry {
+  const log = Log.create({ service: "tool.registry" })
+
+  type State = {
+    custom: Tool.Info[]
+  }
+
+  export interface Interface {
+    readonly register: (tool: Tool.Info) => Effect.Effect<void>
+    readonly ids: () => Effect.Effect<string[]>
+    readonly tools: (
+      model: { providerID: ProviderID; modelID: ModelID },
+      agent?: Agent.Info,
+    ) => Effect.Effect<(Tool.Def & { id: string })[]>
+  }
+
+  export class Service extends ServiceMap.Service<Service, Interface>()("@navi/ToolRegistry") {}
+
+  export const layer: Layer.Layer<Service, never, Config.Service | Plugin.Service> = Layer.effect(
+    Service,
+    Effect.gen(function* () {
+      const config = yield* Config.Service
+      const plugin = yield* Plugin.Service
+
+      const cache = yield* InstanceState.make<State>(
+        Effect.fn("ToolRegistry.state")(function* (ctx) {
+          const custom: Tool.Info[] = []
+
+          function fromPlugin(id: string, def: ToolDefinition): Tool.Info {
+            return {
+              id,
+              init: async (initCtx) => ({
+                parameters: z.object(def.args),
+                description: def.description,
+                execute: async (args, toolCtx) => {
+                  const pluginCtx = {
+                    ...toolCtx,
+                    directory: ctx.directory,
+                    worktree: ctx.worktree,
+                  } as unknown as PluginToolContext
+                  const result = await def.execute(args as any, pluginCtx)
+                  const out = await Truncate.output(result, {}, initCtx?.agent)
+                  return {
+                    title: "",
+                    output: out.truncated ? out.content : result,
+                    metadata: { truncated: out.truncated, outputPath: out.truncated ? out.outputPath : undefined },
+                  }
+                },
+              }),
+            }
+          }
+
+          const dirs = yield* config.directories()
+          const matches = dirs.flatMap((dir) =>
+            Glob.scanSync("{tool,tools}/*.{js,ts}", { cwd: dir, absolute: true, dot: true, symlink: true }),
+          )
+          if (matches.length) yield* config.waitForDependencies()
+          for (const match of matches) {
+            const namespace = path.basename(match, path.extname(match))
+            const mod = yield* Effect.promise(
+              () => import(process.platform === "win32" ? match : pathToFileURL(match).href),
+            )
+            for (const [id, def] of Object.entries<ToolDefinition>(mod)) {
+              custom.push(fromPlugin(id === "default" ? namespace : `${namespace}_${id}`, def))
+            }
+          }
+
+          const plugins = yield* plugin.list()
+          for (const p of plugins) {
+            for (const [id, def] of Object.entries(p.tool ?? {})) {
+              custom.push(fromPlugin(id, def))
+            }
+          }
+
+          return { custom }
+        }),
+      )
+
+      const all = Effect.fn("ToolRegistry.all")(function* (custom: Tool.Info[]) {
+        const cfg = yield* config.get()
+        const question = ["app", "cli", "desktop"].includes(Flag.NAVI_CLIENT) || Flag.NAVI_ENABLE_QUESTION_TOOL
+
+        return [
+          InvalidTool,
+          ...(question ? [QuestionTool] : []),
+          BashTool,
+          ReadTool,
+          GlobTool,
+          GrepTool,
+          EditTool,
+          WriteTool,
+          TaskTool,
+          WebFetchTool,
+          WebScrapeTool,
+          WebCrawlTool,
+          TodoWriteTool,
+          MemoryTool,
+          ScratchpadTool,
+          WebSearchTool,
+          GoogleSearchTool,
+          CodeSearchTool,
+          SkillTool,
+          ApplyPatchTool,
+          LspTool,
+          ...(cfg.experimental?.batch_tool === true ? [BatchTool] : []),
+          ...(Flag.NAVI_EXPERIMENTAL_PLAN_MODE && Flag.NAVI_CLIENT === "cli" ? [PlanEnterTool, PlanExitTool] : []),
+          SleepTool,
+          ScheduleCronTool,
+          ReplTool,
+          ToolSearchTool,
+          TeamCreateTool,
+          TeamDeleteTool,
+          TeamSendMessageTool,
+          ExternalMessageTool,
+          SandboxExecTool,
+          MemoryQueryTool,
+          TavilySearchTool,
+          ExaSearchTool,
+          DuckDuckGoSearchTool,
+          FirecrawlTool,
+          BriefTool,
+          VerifyPlanExecutionTool,
+          EnterWorktreeTool,
+          ExitWorktreeTool,
+          ResetWorktreeTool,
+          TeleportTool,
+          HooksInfoTool,
+          SyntheticOutputTool,
+          NotebookEditTool,
+          UndoTool,
+          CheckpointTool,
+          AnalyzeTaskComplexityTool,
+          GetAdaptiveThinkingTool,
+          SuggestThinkingLevelTool,
+          AutoAdjustThinkingTool,
+          SuggestPermissionModeTool,
+          SuggestPermissionRulesTool,
+          AnalyzeSessionForRecoveryTool,
+          GetRecoveryPromptTool,
+          SuggestRecoveryActionsTool,
+          SelectToolsForTaskTool,
+          SuggestToolForTaskTool,
+          SuggestSwarmTool,
+          CreateSwarmPlanTool,
+          RunSwarmTool,
+          GenerateLearningSummaryTool,
+          LearnFromTaskTool,
+          SuggestToolFromLearningTool,
+          ParallelTool,
+          MapCodebaseTool,
+          PlanPhaseTool,
+          ExecutePhaseTool,
+          StateTrackerTool,
+          GsdTodoTool,
+          QuickTaskTool,
+          ConfigureAgentModelTool,
+          ListSubAgentsTool,
+          ListAvailableModelsTool,
+          ...custom,
+        ]
+      })
+
+      const register = Effect.fn("ToolRegistry.register")(function* (tool: Tool.Info) {
+        const state = yield* InstanceState.get(cache)
+        const idx = state.custom.findIndex((t) => t.id === tool.id)
+        if (idx >= 0) {
+          state.custom.splice(idx, 1, tool)
+          return
+        }
+        state.custom.push(tool)
+      })
+
+      const ids = Effect.fn("ToolRegistry.ids")(function* () {
+        const state = yield* InstanceState.get(cache)
+        const tools = yield* all(state.custom)
+        return tools.map((t) => t.id)
+      })
+
+      const tools = Effect.fn("ToolRegistry.tools")(function* (
+        model: { providerID: ProviderID; modelID: ModelID },
+        agent?: Agent.Info,
+      ) {
+        const state = yield* InstanceState.get(cache)
+        const allTools = yield* all(state.custom)
+        const filtered = allTools.filter((tool) => {
+          // If agent specifies toolNames, strictly adhere to them
+          // We always allow 'invalid', 'question', and 'task' as they are core infrastructure
+          if (agent?.toolNames && agent.toolNames.length > 0) {
+            const essentials = ["invalid", "question", "task"]
+            if (!essentials.includes(tool.id) && !agent.toolNames.includes(tool.id)) {
+              return false
+            }
+          }
+
+          if (tool.id === "codesearch" || tool.id === "websearch") {
+            // These tools now use the dynamic search-pipeline (falling back to DDG/Google)
+            // They no longer strictly require Exa, so they are generally available.
+            return true
+          }
+
+          const usePatch =
+            model.modelID.includes("gpt-") && !model.modelID.includes("oss") && !model.modelID.includes("gpt-4")
+          if (tool.id === "apply_patch") return usePatch
+          if (tool.id === "edit" || tool.id === "write") return !usePatch
+
+          return true
+        })
+
+        return yield* Effect.forEach(
+          filtered,
+          Effect.fnUntraced(function* (tool: Tool.Info) {
+            using _ = log.time(tool.id)
+            const next = yield* Effect.promise(() => tool.init({ agent }))
+            const output = {
+              description: next.description,
+              parameters: next.parameters,
+            }
+            yield* plugin.trigger("tool.definition", { toolID: tool.id }, output)
+            return {
+              id: tool.id,
+              description: output.description,
+              parameters: output.parameters,
+              execute: next.execute,
+              validate: next.validate,
+              formatValidationError: next.formatValidationError,
+            }
+          }),
+          { concurrency: "unbounded" },
+        )
+      })
+
+      return Service.of({ register, ids, tools })
+    }),
+  )
+
+  export const defaultLayer = Layer.unwrap(
+    Effect.sync(() => layer.pipe(Layer.provide(Config.defaultLayer), Layer.provide(Plugin.defaultLayer))),
+  )
+
+  const { runPromise } = makeRuntime(Service, defaultLayer)
+
+  export async function register(tool: Tool.Info) {
+    return runPromise((svc) => svc.register(tool))
+  }
+
+  export async function ids() {
+    return runPromise((svc) => svc.ids())
+  }
+
+  export async function tools(
+    model: {
+      providerID: ProviderID
+      modelID: ModelID
+    },
+    agent?: Agent.Info,
+  ): Promise<(Tool.Def & { id: string })[]> {
+    return runPromise((svc) => svc.tools(model, agent))
+  }
+}
+

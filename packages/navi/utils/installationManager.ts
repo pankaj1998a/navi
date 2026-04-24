@@ -53,7 +53,7 @@ export class InstallationManager {
         'Error accessing installation ID file, generating ephemeral ID:',
         error,
       );
-      return '123456789';
+      return randomUUID();
     }
   }
 }

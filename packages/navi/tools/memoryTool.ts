@@ -214,12 +214,12 @@ class MemoryToolInvocation extends BaseToolInvocation<
       DEFAULT_DIFF_OPTIONS,
     );
 
-    const confirmationDetails: ToolEditConfirmationDetails = {
+      const confirmationDetails: ToolEditConfirmationDetails = {
       type: 'edit',
       title: `Confirm Memory Save: ${tildeifyPath(memoryFilePath)}`,
       fileName: memoryFilePath,
       filePath: memoryFilePath,
-      fileDiff: fileDiff as any,
+      fileDiff,
       originalContent: currentContent,
       newContent,
       onConfirm: async (outcome: ToolConfirmationOutcome) => {

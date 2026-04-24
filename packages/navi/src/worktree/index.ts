@@ -14,7 +14,7 @@ import { BusEvent } from "@/bus/bus-event"
 import { GlobalBus } from "@/bus/global"
 import { Effect, Layer, Path, Scope, ServiceMap, Stream } from "effect"
 import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process"
-import { NodePath } from "@effect/platform-node"
+import * as NodePath from "@effect/platform-node/NodePath"
 import { AppFileSystem } from "@/filesystem"
 import { makeRuntime } from "@/effect/run-service"
 import * as CrossSpawnSpawner from "@/effect/cross-spawn-spawner"
@@ -455,10 +455,7 @@ export namespace Worktree {
         directory: string,
         input: { projectID: ProjectID; extra?: string },
       ) {
-        const row = yield* Effect.sync(() =>
-          Database.use((db) => db.select().from(ProjectTable).where(eq(ProjectTable.id, input.projectID)).get()),
-        )
-        const project = row ? Project.fromRow(row) : undefined
+        const project = yield* Effect.promise(() => Project.get(input.projectID))
         const startup = project?.commands?.start?.trim() ?? ""
         const ok = yield* runStartScript(directory, startup, "project")
         if (!ok) return false

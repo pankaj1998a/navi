@@ -1,7 +1,15 @@
 import z from "zod"
 import { Tool } from "./tool"
 import { Todo } from "../session/todo"
-import { Identifier } from "../id/id"
+
+function findTodoIndex(todos: Todo.Info[], ref: string) {
+  const numeric = Number(ref)
+  if (Number.isInteger(numeric) && numeric > 0 && numeric <= todos.length) {
+    return numeric - 1
+  }
+
+  return todos.findIndex((t) => t.content === ref)
+}
 
 /**
  * TaskCreateTool adds a new task to the session's TODO list.
@@ -15,7 +23,6 @@ export const TaskCreateTool = Tool.define("TaskCreate", {
   async execute(params, ctx) {
     const todos = await Todo.get(ctx.sessionID)
     const newTodo: Todo.Info = {
-      id: Identifier.ascending("todo"),
       content: params.content,
       status: "pending",
       priority: params.priority,
@@ -26,7 +33,7 @@ export const TaskCreateTool = Tool.define("TaskCreate", {
     })
     return {
       title: "Task created",
-      output: `Created task: [${newTodo.id}] ${newTodo.content} (${newTodo.priority})`,
+      output: `Created task #${todos.length + 1}: ${newTodo.content} (${newTodo.priority})`,
       metadata: { todo: newTodo },
     }
   },
@@ -48,7 +55,7 @@ export const TaskListTool = Tool.define("TaskList", {
     return {
       title: `Tasks: ${todos.length}`,
       output: todos.length > 0 
-        ? todos.map((t) => `[${t.id}] (${t.status}) [${t.priority}] ${t.content}`).join("\n")
+        ? todos.map((t, i) => `${i + 1}. (${t.status}) [${t.priority}] ${t.content}`).join("\n")
         : "No tasks found.",
       metadata: { todos },
     }
@@ -62,7 +69,7 @@ async function updateTask(params: {
   priority?: "high" | "medium" | "low"
 }, ctx: any) {
   const todos = await Todo.get(ctx.sessionID)
-  const index = todos.findIndex((t) => t.id === params.id)
+  const index = findTodoIndex(todos, params.id)
   if (index === -1) {
     throw new Error(`Task with ID ${params.id} not found.`)
   }
@@ -113,7 +120,7 @@ export const TaskGetTool = Tool.define("TaskGet", {
   }),
   async execute(params, ctx) {
     const todos = await Todo.get(ctx.sessionID)
-    const todo = todos.find((t) => t.id === params.id)
+    const todo = todos[findTodoIndex(todos, params.id)]
     if (!todo) {
       throw new Error(`Task with ID ${params.id} not found.`)
     }

@@ -4,6 +4,8 @@ const DocumentationAgent: AgentTemplate = {
     id: "docs-writer",
     name: "Documentation Writer",
     description: "Specialized in creating and maintaining project documentation",
+    phase: "document",
+    skills: ["documentation"],
     tools: ["read", "write", "grep", "edit", "bash", "write_document"],
     handleSteps: async function* (context: AgentContext): AsyncGenerator<AgentStep, string | void, any> {
         yield { type: "step", name: "Updating documentation" }

@@ -8,12 +8,12 @@ import { CodexAuthPlugin } from "./codex"
 import { Session } from "../session"
 import { NamedError } from "@navi-ai/util/error"
 import { CopilotAuthPlugin } from "./copilot"
-import { gitlabAuthPlugin as GitlabAuthPlugin } from "opencode-gitlab-auth"
-import { PoeAuthPlugin } from "opencode-poe-auth"
+
 import { KilocodeAuthPlugin } from "../provider/kilocode"
-import { GeminiAuthPlugin } from "../provider/gemini-cli"
+
 import { StandardHooksPlugin } from "./standard-hooks"
 import { QwenAuthPlugin } from "../provider/qwen-cli"
+import { GeminiAuthPlugin } from "../provider/gemini-cli"
 import { Effect, Layer, ServiceMap, Stream } from "effect"
 import { InstanceState } from "@/effect/instance-state"
 import { makeRuntime } from "@/effect/run-service"
@@ -58,11 +58,11 @@ export namespace Plugin {
     StandardHooksPlugin,
     CodexAuthPlugin,
     CopilotAuthPlugin,
-    GitlabAuthPlugin,
-    PoeAuthPlugin,
+
     KilocodeAuthPlugin as any,
-    GeminiAuthPlugin as any,
+
     QwenAuthPlugin as any,
+    GeminiAuthPlugin as any,
   ]
 
   function isServerPlugin(value: unknown): value is PluginInstance {

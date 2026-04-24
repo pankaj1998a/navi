@@ -28,14 +28,16 @@ export function DialogContextViz() {
     let input = 0
     let output = 0
     let reasoning = 0
+    let totalCost = 0
     const files = new Map<string, number>()
 
     for (const msg of msgs) {
       if (msg.role === "assistant" && msg.tokens) {
-        total += msg.tokens.total ?? (msg.tokens.input + msg.tokens.output)
+        total += (msg.tokens.input + msg.tokens.output)
         input += msg.tokens.input
         output += msg.tokens.output
         reasoning += msg.tokens.reasoning
+        totalCost += msg.cost || 0
       }
       
       const parts = sync.data.part[msg.id] || []
@@ -50,7 +52,19 @@ export function DialogContextViz() {
       }
     }
 
-    return { total, input, output, reasoning, files: Array.from(files.entries()).sort((a,b) => b[1] - a[1]) }
+    return { 
+      total, 
+      input, 
+      output, 
+      reasoning, 
+      totalCost,
+      files: Array.from(files.entries()).sort((a,b) => b[1] - a[1]) 
+    }
+  })
+
+  const money = new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
   })
 
   return (
@@ -74,6 +88,13 @@ export function DialogContextViz() {
               <text fg={theme.text}>Total Tokens</text>
               <text fg={theme.accent}>{stats().total.toLocaleString()}</text>
             </box>
+
+            <Show when={stats().totalCost > 0}>
+                <box flexDirection="row" justifyContent="space-between" marginBottom={1}>
+                    <text fg={theme.text}>Estimated Cost</text>
+                    <text fg={theme.success}>{money.format(stats().totalCost)}</text>
+                </box>
+            </Show>
             
             <box height={1} width="100%" flexDirection="row" backgroundColor={theme.backgroundElement}>
                 <box 

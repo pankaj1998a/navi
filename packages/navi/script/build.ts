@@ -18,6 +18,12 @@ import { Script } from "../../../script/info"
 const singleFlag = process.argv.includes("--single")
 const baselineFlag = process.argv.includes("--baseline")
 const skipInstall = process.argv.includes("--skip-install")
+const bunExe = process.execPath
+type Migration = {
+  sql: string
+  timestamp: number
+  name: string
+}
 
 const allTargets: {
   os: string
@@ -36,26 +42,34 @@ const allTargets: {
     },
   ]
 
-const targets = singleFlag
-  ? allTargets.filter((item) => {
-    if (item.os !== process.platform || item.arch !== process.arch) {
-      return false
-    }
-    if (item.avx2 === false) {
-      return baselineFlag
-    }
-    return true
-  })
-  : allTargets
-
 const binaries: Record<string, string> = {}
 
-async function build() {
-  if (!skipInstall) {
+async function build(options: { singleFlag?: boolean; baselineFlag?: boolean; skipInstall?: boolean } = {}) {
+  const useSingleFlag = options.singleFlag ?? singleFlag
+  const useBaselineFlag = options.baselineFlag ?? baselineFlag
+  const useSkipInstall = options.skipInstall ?? skipInstall
+
+  const targets = useSingleFlag
+    ? allTargets.filter((item) => {
+        if (item.os !== process.platform || item.arch !== process.arch) {
+          return false
+        }
+        if (item.avx2 === false) {
+          return useBaselineFlag
+        }
+        return true
+      })
+    : allTargets
+
+  if (!useSkipInstall && !useSingleFlag) {
     console.log("Installing native modules for all platforms...")
-    await $`bun install --os="*" --cpu="*" @opentui/core@${pkg.dependencies["@opentui/core"]}`
-    await $`bun install --os="*" --cpu="*" @parcel/watcher@${pkg.dependencies["@parcel/watcher"]}`
-    console.log("Native modules installed.")
+    try {
+      await $`${bunExe} install --os="*" --cpu="*" @opentui/core@${pkg.dependencies["@opentui/core"]}`
+      await $`${bunExe} install --os="*" --cpu="*" @parcel/watcher@${pkg.dependencies["@parcel/watcher"]}`
+      console.log("Native modules installed.")
+    } catch (e) {
+      console.warn("Failed to install native modules for all platforms, proceeding with local versions.", e)
+    }
   }
 
   const migrationDir = path.resolve(dir, "./migration")
@@ -63,7 +77,7 @@ async function build() {
     .readdirSync(migrationDir, { withFileTypes: true })
     .filter((entry) => entry.isDirectory())
     .map((entry) => entry.name)
-    .map((name) => {
+    .map<Migration | undefined>((name) => {
       const file = path.join(migrationDir, name, "migration.sql")
       if (!fs.existsSync(file)) return
       const match = /^(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})/.exec(name)
@@ -83,8 +97,8 @@ async function build() {
         name,
       }
     })
-    .filter(Boolean)
-    .sort((a: any, b: any) => a.timestamp - b.timestamp)
+    .filter((migration): migration is Migration => Boolean(migration))
+    .sort((a, b) => a.timestamp - b.timestamp)
 
   for (const item of targets) {
     const name = [
@@ -105,6 +119,8 @@ async function build() {
     ]
       .filter(Boolean)
       .join("-")
+    type CompileTarget = "bun-windows-x64" | "bun-windows-x64-baseline"
+    const compileTarget = bunTarget as CompileTarget
 
     console.log(`building ${name} (target: ${bunTarget})`)
     await Bun.$`mkdir -p dist/${name}/bin`
@@ -137,7 +153,6 @@ async function build() {
     try {
       // Build main navi binary
       await Bun.build({
-        conditions: ["browser"],
         tsconfig: "./tsconfig.json",
         plugins: [solidPlugin],
         sourcemap: "none",
@@ -145,21 +160,19 @@ async function build() {
         compile: {
           autoloadBunfig: false,
           autoloadDotenv: false,
-          //@ts-ignore
           autoloadTsconfig: true,
-          target: bunTarget as any,
+          target: compileTarget,
           outfile: `dist/${name}/bin/navi`,
           execArgv: [`--user-agent=navi/${Script.version}`, "--use-system-ca", "--"],
           windows: {},
         },
-        entrypoints: ["./src/index.ts"],
+        entrypoints: ["./src/index.ts", parserWorker, workerPath],
         define,
       })
 
       // Build TUI worker
       await Bun.$`mkdir -p dist/${name}/bin/cli/cmd/tui`
       await Bun.build({
-        conditions: ["browser"],
         tsconfig: "./tsconfig.json",
         plugins: [solidPlugin],
         sourcemap: "none",
@@ -201,11 +214,12 @@ async function build() {
         ),
       )
       binaries[name] = Script.version
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error(`Failed to build ${name}:`, e)
-      if (e.logs) {
-        console.error("Build logs:", e.logs)
+      if (typeof e === "object" && e && "logs" in e) {
+        console.error("Build logs:", (e as { logs?: unknown }).logs)
       }
+      process.exit(1)
     }
   }
 }

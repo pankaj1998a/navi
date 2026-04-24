@@ -1,0 +1,31 @@
+Spawn a background task that runs asynchronously while you continue working.
+
+WHEN TO USE:
+- Parallel exploration: Fire 5+ independent searches simultaneously
+- Research tasks: Library documentation, API lookups, code examples
+- Non-blocking work: Tasks where you don't need immediate results
+
+PARAMETERS:
+- description: Short (3-5 word) description of the background task
+- prompt: The task for the agent to perform
+- agent: The specialized agent to use (explore, researcher, architect, etc.)
+
+BEHAVIOR:
+- Returns immediately with a task_id
+- Task runs in background - you can continue working
+- Use background_output(task_id) to check results when needed
+- Use background_cancel(task_id) to stop a running task
+
+AVAILABLE AGENTS:
+{agents}
+
+EXAMPLE PARALLEL USAGE:
+```
+// Launch multiple background tasks for parallel search
+background_task(agent="explore", prompt="Find all API endpoints in src/")
+background_task(agent="explore", prompt="Find authentication implementations")
+background_task(agent="researcher", prompt="Find React 18 concurrent mode docs")
+// Continue with other work while these run...
+```
+
+NOTE: For tasks requiring immediate results, use the regular `task` tool instead.

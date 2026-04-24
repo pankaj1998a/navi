@@ -138,25 +138,6 @@ export function BuddyHeader() {
         </box>
       </box>
 
-      {/* Bottom Row: Specs and Usage */}
-      <box flexDirection="row" justifyContent="space-between" marginTop={0}>
-        <box flexDirection="row" gap={2}>
-            <text fg={theme.textMuted} attributes={TextAttributes.ITALIC}>{String(currentModel() || "")}</text>
-            <Show when={route.data.type === "session"}>
-                <text fg={theme.textMuted}>{String(sessionInfo())}</text>
-            </Show>
-        </box>
-
-        <box flexDirection="row" gap={2}>
-          <Show when={usage()}>
-              <box flexDirection="row">
-                  <text fg={theme.primary}>{String(totalTokens())}</text>
-                  <text fg={theme.textMuted}>{String(usageSuffix())}</text>
-              </box>
-          </Show>
-          <text fg={theme.textMuted}>· /help</text>
-        </box>
-      </box>
     </box>
   )
 }

@@ -47,7 +47,7 @@ export namespace SessionCompaction {
       sessionID: SessionID
       auto: boolean
       overflow?: boolean
-    }) => Effect.Effect<"continue" | "stop">
+    }) => Effect.Effect<"continue" | "stop" | "compact">
     readonly create: (input: {
       sessionID: SessionID
       agent: string
@@ -174,10 +174,14 @@ export namespace SessionCompaction {
           }
         }
 
-        const agent = yield* agents.get("compaction")
+        let agent = yield* agents.get("compaction")
+        if (!agent) {
+          const defaultName = yield* agents.defaultAgent()
+          agent = (yield* agents.get(defaultName))!
+        }
         const model = agent.model
-          ? yield* provider.getModel(agent.model.providerID, agent.model.modelID)
-          : yield* provider.getModel(userMessage.model.providerID, userMessage.model.modelID)
+          ? yield* provider.getModel(ProviderID.make(agent.model.providerID), ModelID.make(agent.model.modelID))
+          : yield* provider.getModel(ProviderID.make(userMessage.model.providerID), ModelID.make(userMessage.model.modelID))
         // Allow plugins to inject context or replace compaction prompt.
         const compacting = yield* plugin.trigger(
           "experimental.session.compacting",
@@ -370,9 +374,9 @@ When constructing the summary, try to stick to this template:
 
       return Service.of({
         isOverflow,
-        prune,
-        process: processCompaction,
-        create,
+        prune: (input) => prune(input).pipe(Effect.orDie),
+        process: (input) => processCompaction(input).pipe(Effect.orDie),
+        create: (input) => create(input).pipe(Effect.orDie),
       })
     }),
   )

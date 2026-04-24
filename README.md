@@ -5,7 +5,7 @@
 [![npm version](https://badge.fury.io/js/navi-ai-agent.svg)](https://www.npmjs.com/package/navi-ai-agent)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-Navi is a powerful AI coding assistant that runs directly in your terminal. It features a beautiful TUI (Terminal User Interface) and supports multiple AI providers including Claude, GPT, Gemini, and more. Navi is an enhanced fork of opencode with significant improvements and additional features.
+Navi is a powerful AI coding assistant that runs directly in your terminal. It features a beautiful TUI (Terminal User Interface) and supports multiple AI providers including Claude, GPT, Gemini, and more. Navi is built for performance and scale, providing a complete development cycle directly from your command line.
 
 ## ✨ Features
 

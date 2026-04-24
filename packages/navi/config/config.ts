@@ -326,6 +326,7 @@ export interface ConfigParameters {
     maxFileCount?: number;
     searchTimeout?: number;
   };
+  customExcludes?: string[];
   checkpointing?: boolean;
   proxy?: string;
   cwd: string;
@@ -461,6 +462,7 @@ export class Config {
     maxFileCount: number;
     searchTimeout: number;
   };
+  private readonly customExcludes: string[];
   private fileDiscoveryService: FileDiscoveryService | null = null;
   private gitService: GitService | undefined = undefined;
   private readonly checkpointing: boolean;
@@ -621,6 +623,7 @@ export class Config {
         DEFAULT_FILE_FILTERING_OPTIONS.searchTimeout ??
         5000,
     };
+    this.customExcludes = [...(params.customExcludes ?? [])];
     this.checkpointing = params.checkpointing ?? false;
     this.proxy = params.proxy;
     this.cwd = params.cwd ?? process.cwd();
@@ -760,32 +763,22 @@ export class Config {
     this.geminiClient = new GeminiClient(this);
     this.modelRouterService = new ModelRouterService(this);
 
-    // HACK: The settings loading logic doesn't currently merge the default
-    // generation config with the user's settings. This means if a user provides
-    // any `generation` settings (e.g., just `overrides`), the default `aliases`
-    // are lost. This hack manually merges the default aliases back in if they
-    // are missing from the user's config.
-    // TODO(12593): Fix the settings loading logic to properly merge defaults and
-    // remove this hack.
-    let modelConfigServiceConfig = params.modelConfigServiceConfig;
-    if (modelConfigServiceConfig) {
-      if (!modelConfigServiceConfig.aliases) {
-        modelConfigServiceConfig = {
-          ...modelConfigServiceConfig,
-          aliases: DEFAULT_MODEL_CONFIGS.aliases,
-        };
-      }
-      if (!modelConfigServiceConfig.overrides) {
-        modelConfigServiceConfig = {
-          ...modelConfigServiceConfig,
-          overrides: DEFAULT_MODEL_CONFIGS.overrides,
-        };
-      }
-    }
+    const modelConfigServiceConfig = params.modelConfigServiceConfig
+      ? {
+          aliases: {
+            ...DEFAULT_MODEL_CONFIGS.aliases,
+            ...params.modelConfigServiceConfig.aliases,
+          },
+          customAliases: params.modelConfigServiceConfig.customAliases,
+          overrides: [
+            ...(DEFAULT_MODEL_CONFIGS.overrides ?? []),
+            ...(params.modelConfigServiceConfig.overrides ?? []),
+          ],
+          customOverrides: params.modelConfigServiceConfig.customOverrides,
+        }
+      : DEFAULT_MODEL_CONFIGS;
 
-    this.modelConfigService = new ModelConfigService(
-      modelConfigServiceConfig ?? DEFAULT_MODEL_CONFIGS,
-    );
+    this.modelConfigService = new ModelConfigService(modelConfigServiceConfig);
   }
 
   /**
@@ -800,18 +793,20 @@ export class Config {
     // Initialize centralized FileDiscoveryService
     const discoverToolsHandle = startupProfiler.start('discover_tools');
     this.getFileService();
-    if (this.getCheckpointingEnabled()) {
-      await this.getGitService();
-    }
     this.promptRegistry = new PromptRegistry();
     this.resourceRegistry = new ResourceRegistry();
 
     this.agentRegistry = new AgentRegistry(this);
-    await this.agentRegistry.initialize();
+    const agentRegistryInit = this.agentRegistry.initialize();
+    const gitServiceInit = this.getCheckpointingEnabled()
+      ? this.getGitService()
+      : Promise.resolve(undefined);
 
     coreEvents.on(CoreEvent.AgentsRefreshed, this.onAgentsRefreshed);
 
-    this.toolRegistry = await this.createToolRegistry();
+    const toolRegistryInit = this.createToolRegistry();
+    await Promise.all([agentRegistryInit, gitServiceInit]);
+    this.toolRegistry = await toolRegistryInit;
     discoverToolsHandle?.end();
     this.mcpClientManager = new McpClientManager(
       this.toolRegistry,
@@ -1444,17 +1439,9 @@ export class Config {
 
   /**
    * Gets custom file exclusion patterns from configuration.
-   * TODO: This is a placeholder implementation. In the future, this could
-   * read from settings files, CLI arguments, or environment variables.
    */
   getCustomExcludes(): string[] {
-    // Placeholder implementation - returns empty array for now
-    // Future implementation could read from:
-    // - User settings file
-    // - Project-specific configuration
-    // - Environment variables
-    // - CLI arguments
-    return [];
+    return [...this.customExcludes];
   }
 
   getCheckpointingEnabled(): boolean {

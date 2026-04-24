@@ -1,0 +1,3 @@
+Provides AI-synthesized search results using Google AI Search.
+Unlike `websearch`, this tool does not just list links. It first gathers web results, then asks Gemini to synthesize them into a concise overview with citations when Gemini auth is available.
+If Gemini is not configured, it falls back to a deterministic non-AI summary of the top results.

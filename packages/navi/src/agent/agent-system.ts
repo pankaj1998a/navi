@@ -319,7 +319,7 @@ export namespace AgentSystem {
     Which result is the most accurate and high-quality? Or can you merge them into a single superior result?
     Return the final "Best Result" followed by a brief rationale.`
 
-        const reviewerTask = createTask("review", reviewPrompt, { priority: 100, model: "default" })
+        const reviewerTask = createTask("review", reviewPrompt, { priority: 100 })
         try {
             const bestResult = await executor(reviewerTask)
             return `# Consensus Result\n\n${bestResult}`

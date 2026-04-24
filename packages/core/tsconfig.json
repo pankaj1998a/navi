@@ -1,0 +1,11 @@
+{
+  "extends": "../../packages/navi/tsconfig.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["../navi/src/*"],
+      "navi-ai-agent/*": ["src/*"]
+    }
+  },
+  "include": ["src/**/*", "../navi/src/**/*"]
+}

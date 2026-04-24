@@ -4,8 +4,8 @@
  * This script tests the complete auth flow and API access
  */
 
-import { AntigravityAuthHook } from "./src/provider/antigravity"
-import { Auth } from "./src/auth"
+import { AntigravityAuthHook } from "../src/provider/antigravity"
+import { Auth } from "../src/auth"
 
 console.log("🔧 Testing Antigravity Authentication\n")
 
@@ -44,7 +44,7 @@ try {
 // Test 3: Get access token
 console.log("\n📋 Step 3: Getting access token...")
 try {
-    const { getAccessToken } = await import("./src/provider/antigravity")
+    const { getAccessToken } = await import("../src/provider/antigravity")
     const token = await getAccessToken()
     if (token) {
         console.log("✅ Access token retrieved")
@@ -61,7 +61,7 @@ try {
 // Test 4: Test API call
 console.log("\n📋 Step 4: Testing API access...")
 try {
-    const { getAccessToken } = await import("./src/provider/antigravity")
+    const { getAccessToken } = await import("../src/provider/antigravity")
     const token = await getAccessToken()
 
     // Test a simple API call to generativelanguage

@@ -1,0 +1,47 @@
+{
+  "name": "@navi-ai/core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./tools": "./src/tools/index.ts",
+    "./util": "./src/util/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@google/genai": "catalog:",
+    "@modelcontextprotocol/sdk": "catalog:",
+    "ai": "catalog:",
+    "chalk": "5.3.0",
+    "diff": "catalog:",
+    "effect": "catalog:",
+    "framer-motion": "12.4.7",
+    "fzf": "^0.5.2",
+    "glob": "13.0.5",
+    "google-auth-library": "10.5.0",
+    "lucide-react": "0.475.0",
+    "minimatch": "10.0.3",
+    "open": "10.1.2",
+    "picomatch": "3.0.1",
+    "remeda": "catalog:",
+    "strip-ansi": "7.1.2",
+    "ulid": "catalog:",
+    "uuid": "13.0.0",
+    "zod": "catalog:",
+    "zod-to-json-schema": "3.24.1"
+  },
+  "devDependencies": {
+    "@effect/platform-node": "catalog:",
+    "@types/js-yaml": "^4.0.9",
+    "@types/node": "catalog:",
+    "@types/picomatch": "2.3.4",
+    "@types/uuid": "^10.0.0",
+    "cross-spawn": "7.0.6",
+    "typescript": "catalog:",
+    "vitest": "2.1.8"
+  }
+}

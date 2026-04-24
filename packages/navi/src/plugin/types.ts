@@ -1,6 +1,6 @@
 import type {
   Event,
-  createnaviClient,
+  createNaviClient,
   Project,
   Model,
   Provider,
@@ -24,7 +24,7 @@ export type ProviderContext = {
 }
 
 export type PluginInput = {
-  client: ReturnType<typeof createnaviClient>
+  client: ReturnType<typeof createNaviClient>
   project: Project
   directory: string
   worktree: string

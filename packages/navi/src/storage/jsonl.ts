@@ -100,6 +100,22 @@ export namespace JsonlStorage {
     await fs.rm(file, { force: true })
   }
 
+  export function listItemsSync<T>(collection: string): T[] {
+    const dir = path.join(root, collection)
+    try {
+      const fsSync = require("fs")
+      const files = fsSync.readdirSync(dir)
+      const jsonFiles = files.filter((f: string) => f.endsWith(".json"))
+      return jsonFiles.map((f: string) => {
+        const content = fsSync.readFileSync(path.join(dir, f), "utf8")
+        return JSON.parse(content) as T
+      })
+    } catch (err) {
+      if ((err as any).code === "ENOENT") return []
+      throw err
+    }
+  }
+
   export async function deleteLog(collection: string, id: string) {
     const file = path.join(root, collection, `${id}.jsonl`)
     await fs.rm(file, { force: true })

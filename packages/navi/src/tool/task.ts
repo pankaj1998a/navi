@@ -12,6 +12,9 @@ import { defer } from "@/util/defer"
 import { Config } from "../config/config"
 import { Permission } from "@/permission"
 import { ProviderID, ModelID } from "../provider/schema"
+import { Log } from "../util/log"
+
+const log = Log.create({ service: "tool:task" })
 
 const parameters = z.object({
   description: z.string().describe("A short (3-5 words) description of the task"),
@@ -69,7 +72,10 @@ export const TaskTool = Tool.define("task", async (ctx) => {
 
       const session = await iife(async () => {
         if (params.task_id) {
-          const found = await Session.get(SessionID.make(params.task_id)).catch(() => {})
+          const found = await Session.get(SessionID.make(params.task_id)).catch((error) => {
+            log.warn("failed to resume task session", { taskID: params.task_id, error })
+            return undefined
+          })
           if (found) return found
         }
 

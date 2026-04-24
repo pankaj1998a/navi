@@ -28,10 +28,6 @@ import {
 import { ToolErrorType } from './tool-error.js';
 import { makeRelative, shortenPath } from '../utils/paths.js';
 import { getErrorMessage, isNodeError } from '../utils/errors.js';
-import {
-  ensureCorrectEdit,
-  ensureCorrectFileContent,
-} from '../utils/editCorrector.js';
 import { DEFAULT_DIFF_OPTIONS, getDiffStat } from './diffOptions.js';
 import type {
   ModifiableDeclarativeTool,
@@ -45,6 +41,7 @@ import { getSpecificMimeType } from '../utils/fileUtils.js';
 import { getLanguageFromFilePath } from '../utils/language-detection.js';
 import type { MessageBus } from '../confirmation-bus/message-bus.js';
 import { debugLogger } from '../utils/debugLogger.js';
+import { unescapeStringForGeminiBug } from '../utils/editCorrector.js';
 
 /**
  * Parameters for the WriteFile tool
@@ -86,7 +83,6 @@ export async function getCorrectedFileContent(
 ): Promise<GetCorrectedFileContentResult> {
   let originalContent = '';
   let fileExists = false;
-  let correctedContent = proposedContent;
 
   try {
     originalContent = await config
@@ -105,40 +101,28 @@ export async function getCorrectedFileContent(
         message: getErrorMessage(err),
         code: isNodeError(err) ? err.code : undefined,
       };
-      // Return early as we can't proceed with content correction meaningfully
-      return { originalContent, correctedContent, fileExists, error };
+      // Return early as we can't proceed with content correction meaningfully.
+      return {
+        originalContent,
+        correctedContent: proposedContent,
+        fileExists,
+        error,
+      };
     }
   }
 
-  // If readError is set, we have returned.
-  // So, file was either read successfully (fileExists=true, originalContent set)
-  // or it was ENOENT (fileExists=false, originalContent='').
-
-  if (fileExists) {
-    // This implies originalContent is available
-    const { params: correctedParams } = await ensureCorrectEdit(
-      filePath,
+  if (abortSignal.aborted) {
+    return {
       originalContent,
-      {
-        old_string: originalContent, // Treat entire current content as old_string
-        new_string: proposedContent,
-        file_path: filePath,
-      },
-      config.getGeminiClient(),
-      config.getBaseLlmClient(),
-      abortSignal,
-      config.getDisableLLMCorrection(),
-    );
-    correctedContent = correctedParams.new_string;
-  } else {
-    // This implies new file (ENOENT)
-    correctedContent = await ensureCorrectFileContent(
-      proposedContent,
-      config.getBaseLlmClient(),
-      abortSignal,
-      config.getDisableLLMCorrection(),
-    );
+      correctedContent: proposedContent,
+      fileExists,
+    };
   }
+
+  const correctedContent = config.getDisableLLMCorrection()
+    ? proposedContent
+    : unescapeStringForGeminiBug(proposedContent);
+
   return { originalContent, correctedContent, fileExists };
 }
 
@@ -215,12 +199,12 @@ class WriteFileToolInvocation extends BaseToolInvocation<
         ? ideClient.openDiff(this.resolvedPath, correctedContent)
         : undefined;
 
-    const confirmationDetails: ToolEditConfirmationDetails = {
+      const confirmationDetails: ToolEditConfirmationDetails = {
       type: 'edit',
       title: `Confirm Write: ${shortenPath(relativePath)}`,
       fileName,
       filePath: this.resolvedPath,
-      fileDiff: fileDiff as any,
+      fileDiff,
       originalContent,
       newContent: correctedContent,
       onConfirm: async (outcome: ToolConfirmationOutcome) => {
@@ -346,7 +330,7 @@ class WriteFileToolInvocation extends BaseToolInvocation<
       );
 
       const displayResult: FileDiff = {
-        fileDiff: fileDiff as any,
+        fileDiff,
         fileName,
         filePath: this.resolvedPath,
         originalContent: correctedContentResult.originalContent,

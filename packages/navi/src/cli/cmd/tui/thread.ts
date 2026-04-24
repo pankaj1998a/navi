@@ -52,9 +52,9 @@ function createEventSource(client: RpcClient): EventSource {
 
 async function target() {
   if (typeof NAVI_WORKER_PATH !== "undefined") return NAVI_WORKER_PATH
-  const dist = new URL("./cli/cmd/tui/worker.js", import.meta.url)
-  if (await Filesystem.exists(fileURLToPath(dist))) return dist
-  return new URL("./worker.ts", import.meta.url)
+  const ts = new URL("./worker.ts", import.meta.url)
+  if (await Filesystem.exists(fileURLToPath(ts))) return ts
+  return new URL("./cli/cmd/tui/worker.js", import.meta.url)
 }
 
 async function input(value?: string) {
@@ -135,8 +135,14 @@ export const TuiThreadCommand = cmd({
           Object.entries(process.env).filter((entry): entry is [string, string] => entry[1] !== undefined),
         ),
       })
-      worker.onerror = (e) => {
-        Log.Default.error(e)
+      worker.onerror = (e: any) => {
+        Log.Default.error("Worker error", {
+          message: e.message,
+          filename: e.filename,
+          lineno: e.lineno,
+          colno: e.colno,
+          error: e.error,
+        })
       }
 
       const client = Rpc.client<typeof rpc>(worker)

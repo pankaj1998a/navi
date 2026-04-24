@@ -1,4 +1,4 @@
-import { NodePath } from "@effect/platform-node"
+import * as NodePath from "@effect/platform-node/NodePath"
 import { Effect, Layer, Path, Schema, ServiceMap } from "effect"
 import { FetchHttpClient, HttpClient, HttpClientRequest, HttpClientResponse } from "effect/unstable/http"
 import { withTransientReadRetry } from "@/util/effect-http-client"

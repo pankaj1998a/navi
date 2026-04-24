@@ -1,8 +1,20 @@
 #!/usr/bin/env bun
 
 import { $ } from "bun"
-import { createnavi } from "@navi-ai/sdk"
+import { createNavi } from "@navi-ai/sdk"
 import { parseArgs } from "util"
+import path from "path"
+
+const rootPkgPath = path.resolve(import.meta.dir, "../package.json")
+
+async function readLocalReleaseVersion() {
+  try {
+    const pkg = await Bun.file(rootPkgPath).json()
+    return typeof pkg.version === "string" ? pkg.version : "0.1.8"
+  } catch {
+    return "0.1.8"
+  }
+}
 
 export const team = [
   "actions-user",
@@ -18,12 +30,19 @@ export const team = [
 ]
 
 export async function getLatestRelease() {
-  return fetch("https://api.github.com/repos/anomalyco/navi/releases/latest")
-    .then((res) => {
-      if (!res.ok) throw new Error(res.statusText)
-      return res.json()
-    })
-    .then((data: any) => data.tag_name.replace(/^v/, ""))
+  try {
+    return await fetch("https://api.github.com/repos/anomalyco/navi/releases/latest")
+      .then((res) => {
+        if (!res.ok) throw new Error(res.statusText)
+        return res.json()
+      })
+      .then((data: { tag_name?: string }) => data.tag_name?.replace(/^v/, ""))
+      .then((tag) => tag || readLocalReleaseVersion())
+  } catch {
+    const tags = await $`git tag --list "v*" --sort=-version:refname`.text().catch(() => "")
+    const latestTag = tags.split("\n").map((x) => x.trim()).find(Boolean)
+    return latestTag?.replace(/^v/, "") ?? (await readLocalReleaseVersion())
+  }
 }
 
 type Commit = {
@@ -36,20 +55,38 @@ type Commit = {
 export async function getCommits(from: string, to: string): Promise<Commit[]> {
   const fromRef = from.startsWith("v") ? from : `v${from}`
   const toRef = to === "HEAD" ? to : to.startsWith("v") ? to : `v${to}`
+  const trackedPaths = [
+    "packages/navi",
+    "packages/sdk",
+    "packages/plugin",
+    "packages/desktop",
+    "packages/app",
+    "sdks/vscode",
+    "packages/extensions",
+    "github",
+  ].join(" ")
 
   // Get commit data with GitHub usernames from the API
-  const compare =
-    await $`gh api "/repos/anomalyco/navi/compare/${fromRef}...${toRef}" --jq '.commits[] | {sha: .sha, login: .author.login, message: .commit.message}'`.text()
-
   const commitData = new Map<string, { login: string | null; message: string }>()
-  for (const line of compare.split("\n").filter(Boolean)) {
-    const data = JSON.parse(line) as { sha: string; login: string | null; message: string }
-    commitData.set(data.sha, { login: data.login, message: data.message.split("\n")[0] ?? "" })
+  try {
+    const compare =
+      await $`gh api "/repos/anomalyco/navi/compare/${fromRef}...${toRef}" --jq '.commits[] | {sha: .sha, login: .author.login, message: .commit.message}'`.text()
+    for (const line of compare.split("\n").filter(Boolean)) {
+      const data = JSON.parse(line) as { sha: string; login: string | null; message: string }
+      commitData.set(data.sha, { login: data.login, message: data.message.split("\n")[0] ?? "" })
+    }
+  } catch {
+    const fallbackLog =
+      await $`git log ${fromRef}..${toRef} --format="%H%x00%s" -- ${trackedPaths}`.text()
+    for (const line of fallbackLog.split("\n").filter(Boolean)) {
+      const [sha, subject] = line.split("\0")
+      if (!sha) continue
+      commitData.set(sha, { login: null, message: subject ?? "" })
+    }
   }
 
   // Get commits that touch the relevant packages
-  const log =
-    await $`git log ${fromRef}..${toRef} --oneline --format="%H" -- packages/navi packages/sdk packages/plugin packages/desktop packages/app sdks/vscode packages/extensions github`.text()
+  const log = await $`git log ${fromRef}..${toRef} --oneline --format="%H" -- ${trackedPaths}`.text()
   const hashes = log.split("\n").filter(Boolean)
 
   const commits: Commit[] = []
@@ -132,7 +169,7 @@ function getSection(areas: Set<string>): string {
   return "Core"
 }
 
-async function summarizeCommit(navi: Awaited<ReturnType<typeof createnavi>>, message: string): Promise<string> {
+async function summarizeCommit(navi: Awaited<ReturnType<typeof createNavi>>, message: string): Promise<string> {
   console.log("summarizing commit:", message)
   const session = await navi.client.session.create()
   const result = await navi.client.session
@@ -154,11 +191,13 @@ Commit: ${message}`,
       },
       signal: AbortSignal.timeout(120_000),
     })
-    .then((x) => x.data?.parts?.find((y) => y.type === "text")?.text ?? message)
+    .then((x: { data?: { parts?: Array<{ type: string; text?: string }> } }) =>
+      x.data?.parts?.find((y: { type: string; text?: string }) => y.type === "text")?.text ?? message,
+    )
   return result.trim()
 }
 
-export async function generateChangelog(commits: Commit[], navi: Awaited<ReturnType<typeof createnavi>>) {
+export async function generateChangelog(commits: Commit[], navi: Awaited<ReturnType<typeof createNavi>>) {
   // Summarize commits in parallel with max 10 concurrent requests
   const BATCH_SIZE = 10
   const summaries: string[] = []
@@ -194,19 +233,22 @@ export async function generateChangelog(commits: Commit[], navi: Awaited<ReturnT
 export async function getContributors(from: string, to: string) {
   const fromRef = from.startsWith("v") ? from : `v${from}`
   const toRef = to === "HEAD" ? to : to.startsWith("v") ? to : `v${to}`
-  const compare =
-    await $`gh api "/repos/anomalyco/navi/compare/${fromRef}...${toRef}" --jq '.commits[] | {login: .author.login, message: .commit.message}'`.text()
   const contributors = new Map<string, string[]>()
+  try {
+    const compare =
+      await $`gh api "/repos/anomalyco/navi/compare/${fromRef}...${toRef}" --jq '.commits[] | {login: .author.login, message: .commit.message}'`.text()
+    for (const line of compare.split("\n").filter(Boolean)) {
+      const { login, message } = JSON.parse(line) as { login: string | null; message: string }
+      const title = message.split("\n")[0] ?? ""
+      if (title.match(/^(ignore:|test:|chore:|ci:|release:)/i)) continue
 
-  for (const line of compare.split("\n").filter(Boolean)) {
-    const { login, message } = JSON.parse(line) as { login: string | null; message: string }
-    const title = message.split("\n")[0] ?? ""
-    if (title.match(/^(ignore:|test:|chore:|ci:|release:)/i)) continue
-
-    if (login && !team.includes(login)) {
-      if (!contributors.has(login)) contributors.set(login, [])
-      contributors.get(login)?.push(title)
+      if (login && !team.includes(login)) {
+        if (!contributors.has(login)) contributors.set(login, [])
+        contributors.get(login)?.push(title)
+      }
     }
+  } catch {
+    return contributors
   }
 
   return contributors
@@ -221,7 +263,7 @@ export async function buildNotes(from: string, to: string) {
 
   console.log("generating changelog since " + from)
 
-  const navi = await createnavi({ port: 5044 })
+  const navi = await createNavi({ port: 5044 })
   const notes: string[] = []
 
   try {

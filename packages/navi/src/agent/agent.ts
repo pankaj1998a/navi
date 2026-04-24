@@ -26,7 +26,6 @@ export namespace Agent {
       displayName: "General",
       description: "General purpose research and discussion assistant",
       mode: "primary",
-      model: { providerID: "Navi", modelID: "big-pickle" },
       toolNames: ["read", "webfetch", "mcp", "skill"],
       color: "gray",
       options: {},
@@ -37,7 +36,6 @@ export namespace Agent {
       displayName: "Build",
       description: "Primary agent for building and editing code",
       mode: "primary",
-      model: { providerID: "Navi", modelID: "big-pickle" },
       toolNames: ["read", "write", "edit", "grep", "ls", "terminal", "mcp", "skill"],
       color: "blue",
       options: {},
@@ -48,7 +46,6 @@ export namespace Agent {
       displayName: "Vibe",
       description: "Creative and aesthetic project orchestrator",
       mode: "primary",
-      model: { providerID: "Navi", modelID: "big-pickle" },
       toolNames: ["read", "write", "edit", "grep", "ls", "terminal", "mcp", "swarm", "skill"],
       color: "purple",
       options: {},
@@ -70,27 +67,31 @@ export namespace Agent {
           }
 
           const mappedRegistry = registryAgents.map((a) => {
-            let model: any = a.model
-            if (typeof model === "string") {
-              const parts = model.split("/")
+            let model: Info["model"] = undefined
+            if (typeof a.model === "string") {
+              const parts = a.model.split("/")
               model = {
                 providerID: parts[0] || "Navi",
                 modelID: parts.slice(1).join("/") || parts[0],
               }
+            } else if (a.model) {
+              model = a.model
             }
 
-            return {
+            const entry = {
               ...a,
               name: a.id,
               displayName: a.displayName,
               description: a.description || "",
               model,
               toolNames: a.toolNames || [],
-              mode: "subagent" as any,
+              mode: "subagent",
               hidden: !!a.hidden,
-              options: (a as any).options || {},
-              permission: (a as any).permission || [],
-            }
+              options: {},
+              permission: [],
+            } satisfies Info
+
+            return entry
           })
 
           const finalMap = new Map<string, Info>()
@@ -164,7 +165,7 @@ export namespace Agent {
     const { Provider } = await import("../provider/provider")
     const { ProviderID, ModelID } = await import("../provider/schema")
 
-    const modelId = options.model || { providerID: "anthropic", modelID: "claude-3-5-sonnet-latest" }
+    const modelId = options.model ?? (await Provider.defaultModel())
     const model = await Provider.getModel(
         ProviderID.make(modelId.providerID), 
         ModelID.make(modelId.modelID)

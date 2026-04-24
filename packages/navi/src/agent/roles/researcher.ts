@@ -9,6 +9,8 @@ const ResearcherAgent: AgentTemplate = {
     id: "researcher",
     name: "Web Researcher",
     description: "Specialized in deep research using parallel sub-agents and summarized search.",
+    phase: "analyze",
+    skills: ["research"],
     tools: ["websearch", "googlesearch", "task", "read", "write", "edit", "bash"],
 
     async *handleSteps(context): AsyncGenerator<AgentStep, string | void, any> {

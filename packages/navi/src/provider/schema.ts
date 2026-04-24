@@ -24,6 +24,7 @@ export const ProviderID = providerIdSchema.pipe(
     mistral: schema.makeUnsafe("mistral"),
     gitlab: schema.makeUnsafe("gitlab"),
     qwenCli: schema.makeUnsafe("qwen-cli"),
+    geminiCli: schema.makeUnsafe("gemini-cli"),
   })),
 )
 

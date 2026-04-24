@@ -71,6 +71,7 @@ export class AgentSpawner extends EventEmitter {
         this.spawnedAgents.set(agentId, agent)
 
         // Start execution
+        this.runningCount++
         this.executeAgent(agent, context)
 
         return agent
@@ -151,7 +152,10 @@ export class AgentSpawner extends EventEmitter {
         await SessionPrompt.command({
             sessionID: session.id,
             messageID: Identifier.ascending("message"),
-            model: agentDefinition.model?.providerID + '/' + agentDefinition.model?.modelID || 'anthropic/claude-3-5-sonnet-latest',
+            agent: agentDefinition.name,
+            model: agentDefinition.model
+              ? `${agentDefinition.model.providerID}/${agentDefinition.model.modelID}`
+              : undefined,
             command: task,
             arguments: '',
         })

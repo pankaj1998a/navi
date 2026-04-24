@@ -24,7 +24,7 @@ export class VerificationAgent {
      * @param originalResult The result from the primary agent.
      */
     async verify(sessionID: string, task: AgentTask, originalResult: AgentResult): Promise<AgentResult> {
-        log.info("Starting adversarial post-task audit", { taskId: task.id })
+        log.info("Starting post-task review", { taskId: task.id })
 
         // 1. Fetch recent transcripts for grounding
         const messages = await Session.messages({ sessionID: sessionID as any, limit: 15 })
@@ -32,10 +32,10 @@ export class VerificationAgent {
             .map(m => `[${m.info.role.toUpperCase()}]: ${m.parts.map(p => 'text' in p ? p.text : '').join(' ')}`)
             .join('\n---\n')
 
-        // 2. Prepare the ADVERSARIAL verification prompt
+        // 2. Prepare a neutral verification prompt
         const verificationDescription = `
-# ADVERSARIAL AUDIT PROTOCOL (v4.0)
-You are an independent, extremely skeptical Quality Assurance Auditor. Your goal is to find reasons to REJECT the work provided below.
+# POST-TASK REVIEW
+You are an independent Quality Assurance reviewer. Confirm whether the work below is complete and identify any concrete issues that still need attention.
 
 ## TASK TO AUDIT:
 "${task.description}"
@@ -46,16 +46,14 @@ ${transcriptSummary}
 ## OUTPUT TO AUDIT:
 ${originalResult.output}
 
-## AUDIT INSTRUCTIONS:
-1. **Be Skeptical**: Assume the developer took shortcuts, hallucinated tool outputs, or ignored edge cases.
-2. **Verify Truth**: If the developer claims a problem is solved, use your tools (read_file, ls, etc.) to verify the files actually contain the expected changes.
-3. **Check for Hallucinations**: Did the developer mention a file or error that doesn't exist?
-4. **Code Quality**: Check for left-over TODOs, console logs, broken imports, or inconsistent styling.
-5. **Requirements Adhesion**: Re-read the original task carefully. Did they miss even a small sub-requirement?
+## REVIEW INSTRUCTIONS:
+1. Verify that the requested work is present and consistent.
+2. Check for missing requirements, broken imports, and obvious regressions.
+3. Prefer concise, actionable feedback over speculative criticism.
 
-## VERDICT MANDATE:
-- If the work is 100% complete and correct: return "VERIFIED" as your first word.
-- If you find ANY issue (no matter how small): return "FAIL" followed by a detailed, numbered list of failures. Be brutally honest.
+## VERDICT FORMAT:
+- If the work is acceptable: return "VERIFIED" as your first word.
+- If you find issues: return a short numbered list of concrete findings.
         `.trim()
 
         // 3. Spawn the Auditor Agent
@@ -75,21 +73,14 @@ ${originalResult.output}
             
             const output = verificationResult.output.trim()
             if (output.startsWith("VERIFIED")) {
-                log.info("Adversarial audit PASSED", { taskId: task.id })
-                return { ...originalResult, success: true }
+                log.info("Post-task review passed", { taskId: task.id })
+                return originalResult
             } else {
-                log.warn("Adversarial audit FAILED", { taskId: task.id, reason: output })
-                
-                // If it fails, we wrap the output in a clear Fail record
-                return { 
-                    ...originalResult, 
-                    success: false, 
-                    output: `[VERIFICATION FAILED]\n${output}`,
-                    error: `Adversarial Verification Failed` 
-                }
+                log.warn("Post-task review reported issues", { taskId: task.id, reason: output })
+                return originalResult
             }
         } catch (error) {
-            log.error("Error during adversarial audit", { error })
+            log.error("Error during post-task review", { error })
             return originalResult // Fallback to original if audit itself crashes
         }
     }

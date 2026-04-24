@@ -49,7 +49,7 @@ import { SessionContextUsage } from "@/components/session-context-usage"
 import { usePermission } from "@/context/permission"
 import { useGlobalSync } from "@/context/global-sync"
 import { usePlatform } from "@/context/platform"
-import { createnaviClient, type Message, type Part } from "@navi-ai/sdk/v2/client"
+import { createNaviClient, type Message, type Part } from "@navi-ai/sdk/v2/client"
 import { Binary } from "@navi-ai/util/binary"
 import { showToast } from "@navi-ai/ui/toast"
 import { base64Encode } from "@navi-ai/util/encode"
@@ -406,7 +406,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
     items: async (query) => {
       const agents = agentList()
       const paths = await files.searchFilesAndDirectories(query)
-      const fileOptions: AtOption[] = paths.map((path) => ({ type: "file", path, display: path }))
+      const fileOptions: AtOption[] = paths.map((path: string) => ({ type: "file", path, display: path }))
       return [...agents, ...fileOptions]
     },
     key: atKey,
@@ -1091,7 +1091,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
       }
 
       if (sessionDirectory !== projectDirectory) {
-        client = createnaviClient({
+        client = createNaviClient({
           baseUrl: sdk.url,
           fetch: platform.fetch,
           directory: sessionDirectory,

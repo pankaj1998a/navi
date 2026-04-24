@@ -80,3 +80,4 @@ export function createNaviClient(config?: Config & { directory?: string; experim
   return new NaviClient({ client })
 }
 
+export const createnaviClient = createNaviClient

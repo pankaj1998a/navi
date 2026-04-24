@@ -12,13 +12,15 @@ import { $ } from "bun"
 import { iife } from "../../util/iife"
 import { Storage } from "../../storage/storage"
 import { Instance } from "../../project/instance"
+import { SessionID, MessageID, PartID } from "../schema"
+import { ProviderID, ModelID } from "../../provider/schema"
 import z from "zod"
 
 const log = Log.create({ service: "session.prompt.command" })
 
 export const CommandInput = z.object({
-    messageID: Identifier.schema("message").optional(),
-    sessionID: Identifier.schema("session"),
+    messageID: MessageID.zod.optional(),
+    sessionID: SessionID.zod,
     agent: z.string().optional(),
     model: z.string().optional(),
     arguments: z.string(),
@@ -46,11 +48,14 @@ const quoteTrimRegex = /^["']|["']$/g
 
 export async function executeCommand(input: CommandInput, deps: {
     prompt: (input: any) => Promise<MessageV2.WithParts | void>
-    lastModel: (sessionID: string) => Promise<{ providerID: string; modelID: string }>
+    lastModel: (sessionID: SessionID) => Promise<{ providerID: ProviderID; modelID: ModelID }>
     resolvePromptParts: (text: string) => Promise<any[]>
 }) {
     log.info("command", input)
     const command = await Command.get(input.command)
+    if (!command) {
+        throw new Error(`Command not found: ${input.command}`)
+    }
     const agentName = command.agent ?? input.agent ?? (await Agent.defaultAgent())
 
     const raw = input.arguments.match(argsRegex) ?? []
@@ -105,7 +110,7 @@ export async function executeCommand(input: CommandInput, deps: {
     })()
 
     try {
-        await Provider.getModel(model.providerID, model.modelID)
+        await Provider.getModel(ProviderID.make(model.providerID), ModelID.make(model.modelID))
     } catch (e) {
         if (Provider.ModelNotFoundError.isInstance(e)) {
             const { providerID, modelID, suggestions } = e.data
@@ -144,21 +149,25 @@ export async function executeCommand(input: CommandInput, deps: {
             : [...templateParts, ...(input.parts ?? [])]
 
     // Native Handler Interception
-    if (command.handler) {
+    const cmd = command as any
+    if (cmd.handler) {
         log.info("executing native handler", { command: input.command })
-        const handlerResult = await command.handler(input.arguments, input.sessionID)
+        const handlerResult = await cmd.handler(input.arguments, input.sessionID)
         
         // 1. Ensure User Message exists
         let userMessageID = input.messageID
         if (!userMessageID) {
-            userMessageID = Identifier.ascending("message")
+            userMessageID = MessageID.ascending()
             const userMsg: MessageV2.User = {
                 id: userMessageID,
                 sessionID: input.sessionID,
                 role: "user",
                 time: { created: Date.now() },
                 agent: agentName,
-                model,
+                model: {
+                    providerID: ProviderID.make(model.providerID),
+                    modelID: ModelID.make(model.modelID),
+                },
                 variant: input.variant,
             }
             await Session.updateMessage(userMsg)
@@ -177,15 +186,15 @@ export async function executeCommand(input: CommandInput, deps: {
         }
 
         // 2. Create Assistant Response
-        const assistantMessageID = Identifier.ascending("message")
+        const assistantMessageID = MessageID.ascending()
         const assistantMsg: MessageV2.Assistant = {
             id: assistantMessageID,
             sessionID: input.sessionID,
             role: "assistant",
             parentID: userMessageID,
             time: { created: Date.now(), completed: Date.now() },
-            modelID: model.modelID,
-            providerID: model.providerID,
+            modelID: ModelID.make(model.modelID),
+            providerID: ProviderID.make(model.providerID),
             agent: agentName,
             mode: agent.mode,
             path: { cwd: process.cwd(), root: Instance.worktree },
@@ -194,7 +203,7 @@ export async function executeCommand(input: CommandInput, deps: {
         }
         await Session.updateMessage(assistantMsg)
         
-        const responsePartID = Identifier.ascending("part")
+        const responsePartID = PartID.ascending()
         const responsePart: MessageV2.TextPart = {
             id: responsePartID,
             messageID: assistantMessageID,

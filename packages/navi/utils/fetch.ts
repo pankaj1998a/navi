@@ -6,7 +6,7 @@
 
 import { getErrorMessage, isNodeError } from './errors.js';
 import { URL } from 'node:url';
-import { ProxyAgent, setGlobalDispatcher } from 'undici';
+// import { ProxyAgent, setGlobalDispatcher } from 'undici'; // Removed static import
 
 const PRIVATE_IP_RANGES = [
   /^10\./,
@@ -64,6 +64,12 @@ export async function fetchWithTimeout(
   }
 }
 
-export function setGlobalProxy(proxy: string) {
+export async function setGlobalProxy(proxy: string) {
+  if (typeof (globalThis as any).Bun !== "undefined") {
+    process.env.HTTP_PROXY = proxy;
+    process.env.HTTPS_PROXY = proxy;
+    return;
+  }
+  const { ProxyAgent, setGlobalDispatcher } = await import('undici');
   setGlobalDispatcher(new ProxyAgent(proxy));
 }

@@ -22,8 +22,8 @@ export function DialogSelectFile() {
         search={{ placeholder: "Search files", autofocus: true }}
         emptyMessage="No files found"
         items={file.searchFiles}
-        key={(x) => x}
-        onSelect={(path) => {
+        key={(x: string) => x}
+        onSelect={(path: string | undefined) => {
           if (path) {
             const value = file.tab(path)
             tabs().open(value)
@@ -33,7 +33,7 @@ export function DialogSelectFile() {
           dialog.close()
         }}
       >
-        {(i) => (
+        {(i: string) => (
           <div class="w-full flex items-center justify-between rounded-md">
             <div class="flex items-center gap-x-3 grow min-w-0">
               <FileIcon node={{ path: i, type: "file" }} class="shrink-0 size-4" />
