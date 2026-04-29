@@ -63,8 +63,36 @@ export class SettingsRegistry<T extends z.ZodObject<any>> {
     }
   }
 
-  async migrate(from: string, to: string) {
-    // Version-based migrations placeholder like Warp
-    console.log(`Migrating settings from ${from} to ${to}`);
+  private migrations = new Map<string, (data: any) => any>();
+
+  /**
+   * Registers a migration function for a specific target version.
+   */
+  registerMigration(targetVersion: string, migrationFn: (data: any) => any) {
+    this.migrations.set(targetVersion, migrationFn);
+  }
+
+  /**
+   * Migrates settings data from an old version to the current one.
+   * Follows a sequential path through registered migrations.
+   */
+  async migrate(data: any, fromVersion: string): Promise<any> {
+    let migratedData = { ...data };
+    
+    // Sort versions to ensure sequential migration
+    const versions = Array.from(this.migrations.keys()).sort((a, b) => {
+      return a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
+    });
+
+    for (const version of versions) {
+      if (version.localeCompare(fromVersion, undefined, { numeric: true, sensitivity: 'base' }) > 0) {
+        const migrator = this.migrations.get(version);
+        if (migrator) {
+          migratedData = await migrator(migratedData);
+        }
+      }
+    }
+
+    return migratedData;
   }
 }
