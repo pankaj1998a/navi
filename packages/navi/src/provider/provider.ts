@@ -3,6 +3,7 @@ import os from "os"
 import fuzzysort from "fuzzysort"
 import { Config } from "../config/config"
 import { mapValues, mergeDeep, omit, pickBy, sortBy } from "remeda"
+import freeModels from "./free-models.json"
 import { NoSuchModelError, type Provider as SDK } from "ai"
 import { Log } from "../util/log"
 import { BunProc } from "../bun"
@@ -152,6 +153,7 @@ export namespace Provider {
     vars?: CustomVarsLoader
     options?: Record<string, any>
     discoverModels?: CustomDiscoverModels
+    models?: Record<string, Model>
   }>
 
   function useLanguageModel(sdk: any) {
@@ -995,9 +997,6 @@ export namespace Provider {
           using _ = log.time("state")
           const cfg = yield* config.get()
           const modelsDev = yield* Effect.promise(() => ModelsDev.get())
-          const freeModels = (yield* Effect.promise(() =>
-            Filesystem.readJson(path.join(import.meta.dir, "free-models.json")).catch(() => ({})),
-          )) as Record<string, any>
           const { GEMINI_MODELS } = yield* Effect.promise(() => import("./gemini-cli"))
           const { QWEN_MODELS } = yield* Effect.promise(() => import("./qwen-cli"))
 
@@ -1231,9 +1230,10 @@ export namespace Provider {
               if (result.vars) varsLoaders[providerID] = result.vars
               if (result.discoverModels) discoveryLoaders[providerID] = result.discoverModels
               const opts = result.options ?? {}
+              const models = result.models ?? {}
               const patch: Partial<Info> = providers[providerID]
-                ? { options: opts }
-                : { source: "custom", options: opts }
+                ? { options: opts, models: { ...providers[providerID].models, ...models } }
+                : { source: "custom", options: opts, models }
               mergeProvider(providerID, patch)
             }
           }

@@ -3,6 +3,7 @@
 Thumbs.db
 nul
 NUL
+__pycache__/
 
 # Dependencies
 node_modules/
@@ -40,6 +41,13 @@ logs/
 *.json.bak
 debug_*
 test_output*
+*.tsbuildinfo
+paths.txt
+test-*.ts
+tty_check.ts
+typecheck_out.txt
+bun-error.log
+.planning/
 
 # Debug/development scripts (not for production)
 get-token.ts

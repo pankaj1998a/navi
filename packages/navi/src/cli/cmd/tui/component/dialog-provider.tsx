@@ -15,13 +15,15 @@ import { Clipboard } from "@tui/util/clipboard"
 import { useToast } from "../ui/toast"
 
 const PROVIDER_PRIORITY: Record<string, number> = {
-  Navi: 0,
-  "Navi-go": 1,
-  openai: 2,
-  "github-copilot": 3,
-  anthropic: 4,
-  google: 5,
-  "qwen-cli": 6,
+  kilocode: 0,
+  kilo: 1,
+  Navi: 2,
+  "Navi-go": 3,
+  openai: 4,
+  "github-copilot": 5,
+  anthropic: 6,
+  google: 7,
+  "qwen-cli": 8,
 }
 
 export function createDialogProviderOptions() {
@@ -42,10 +44,12 @@ export function createDialogProviderOptions() {
           openai: "(ChatGPT Plus/Pro or API key)",
           "Navi-go": "Low cost subscription for everyone",
           "qwen-cli": "Alibaba Qwen models (OAuth login)",
+          kilocode: "Free & paid models via Kilo Code",
+          kilo: "Gateway to multiple AI providers",
         }[provider.id],
         category: provider.id in PROVIDER_PRIORITY ? "Popular" : "Other",
         async onSelect() {
-          const methods = sync.data.provider_auth[provider.id] ?? [
+          const methods = (sync.data.provider_auth[provider.id] as any[]) ?? [
             {
               type: "api",
               label: "API key",
@@ -82,7 +86,7 @@ export function createDialogProviderOptions() {
               inputs = value
             }
 
-            const result = await sdk.client.provider.oauth.authorize({
+            const result = await (sdk.client.provider.oauth.authorize as any)({
               providerID: provider.id,
               method: index,
               inputs,
@@ -287,7 +291,7 @@ function ApiMethod(props: ApiMethodProps) {
 
 interface PromptsMethodProps {
   dialog: ReturnType<typeof useDialog>
-  prompts: NonNullable<ProviderAuthMethod["prompts"]>[number][]
+  prompts: any[]
 }
 async function PromptsMethod(props: PromptsMethodProps) {
   const inputs: Record<string, string> = {}
@@ -305,12 +309,12 @@ async function PromptsMethod(props: PromptsMethodProps) {
           () => (
             <DialogSelect
               title={prompt.message}
-              options={prompt.options.map((x) => ({
+              options={prompt.options.map((x: any) => ({
                 title: x.label,
                 value: x.value,
                 description: x.hint,
               }))}
-              onSelect={(option) => resolve(option.value)}
+              onSelect={(option) => resolve(option.value as any)}
             />
           ),
           () => resolve(null),

@@ -451,7 +451,7 @@ function App(props: { onSnapshot?: () => Promise<string[]> }) {
       suggested: sync.data.session.length > 0,
       slash: {
         name: "sessions",
-        aliases: ["resume", "continue"],
+        aliases: ["resume", "continue", "session"],
       },
       onSelect: () => {
         dialog.replace(() => <DialogSessionList />)
@@ -877,8 +877,9 @@ function App(props: { onSnapshot?: () => Promise<string[]> }) {
     })
 
     const result = await sdk.client.global.upgrade({ target: version })
+    const data = result.data as { success: boolean; version?: string; error?: string } | undefined
 
-    if (result.error || !result.data?.success) {
+    if (result.error || !data?.success) {
       toast.show({
         variant: "error",
         title: "Update Failed",
@@ -891,7 +892,7 @@ function App(props: { onSnapshot?: () => Promise<string[]> }) {
     await DialogAlert.show(
       dialog,
       "Update Complete",
-      `Successfully updated to Navi v${result.data.version}. Please restart the application.`,
+      `Successfully updated to Navi v${data.version}. Please restart the application.`,
     )
 
     exit()

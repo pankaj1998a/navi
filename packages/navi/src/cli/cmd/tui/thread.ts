@@ -3,7 +3,7 @@ import { tui } from "./app"
 import { Rpc } from "@/util/rpc"
 import { type rpc } from "./worker"
 import path from "path"
-import { fileURLToPath } from "url"
+import { fileURLToPath, pathToFileURL } from "url"
 import { UI } from "@/cli/ui"
 import { Log } from "@/util/log"
 import { errorMessage } from "@/util/error"
@@ -52,8 +52,10 @@ function createEventSource(client: RpcClient): EventSource {
 
 async function target() {
   if (typeof NAVI_WORKER_PATH !== "undefined") return NAVI_WORKER_PATH
+
   const ts = new URL("./worker.ts", import.meta.url)
   if (await Filesystem.exists(fileURLToPath(ts))) return ts
+
   return new URL("./cli/cmd/tui/worker.js", import.meta.url)
 }
 
@@ -136,6 +138,7 @@ export const TuiThreadCommand = cmd({
         ),
       })
       worker.onerror = (e: any) => {
+        console.error("Worker process error:", e.message)
         Log.Default.error("Worker error", {
           message: e.message,
           filename: e.filename,
@@ -180,27 +183,29 @@ export const TuiThreadCommand = cmd({
         directory: cwd,
         fn: () => TuiConfig.get(),
       })
-
       const network = await resolveNetworkOptions(args)
       const external =
         process.argv.includes("--port") ||
         process.argv.includes("--hostname") ||
         process.argv.includes("--mdns") ||
-        network.mdns ||
-        network.port !== 0 ||
-        network.hostname !== "127.0.0.1"
+        network.mdns === true ||
+        (network.port ?? 0) !== 0 ||
+        (network.hostname ?? "127.0.0.1") !== "127.0.0.1"
 
-      const transport = external
-        ? {
-            url: (await client.call("server", network)).url,
-            fetch: undefined,
-            events: undefined,
-          }
-        : {
-            url: "http://Navi.internal",
-            fetch: createWorkerFetch(client),
-            events: createEventSource(client),
-          }
+      let transport: { url: string; fetch: any; events: any }
+      if (external) {
+        transport = {
+          url: (await client.call("server", network)).url,
+          fetch: undefined,
+          events: undefined,
+        }
+      } else {
+        transport = {
+          url: "http://Navi.internal",
+          fetch: createWorkerFetch(client),
+          events: createEventSource(client),
+        }
+      }
 
       setTimeout(() => {
         client.call("checkUpgrade", { directory: cwd }).catch(() => {})

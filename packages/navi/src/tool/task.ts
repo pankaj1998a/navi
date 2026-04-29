@@ -72,11 +72,16 @@ export const TaskTool = Tool.define("task", async (ctx) => {
 
       const session = await iife(async () => {
         if (params.task_id) {
-          const found = await Session.get(SessionID.make(params.task_id)).catch((error) => {
-            log.warn("failed to resume task session", { taskID: params.task_id, error })
-            return undefined
-          })
-          if (found) return found
+          try {
+            const sessionID = SessionID.make(params.task_id)
+            const found = await Session.get(sessionID).catch((error) => {
+              log.warn("failed to resume task session", { taskID: params.task_id, error })
+              return undefined
+            })
+            if (found) return found
+          } catch (error) {
+            log.warn("invalid task_id format", { taskID: params.task_id, error })
+          }
         }
 
         return await Session.create({

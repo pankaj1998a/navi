@@ -10,6 +10,56 @@ interface GaxiosError {
   };
 }
 
+export class NaviError extends Error {
+  constructor(
+    message: string,
+    public code: string,
+    public context?: Record<string, any>,
+    public recoverable: boolean = false
+  ) {
+    super(message);
+    this.name = 'NaviError';
+  }
+}
+
+export interface StateSnapshot {
+  timestamp: number;
+  data: Record<string, any>;
+}
+
+export class CrashRecovery {
+  private snapshots: StateSnapshot[] = [];
+
+  private getLatestSnapshot(): StateSnapshot | undefined {
+    return this.snapshots[this.snapshots.length - 1];
+  }
+
+  private async restore(snapshot: StateSnapshot) {
+    // Placeholder for actual restoration logic
+    console.log(`Restoring from snapshot taken at ${new Date(snapshot.timestamp).toISOString()}`);
+  }
+
+  async recover(error: Error) {
+    const snapshot = this.getLatestSnapshot();
+    if (snapshot && error instanceof NaviError && error.recoverable) {
+      await this.restore(snapshot);
+      return true;
+    }
+    return false;
+  }
+
+  addSnapshot(data: Record<string, any>) {
+    this.snapshots.push({
+      timestamp: Date.now(),
+      data,
+    });
+    // Keep only last 10 snapshots
+    if (this.snapshots.length > 10) {
+      this.snapshots.shift();
+    }
+  }
+}
+
 export function isNodeError(error: unknown): error is NodeJS.ErrnoException {
   return error instanceof Error && 'code' in error;
 }

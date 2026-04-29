@@ -23,6 +23,7 @@ import z from "zod"
 import { Plugin } from "../plugin"
 import { ProviderID, type ModelID } from "../provider/schema"
 import { WebSearchTool } from "./websearch"
+import { GroundingTool } from "./grounding"
 import { CodeSearchTool } from "./codesearch"
 import { Flag } from "@/flag/flag"
 import { Log } from "@/util/log"
@@ -174,6 +175,7 @@ export namespace ToolRegistry {
           MemoryTool,
           ScratchpadTool,
           WebSearchTool,
+          GroundingTool,
           CodeSearchTool,
           SkillTool,
           ApplyPatchTool,
@@ -252,8 +254,8 @@ export namespace ToolRegistry {
         const state = yield* InstanceState.get(cache)
         const allTools = yield* all(state.custom)
         const filtered = allTools.filter((tool) => {
-          if (tool.id === "codesearch" || tool.id === "websearch") {
-            return model.providerID === ProviderID.Navi || Flag.NAVI_ENABLE_EXA
+          if (tool.id === "codesearch" || tool.id === "websearch" || tool.id === "grounding") {
+            return true
           }
 
           const usePatch =

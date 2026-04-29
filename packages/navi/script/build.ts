@@ -135,10 +135,10 @@ async function build(options: { singleFlag?: boolean; baselineFlag?: boolean; sk
     const define = {
       NAVI_VERSION: `'${Script.version}'`,
       OTUI_TREE_SITTER_WORKER_PATH: `'${bunfsRoot + workerRelativePath}'`,
-      NAVI_WORKER_PATH: `'${builtWorkerPath}'`,
+      NAVI_WORKER_PATH: `'${workerPath}'`,
       NAVI_CHANNEL: `'${Script.channel}'`,
       navi_VERSION: `'${Script.version}'`,
-      navi_WORKER_PATH: `'${builtWorkerPath}'`,
+      navi_WORKER_PATH: `'${workerPath}'`,
       navi_CHANNEL: `'${Script.channel}'`,
       NAVI_LIBC: item.os === "linux" ? `'${item.abi ?? "glibc"}'` : "''",
       FEATURE_VOICE: "true",
@@ -160,7 +160,6 @@ async function build(options: { singleFlag?: boolean; baselineFlag?: boolean; sk
         compile: {
           autoloadBunfig: false,
           autoloadDotenv: false,
-          autoloadTsconfig: true,
           target: compileTarget,
           outfile: `dist/${name}/bin/navi`,
           execArgv: [`--user-agent=navi/${Script.version}`, "--use-system-ca", "--"],

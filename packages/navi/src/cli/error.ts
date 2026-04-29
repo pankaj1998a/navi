@@ -39,6 +39,7 @@ export function FormatError(input: unknown) {
     ].join("\n")
 
   if (UI.CancelledError.isInstance(input)) return ""
+  return FormatUnknownError(input)
 }
 
 export function FormatUnknownError(input: unknown): string {

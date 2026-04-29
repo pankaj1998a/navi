@@ -14,9 +14,11 @@ bun install
 Write-Host "🛠️  Setting up global command..." -ForegroundColor Cyan
 $CURRENT_DIR = Get-Location
 $BIN_PATH = Join-Path $env:USERPROFILE "navi-launcher.ps1"
+$EXE_DIR = "$CURRENT_DIR\packages\navi\dist\navi-ai-agent-windows-x64\bin"
 
 $launcherContent = @"
-& "$CURRENT_DIR\packages\navi\dist\navi-ai-agent-windows-x64\bin\navi.exe" `$args
+`$env:NAVI_INSTALL_DIR = "$EXE_DIR"
+& "$EXE_DIR\navi.exe" `$args
 "@
 
 Set-Content -Path $BIN_PATH -Value $launcherContent

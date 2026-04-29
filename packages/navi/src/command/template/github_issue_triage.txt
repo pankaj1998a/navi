@@ -1,0 +1,8 @@
+Triage GitHub issues using the github-triage agent.
+
+Input: \
+
+1. Retrieve issue details using \gh issue view \\.
+2. Analyze the content for clarity and urgency.
+3. Suggest appropriate labels and milestones.
+4. Draft an initial response to the reporter if needed.

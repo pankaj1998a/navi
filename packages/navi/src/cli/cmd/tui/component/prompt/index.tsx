@@ -651,6 +651,7 @@ export function Prompt(props: PromptProps) {
     const currentMode = store.mode
     const variant = local.model.variant.current()
 
+    let shouldSendAsPrompt = false
     if (store.mode === "shell") {
       sdk.client.session.shell({
         sessionID,
@@ -662,37 +663,54 @@ export function Prompt(props: PromptProps) {
         command: inputText,
       })
       setStore("mode", "normal")
-    } else if (
-      inputText.startsWith("/") &&
-      iife(() => {
+    } else if (inputText.startsWith("/")) {
+      const handled = iife(() => {
         const firstLine = inputText.split("\n")[0]
-        const command = firstLine.split(" ")[0].slice(1)
-        return sync.data.command.some((x) => x.name === command)
-      })
-    ) {
-      // Parse command from first line, preserve multi-line content in arguments
-      const firstLineEnd = inputText.indexOf("\n")
-      const firstLine = firstLineEnd === -1 ? inputText : inputText.slice(0, firstLineEnd)
-      const [command, ...firstLineArgs] = firstLine.split(" ")
-      const restOfInput = firstLineEnd === -1 ? "" : inputText.slice(firstLineEnd + 1)
-      const args = firstLineArgs.join(" ") + (restOfInput ? "\n" + restOfInput : "")
+        const commandName = firstLine.split(" ")[0]
+        const localSlashes = command.slashes()
+        const match = localSlashes.find((s) => s.display === commandName || s.aliases?.includes(commandName))
+        if (match) {
+          match.onSelect()
+          return true
+        }
 
-      sdk.client.session.command({
-        sessionID,
-        command: command.slice(1),
-        arguments: args,
-        agent: local.agent.current().name,
-        model: `${selectedModel.providerID}/${selectedModel.modelID}`,
-        messageID,
-        variant,
-        parts: nonTextParts
-          .filter((x) => x.type === "file")
-          .map((x) => ({
-            id: PartID.ascending(),
-            ...x,
-          })),
+        const cmdName = commandName.slice(1)
+        if (sync.data.command.some((x) => x.name === cmdName)) {
+          // Parse command from first line, preserve multi-line content in arguments
+          const firstLineEnd = inputText.indexOf("\n")
+          const firstLineArgs = firstLineEnd === -1 ? inputText : inputText.slice(0, firstLineEnd)
+          const [parsedCmd, ...firstLineArgsParts] = firstLineArgs.split(" ")
+          const restOfInput = firstLineEnd === -1 ? "" : inputText.slice(firstLineEnd + 1)
+          const args = firstLineArgsParts.join(" ") + (restOfInput ? "\n" + restOfInput : "")
+
+          sdk.client.session.command({
+            sessionID,
+            command: cmdName,
+            arguments: args,
+            agent: local.agent.current().name,
+            model: `${selectedModel.providerID}/${selectedModel.modelID}`,
+            messageID,
+            variant,
+            parts: nonTextParts
+              .filter((x) => x.type === "file")
+              .map((x) => ({
+                id: PartID.ascending(),
+                ...x,
+              })),
+          })
+          return true
+        }
+        return false
       })
+
+      if (!handled) {
+        shouldSendAsPrompt = true
+      }
     } else {
+      shouldSendAsPrompt = true
+    }
+
+    if (shouldSendAsPrompt) {
       sdk.client.session
         .prompt({
           sessionID,

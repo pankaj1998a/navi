@@ -1,0 +1,827 @@
+{
+    "opencode": {
+        "id": "opencode",
+        "name": "OpenCode Zen",
+        "api": "https://opencode.ai/zen/v1",
+        "env": [
+            "OPENCODE_API_KEY"
+        ],
+        "npm": "@ai-sdk/openai-compatible",
+        "models": {
+            "glm-4.7-free": {
+                "id": "glm-4.7-free",
+                "name": "GLM-4.7 Free",
+                "family": "glm-free",
+                "attachment": false,
+                "reasoning": true,
+                "tool_call": true,
+                "interleaved": {
+                    "field": "reasoning_content"
+                },
+                "temperature": true,
+                "knowledge": "2025-04",
+                "release_date": "2025-12-22",
+                "last_updated": "2025-12-22",
+                "modalities": {
+                    "input": [
+                        "text"
+                    ],
+                    "output": [
+                        "text"
+                    ]
+                },
+                "open_weights": true,
+                "cost": {
+                    "input": 0,
+                    "output": 0,
+                    "cache_read": 0
+                },
+                "limit": {
+                    "context": 204800,
+                    "output": 131072
+                },
+                "status": "deprecated"
+            },
+            "kimi-k2.5-free": {
+                "id": "kimi-k2.5-free",
+                "name": "Kimi K2.5 Free",
+                "family": "kimi-free",
+                "attachment": true,
+                "reasoning": true,
+                "tool_call": true,
+                "interleaved": {
+                    "field": "reasoning_content"
+                },
+                "temperature": true,
+                "knowledge": "2024-10",
+                "release_date": "2026-01-27",
+                "last_updated": "2026-01-27",
+                "modalities": {
+                    "input": [
+                        "text",
+                        "image",
+                        "video"
+                    ],
+                    "output": [
+                        "text"
+                    ]
+                },
+                "open_weights": true,
+                "cost": {
+                    "input": 0,
+                    "output": 0,
+                    "cache_read": 0
+                },
+                "limit": {
+                    "context": 262144,
+                    "output": 262144
+                },
+                "status": "deprecated"
+            },
+            "gpt-5-nano": {
+                "id": "gpt-5-nano",
+                "name": "GPT-5 Nano",
+                "family": "gpt-nano",
+                "attachment": true,
+                "reasoning": true,
+                "tool_call": true,
+                "structured_output": true,
+                "temperature": false,
+                "knowledge": "2024-05-30",
+                "release_date": "2025-08-07",
+                "last_updated": "2025-08-07",
+                "modalities": {
+                    "input": [
+                        "text",
+                        "image"
+                    ],
+                    "output": [
+                        "text"
+                    ]
+                },
+                "open_weights": false,
+                "cost": {
+                    "input": 0,
+                    "output": 0,
+                    "cache_read": 0
+                },
+                "limit": {
+                    "context": 400000,
+                    "input": 272000,
+                    "output": 128000
+                },
+                "provider": {
+                    "npm": "@ai-sdk/openai"
+                }
+            },
+            "minimax-m2.5-free": {
+                "id": "minimax-m2.5-free",
+                "name": "MiniMax M2.5 Free",
+                "family": "minimax-free",
+                "attachment": false,
+                "reasoning": true,
+                "tool_call": true,
+                "temperature": true,
+                "knowledge": "2025-01",
+                "release_date": "2026-02-12",
+                "last_updated": "2026-02-12",
+                "modalities": {
+                    "input": [
+                        "text"
+                    ],
+                    "output": [
+                        "text"
+                    ]
+                },
+                "open_weights": true,
+                "cost": {
+                    "input": 0,
+                    "output": 0,
+                    "cache_read": 0
+                },
+                "limit": {
+                    "context": 204800,
+                    "output": 131072
+                },
+                "provider": {
+                    "npm": "@ai-sdk/anthropic"
+                }
+            },
+            "big-pickle": {
+                "id": "big-pickle",
+                "name": "Big Pickle",
+                "family": "big-pickle",
+                "attachment": false,
+                "reasoning": true,
+                "tool_call": true,
+                "temperature": true,
+                "knowledge": "2025-01",
+                "release_date": "2025-10-17",
+                "last_updated": "2025-10-17",
+                "modalities": {
+                    "input": [
+                        "text"
+                    ],
+                    "output": [
+                        "text"
+                    ]
+                },
+                "open_weights": false,
+                "cost": {
+                    "input": 0,
+                    "output": 0,
+                    "cache_read": 0,
+                    "cache_write": 0
+                },
+                "limit": {
+                    "context": 200000,
+                    "output": 128000
+                },
+                "provider": {
+                    "npm": "@ai-sdk/anthropic"
+                }
+            },
+            "trinity-large-preview-free": {
+                "id": "trinity-large-preview-free",
+                "name": "Trinity Large Preview",
+                "family": "trinity",
+                "attachment": false,
+                "reasoning": false,
+                "tool_call": true,
+                "temperature": true,
+                "knowledge": "2025-06",
+                "release_date": "2026-01-28",
+                "last_updated": "2026-01-28",
+                "modalities": {
+                    "input": [
+                        "text"
+                    ],
+                    "output": [
+                        "text"
+                    ]
+                },
+                "open_weights": true,
+                "cost": {
+                    "input": 0,
+                    "output": 0
+                },
+                "limit": {
+                    "context": 131072,
+                    "output": 131072
+                },
+                "status": "deprecated"
+            },
+            "glm-5-free": {
+                "id": "glm-5-free",
+                "name": "GLM-5 Free",
+                "family": "glm-free",
+                "attachment": false,
+                "reasoning": true,
+                "tool_call": true,
+                "interleaved": {
+                    "field": "reasoning_content"
+                },
+                "temperature": true,
+                "knowledge": "2025-04",
+                "release_date": "2026-02-11",
+                "last_updated": "2026-02-11",
+                "modalities": {
+                    "input": [
+                        "text"
+                    ],
+                    "output": [
+                        "text"
+                    ]
+                },
+                "open_weights": true,
+                "cost": {
+                    "input": 0,
+                    "output": 0,
+                    "cache_read": 0
+                },
+                "limit": {
+                    "context": 204800,
+                    "output": 131072
+                },
+                "status": "deprecated"
+            },
+            "minimax-m2.1-free": {
+                "id": "minimax-m2.1-free",
+                "name": "MiniMax M2.1 Free",
+                "family": "minimax-free",
+                "attachment": false,
+                "reasoning": true,
+                "tool_call": true,
+                "temperature": true,
+                "knowledge": "2025-01",
+                "release_date": "2025-12-23",
+                "last_updated": "2025-12-23",
+                "modalities": {
+                    "input": [
+                        "text"
+                    ],
+                    "output": [
+                        "text"
+                    ]
+                },
+                "open_weights": true,
+                "cost": {
+                    "input": 0,
+                    "output": 0,
+                    "cache_read": 0
+                },
+                "limit": {
+                    "context": 204800,
+                    "output": 131072
+                },
+                "status": "deprecated",
+                "provider": {
+                    "npm": "@ai-sdk/anthropic"
+                }
+            },
+            "qwen3.6-plus-free": {
+                "id": "qwen3.6-plus-free",
+                "name": "Qwen3.6 Plus Free",
+                "family": "qwen-free",
+                "attachment": false,
+                "reasoning": true,
+                "tool_call": true,
+                "interleaved": {
+                    "field": "reasoning_content"
+                },
+                "temperature": true,
+                "knowledge": "2024-12",
+                "release_date": "2026-03-30",
+                "last_updated": "2026-03-30",
+                "modalities": {
+                    "input": [
+                        "text"
+                    ],
+                    "output": [
+                        "text"
+                    ]
+                },
+                "open_weights": false,
+                "cost": {
+                    "input": 0,
+                    "output": 0,
+                    "cache_read": 0
+                },
+                "limit": {
+                    "context": 1048576,
+                    "output": 64000
+                },
+                "status": "deprecated"
+            },
+            "ling-2.6-flash-free": {
+                "id": "ling-2.6-flash-free",
+                "name": "Ling 2.6 Flash Free",
+                "family": "ling-flash-free",
+                "attachment": false,
+                "reasoning": false,
+                "tool_call": true,
+                "temperature": true,
+                "knowledge": "2025-06",
+                "release_date": "2026-04-21",
+                "last_updated": "2026-04-21",
+                "modalities": {
+                    "input": [
+                        "text"
+                    ],
+                    "output": [
+                        "text"
+                    ]
+                },
+                "open_weights": true,
+                "cost": {
+                    "input": 0,
+                    "output": 0
+                },
+                "limit": {
+                    "context": 262100,
+                    "output": 32800
+                },
+                "status": "deprecated"
+            },
+            "grok-code": {
+                "id": "grok-code",
+                "name": "Grok Code Fast 1",
+                "family": "grok",
+                "attachment": true,
+                "reasoning": true,
+                "tool_call": true,
+                "temperature": true,
+                "release_date": "2025-08-20",
+                "last_updated": "2025-08-20",
+                "modalities": {
+                    "input": [
+                        "text"
+                    ],
+                    "output": [
+                        "text"
+                    ]
+                },
+                "open_weights": false,
+                "cost": {
+                    "input": 0,
+                    "output": 0,
+                    "cache_read": 0,
+                    "cache_write": 0
+                },
+                "limit": {
+                    "context": 256000,
+                    "output": 256000
+                },
+                "status": "deprecated"
+            },
+            "mimo-v2-flash-free": {
+                "id": "mimo-v2-flash-free",
+                "name": "MiMo V2 Flash Free",
+                "family": "mimo-flash-free",
+                "attachment": false,
+                "reasoning": true,
+                "tool_call": true,
+                "interleaved": {
+                    "field": "reasoning_content"
+                },
+                "temperature": true,
+                "knowledge": "2024-12",
+                "release_date": "2025-12-16",
+                "last_updated": "2025-12-16",
+                "modalities": {
+                    "input": [
+                        "text"
+                    ],
+                    "output": [
+                        "text"
+                    ]
+                },
+                "open_weights": true,
+                "cost": {
+                    "input": 0,
+                    "output": 0,
+                    "cache_read": 0
+                },
+                "limit": {
+                    "context": 262144,
+                    "output": 65536
+                },
+                "status": "deprecated"
+            },
+            "hy3-preview-free": {
+                "id": "hy3-preview-free",
+                "name": "Hy3 preview Free",
+                "family": "hy3-free",
+                "attachment": false,
+                "reasoning": true,
+                "tool_call": true,
+                "temperature": true,
+                "knowledge": "2025-06",
+                "release_date": "2026-04-20",
+                "last_updated": "2026-04-20",
+                "modalities": {
+                    "input": [
+                        "text"
+                    ],
+                    "output": [
+                        "text"
+                    ]
+                },
+                "open_weights": true,
+                "cost": {
+                    "input": 0,
+                    "output": 0,
+                    "cache_read": 0
+                },
+                "limit": {
+                    "context": 256000,
+                    "output": 64000
+                }
+            },
+            "mimo-v2-pro-free": {
+                "id": "mimo-v2-pro-free",
+                "name": "MiMo V2 Pro Free",
+                "family": "mimo-pro-free",
+                "attachment": true,
+                "reasoning": true,
+                "tool_call": true,
+                "interleaved": {
+                    "field": "reasoning_content"
+                },
+                "temperature": true,
+                "knowledge": "2024-12",
+                "release_date": "2026-03-18",
+                "last_updated": "2026-03-18",
+                "modalities": {
+                    "input": [
+                        "text"
+                    ],
+                    "output": [
+                        "text"
+                    ]
+                },
+                "open_weights": true,
+                "cost": {
+                    "input": 0,
+                    "output": 0,
+                    "cache_read": 0
+                },
+                "limit": {
+                    "context": 1048576,
+                    "output": 64000
+                },
+                "status": "deprecated"
+            },
+            "nemotron-3-super-free": {
+                "id": "nemotron-3-super-free",
+                "name": "Nemotron 3 Super Free",
+                "family": "nemotron-free",
+                "attachment": false,
+                "reasoning": true,
+                "tool_call": true,
+                "interleaved": {
+                    "field": "reasoning_content"
+                },
+                "temperature": true,
+                "knowledge": "2026-02",
+                "release_date": "2026-03-11",
+                "last_updated": "2026-03-11",
+                "modalities": {
+                    "input": [
+                        "text"
+                    ],
+                    "output": [
+                        "text"
+                    ]
+                },
+                "open_weights": true,
+                "cost": {
+                    "input": 0,
+                    "output": 0,
+                    "cache_read": 0
+                },
+                "limit": {
+                    "context": 204800,
+                    "output": 128000
+                }
+            },
+            "mimo-v2-omni-free": {
+                "id": "mimo-v2-omni-free",
+                "name": "MiMo V2 Omni Free",
+                "family": "mimo-omni-free",
+                "attachment": true,
+                "reasoning": true,
+                "tool_call": true,
+                "interleaved": {
+                    "field": "reasoning_content"
+                },
+                "temperature": true,
+                "knowledge": "2024-12",
+                "release_date": "2026-03-18",
+                "last_updated": "2026-03-18",
+                "modalities": {
+                    "input": [
+                        "text",
+                        "image",
+                        "audio",
+                        "pdf"
+                    ],
+                    "output": [
+                        "text"
+                    ]
+                },
+                "open_weights": true,
+                "cost": {
+                    "input": 0,
+                    "output": 0,
+                    "cache_read": 0
+                },
+                "limit": {
+                    "context": 262144,
+                    "output": 64000
+                },
+                "status": "deprecated"
+            }
+        }
+    },
+    "zenmux": {
+        "id": "zenmux",
+        "name": "ZenMux",
+        "api": "https://zenmux.ai/api/v1",
+        "env": [
+            "ZENMUX_API_KEY"
+        ],
+        "npm": "@ai-sdk/openai-compatible",
+        "models": {
+            "stepfun/step-3.5-flash-free": {
+                "id": "stepfun/step-3.5-flash-free",
+                "name": "Step 3.5 Flash (Free)",
+                "attachment": false,
+                "reasoning": true,
+                "tool_call": true,
+                "temperature": true,
+                "knowledge": "2025-01-01",
+                "release_date": "2026-02-02",
+                "last_updated": "2026-02-02",
+                "modalities": {
+                    "input": [
+                        "text"
+                    ],
+                    "output": [
+                        "text"
+                    ]
+                },
+                "open_weights": false,
+                "cost": {
+                    "input": 0,
+                    "output": 0
+                },
+                "limit": {
+                    "context": 256000,
+                    "output": 64000
+                }
+            },
+            "z-ai/glm-4.7-flash-free": {
+                "id": "z-ai/glm-4.7-flash-free",
+                "name": "GLM 4.7 Flash (Free)",
+                "attachment": false,
+                "reasoning": true,
+                "tool_call": true,
+                "interleaved": {
+                    "field": "reasoning_content"
+                },
+                "temperature": true,
+                "knowledge": "2025-01-01",
+                "release_date": "2026-01-19",
+                "last_updated": "2026-01-19",
+                "modalities": {
+                    "input": [
+                        "text"
+                    ],
+                    "output": [
+                        "text"
+                    ]
+                },
+                "open_weights": false,
+                "cost": {
+                    "input": 0,
+                    "output": 0
+                },
+                "limit": {
+                    "context": 200000,
+                    "output": 64000
+                }
+            },
+            "z-ai/glm-4.6v-flash-free": {
+                "id": "z-ai/glm-4.6v-flash-free",
+                "name": "GLM 4.6V Flash (Free)",
+                "attachment": true,
+                "reasoning": true,
+                "tool_call": true,
+                "temperature": true,
+                "knowledge": "2025-01-01",
+                "release_date": "2025-12-08",
+                "last_updated": "2025-12-08",
+                "modalities": {
+                    "input": [
+                        "text",
+                        "image",
+                        "video"
+                    ],
+                    "output": [
+                        "text"
+                    ]
+                },
+                "open_weights": false,
+                "cost": {
+                    "input": 0,
+                    "output": 0
+                },
+                "limit": {
+                    "context": 200000,
+                    "output": 64000
+                }
+            }
+        }
+    },
+    "zai-coding-plan": {
+        "id": "zai-coding-plan",
+        "name": "Z.AI Coding Plan",
+        "api": "https://api.z.ai/api/coding/paas/v4",
+        "env": [
+            "ZHIPU_API_KEY"
+        ],
+        "npm": "@ai-sdk/openai-compatible",
+        "models": {
+            "glm-4.7": {
+                "id": "glm-4.7",
+                "name": "GLM-4.7",
+                "family": "glm",
+                "attachment": false,
+                "reasoning": true,
+                "tool_call": true,
+                "interleaved": {
+                    "field": "reasoning_content"
+                },
+                "temperature": true,
+                "knowledge": "2025-04",
+                "release_date": "2025-12-22",
+                "last_updated": "2025-12-22",
+                "modalities": {
+                    "input": [
+                        "text"
+                    ],
+                    "output": [
+                        "text"
+                    ]
+                },
+                "open_weights": true,
+                "cost": {
+                    "input": 0,
+                    "output": 0,
+                    "cache_read": 0,
+                    "cache_write": 0
+                },
+                "limit": {
+                    "context": 204800,
+                    "output": 131072
+                }
+            },
+            "glm-5.1": {
+                "id": "glm-5.1",
+                "name": "GLM-5.1",
+                "family": "glm",
+                "attachment": false,
+                "reasoning": true,
+                "tool_call": true,
+                "interleaved": {
+                    "field": "reasoning_content"
+                },
+                "structured_output": true,
+                "temperature": true,
+                "release_date": "2026-03-27",
+                "last_updated": "2026-03-27",
+                "modalities": {
+                    "input": [
+                        "text"
+                    ],
+                    "output": [
+                        "text"
+                    ]
+                },
+                "open_weights": false,
+                "cost": {
+                    "input": 0,
+                    "output": 0,
+                    "cache_read": 0,
+                    "cache_write": 0
+                },
+                "limit": {
+                    "context": 200000,
+                    "output": 131072
+                }
+            },
+            "glm-4.5-air": {
+                "id": "glm-4.5-air",
+                "name": "GLM-4.5-Air",
+                "family": "glm-air",
+                "attachment": false,
+                "reasoning": true,
+                "tool_call": true,
+                "temperature": true,
+                "knowledge": "2025-04",
+                "release_date": "2025-07-28",
+                "last_updated": "2025-07-28",
+                "modalities": {
+                    "input": [
+                        "text"
+                    ],
+                    "output": [
+                        "text"
+                    ]
+                },
+                "open_weights": true,
+                "cost": {
+                    "input": 0,
+                    "output": 0,
+                    "cache_read": 0,
+                    "cache_write": 0
+                },
+                "limit": {
+                    "context": 131072,
+                    "output": 98304
+                }
+            },
+            "glm-5-turbo": {
+                "id": "glm-5-turbo",
+                "name": "GLM-5-Turbo",
+                "family": "glm",
+                "attachment": false,
+                "reasoning": true,
+                "tool_call": true,
+                "interleaved": {
+                    "field": "reasoning_content"
+                },
+                "structured_output": true,
+                "temperature": true,
+                "release_date": "2026-03-16",
+                "last_updated": "2026-03-16",
+                "modalities": {
+                    "input": [
+                        "text"
+                    ],
+                    "output": [
+                        "text"
+                    ]
+                },
+                "open_weights": false,
+                "cost": {
+                    "input": 0,
+                    "output": 0,
+                    "cache_read": 0,
+                    "cache_write": 0
+                },
+                "limit": {
+                    "context": 200000,
+                    "output": 131072
+                }
+            },
+            "glm-5v-turbo": {
+                "id": "glm-5v-turbo",
+                "name": "glm-5v-turbo",
+                "family": "glm",
+                "attachment": true,
+                "reasoning": true,
+                "tool_call": true,
+                "interleaved": {
+                    "field": "reasoning_content"
+                },
+                "temperature": true,
+                "release_date": "2026-04-01",
+                "last_updated": "2026-04-01",
+                "modalities": {
+                    "input": [
+                        "text",
+                        "image",
+                        "video",
+                        "pdf"
+                    ],
+                    "output": [
+                        "text"
+                    ]
+                },
+                "open_weights": false,
+                "cost": {
+                    "input": 0,
+                    "output": 0,
+                    "cache_read": 0,
+                    "cache_write": 0
+                },
+                "limit": {
+                    "context": 200000,
+                    "output": 131072
+                }
+            }
+        }
+    }
+}

@@ -40,6 +40,9 @@ export function initializeSystemAgents() {
         SpecializedAgents.PerformancePilot,
         SpecializedAgents.BugBuster,
         SpecializedAgents.DocArchitect,
+        SpecializedAgents.GitHubReviewer,
+        SpecializedAgents.GitHubTriage,
+        SpecializedAgents.ReleaseGenerator,
     ]
 
     for (const template of agents) {

@@ -118,16 +118,17 @@ export const KilocodeProvider: ProviderLoader.Info = {
         const hasKey = !!apiKey
         log.info("loading", { hasKey, inputId })
 
-        let models = await fetchKilocodeModels(apiKey)
-        const fetchedModels = Object.keys(models).length > 0
-
-        if (!fetchedModels) {
-            models = { ...inputModels }
+        let models = { ...inputModels }
+        const latest = await fetchKilocodeModels(apiKey)
+        if (Object.keys(latest).length > 0) {
+            models = { ...models, ...latest }
         }
+
+        const fetchedModels = Object.keys(latest).length > 0
 
         if (!hasKey) {
             for (const [key, value] of Object.entries(models)) {
-                if (value.cost?.input === 0 || value.id.endsWith(":free")) continue
+                if (value.cost?.input === 0 || value.id.endsWith(":free") || value.id.endsWith("/free")) continue
                 delete models[key]
             }
         }

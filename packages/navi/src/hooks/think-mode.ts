@@ -126,7 +126,8 @@ export function createThinkModeHook(): Hooks {
             const state = thinkModeState.get(input.sessionID)
             if (!state?.requested) return
 
-            const config = THINKING_CONFIGS[input.provider.info.id] || THINKING_CONFIGS[input.model.providerID]
+            const config = (input?.provider?.info?.id ? THINKING_CONFIGS[input.provider.info.id] : null) || 
+                           (input?.model?.providerID ? THINKING_CONFIGS[input.model.providerID] : null)
             if (config) {
                 Object.assign(output.options, config)
                 log.info("Think mode: thinking config injected", { sessionID: input.sessionID })

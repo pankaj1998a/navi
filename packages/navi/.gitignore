@@ -9,4 +9,4 @@ app.log
 /test_results.txt
 /tsc_errors.txt
 /output.txt
-/$(grep
+/output/

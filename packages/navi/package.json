@@ -33,7 +33,8 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "test": "bun test --workers=4",
+    "test": "vitest run --maxWorkers=4 --isolate",
+    "test:flaky": "vitest run --rerun-times=3",
     "lint": "eslint 'src/**/*.ts' --max-warnings=0",
     "lint:fix": "eslint 'src/**/*.ts' --fix",
     "format": "prettier --write 'src/**/*.ts'",
@@ -215,6 +216,7 @@
     "@types/mime": "3.0.4",
     "@types/picomatch": "2.3.4",
     "@types/semver": "7.7.1",
-    "drizzle-kit": "1.0.0-beta.19-d95b7a4"
+    "drizzle-kit": "1.0.0-beta.19-d95b7a4",
+    "vitest": "2.1.8"
   }
 }

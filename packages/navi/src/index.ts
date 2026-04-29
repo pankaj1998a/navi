@@ -10,6 +10,7 @@ import { Global } from "./global"
 import { Database } from "./storage/db"
 import { errorMessage } from "./util/error"
 import { FormatError } from "./cli/error"
+import { TuiThreadCommand } from "./cli/cmd/tui/thread"
 
 const __start = performance.now()
 const argv = hideBin(process.argv)
@@ -195,7 +196,7 @@ const cli = yargs(argv)
   })
   .usage("\n" + UI.logo())
   .completion("completion", "generate shell completion script")
-  .command(lazy("$0", "Start the main TUI", "./cli/cmd/tui/thread"))
+  .command(TuiThreadCommand)
   .command(lazy("acp", "Agent Client Protocol server mode", "./cli/cmd/acp"))
   .command(lazy("mcp", "Model Context Protocol server mode", "./cli/cmd/mcp"))
   .command(lazy("thread", "TUI thread mode", "./cli/cmd/tui/thread"))
@@ -234,11 +235,10 @@ const cli = yargs(argv)
     if (err) throw err
     process.exit(1)
   })
-  .strict()
 
 try {
   const parse_start = performance.now()
-  await cli.parse(argv)
+  await cli.parse()
   if (Installation.isLocal() && process.env.NAVI_PERF) {
     console.log(`Total command run (parse to end): ${Math.round(performance.now() - parse_start)}ms`)
   }

@@ -14,6 +14,9 @@ import PROMPT_COST from "./template/cost.txt"
 import PROMPT_TELEPORT from "./template/teleport.txt"
 import PROMPT_SUBAGENT_SELECT from "./template/agent.txt"
 import PROMPT_AGENTS from "./template/agents.txt"
+import PROMPT_GITHUB_PR_REVIEW from "./template/github_pr_review.txt"
+import PROMPT_GITHUB_ISSUE_TRIAGE from "./template/github_issue_triage.txt"
+import PROMPT_RELEASE_NOTES from "./template/release_notes.txt"
 
 export namespace Command {
   const log = Log.create({ service: "command" })
@@ -136,6 +139,36 @@ export namespace Command {
             return PROMPT_SUBAGENT_SELECT
           },
           hints: hints(PROMPT_SUBAGENT_SELECT),
+        }
+        commands["github-pr-review"] = {
+          name: "github-pr-review",
+          description: "Complete a specialized GitHub PR review",
+          source: "command",
+          agent: "github-reviewer",
+          get template() {
+            return PROMPT_GITHUB_PR_REVIEW
+          },
+          hints: hints(PROMPT_GITHUB_PR_REVIEW),
+        }
+        commands["github-issue-triage"] = {
+          name: "github-issue-triage",
+          description: "Triage GitHub issues and suggest labels",
+          source: "command",
+          agent: "github-triage",
+          get template() {
+            return PROMPT_GITHUB_ISSUE_TRIAGE
+          },
+          hints: hints(PROMPT_GITHUB_ISSUE_TRIAGE),
+        }
+        commands["release-notes"] = {
+          name: "release-notes",
+          description: "Generate user-friendly release notes from commits/PRs",
+          source: "command",
+          agent: "release-notes",
+          get template() {
+            return PROMPT_RELEASE_NOTES
+          },
+          hints: hints(PROMPT_RELEASE_NOTES),
         }
         for (const [name, command] of Object.entries(cfg.command ?? {})) {
           commands[name] = {

@@ -6,10 +6,13 @@ import { Provider } from "../../provider/provider"
 import { ModelsDev } from "../../provider/models"
 import { ProviderAuth } from "../../provider/auth"
 import { ProviderID } from "../../provider/schema"
-import { mapValues } from "remeda"
+import { mapValues, mergeDeep } from "remeda"
+import freeModels from "../../provider/free-models.json"
 import { errors } from "../error"
 import { lazy } from "../../util/lazy"
 import { Log } from "../../util/log"
+import { Filesystem } from "../../util/filesystem"
+import path from "path"
 
 const log = Log.create({ service: "server" })
 
@@ -43,8 +46,14 @@ export const ProviderRoutes = lazy(() =>
         const disabled = new Set(config.disabled_providers ?? [])
         const enabled = config.enabled_providers ? new Set(config.enabled_providers) : undefined
 
-        const allProviders = await ModelsDev.get()
-        const filteredProviders: Record<string, (typeof allProviders)[string]> = {}
+        const modelsDev = await ModelsDev.get()
+
+        const allProviders: Record<string, any> = {
+          ...modelsDev,
+          ...freeModels,
+        }
+
+        const filteredProviders: Record<string, any> = {}
         for (const [key, value] of Object.entries(allProviders)) {
           if ((enabled ? enabled.has(key) : true) && !disabled.has(key)) {
             filteredProviders[key] = value
@@ -52,13 +61,19 @@ export const ProviderRoutes = lazy(() =>
         }
 
         const connected = await Provider.list()
-        const providers = Object.assign(
+        const providers = mergeDeep(
           mapValues(filteredProviders, (x) => Provider.fromModelsDevProvider(x)),
           connected,
         )
+
+        // Ensure kilocode is ALWAYS represented in the TUI, even if not in models.dev
+        if (!providers.kilocode && freeModels.kilocode) {
+          providers.kilocode = Provider.fromModelsDevProvider({ ...freeModels.kilocode, id: "kilocode" })
+        }
+
         return c.json({
           all: Object.values(providers),
-          default: mapValues(providers, (item) => Provider.sort(Object.values(item.models))[0].id),
+          default: mapValues(providers, (item) => Provider.sort(Object.values(item.models))[0]?.id),
           connected: Object.keys(connected),
         })
       },
