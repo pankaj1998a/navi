@@ -182,7 +182,8 @@ export const { use: useLocal, provider: LocalProvider } = createSimpleContext({
 
       const fallbackModel = createMemo(() => {
         if (sync.data.config.model) {
-          const [providerID, modelID] = sync.data.config.model.split("/")
+          const providerID = sync.data.config.model.providerID
+          const modelID = sync.data.config.model.id
           if (isModelValid({ providerID, modelID })) {
             return {
               providerID,
