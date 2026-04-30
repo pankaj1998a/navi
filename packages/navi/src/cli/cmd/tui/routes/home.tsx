@@ -9,6 +9,7 @@ import { usePromptRef } from "../context/prompt"
 import { useLocal } from "../context/local"
 import { TuiPluginRuntime } from "../plugin"
 
+
 // TODO: what is the best way to do this?
 let once = false
 const placeholder = {
@@ -60,7 +61,7 @@ export function Home() {
           </TuiPluginRuntime.Slot>
         </box>
         <box height={1} minHeight={0} flexShrink={1} />
-        <box width="100%" maxWidth={75} zIndex={1000} paddingTop={1} flexShrink={0}>
+        <box width="100%" maxWidth={75} zIndex={1000} flexShrink={0}>
           <TuiPluginRuntime.Slot name="home_prompt" mode="replace" workspace_id={route.workspaceID}>
             <Prompt
               ref={(r) => {

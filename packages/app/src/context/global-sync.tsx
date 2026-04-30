@@ -1,7 +1,6 @@
 import {
   type Message,
   type Agent,
-  type Session,
   type Part,
   type Config,
   type Path,
@@ -36,7 +35,7 @@ type State = {
   provider: ProviderListResponse
   config: Config
   path: Path
-  session: Session[]
+  session: any[]
   session_status: {
     [sessionID: string]: SessionStatus
   }
@@ -217,7 +216,7 @@ function createGlobalSync() {
 
   const unsub = globalSDK.event.listen((e) => {
     const directory = e.name
-    const event = e.details
+    const event: any = e.details
 
     if (directory === "global") {
       switch (event?.type) {
@@ -385,7 +384,7 @@ function createGlobalSync() {
       case "permission.replied": {
         const permissions = store.permission[event.properties.sessionID]
         if (!permissions) break
-        const result = Binary.search(permissions, event.properties.requestID, (p) => p.id)
+        const result = Binary.search(permissions, event.properties.permissionID || event.properties.requestID, (p) => p.id)
         if (!result.found) break
         setStore(
           "permission",

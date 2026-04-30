@@ -2,7 +2,6 @@ import type {
   Message,
   Agent,
   Provider,
-  Session,
   Part,
   Config,
   Todo,
@@ -17,6 +16,9 @@ import type {
   ProviderListResponse,
   ProviderAuthMethod,
   VcsInfo,
+  Workspace,
+  Project,
+  Event,
 } from "@navi-ai/sdk/v2"
 import { createStore, produce, reconcile } from "solid-js/store"
 import { useSDK } from "@tui/context/sdk"
@@ -28,7 +30,6 @@ import { useArgs } from "./args"
 import { batch, onMount } from "solid-js"
 import { Log } from "@/util/log"
 import type { Path } from "@navi-ai/sdk"
-import type { Workspace } from "@navi-ai/sdk/v2"
 
 export const { use: useSync, provider: SyncProvider } = createSimpleContext({
   name: "Sync",
@@ -48,7 +49,7 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
         [sessionID: string]: QuestionRequest[]
       }
       config: Config
-      session: Session[]
+      session: any[]
       session_status: {
         [sessionID: string]: SessionStatus
       }
@@ -73,8 +74,18 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
       }
       formatter: FormatterStatus[]
       vcs: VcsInfo | undefined
+      project: Project | undefined
       path: Path
       workspaceList: Workspace[]
+      transactions: {
+        [sessionID: string]: {
+          taskId: string
+          status: "pending" | "committed" | "rolled_back"
+          timestamp: number
+          data?: any
+          error?: string
+        }[]
+      }
     }>({
       provider_next: {
         all: [],
@@ -101,8 +112,10 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
       mcp_resource: {},
       formatter: [],
       vcs: undefined,
+      project: undefined,
       path: { state: "", config: "", worktree: "", directory: "" },
       workspaceList: [],
+      transactions: {},
     })
 
     const sdk = useSDK()
@@ -114,7 +127,7 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
     }
 
     sdk.event.listen((e) => {
-      const event = e.details
+      const event: any = e.details
       switch (event.type) {
         case "server.instance.disposed":
           bootstrap()
@@ -122,7 +135,7 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
         case "permission.replied": {
           const requests = store.permission[event.properties.sessionID]
           if (!requests) break
-          const match = Binary.search(requests, event.properties.requestID, (r) => r.id)
+          const match = Binary.search(requests, event.properties.permissionID || event.properties.requestID, (r) => r.id)
           if (!match.found) break
           setStore(
             "permission",
@@ -345,8 +358,55 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
           break
         }
 
+        case "project.updated": {
+          setStore("project", reconcile(event.properties as any))
+          break
+        }
+
         case "vcs.branch.updated": {
           setStore("vcs", { branch: event.properties.branch })
+          break
+        }
+
+        case "agent.transaction.started": {
+          const { taskId, timestamp, sessionID } = event.properties
+          if (!sessionID) break
+          setStore("transactions", sessionID, produce((draft) => {
+            const existing = draft?.find(t => t.taskId === taskId)
+            if (existing) {
+              existing.status = "pending"
+              existing.timestamp = timestamp
+            } else {
+              if (!draft) draft = []
+              draft.push({ taskId, status: "pending", timestamp })
+            }
+          }))
+          break
+        }
+
+        case "agent.transaction.committed": {
+          const { taskId, data, sessionID } = event.properties
+          if (!sessionID) break
+          setStore("transactions", sessionID, produce((draft) => {
+            const existing = draft?.find(t => t.taskId === taskId)
+            if (existing) {
+              existing.status = "committed"
+              existing.data = data
+            }
+          }))
+          break
+        }
+
+        case "agent.transaction.rolled_back": {
+          const { taskId, error, sessionID } = event.properties
+          if (!sessionID) break
+          setStore("transactions", sessionID, produce((draft) => {
+            const existing = draft?.find(t => t.taskId === taskId)
+            if (existing) {
+              existing.status = "rolled_back"
+              existing.error = error
+            }
+          }))
           break
         }
       }
@@ -356,7 +416,6 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
     const args = useArgs()
 
     async function bootstrap() {
-      console.log("bootstrapping")
       const start = Date.now() - 30 * 24 * 60 * 60 * 1000
       const sessionListPromise = sdk.client.session
         .list({ start: start })
@@ -366,7 +425,7 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
       const providersPromise = sdk.client.config.providers({}, { throwOnError: true })
       const providerListPromise = sdk.client.provider.list({}, { throwOnError: true })
       const agentsPromise = sdk.client.app.agents({}, { throwOnError: true })
-      const configPromise = sdk.client.config.get({}, { throwOnError: true })
+      const configPromise = sdk.client.config.get({ throwOnError: true })
       const blockingRequests: Promise<unknown>[] = [
         providersPromise,
         providerListPromise,
@@ -469,11 +528,12 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
         },
         async sync(sessionID: string) {
           if (fullSyncedSessions.has(sessionID)) return
-          const [session, messages, todo, diff] = await Promise.all([
+          const [session, messages, todo, diff, events] = await Promise.all([
             sdk.client.session.get({ sessionID }, { throwOnError: true }),
             sdk.client.session.messages({ sessionID, limit: 100 }),
             sdk.client.session.todo({ sessionID }),
             sdk.client.session.diff({ sessionID }),
+            sdk.client.experimental.bus.replay({ contextId: sessionID }).catch(() => ({ data: [] }))
           ])
           setStore(
             produce((draft) => {
@@ -486,6 +546,41 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
                 draft.part[message.info.id] = message.parts
               }
               draft.session_diff[sessionID] = diff.data ?? []
+              
+              // Handle replayed events
+              if (events.data) {
+                for (const event of events.data as any[]) {
+                  switch (event.type) {
+                    case "agent.transaction.started": {
+                      const { sessionID, taskId, timestamp } = (event as any).properties
+                      if (!draft.transactions[sessionID]) draft.transactions[sessionID] = []
+                      const existing = draft.transactions[sessionID].find((t: any) => t.taskId === taskId)
+                      if (!existing) draft.transactions[sessionID].push({ taskId, status: "pending", timestamp })
+                      break
+                    }
+                    case "agent.transaction.committed": {
+                      const { sessionID, taskId, data } = (event as any).properties
+                      if (!draft.transactions[sessionID]) return
+                      const existing = draft.transactions[sessionID].find((t: any) => t.taskId === taskId)
+                      if (existing) {
+                        existing.status = "committed"
+                        existing.data = data
+                      }
+                      break
+                    }
+                    case "agent.transaction.rolled_back": {
+                      const { sessionID, taskId, error } = (event as any).properties
+                      if (!draft.transactions[sessionID]) return
+                      const existing = draft.transactions[sessionID].find((t: any) => t.taskId === taskId)
+                      if (existing) {
+                        existing.status = "rolled_back"
+                        existing.error = error
+                      }
+                      break
+                    }
+                  }
+                }
+              }
             }),
           )
           fullSyncedSessions.add(sessionID)
@@ -502,4 +597,3 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
     return result
   },
 })
-

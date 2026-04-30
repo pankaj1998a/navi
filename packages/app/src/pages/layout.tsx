@@ -30,7 +30,7 @@ import { Spinner } from "@navi-ai/ui/spinner"
 import { Mark } from "@navi-ai/ui/logo"
 import { getFilename } from "@navi-ai/util/path"
 import { DropdownMenu } from "@navi-ai/ui/dropdown-menu"
-import { Session } from "@navi-ai/sdk/v2/client"
+
 import { usePlatform } from "@/context/platform"
 import { createStore, produce, reconcile } from "solid-js/store"
 import {
@@ -249,7 +249,7 @@ export default function Layout(props: ParentProps) {
     })
   })
 
-  function sortSessions(a: Session, b: Session) {
+  function sortSessions(a: any, b: any) {
     const now = Date.now()
     const oneMinuteAgo = now - 60 * 1000
     const aUpdated = a.time.updated ?? a.time.created
@@ -381,7 +381,7 @@ export default function Layout(props: ParentProps) {
     })
   }
 
-  const prefetchSession = (session: Session, priority: "high" | "low" = "low") => {
+  const prefetchSession = (session: any, priority: "high" | "low" = "low") => {
     const directory = session.directory
     if (!directory) return
 
@@ -514,7 +514,7 @@ export default function Layout(props: ParentProps) {
     queueMicrotask(() => scrollToSession(targetSession.id))
   }
 
-  async function archiveSession(session: Session) {
+  async function archiveSession(session: any) {
     const [store, setStore] = globalSync.child(session.directory)
     const sessions = store.session ?? []
     const index = sessions.findIndex((s) => s.id === session.id)
@@ -654,7 +654,7 @@ export default function Layout(props: ParentProps) {
     layout.mobileSidebar.hide()
   }
 
-  function navigateToSession(session: Session | undefined) {
+  function navigateToSession(session: any | undefined) {
     if (!session) return
     navigate(`/${base64Encode(session.directory)}/session/${session.id}`)
     layout.mobileSidebar.hide()
@@ -827,7 +827,7 @@ export default function Layout(props: ParentProps) {
   }
 
   const SessionItem = (props: {
-    session: Session
+    session: any
     slug: string
     project: LocalProject
     mobile?: boolean

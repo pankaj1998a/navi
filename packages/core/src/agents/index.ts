@@ -8,4 +8,4 @@ export * from './master-agent.ts';
 export * from './parallel-agent-orchestrator.ts';
 export * from './base.ts';
 export * from './VerificationAgent.ts';
-export * from './orchestrator.ts';
+export { Orchestrator, type AgentType, type AgentTask } from './orchestrator.ts';

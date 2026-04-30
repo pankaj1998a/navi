@@ -19,7 +19,6 @@ import { TextField } from "@navi-ai/ui/text-field"
 import { DialogSelectServer } from "@/components/dialog-select-server"
 import { SessionLspIndicator } from "@/components/session-lsp-indicator"
 import { SessionMcpIndicator } from "@/components/session-mcp-indicator"
-import type { Session } from "@navi-ai/sdk/v2/client"
 import { same } from "@/utils/same"
 
 export function SessionHeader() {
@@ -50,7 +49,7 @@ export function SessionHeader() {
     navigate(`/${base64Encode(directory)}`)
   }
 
-  function navigateToSession(session: Session | undefined) {
+  function navigateToSession(session: any | undefined) {
     if (!session) return
     // Only navigate if we're actually changing to a different session
     if (session.id === params.id) return

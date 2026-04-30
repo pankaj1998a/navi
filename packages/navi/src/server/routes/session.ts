@@ -122,8 +122,13 @@ export const SessionRoutes = lazy(() =>
       async (c) => {
         const sessionID = c.req.valid("param").sessionID
         log.info("SEARCH", { url: c.req.url })
-        const session = await Session.get(sessionID)
-        return c.json(session)
+        try {
+          const session = await Session.get(sessionID)
+          return c.json(session)
+        } catch (e: any) {
+          require("fs").appendFileSync("C:\\Users\\X380 Yoga\\.gemini\\antigravity\\brain\\84f5b07f-918e-4831-aecd-d2bf154e075a\\scratch\\debug.txt", `Error in GET /session/:sessionID: ${e.message}\n`)
+          throw e
+        }
       },
     )
     .get(
@@ -208,7 +213,9 @@ export const SessionRoutes = lazy(() =>
       validator("json", Session.create.schema.optional()),
       async (c) => {
         const body = c.req.valid("json") ?? {}
+        require("fs").appendFileSync("C:\\Users\\X380 Yoga\\.gemini\\antigravity\\brain\\84f5b07f-918e-4831-aecd-d2bf154e075a\\scratch\\debug.txt", `POST /session body: ${JSON.stringify(body)} | workspaceParam: ${new URL(c.req.url).searchParams.get("workspace")} | rawDir: ${c.req.query("directory") || c.req.header("x-Navi-directory")}\n`)
         const session = await Session.create(body)
+        require("fs").appendFileSync("C:\\Users\\X380 Yoga\\.gemini\\antigravity\\brain\\84f5b07f-918e-4831-aecd-d2bf154e075a\\scratch\\debug.txt", `Created Session: ${session.id}\n`)
         return c.json(session)
       },
     )

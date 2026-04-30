@@ -20,3 +20,20 @@ export const SplitBorder = {
   },
 }
 
+export const LuxuryBorder = {
+  border: ["left" as const, "right" as const, "top" as const, "bottom" as const],
+  customBorderChars: {
+    topLeft: "╔",
+    topRight: "╗",
+    bottomLeft: "╚",
+    bottomRight: "╝",
+    vertical: "║",
+    horizontal: "═",
+    topT: "╦",
+    bottomT: "╩",
+    leftT: "╠",
+    rightT: "╣",
+    cross: "╬",
+  },
+}
+

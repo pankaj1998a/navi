@@ -1,7 +1,8 @@
 import { Effect, Layer, ServiceMap } from "effect"
 import { CancellationToken } from "../util/cancellation"
 import { Log } from "../util/log"
-import { NaviError } from "../error/hierarchy"
+import { NaviError } from "../util/errors"
+import { Bus } from "../bus/index.ts"
 
 export type TransactionStatus = 'pending' | 'committed' | 'rolled_back';
 
@@ -17,6 +18,7 @@ export interface TransactionState {
 export interface ExecuteOptions {
   token?: CancellationToken;
   mask?: string[];
+  sessionID?: string;
 }
 
 /**
@@ -48,6 +50,15 @@ export class AgentTransactionManager {
       timestamp: Date.now()
     };
     this.transactions.set(taskId, state);
+    
+    // Publish started event
+    Bus.publish(Bus.TransactionStarted, { 
+      taskId, 
+      timestamp: state.timestamp,
+      sessionID: options?.sessionID
+    }).catch(err => {
+      this.log.error("Failed to publish transaction started event", err);
+    });
 
     if (options?.token) {
       options.token.onCancellation((reason) => {
@@ -65,9 +76,19 @@ export class AgentTransactionManager {
       });
       
       this.log.info(`Transaction committed: ${taskId}`);
+
+      // Publish event
+      Bus.publish(Bus.TransactionCommitted, { 
+        taskId, 
+        data: result,
+        sessionID: options?.sessionID
+      }).catch(err => {
+        this.log.error("Failed to publish transaction committed event", err);
+      });
+
       return result;
     } catch (error) {
-      this.log.error(`Transaction failed: ${taskId}`, error);
+      this.log.error(`Transaction failed: ${taskId}`, { error });
       
       await this.rollback(taskId, error as Error);
       
@@ -96,6 +117,15 @@ export class AgentTransactionManager {
       ...state,
       status: 'rolled_back',
       error: error as Error
+    });
+
+    // Publish event
+    Bus.publish(Bus.TransactionRolledBack, { 
+      taskId, 
+      error: error.message,
+      sessionID: state.originalData?.sessionID // Fallback if state has it
+    }).catch(err => {
+      this.log.error("Failed to publish transaction rolled back event", err);
     });
   }
 

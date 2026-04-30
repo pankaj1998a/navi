@@ -14,7 +14,7 @@ import type { AgentRegistry } from './agent-registry.ts';
 import type { MessageBus } from '../index.ts'
 import type { AgentDefinition, AgentInputs, OutputObject } from './types.ts';
 import { LocalAgentExecutor } from '../tools/local-executor.ts';
-import { debugLogger } from 'navi-ai-agent/utils/debugLogger'
+import { debugLogger } from '../util/debugLogger.ts'
 import { AgentTransactionManager } from '../agent/transaction.ts';
 
 /** Configuration for parallel agent execution */

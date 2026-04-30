@@ -111,14 +111,38 @@ export namespace Flock {
   }
 
   async function stale(lockDir: string, heartbeatPath: string, metaPath: string, staleMs: number) {
-    // Stale detection allows automatic recovery after crashed owners.
+    const meta = await stats(metaPath)
+    if (meta) {
+      try {
+        const raw = await readFile(metaPath, "utf8")
+        const parsed = JSON.parse(raw)
+        if (parsed && typeof parsed.pid === "number") {
+          try {
+            process.kill(parsed.pid, 0)
+            // Process is still alive. Check heartbeat age.
+            const heartbeat = await stats(heartbeatPath)
+            const now = wall()
+            if (heartbeat) {
+              return now - heartbeat.mtimeMs > staleMs
+            }
+            return now - meta.mtimeMs > staleMs
+          } catch (err) {
+            // Process is dead. Lock is stale.
+            return true
+          }
+        }
+      } catch (err) {
+        // Failed to read/parse meta. Treat as possibly stale if old enough.
+      }
+    }
+
+    // Fallback to time-based stale detection if no meta/pid
     const now = wall()
     const heartbeat = await stats(heartbeatPath)
     if (heartbeat) {
       return now - heartbeat.mtimeMs > staleMs
     }
 
-    const meta = await stats(metaPath)
     if (meta) {
       return now - meta.mtimeMs > staleMs
     }

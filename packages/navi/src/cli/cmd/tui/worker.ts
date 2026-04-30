@@ -21,7 +21,7 @@ import { ProjectID } from "@/project/schema"
 import { Network } from "@/server/schema"
 
 await Log.init({
-  print: process.argv.includes("--print-logs"),
+  print: false,
   dev: Installation.isLocal(),
   level: (() => {
     if (Installation.isLocal()) return "DEBUG"

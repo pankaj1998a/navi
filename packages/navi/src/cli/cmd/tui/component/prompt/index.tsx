@@ -607,9 +607,7 @@ export function Prompt(props: PromptProps) {
 
     let sessionID = props.sessionID
     if (sessionID == null) {
-      const res = await sdk.client.session.create({
-        workspaceID: props.workspaceID,
-      })
+      const res = await sdk.client.session.create({ workspaceID: props.workspaceID } as any)
 
       if (res.error) {
         console.log("Creating a session failed:", res.error)
@@ -742,14 +740,31 @@ export function Prompt(props: PromptProps) {
     setStore("extmarkToPartIndex", new Map())
     props.onSubmit?.()
 
-    // temporary hack to make sure the message is sent
-    if (!props.sessionID)
-      setTimeout(() => {
-        route.navigate({
-          type: "session",
-          sessionID,
+    // Navigate only after the server confirms the session exists
+    if (!props.sessionID) {
+      const targetID = sessionID!
+      const navigate = route.navigate
+      ;(async () => {
+        let lastError: any = null
+        for (let i = 0; i < 20; i++) {
+          const check = await sdk.client.session.get({ sessionID: targetID }).catch((e) => ({ error: e }))
+          if (check && "data" in check && check.data) {
+            navigate({ type: "session", sessionID: targetID })
+            return
+          }
+          if (check?.error) {
+            lastError = check.error
+          }
+          await new Promise((r) => setTimeout(r, 100))
+        }
+        toast.show({
+          message: `Polling failed! Error: ${JSON.stringify(lastError)}`,
+          variant: "error"
         })
-      }, 50)
+        // fallback after 2s
+        navigate({ type: "session", sessionID: targetID })
+      })()
+    }
     input.clear()
   }
   const exit = useExit()
@@ -834,7 +849,7 @@ export function Prompt(props: PromptProps) {
   const highlight = createMemo(() => {
     if (keybind.leader) return theme.border
     if (store.mode === "shell") return theme.primary
-    return local.agent.color(local.agent.current().name)
+    return theme.border
   })
 
   const showVariant = createMemo(() => {

@@ -34,6 +34,7 @@ export const GenerateCommand = {
         else resolve()
       })
     })
+    process.exit(0)
   },
 } satisfies CommandModule
 

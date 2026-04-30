@@ -1,4 +1,4 @@
-import { FileDiff, Message, Model, Part, Session } from "@navi-ai/sdk/v2"
+import { FileDiff, Message, Model, Part } from "@navi-ai/sdk/v2"
 import { fn } from "@navi-ai/util/fn"
 import { iife } from "@navi-ai/util/iife"
 import { Identifier } from "@navi-ai/util/identifier"
@@ -17,7 +17,7 @@ export namespace Share {
   export const Data = z.discriminatedUnion("type", [
     z.object({
       type: z.literal("session"),
-      data: z.custom<Session>(),
+      data: z.custom<any>(),
     }),
     z.object({
       type: z.literal("message"),

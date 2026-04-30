@@ -196,7 +196,7 @@ export function Session() {
       .catch((e) => {
         console.error(e)
         toast.show({
-          message: `Session not found: ${route.sessionID}`,
+          message: `Session error: ${e?.message ?? String(e)}`,
           variant: "error",
         })
         return navigate({ type: "home" })

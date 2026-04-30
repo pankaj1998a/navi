@@ -601,7 +601,7 @@ function Prompt<const T extends Record<string, string>>(props: {
     <box
       backgroundColor={theme.backgroundPanel}
       border={["left"]}
-      borderColor={theme.warning}
+      borderColor={theme.border}
       customBorderChars={SplitBorder.customBorderChars}
       {...(store.expanded
         ? { top: dimensions().height * -1 + 1, bottom: 1, left: 2, right: 2, position: "absolute" }
@@ -648,14 +648,14 @@ function Prompt<const T extends Record<string, string>>(props: {
               <box
                 paddingLeft={1}
                 paddingRight={1}
-                backgroundColor={option === store.selected ? theme.warning : theme.backgroundMenu}
+                backgroundColor={option === store.selected ? theme.primary : theme.backgroundMenu}
                 onMouseOver={() => setStore("selected", option)}
                 onMouseUp={() => {
                   setStore("selected", option)
                   props.onSelect(option)
                 }}
               >
-                <text fg={option === store.selected ? selectedForeground(theme, theme.warning) : theme.textMuted}>
+                <text fg={option === store.selected ? selectedForeground(theme, theme.primary) : theme.textMuted}>
                   {props.options[option]}
                 </text>
               </box>

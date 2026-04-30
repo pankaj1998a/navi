@@ -73,17 +73,19 @@ import {
 } from "./advanced-features"
 import { ParallelTool } from "./parallel"
 import {
-    MapCodebaseTool,
-    PlanPhaseTool,
-    ExecutePhaseTool,
-    StateTrackerTool,
-    GsdTodoTool,
-    QuickTaskTool
+  MapCodebaseTool,
+  PlanPhaseTool,
+  ExecutePhaseTool,
+  StateTrackerTool,
+  GsdTodoTool,
+  QuickTaskTool
 } from "./gsd"
+import { McpResourceTool } from "../mcp/resource-tool"
 import { ConfigureAgentModelTool, ListSubAgentsTool, ListAvailableModelsTool } from "./config-models"
 import { Glob } from "../util/glob"
 import { pathToFileURL } from "url"
-import { Effect, Layer, ServiceMap } from "effect"
+import { type InstanceContext } from "@/project/instance"
+import { Effect, Layer, ServiceMap, Scope } from "effect"
 import { InstanceState } from "@/effect/instance-state"
 import { makeRuntime } from "@/effect/run-service"
 
@@ -95,15 +97,17 @@ export namespace ToolRegistry {
   }
 
   export interface Interface {
-    readonly register: (tool: Tool.Info) => Effect.Effect<void>
-    readonly ids: () => Effect.Effect<string[]>
+    readonly register: (tool: Tool.Info) => Effect.Effect<void, never, any>
+    readonly ids: () => Effect.Effect<string[], never, any>
+    readonly list: () => Effect.Effect<Tool.Info[], never, any>
+    readonly get: (id: string) => Effect.Effect<Tool.Info | undefined, never, any>
     readonly tools: (
       model: { providerID: ProviderID; modelID: ModelID },
       agent?: Agent.Info,
-    ) => Effect.Effect<(Tool.Def & { id: string })[]>
+    ) => Effect.Effect<(Tool.Def & { id: string })[], never, any>
   }
 
-  export class Service extends ServiceMap.Service<Service, Interface>()("@navi/ToolRegistry") {}
+  export class Service extends ServiceMap.Service<Service, Interface>()("@navi/ToolRegistry") { }
 
   export const layer: Layer.Layer<Service, never, Config.Service | Plugin.Service> = Layer.effect(
     Service,
@@ -112,7 +116,7 @@ export namespace ToolRegistry {
       const plugin = yield* Plugin.Service
 
       const cache = yield* InstanceState.make<State>(
-        Effect.fn("ToolRegistry.state")(function* (ctx) {
+        (ctx: InstanceContext) => Effect.gen(function* () {
           const custom: Tool.Info[] = []
 
           function fromPlugin(id: string, def: ToolDefinition): Tool.Info {
@@ -148,16 +152,16 @@ export namespace ToolRegistry {
             const namespace = path.basename(match, path.extname(match))
             const mod = yield* Effect.promise(
               () => import(process.platform === "win32" ? match : pathToFileURL(match).href),
-            )
+            ).pipe(Effect.orDie)
             for (const [id, def] of Object.entries<ToolDefinition>(mod)) {
               custom.push(fromPlugin(id === "default" ? namespace : `${namespace}_${id}`, def))
             }
           }
 
-          const plugins = yield* plugin.list()
+          const plugins = yield* plugin.list().pipe(Effect.orDie)
           for (const p of plugins) {
             for (const [id, def] of Object.entries(p.tool ?? {})) {
-              custom.push(fromPlugin(id, def))
+              custom.push(fromPlugin(id, def as ToolDefinition))
             }
           }
 
@@ -165,7 +169,7 @@ export namespace ToolRegistry {
         }),
       )
 
-      const all = Effect.fn("ToolRegistry.all")(function* (custom: Tool.Info[]) {
+      const all = (custom: Tool.Info[]): Effect.Effect<Tool.Info[], never, Config.Service> => Effect.gen(function* () {
         const cfg = yield* config.get()
         const question = ["app", "cli", "desktop"].includes(Flag.NAVI_CLIENT) || Flag.NAVI_ENABLE_QUESTION_TOOL
 
@@ -245,11 +249,12 @@ export namespace ToolRegistry {
           ConfigureAgentModelTool,
           ListSubAgentsTool,
           ListAvailableModelsTool,
+          McpResourceTool,
           ...custom,
         ]
       })
 
-      const register = Effect.fn("ToolRegistry.register")(function* (tool: Tool.Info) {
+      const register = (tool: Tool.Info) => Effect.gen(function* () {
         const state = yield* InstanceState.get(cache)
         const idx = state.custom.findIndex((t) => t.id === tool.id)
         if (idx >= 0) {
@@ -259,16 +264,27 @@ export namespace ToolRegistry {
         state.custom.push(tool)
       })
 
-      const ids = Effect.fn("ToolRegistry.ids")(function* () {
+      const ids = () => Effect.gen(function* () {
         const state = yield* InstanceState.get(cache)
-        const tools = yield* all(state.custom)
-        return tools.map((t) => t.id)
+        const toolsList = yield* all(state.custom)
+        return toolsList.map((t) => t.id)
       })
 
-      const tools = Effect.fn("ToolRegistry.tools")(function* (
+      const list = () => Effect.gen(function* () {
+        const state = yield* InstanceState.get(cache)
+        return yield* all(state.custom)
+      })
+
+      const get = (id: string) => Effect.gen(function* () {
+        const state = yield* InstanceState.get(cache)
+        const toolsList = yield* all(state.custom)
+        return toolsList.find((t) => t.id === id)
+      })
+
+      const tools = (
         model: { providerID: ProviderID; modelID: ModelID },
         agent?: Agent.Info,
-      ) {
+      ) => Effect.gen(function* () {
         const state = yield* InstanceState.get(cache)
         const allTools = yield* all(state.custom)
         const filtered = allTools.filter((tool) => {
@@ -297,14 +313,14 @@ export namespace ToolRegistry {
 
         return yield* Effect.forEach(
           filtered,
-          Effect.fnUntraced(function* (tool: Tool.Info) {
+          (tool: Tool.Info) => Effect.gen(function* () {
             using _ = log.time(tool.id)
-            const next = yield* Effect.promise(() => tool.init({ agent }))
+            const next = yield* Effect.promise(() => tool.init({ agent })).pipe(Effect.orDie)
             const output = {
               description: next.description,
               parameters: next.parameters,
             }
-            yield* plugin.trigger("tool.definition", { toolID: tool.id }, output)
+            yield* plugin.trigger("tool.definition", { toolID: tool.id }, output).pipe(Effect.orDie)
             return {
               id: tool.id,
               description: output.description,
@@ -318,7 +334,7 @@ export namespace ToolRegistry {
         )
       })
 
-      return Service.of({ register, ids, tools })
+      return Service.of({ register, ids, list, get, tools })
     }),
   )
 
@@ -336,6 +352,14 @@ export namespace ToolRegistry {
     return runPromise((svc) => svc.ids())
   }
 
+  export async function list() {
+    return runPromise((svc) => svc.list())
+  }
+
+  export async function get(id: string) {
+    return runPromise((svc) => svc.get(id))
+  }
+
   export async function tools(
     model: {
       providerID: ProviderID
@@ -346,4 +370,3 @@ export namespace ToolRegistry {
     return runPromise((svc) => svc.tools(model, agent))
   }
 }
-

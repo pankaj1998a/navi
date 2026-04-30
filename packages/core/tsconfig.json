@@ -3,9 +3,17 @@
   "compilerOptions": {
     "baseUrl": ".",
     "paths": {
-      "@/*": ["../navi/src/*"],
-      "navi-ai-agent/*": ["src/*"]
+      "@/*": ["./src/*", "../navi/src/*"],
+      "navi-ai-agent/*": ["src/*"],
+      "@navi-ai/util/*": ["../util/src/*"],
+      "@navi-ai/sdk/*": ["../sdk/js/src/*"],
+      "@navi-ai/native": ["../native/src/index.ts"]
     }
   },
-  "include": ["src/**/*", "../navi/src/**/*"]
+  "include": [
+    "src/**/*",
+    "../util/src/**/*",
+    "../sdk/js/src/**/*",
+    "../native/src/**/*"
+  ]
 }

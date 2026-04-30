@@ -2,6 +2,7 @@ import { Bus } from "../bus"
 import { Installation } from "../installation"
 import { Session } from "../session"
 import { MessageV2 } from "../session/message-v2"
+import { JsonlStorage } from "../storage/jsonl"
 import { Log } from "../util/log"
 
 export namespace Share {
@@ -15,7 +16,7 @@ export namespace Share {
     if (root !== "session") return
     const [sub, sessionID] = splits
     if (sub === "share") return
-    const share = await Session.getShare(sessionID).catch(() => {})
+    const share = JsonlStorage.readItemSync<any>("shares", sessionID)
     if (!share) return
     const { secret } = share
     pending.set(key, content)

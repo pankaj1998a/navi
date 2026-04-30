@@ -344,15 +344,50 @@ const voiceRoutes = new Hono()
       }
     )
 
-const layer1 = new Hono()
-  .route("/tool", toolRoutes)
-  .route("/workspace", WorkspaceRoutes())
-  .route("/worktree", worktreeRoutes)
+const busRoutes = new Hono()
+    .get(
+      "/replay",
+      describeRoute({
+        summary: "Replay events",
+        description: "Replays events from the persistent store for a given context (e.g. sessionID).",
+        operationId: "experimental.bus.replay",
+        responses: {
+          200: {
+            description: "Event stream",
+            content: {
+              "application/json": {
+                schema: resolver(z.array(z.any())),
+              },
+            },
+          },
+        },
+      }),
+      validator("query", z.object({
+        contextId: z.string().describe("Context ID (e.g. sessionID or directory) to replay events for"),
+      })),
+      async (c) => {
+        const { contextId } = c.req.valid("query")
+        const { Bus } = await import("../../../../core/src/bus")
+        const { Stream, Effect } = await import("effect")
+        
+        const events = await Effect.runPromise(
+          Bus.replay(contextId).pipe(
+            Stream.runCollect,
+            Effect.map((chunk: any) => Array.from(chunk))
+          )
+        )
+        
+        return c.json(events)
+      }
+    )
 
-const layer2 = new Hono()
-  .route("/session", sessionRoutes)
-  .route("/resource", resourceRoutes)
-  .route("/voice", voiceRoutes)
-
-export const ExperimentalRoutes = lazy(() => layer1.route("/", layer2))
+export const ExperimentalRoutes = () =>
+  new Hono()
+    .route("/tool", toolRoutes)
+    .route("/workspace", WorkspaceRoutes())
+    .route("/worktree", worktreeRoutes)
+    .route("/session", sessionRoutes)
+    .route("/resource", resourceRoutes)
+    .route("/voice", voiceRoutes)
+    .route("/bus", busRoutes)
 

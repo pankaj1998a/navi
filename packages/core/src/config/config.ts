@@ -2098,17 +2098,22 @@ export namespace Config {
     experimental: z.object({
         mcp_timeout: z.number().optional(),
         continue_loop_on_deny: z.boolean().optional(),
+        batch_tool: z.boolean().optional(),
     }).optional(),
   }).catchall(z.any());
   export type Info = z.infer<typeof Info>;
 
   export interface Interface {
     readonly get: () => Effect.Effect<Info>;
+    readonly directories: () => Effect.Effect<string[]>;
+    readonly waitForDependencies: () => Effect.Effect<void>;
   }
 
   export class Service extends ServiceMap.Service<Service, Interface>()("@navi/Config") {}
 
   export const defaultLayer = Layer.succeed(Service, {
-    get: () => Effect.succeed({} as Info)
+    get: () => Effect.succeed({} as Info),
+    directories: () => Effect.succeed([]),
+    waitForDependencies: () => Effect.succeed(undefined)
   });
 }

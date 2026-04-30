@@ -3,6 +3,7 @@ import { Effect, Exit, Layer, PubSub, Scope, ServiceMap, Stream } from "effect"
 import { Log } from "../util/log"
 import { Instance } from "../project/instance"
 import { BusEvent } from "./bus-event"
+import { EventPersistence } from "./persistence"
 import { GlobalBus } from "./global"
 import { InstanceState } from "../effect/instance-state"
 import { makeRuntime } from "../effect/run-service"
@@ -14,6 +15,33 @@ export namespace Bus {
     "server.instance.disposed",
     z.object({
       directory: z.string(),
+    }),
+  )
+
+  export const TransactionStarted = BusEvent.define(
+    "agent.transaction.started",
+    z.object({
+      taskId: z.string(),
+      timestamp: z.number(),
+      sessionID: z.string().optional(),
+    }),
+  )
+
+  export const TransactionCommitted = BusEvent.define(
+    "agent.transaction.committed",
+    z.object({
+      taskId: z.string(),
+      data: z.any().optional(),
+      sessionID: z.string().optional(),
+    }),
+  )
+
+  export const TransactionRolledBack = BusEvent.define(
+    "agent.transaction.rolled_back",
+    z.object({
+      taskId: z.string(),
+      error: z.string().optional(),
+      sessionID: z.string().optional(),
     }),
   )
 
@@ -39,6 +67,7 @@ export namespace Bus {
       callback: (event: Payload<D>) => unknown,
     ) => Effect.Effect<() => void>
     readonly subscribeAllCallback: (callback: (event: any) => unknown) => Effect.Effect<() => void>
+    readonly replay: (contextId: string) => Stream.Stream<Payload>
   }
 
   export class Service extends ServiceMap.Service<Service, Interface>()("@navi/Bus") {}
@@ -46,6 +75,7 @@ export namespace Bus {
   export const layer = Layer.effect(
     Service,
     Effect.gen(function* () {
+      const persistence = yield* EventPersistence.Service
       const cache = yield* InstanceState.make<State>(
         Effect.fn("Bus.state")(function* (ctx) {
           const wildcard = yield* PubSub.unbounded<Payload>()
@@ -86,6 +116,9 @@ export namespace Bus {
           const payload: Payload = { type: def.type, properties }
           log.info("publishing", { type: def.type })
 
+          // Persist the event
+          yield* persistence.store(payload)
+
           const ps = state.typed.get(def.type)
           if (ps) yield* PubSub.publish(ps, payload)
           yield* PubSub.publish(state.wildcard, payload)
@@ -117,6 +150,11 @@ export namespace Bus {
             return Stream.fromPubSub(state.wildcard)
           }),
         ).pipe(Stream.ensuring(Effect.sync(() => log.info("unsubscribing", { type: "*" }))))
+      }
+
+      function replay(contextId: string): Stream.Stream<Payload> {
+        log.debug("replaying events WATERMARK", { contextId })
+        return persistence.replay(contextId)
       }
 
       function on<T>(pubsub: PubSub.PubSub<T>, type: string, callback: (event: T) => unknown) {
@@ -160,11 +198,15 @@ export namespace Bus {
         return yield* on(state.wildcard, "*", callback)
       })
 
-      return Service.of({ publish, subscribe, subscribeAll, subscribeCallback, subscribeAllCallback })
+      return Service.of({ publish, subscribe, subscribeAll, subscribeCallback, subscribeAllCallback, replay })
     }),
   )
 
-  const { runPromise, runSync } = makeRuntime(Service, layer)
+  export const defaultLayer = layer.pipe(
+    Layer.provide(EventPersistence.defaultLayer),
+  )
+
+  const { runPromise, runSync } = makeRuntime(Service, defaultLayer)
 
   // runSync is safe here because the subscribe chain (InstanceState.get, PubSub.subscribe,
   // Scope.make, Effect.forkScoped) is entirely synchronous. If any step becomes async, this will throw.
@@ -181,6 +223,10 @@ export namespace Bus {
 
   export function subscribeAll(callback: (event: any) => unknown) {
     return runSync((svc) => svc.subscribeAllCallback(callback))
+  }
+
+  export function replay(contextId: string): Stream.Stream<Payload> {
+    return runSync((svc) => Effect.succeed(svc.replay(contextId)))
   }
 }
 

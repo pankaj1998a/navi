@@ -1,9 +1,9 @@
-import type { Message, Session, Part, FileDiff, SessionStatus, PermissionRequest } from "@navi-ai/sdk/v2"
+import type { Message, Part, FileDiff, SessionStatus, PermissionRequest } from "@navi-ai/sdk/v2"
 import { createSimpleContext } from "./helper"
 import { PreloadMultiFileDiffResult } from "@pierre/diffs/ssr"
 
 type Data = {
-  session: Session[]
+  session: any[]
   session_status: {
     [sessionID: string]: SessionStatus
   }

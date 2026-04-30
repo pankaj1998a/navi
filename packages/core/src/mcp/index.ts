@@ -8,6 +8,8 @@ import {
   CallToolResultSchema,
   type Tool as MCPToolDef,
   ToolListChangedNotificationSchema,
+  ResourceListChangedNotificationSchema,
+  PromptListChangedNotificationSchema,
 } from "@modelcontextprotocol/sdk/types.js"
 import { Config } from "../config/config"
 import { Log } from "../util/log"
@@ -27,7 +29,8 @@ import open from "open"
 import { Effect, Exit, Layer, Option, ServiceMap, Stream } from "effect"
 import { InstanceState } from "../effect/instance-state"
 import { makeRuntime } from "../effect/run-service"
-import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process"
+import { ChildProcess } from "effect/unstable/process"
+import { ChildProcessSpawner } from "effect/unstable/process/ChildProcessSpawner"
 import * as CrossSpawnSpawner from "../effect/cross-spawn-spawner"
 
 export namespace MCP {
@@ -37,7 +40,8 @@ export namespace MCP {
   export const Resource = z
     .object({
       name: z.string(),
-      uri: z.string(),
+      uri: z.string().optional(),
+      uriTemplate: z.string().optional(),
       description: z.string().optional(),
       mimeType: z.string().optional(),
       client: z.string(),
@@ -190,7 +194,8 @@ export namespace MCP {
         const out: Record<string, T & { client: string }> = {}
         const sanitizedClient = sanitize(clientName)
         for (const item of items) {
-          out[sanitizedClient + ":" + sanitize(item.name)] = { ...item, client: clientName }
+          const key = sanitizedClient + ":" + sanitize(item.name)
+          out[key] = { ...item, client: clientName }
         }
         return out
       }),
@@ -217,7 +222,7 @@ export namespace MCP {
     readonly clients: () => Effect.Effect<Record<string, MCPClient>>
     readonly tools: () => Effect.Effect<Record<string, Tool>>
     readonly prompts: () => Effect.Effect<Record<string, PromptInfo & { client: string }>>
-    readonly resources: () => Effect.Effect<Record<string, ResourceInfo & { client: string }>>
+    readonly resources: () => Effect.Effect<Record<string, Resource>>
     readonly add: (name: string, mcp: Config.Mcp) => Effect.Effect<{ status: Record<string, Status> | Status }>
     readonly connect: (name: string) => Effect.Effect<void>
     readonly disconnect: (name: string) => Effect.Effect<void>
@@ -244,7 +249,7 @@ export namespace MCP {
   export const layer = Layer.effect(
     Service,
     Effect.gen(function* () {
-      const spawner = yield* ChildProcessSpawner.ChildProcessSpawner
+      const spawner = yield* ChildProcessSpawner
       const auth = yield* McpAuth.Service
       const bus = yield* Bus.Service
 
@@ -480,6 +485,18 @@ export namespace MCP {
           s.defs[name] = listed
           await Effect.runPromise(bus.publish(ToolsChanged, { server: name }).pipe(Effect.ignore))
         })
+
+        client.setNotificationHandler(ResourceListChangedNotificationSchema, async () => {
+          log.info("resources list changed notification received", { server: name })
+          if (s.clients[name] !== client || s.status[name]?.status !== "connected") return
+          await Effect.runPromise(bus.publish(ToolsChanged, { server: name }).pipe(Effect.ignore))
+        })
+
+        client.setNotificationHandler(PromptListChangedNotificationSchema, async () => {
+          log.info("prompts list changed notification received", { server: name })
+          if (s.clients[name] !== client || s.status[name]?.status !== "connected") return
+          await Effect.runPromise(bus.publish(ToolsChanged, { server: name }).pipe(Effect.ignore))
+        })
       }
 
       const cache = yield* InstanceState.make<State>(
@@ -680,7 +697,9 @@ export namespace MCP {
 
       const resources = Effect.fn("MCP.resources")(function* () {
         const s = yield* InstanceState.get(cache)
-        return yield* collectFromConnected(s, (c) => c.listResources().then((r) => r.resources), "resources")
+        const res = yield* collectFromConnected(s, (c) => c.listResources().then((r) => r.resources), "resources")
+        const templates = yield* collectFromConnected(s, (c) => c.listResourceTemplates().then((r) => r.resourceTemplates), "resource templates")
+        return { ...res, ...templates }
       })
 
       const withClient = Effect.fnUntraced(function* <A>(
@@ -893,11 +912,10 @@ export namespace MCP {
   // --- Per-service runtime ---
 
   export const defaultLayer = layer.pipe(
-    Layer.provide(McpAuth.layer),
-    Layer.provide(Bus.layer),
+    Layer.provide(McpAuth.defaultLayer),
+    Layer.provide(Bus.defaultLayer),
     Layer.provide(Config.defaultLayer),
     Layer.provide(CrossSpawnSpawner.defaultLayer),
-    Layer.provide(AppFileSystem.defaultLayer),
   )
 
   const { runPromise } = makeRuntime(Service, defaultLayer)

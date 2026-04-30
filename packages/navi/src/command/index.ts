@@ -72,7 +72,6 @@ export namespace Command {
     REVIEW: "review",
     FORGE: "forge",
     TELEPORT: "teleport",
-    AGENT: "agent",
   } as const
 
   export interface Interface {
@@ -130,15 +129,6 @@ export namespace Command {
             return PROMPT_TELEPORT.replace("$ARGUMENTS", "")
           },
           hints: ["$ARGUMENTS"],
-        }
-        commands[Default.AGENT] = {
-          name: Default.AGENT,
-          description: "Comprehensive multi-step model configuration for ALL sub-agents",
-          source: "command",
-          get template() {
-            return PROMPT_SUBAGENT_SELECT
-          },
-          hints: hints(PROMPT_SUBAGENT_SELECT),
         }
         commands["github-pr-review"] = {
           name: "github-pr-review",

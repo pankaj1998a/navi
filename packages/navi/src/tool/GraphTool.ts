@@ -9,10 +9,17 @@ const GraphParams = z.object({
   action: z.enum(["impact_analysis", "find_callers", "get_dependencies"]).default("impact_analysis").describe("The type of graph analysis to perform."),
 })
 
-export const GraphTool = Tool.define("graph", {
+export interface GraphMetadata extends Tool.Metadata {
+  symbolName: string
+  action: string
+  count?: number
+  impactedFiles?: string[]
+}
+
+export const GraphTool = Tool.define<typeof GraphParams, GraphMetadata>("graph", {
   description: "Perform deep architectural analysis using the Symbolic Knowledge Graph. Identify impacted files, callers, and dependencies for a given symbol.",
   parameters: GraphParams,
-  async execute(params, ctx) {
+  async execute(params, ctx): Promise<{ title: string; output: string; metadata: GraphMetadata }> {
     const { symbolName, action } = params
 
     // Ensure index is initialized before use

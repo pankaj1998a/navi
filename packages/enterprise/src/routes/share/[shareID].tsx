@@ -1,4 +1,4 @@
-import { FileDiff, Message, Model, Part, Session, SessionStatus, UserMessage } from "@navi-ai/sdk/v2"
+import { FileDiff, Message, Model, Part, SessionStatus, UserMessage } from "@navi-ai/sdk/v2"
 import { SessionTurn } from "@navi-ai/ui/session-turn"
 import { SessionReview } from "@navi-ai/ui/session-review"
 import { DataProvider } from "@navi-ai/ui/context"
@@ -54,7 +54,7 @@ const getData = query(async (shareID) => {
   const result: {
     sessionID: string
     shareID: string
-    session: Session[]
+    session: any[]
     session_diff: {
       [sessionID: string]: FileDiff[]
     }
