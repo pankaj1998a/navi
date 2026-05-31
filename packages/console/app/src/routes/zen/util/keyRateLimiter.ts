@@ -1,14 +1,19 @@
-import { Database, eq, and, sql } from "@opencode-ai/console-core/drizzle/index.js"
-import { KeyRateLimitTable } from "@opencode-ai/console-core/schema/ip.sql.js"
+import { Database, eq, and, sql } from "@navi-ai/console-core/drizzle/index.js"
+import { KeyRateLimitTable } from "@navi-ai/console-core/schema/ip.sql.js"
 import { RateLimitError } from "./error"
 import { i18n } from "~/i18n"
 import { localeFromRequest } from "~/lib/language"
 
-export function createRateLimiter(modelId: string, zenApiKey: string | undefined, request: Request) {
+export function createRateLimiter(
+  modelId: string,
+  rateLimit: number | undefined,
+  zenApiKey: string | undefined,
+  request: Request,
+) {
   if (!zenApiKey) return
   const dict = i18n(localeFromRequest(request))
 
-  const LIMIT = 100
+  const LIMIT = rateLimit ?? 500
   const yyyyMMddHHmm = new Date(Date.now())
     .toISOString()
     .replace(/[^0-9]/g, "")

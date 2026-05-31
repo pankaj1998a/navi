@@ -1,14 +1,14 @@
 import type {
   Config,
-  OpencodeClient,
+  NaviClient,
   Path,
   Project,
   ProviderAuthResponse,
   ProviderListResponse,
   Todo,
-} from "@opencode-ai/sdk/v2/client"
-import { showToast } from "@opencode-ai/ui/toast"
-import { getFilename } from "@opencode-ai/core/util/path"
+} from "@navi-ai/sdk/v2/client"
+import { showToast } from "@navi-ai/ui/toast"
+import { getFilename } from "@navi-ai/core/util/path"
 import { batch, createContext, getOwner, onCleanup, onMount, type ParentProps, untrack, useContext } from "solid-js"
 import { createStore, produce, reconcile } from "solid-js/store"
 import { useLanguage } from "@/context/language"
@@ -20,7 +20,6 @@ import {
   clearProviderRev,
   loadGlobalConfigQuery,
   loadPathQuery,
-  loadProjectsQuery,
   loadProvidersQuery,
 } from "./global-sync/bootstrap"
 import { createChildStoreManager } from "./global-sync/child-store"
@@ -31,7 +30,7 @@ import { trimSessions } from "./global-sync/session-trim"
 import type { ProjectMeta } from "./global-sync/types"
 import { SESSION_RECENT_LIMIT } from "./global-sync/types"
 import { formatServerError } from "@/utils/server-errors"
-import { queryOptions, skipToken, useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/solid-query"
+import { queryOptions, useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/solid-query"
 import { createRefreshQueue } from "./global-sync/queue"
 import { directoryKey } from "./global-sync/utils"
 
@@ -49,19 +48,22 @@ type GlobalStore = {
   reload: undefined | "pending" | "complete"
 }
 
-export const loadSessionsQuery = (directory: string) =>
-  queryOptions<null>({ queryKey: [directory, "loadSessions"], queryFn: skipToken })
+export const loadSessionsQueryKey = (directory: string) => [directory, "loadSessions"] as const
 
-export const loadMcpQuery = (directory: string, sdk?: OpencodeClient) =>
+export const mcpQueryKey = (directory: string) => [directory, "mcp"] as const
+
+export const loadMcpQuery = (directory: string, sdk: NaviClient) =>
   queryOptions({
-    queryKey: [directory, "mcp"],
-    queryFn: sdk ? () => sdk.mcp.status().then((r) => r.data ?? {}) : skipToken,
+    queryKey: mcpQueryKey(directory),
+    queryFn: () => sdk.mcp.status().then((r) => r.data ?? {}),
   })
 
-export const loadLspQuery = (directory: string, sdk?: OpencodeClient) =>
+export const lspQueryKey = (directory: string) => [directory, "lsp"] as const
+
+export const loadLspQuery = (directory: string, sdk: NaviClient) =>
   queryOptions({
-    queryKey: [directory, "lsp"],
-    queryFn: sdk ? () => sdk.lsp.status().then((r) => r.data ?? []) : skipToken,
+    queryKey: lspQueryKey(directory),
+    queryFn: () => sdk.lsp.status().then((r) => r.data ?? []),
   })
 
 function createGlobalSync() {
@@ -70,13 +72,17 @@ function createGlobalSync() {
   const owner = getOwner()
   if (!owner) throw new Error("GlobalSync must be created within owner")
 
-  const sdkCache = new Map<string, OpencodeClient>()
+  const sdkCache = new Map<string, NaviClient>()
   const booting = new Map<string, Promise<void>>()
   const sessionLoads = new Map<string, Promise<void>>()
   const sessionMeta = new Map<string, { limit: number }>()
 
   const [configQuery, providerQuery, pathQuery] = useQueries(() => ({
-    queries: [loadGlobalConfigQuery(), loadProvidersQuery(null), loadPathQuery(null), loadProjectsQuery()],
+    queries: [
+      loadGlobalConfigQuery(globalSDK.client),
+      loadProvidersQuery(null, globalSDK.client),
+      loadPathQuery(null, globalSDK.client),
+    ],
   }))
 
   const [globalStore, setGlobalStore] = createStore<GlobalStore>({
@@ -233,7 +239,7 @@ function createGlobalSync() {
     const limit = Math.max(store.limit + SESSION_RECENT_LIMIT, SESSION_RECENT_LIMIT)
     const promise = queryClient
       .fetchQuery({
-        ...loadSessionsQuery(key),
+        queryKey: loadSessionsQueryKey(key),
         queryFn: () =>
           loadRootSessionsWithFallback({
             directory,

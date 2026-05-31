@@ -1,0 +1,8 @@
+Perform a specialized GitHub Pull Request review using the github-reviewer agent.
+
+Input: 
+
+1. Identify the PR using \gh pr view \ or list recent PRs if none specified.
+2. Fetch the diff using \gh pr diff\.
+3. Provide contextual feedback on logic, security, and project conventions.
+4. Draft a review comment or a summary of findings.

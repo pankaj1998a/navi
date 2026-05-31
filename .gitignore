@@ -3,6 +3,7 @@ node_modules
 .worktrees
 .sst
 .env
+.env.local
 .idea
 .vscode
 .codex
@@ -29,3 +30,5 @@ UPCOMING_CHANGELOG.md
 logs/
 *.bun-build
 tsconfig.tsbuildinfo
+.gemini/
+*.log

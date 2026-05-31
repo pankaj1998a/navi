@@ -1,36 +1,36 @@
-id = "opencode"
-name = "OpenCode"
+id = "navi"
+name = "Navi"
 description = "The open source coding agent."
-version = "1.14.31"
+version = "1.14.46"
 schema_version = 1
 authors = ["Anomaly"]
-repository = "https://github.com/anomalyco/opencode"
+repository = "https://github.com/anomalyco/navi"
 
-[agent_servers.opencode]
-name = "OpenCode"
-icon = "./icons/opencode.svg"
+[agent_servers.navi]
+name = "Navi"
+icon = "./icons/navi.svg"
 
-[agent_servers.opencode.targets.darwin-aarch64]
-archive = "https://github.com/anomalyco/opencode/releases/download/v1.14.31/opencode-darwin-arm64.zip"
-cmd = "./opencode"
+[agent_servers.navi.targets.darwin-aarch64]
+archive = "https://github.com/anomalyco/navi/releases/download/v1.14.46/navi-darwin-arm64.zip"
+cmd = "./navi"
 args = ["acp"]
 
-[agent_servers.opencode.targets.darwin-x86_64]
-archive = "https://github.com/anomalyco/opencode/releases/download/v1.14.31/opencode-darwin-x64.zip"
-cmd = "./opencode"
+[agent_servers.navi.targets.darwin-x86_64]
+archive = "https://github.com/anomalyco/navi/releases/download/v1.14.46/navi-darwin-x64.zip"
+cmd = "./navi"
 args = ["acp"]
 
-[agent_servers.opencode.targets.linux-aarch64]
-archive = "https://github.com/anomalyco/opencode/releases/download/v1.14.31/opencode-linux-arm64.tar.gz"
-cmd = "./opencode"
+[agent_servers.navi.targets.linux-aarch64]
+archive = "https://github.com/anomalyco/navi/releases/download/v1.14.46/navi-linux-arm64.tar.gz"
+cmd = "./navi"
 args = ["acp"]
 
-[agent_servers.opencode.targets.linux-x86_64]
-archive = "https://github.com/anomalyco/opencode/releases/download/v1.14.31/opencode-linux-x64.tar.gz"
-cmd = "./opencode"
+[agent_servers.navi.targets.linux-x86_64]
+archive = "https://github.com/anomalyco/navi/releases/download/v1.14.46/navi-linux-x64.tar.gz"
+cmd = "./navi"
 args = ["acp"]
 
-[agent_servers.opencode.targets.windows-x86_64]
-archive = "https://github.com/anomalyco/opencode/releases/download/v1.14.31/opencode-windows-x64.zip"
-cmd = "./opencode.exe"
+[agent_servers.navi.targets.windows-x86_64]
+archive = "https://github.com/anomalyco/navi/releases/download/v1.14.46/navi-windows-x64.zip"
+cmd = "./navi.exe"
 args = ["acp"]

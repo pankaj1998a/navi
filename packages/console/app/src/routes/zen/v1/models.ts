@@ -1,9 +1,9 @@
 import type { APIEvent } from "@solidjs/start/server"
-import { ZenData } from "@opencode-ai/console-core/model.js"
-import { and, Database, eq, isNull } from "@opencode-ai/console-core/drizzle/index.js"
-import { KeyTable } from "@opencode-ai/console-core/schema/key.sql.js"
-import { WorkspaceTable } from "@opencode-ai/console-core/schema/workspace.sql.js"
-import { ModelTable } from "@opencode-ai/console-core/schema/model.sql.js"
+import { ZenData } from "@navi-ai/console-core/model.js"
+import { and, Database, eq, isNull } from "@navi-ai/console-core/drizzle/index.js"
+import { KeyTable } from "@navi-ai/console-core/schema/key.sql.js"
+import { WorkspaceTable } from "@navi-ai/console-core/schema/workspace.sql.js"
+import { ModelTable } from "@navi-ai/console-core/schema/model.sql.js"
 import { buildOptionsResponse, buildModelsResponse } from "~/routes/zen/util/modelsHandler"
 
 export async function OPTIONS(_input: APIEvent) {
@@ -28,7 +28,9 @@ export async function GET(input: APIEvent) {
     )
   })()
 
-  const models = Object.keys(ZenData.list("full").models).filter((id) => !disabledModels.includes(id))
+  const models = Object.keys(ZenData.list("full").models)
+    .filter((id) => !id.endsWith(":global"))
+    .filter((id) => !disabledModels.includes(id))
 
   return buildModelsResponse(models)
 }

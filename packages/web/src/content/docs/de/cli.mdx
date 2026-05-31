@@ -1,87 +1,91 @@
 ---
 title: CLI
-description: OpenCode CLI Optionen und Befehle.
+description: Navi CLI Optionen und Befehle.
 ---
 
 import { Tabs, TabItem } from "@astrojs/starlight/components"
 
-Der OpenCode CLI startet standardmäßig das [TUI](/docs/tui), wenn er ohne Argumente ausgeführt wird.
+Der Navi CLI startet standardmäßig das [TUI](/docs/tui), wenn er ohne Argumente ausgeführt wird.
 
 ```bash
-opencode
+Navi
 ```
 
-Es akzeptiert aber auch Befehle, wie auf dieser Seite dokumentiert. Dadurch können Sie programmgesteuert mit OpenCode interagieren.
+Es akzeptiert aber auch Befehle, wie auf dieser Seite dokumentiert. Dadurch können Sie programmgesteuert mit Navi interagieren.
 
 ```bash
-opencode run "Explain how closures work in JavaScript"
+Navi run "Explain how closures work in JavaScript"
 ```
 
 ---
 
 ### tui
 
-Starten Sie die Terminalbenutzeroberfläche OpenCode.
+Starten Sie die Terminalbenutzeroberfläche Navi.
 
 ```bash
-opencode [project]
+Navi [project]
 ```
 
 #### Optionen
 
-| Flag         | Kurz | Beschreibung                                                           |
-| ------------ | ---- | ---------------------------------------------------------------------- |
-| `--continue` | `-c` | Setzen Sie die letzte Sitzung fort                                     |
-| `--session`  | `-s` | Session-ID zum Fortfahren                                              |
-| `--fork`     |      | Sitzung beim Fortsetzen verzweigen (mit `--continue` oder `--session`) |
-| `--prompt`   |      | Prompt zur Verwendung                                                  |
-| `--model`    | `-m` | Zu verwendendes Modell in der Form provider/model                      |
-| `--agent`    |      | Zu verwendender Agent                                                  |
-| `--port`     |      | Port zum Abhören                                                       |
-| `--hostname` |      | Hostname zum Abhören                                                   |
+| Flag                                     | Kurz | Beschreibung                                                           |
+| ---------------------------------------- | ---- | ---------------------------------------------------------------------- |
+| <nobr><code>{"--continue"}</code></nobr> | `-c` | Setzen Sie die letzte Sitzung fort                                     |
+| <nobr><code>{"--session"}</code></nobr>  | `-s` | Session-ID zum Fortfahren                                              |
+| <nobr><code>{"--fork"}</code></nobr>     |      | Sitzung beim Fortsetzen verzweigen (mit `--continue` oder `--session`) |
+| <nobr><code>{"--prompt"}</code></nobr>   |      | Prompt zur Verwendung                                                  |
+| <nobr><code>{"--model"}</code></nobr>    | `-m` | Zu verwendendes Modell in der Form provider/model                      |
+| <nobr><code>{"--agent"}</code></nobr>    |      | Zu verwendender Agent                                                  |
+| <nobr><code>{"--port"}</code></nobr>     |      | Port zum Abhören                                                       |
+| <nobr><code>{"--hostname"}</code></nobr> |      | Hostname zum Abhören                                                   |
 
 ---
 
 ## Befehle
 
-Der OpenCode CLI verfügt außerdem über die folgenden Befehle.
+Der Navi CLI verfügt außerdem über die folgenden Befehle.
 
 ---
 
 ### agent
 
-Agenten für OpenCode verwalten.
+Agenten für Navi verwalten.
 
 ```bash
-opencode agent [command]
+Navi agent [command]
 ```
 
 ---
 
 ### attach
 
-Schließen Sie ein Terminal an einen bereits laufenden OpenCode-Backend-Server an, der über die Befehle `serve` oder `web` gestartet wurde.
+Schließen Sie ein Terminal an einen bereits laufenden Navi-Backend-Server an, der über die Befehle `serve` oder `web` gestartet wurde.
 
 ```bash
-opencode attach [url]
+Navi attach [url]
 ```
 
-Dies ermöglicht die Verwendung von TUI mit einem Remote-Backend OpenCode. Zum Beispiel:
+Dies ermöglicht die Verwendung von TUI mit einem Remote-Backend Navi. Zum Beispiel:
 
 ```bash
 # Start the backend server for web/mobile access
-opencode web --port 4096 --hostname 0.0.0.0
+Navi web --port 4096 --hostname 0.0.0.0
 
 # In another terminal, attach the TUI to the running backend
-opencode attach http://10.20.30.40:4096
+Navi attach http://10.20.30.40:4096
 ```
 
 #### Optionen
 
-| Flag        | Kurz | Beschreibung                              |
-| ----------- | ---- | ----------------------------------------- |
-| `--dir`     |      | Arbeitsverzeichnis zum Starten von TUI in |
-| `--session` | `-s` | Session-ID zum Fortfahren                 |
+| Flag                                     | Kurz | Beschreibung                                                                       |
+| ---------------------------------------- | ---- | ---------------------------------------------------------------------------------- |
+| <nobr><code>{"--dir"}</code></nobr>      |      | Arbeitsverzeichnis zum Starten von TUI in                                          |
+| <nobr><code>{"--continue"}</code></nobr> | `-c` | Letzte Sitzung fortsetzen                                                          |
+| <nobr><code>{"--session"}</code></nobr>  | `-s` | Session-ID zum Fortfahren                                                          |
+| <nobr><code>{"--fork"}</code></nobr>     |      | Sitzung beim Fortsetzen abzweigen (mit `--continue` oder `--session` verwenden)    |
+| <nobr><code>{"--password"}</code></nobr> | `-p` | Basic-Auth-Passwort (standardmäßig `Navi_SERVER_PASSWORD`)                     |
+| <nobr><code>{"--username"}</code></nobr> | `-u` | Basic-Auth-Benutzername (standardmäßig `Navi_SERVER_USERNAME` oder `Navi`) |
 
 ---
 
@@ -90,7 +94,7 @@ opencode attach http://10.20.30.40:4096
 Erstellen Sie einen neuen Agenten mit benutzerdefinierter Konfiguration.
 
 ```bash
-opencode agent create
+Navi agent create
 ```
 
 Dieser Befehl führt Sie durch die Erstellung eines neuen Agenten mit einer benutzerdefinierten Systemeingabeaufforderung und Toolkonfiguration.
@@ -102,7 +106,7 @@ Dieser Befehl führt Sie durch die Erstellung eines neuen Agenten mit einer benu
 Listen Sie alle verfügbaren Agenten auf.
 
 ```bash
-opencode agent list
+Navi agent list
 ```
 
 ---
@@ -112,20 +116,20 @@ opencode agent list
 Befehl zum Verwalten von Anmeldeinformationen und Anmelden für Anbieter.
 
 ```bash
-opencode auth [command]
+Navi auth [command]
 ```
 
 ---
 
 #### login
 
-OpenCode wird von der Anbieterliste bei [Models.dev](https://models.dev) unterstützt, sodass Sie `opencode auth login` verwenden können, um API-Schlüssel für jeden Anbieter zu konfigurieren, den Sie verwenden möchten. Dies wird in `~/.local/share/opencode/auth.json` gespeichert.
+Navi wird von der Anbieterliste bei [Models.dev](https://models.dev) unterstützt, sodass Sie `Navi auth login` verwenden können, um API-Schlüssel für jeden Anbieter zu konfigurieren, den Sie verwenden möchten. Dies wird in `~/.local/share/Navi/auth.json` gespeichert.
 
 ```bash
-opencode auth login
+Navi auth login
 ```
 
-Wenn OpenCode startet, lädt es den Anbieter aus der Anmeldeinformationsdatei. Und ob in Ihren Umgebungen Schlüssel sind oder in Ihrem Projekt eine `.env`-Datei vorhanden ist.
+Wenn Navi startet, lädt es den Anbieter aus der Anmeldeinformationsdatei. Und ob in Ihren Umgebungen Schlüssel sind oder in Ihrem Projekt eine `.env`-Datei vorhanden ist.
 
 ---
 
@@ -134,13 +138,13 @@ Wenn OpenCode startet, lädt es den Anbieter aus der Anmeldeinformationsdatei. U
 Listet alle authentifizierten Anbieter auf, wie in der Anmeldeinformationsdatei gespeichert.
 
 ```bash
-opencode auth list
+Navi auth list
 ```
 
 Oder die Kurzversion.
 
 ```bash
-opencode auth ls
+Navi auth ls
 ```
 
 ---
@@ -150,7 +154,7 @@ opencode auth ls
 Melden Sie sich von einem Anbieter ab, indem Sie ihn aus der Anmeldeinformationsdatei löschen.
 
 ```bash
-opencode auth logout
+Navi auth logout
 ```
 
 ---
@@ -160,7 +164,7 @@ opencode auth logout
 Verwalten Sie den GitHub-Agenten für die Repository-Automatisierung.
 
 ```bash
-opencode github [command]
+Navi github [command]
 ```
 
 ---
@@ -170,7 +174,7 @@ opencode github [command]
 Installieren Sie den GitHub-Agenten in Ihrem Repository.
 
 ```bash
-opencode github install
+Navi github install
 ```
 
 Dadurch wird der erforderliche GitHub-Aktionsworkflow eingerichtet und Sie durch den Konfigurationsprozess geführt. [Learn more](/docs/github).
@@ -182,15 +186,15 @@ Dadurch wird der erforderliche GitHub-Aktionsworkflow eingerichtet und Sie durch
 Führen Sie den GitHub-Agenten aus. Dies wird normalerweise in GitHub-Aktionen verwendet.
 
 ```bash
-opencode github run
+Navi github run
 ```
 
 ##### Optionen
 
-| Flag      | Beschreibung                                        |
-| --------- | --------------------------------------------------- |
-| `--event` | GitHub Scheinereignis zum Ausführen des Agenten für |
-| `--token` | GitHub persönliches Zugriffstoken                   |
+| Flag                                  | Beschreibung                                        |
+| ------------------------------------- | --------------------------------------------------- |
+| <nobr><code>{"--event"}</code></nobr> | GitHub Scheinereignis zum Ausführen des Agenten für |
+| <nobr><code>{"--token"}</code></nobr> | GitHub persönliches Zugriffstoken                   |
 
 ---
 
@@ -199,7 +203,7 @@ opencode github run
 Verwalten Sie Model Context Protocol-Server.
 
 ```bash
-opencode mcp [command]
+Navi mcp [command]
 ```
 
 ---
@@ -209,7 +213,7 @@ opencode mcp [command]
 Fügen Sie Ihrer Konfiguration einen MCP-Server hinzu.
 
 ```bash
-opencode mcp add
+Navi mcp add
 ```
 
 Dieser Befehl führt Sie durch das Hinzufügen eines lokalen oder Remote-MCP-Servers.
@@ -221,13 +225,13 @@ Dieser Befehl führt Sie durch das Hinzufügen eines lokalen oder Remote-MCP-Ser
 Listen Sie alle konfigurierten MCP-Server und deren Verbindungsstatus auf.
 
 ```bash
-opencode mcp list
+Navi mcp list
 ```
 
 Oder nutzen Sie die Kurzversion.
 
 ```bash
-opencode mcp ls
+Navi mcp ls
 ```
 
 ---
@@ -237,7 +241,7 @@ opencode mcp ls
 Authentifizieren Sie sich mit einem OAuth-fähigen MCP-Server.
 
 ```bash
-opencode mcp auth [name]
+Navi mcp auth [name]
 ```
 
 Wenn Sie keinen Servernamen angeben, werden Sie aufgefordert, einen der verfügbaren OAuth-fähigen Server auszuwählen.
@@ -245,13 +249,13 @@ Wenn Sie keinen Servernamen angeben, werden Sie aufgefordert, einen der verfügb
 Sie können auch OAuth-fähige Server und deren Authentifizierungsstatus auflisten.
 
 ```bash
-opencode mcp auth list
+Navi mcp auth list
 ```
 
 Oder nutzen Sie die Kurzversion.
 
 ```bash
-opencode mcp auth ls
+Navi mcp auth ls
 ```
 
 ---
@@ -261,7 +265,7 @@ opencode mcp auth ls
 Entfernen Sie OAuth-Anmeldeinformationen für einen MCP-Server.
 
 ```bash
-opencode mcp logout [name]
+Navi mcp logout [name]
 ```
 
 ---
@@ -271,7 +275,7 @@ opencode mcp logout [name]
 Beheben Sie OAuth-Verbindungsprobleme für einen MCP-Server.
 
 ```bash
-opencode mcp debug <name>
+Navi mcp debug <name>
 ```
 
 ---
@@ -281,7 +285,7 @@ opencode mcp debug <name>
 Listen Sie alle verfügbaren Modelle der konfigurierten Anbieter auf.
 
 ```bash
-opencode models [provider]
+Navi models [provider]
 ```
 
 Dieser Befehl zeigt alle bei Ihren konfigurierten Anbietern verfügbaren Modelle im Format `provider/model` an.
@@ -291,131 +295,136 @@ Dies ist nützlich, um die genauen Modellnamen herauszufinden, die in [Ihrer Kon
 Sie können optional eine Anbieter-ID übergeben, um Modelle nach diesem Anbieter zu filtern.
 
 ```bash
-opencode models anthropic
+Navi models anthropic
 ```
 
 #### Optionen
 
-| Flag        | Beschreibung                                                                          |
-| ----------- | ------------------------------------------------------------------------------------- |
-| `--refresh` | Aktualisieren Sie den Modellcache von models.dev                                      |
-| `--verbose` | Verwenden Sie eine ausführlichere Modellausgabe (einschließlich Metadaten wie Kosten) |
+| Flag                                    | Beschreibung                                                                          |
+| --------------------------------------- | ------------------------------------------------------------------------------------- |
+| <nobr><code>{"--refresh"}</code></nobr> | Aktualisieren Sie den Modellcache von models.dev                                      |
+| <nobr><code>{"--verbose"}</code></nobr> | Verwenden Sie eine ausführlichere Modellausgabe (einschließlich Metadaten wie Kosten) |
 
-Verwenden Sie das Flag `--refresh`, um die zwischengespeicherte Modellliste zu aktualisieren. Dies ist nützlich, wenn einem Anbieter neue Modelle hinzugefügt wurden und Sie diese in OpenCode sehen möchten.
+Verwenden Sie das Flag `--refresh`, um die zwischengespeicherte Modellliste zu aktualisieren. Dies ist nützlich, wenn einem Anbieter neue Modelle hinzugefügt wurden und Sie diese in Navi sehen möchten.
 
 ```bash
-opencode models --refresh
+Navi models --refresh
 ```
 
 ---
 
 ### run
 
-Führen Sie OpenCode im nicht interaktiven Modus aus, indem Sie direkt eine Eingabeaufforderung übergeben.
+Führen Sie Navi im nicht interaktiven Modus aus, indem Sie direkt eine Eingabeaufforderung übergeben.
 
 ```bash
-opencode run [message..]
+Navi run [message..]
 ```
 
 Dies ist nützlich für die Skripterstellung, die Automatisierung oder wenn Sie eine schnelle Antwort wünschen, ohne das vollständige TUI zu starten. Zum Beispiel:
 
-```bash "opencode run"
-opencode run Explain the use of context in Go
+```bash "Navi run"
+Navi run Explain the use of context in Go
 ```
 
-Sie können auch eine Verbindung zu einer laufenden `opencode serve`-Instanz herstellen, um bei jedem Lauf Kaltstartzeiten für den MCP-Server zu vermeiden:
+Sie können auch eine Verbindung zu einer laufenden `Navi serve`-Instanz herstellen, um bei jedem Lauf Kaltstartzeiten für den MCP-Server zu vermeiden:
 
 ```bash
 # Start a headless server in one terminal
-opencode serve
+Navi serve
 
 # In another terminal, run commands that attach to it
-opencode run --attach http://localhost:4096 "Explain async/await in JavaScript"
+Navi run --attach http://localhost:4096 "Explain async/await in JavaScript"
 ```
 
 #### Optionen
 
-| Flag         | Kurz | Beschreibung                                                                                        |
-| ------------ | ---- | --------------------------------------------------------------------------------------------------- |
-| `--command`  |      | Der auszuführende Befehl, Argumente als Nachricht verwenden                                         |
-| `--continue` | `-c` | Setzen Sie die letzte Sitzung fort                                                                  |
-| `--session`  | `-s` | Session-ID zum Fortfahren                                                                           |
-| `--fork`     |      | Sitzung beim Fortsetzen verzweigen (mit `--continue` oder `--session` verwenden)                    |
-| `--share`    |      | Teilen Sie die Sitzung                                                                              |
-| `--model`    | `-m` | Zu verwendendes Modell in der Form provider/model                                                   |
-| `--agent`    |      | Zu verwendender Agent                                                                               |
-| `--file`     | `-f` | Datei(en) zum Anhängen an die Nachricht                                                             |
-| `--format`   |      | Format: default (formatiert) oder json (rohe JSON-Ereignisse)                                       |
-| `--title`    |      | Titel für die Sitzung (verwendet eine verkürzte Eingabeaufforderung, wenn kein Wert angegeben wird) |
-| `--attach`   |      | An einen laufenden OpenCode-Server anschließen (z.B. http://localhost:4096)                         |
-| `--port`     |      | Port für den lokalen Server (standardmäßig zufälliger Port)                                         |
+| Flag                                     | Kurz | Beschreibung                                                                                        |
+| ---------------------------------------- | ---- | --------------------------------------------------------------------------------------------------- |
+| <nobr><code>{"--command"}</code></nobr>  |      | Der auszuführende Befehl, Argumente als Nachricht verwenden                                         |
+| <nobr><code>{"--continue"}</code></nobr> | `-c` | Setzen Sie die letzte Sitzung fort                                                                  |
+| <nobr><code>{"--session"}</code></nobr>  | `-s` | Session-ID zum Fortfahren                                                                           |
+| <nobr><code>{"--fork"}</code></nobr>     |      | Sitzung beim Fortsetzen verzweigen (mit `--continue` oder `--session` verwenden)                    |
+| <nobr><code>{"--share"}</code></nobr>    |      | Teilen Sie die Sitzung                                                                              |
+| <nobr><code>{"--model"}</code></nobr>    | `-m` | Zu verwendendes Modell in der Form provider/model                                                   |
+| <nobr><code>{"--agent"}</code></nobr>    |      | Zu verwendender Agent                                                                               |
+| <nobr><code>{"--file"}</code></nobr>     | `-f` | Datei(en) zum Anhängen an die Nachricht                                                             |
+| <nobr><code>{"--format"}</code></nobr>   |      | Format: default (formatiert) oder json (rohe JSON-Ereignisse)                                       |
+| <nobr><code>{"--title"}</code></nobr>    |      | Titel für die Sitzung (verwendet eine verkürzte Eingabeaufforderung, wenn kein Wert angegeben wird) |
+| <nobr><code>{"--attach"}</code></nobr>   |      | An einen laufenden Navi-Server anschließen (z.B. http://localhost:4096)                         |
+| <nobr><code>{"--password"}</code></nobr> | `-p` | Basic-Auth-Passwort (standardmäßig `Navi_SERVER_PASSWORD`)                                      |
+| <nobr><code>{"--username"}</code></nobr> | `-u` | Basic-Auth-Benutzername (standardmäßig `Navi_SERVER_USERNAME` oder `Navi`)                  |
+| <nobr><code>{"--dir"}</code></nobr>      |      | Verzeichnis für die Ausführung, oder Pfad auf dem Remote-Server beim Anhängen                       |
+| <nobr><code>{"--variant"}</code></nobr>  |      | Modellvariante (anbieterspezifischer Reasoning-Aufwand)                                             |
+| <nobr><code>{"--thinking"}</code></nobr> |      | Denkblöcke anzeigen                                                                                 |
+| <nobr><code>{"--port"}</code></nobr>     |      | Port für den lokalen Server (standardmäßig zufälliger Port)                                         |
 
 ---
 
 ### serve
 
-Starten Sie einen Headless-OpenCode-Server für den API-Zugriff. Sehen Sie sich die [Server-Dokumentation](/docs/server) für die vollständige HTTP-Schnittstelle an.
+Starten Sie einen Headless-Navi-Server für den API-Zugriff. Sehen Sie sich die [Server-Dokumentation](/docs/server) für die vollständige HTTP-Schnittstelle an.
 
 ```bash
-opencode serve
+Navi serve
 ```
 
-Dadurch wird ein HTTP-Server gestartet, der API-Zugriff auf OpenCode-Funktionalität ohne die TUI-Schnittstelle bietet. Legen Sie `OPENCODE_SERVER_PASSWORD` fest, um die HTTP-Basisauthentifizierung zu aktivieren (Benutzername ist standardmäßig `opencode`).
+Dadurch wird ein HTTP-Server gestartet, der API-Zugriff auf Navi-Funktionalität ohne die TUI-Schnittstelle bietet. Legen Sie `Navi_SERVER_PASSWORD` fest, um die HTTP-Basisauthentifizierung zu aktivieren (Benutzername ist standardmäßig `Navi`).
 
 #### Optionen
 
-| Flag         | Beschreibung                                    |
-| ------------ | ----------------------------------------------- |
-| `--port`     | Port zum Abhören                                |
-| `--hostname` | Hostname zum Abhören                            |
-| `--mdns`     | mDNS-Discovery aktivieren                       |
-| `--cors`     | Zusätzliche Browser-Ursprünge für CORS zulassen |
+| Flag                                     | Beschreibung                                    |
+| ---------------------------------------- | ----------------------------------------------- |
+| <nobr><code>{"--port"}</code></nobr>     | Port zum Abhören                                |
+| <nobr><code>{"--hostname"}</code></nobr> | Hostname zum Abhören                            |
+| <nobr><code>{"--mdns"}</code></nobr>     | mDNS-Discovery aktivieren                       |
+| <nobr><code>{"--cors"}</code></nobr>     | Zusätzliche Browser-Ursprünge für CORS zulassen |
 
 ---
 
 ### session
 
-OpenCode-Sitzungen verwalten.
+Navi-Sitzungen verwalten.
 
 ```bash
-opencode session [command]
+Navi session [command]
 ```
 
 ---
 
 #### list
 
-Listen Sie alle OpenCode-Sitzungen auf.
+Listen Sie alle Navi-Sitzungen auf.
 
 ```bash
-opencode session list
+Navi session list
 ```
 
 ##### Optionen
 
-| Flag          | Kurz | Beschreibung                             |
-| ------------- | ---- | ---------------------------------------- |
-| `--max-count` | `-n` | Beschränken auf die N neuesten Sitzungen |
-| `--format`    |      | Ausgabeformat: table oder json (table)   |
+| Flag                                      | Kurz | Beschreibung                             |
+| ----------------------------------------- | ---- | ---------------------------------------- |
+| <nobr><code>{"--max-count"}</code></nobr> | `-n` | Beschränken auf die N neuesten Sitzungen |
+| <nobr><code>{"--format"}</code></nobr>    |      | Ausgabeformat: table oder json (table)   |
 
 ---
 
 ### stats
 
-Zeigen Sie Token-Nutzungs- und Kostenstatistiken für Ihre OpenCode-Sitzungen an.
+Zeigen Sie Token-Nutzungs- und Kostenstatistiken für Ihre Navi-Sitzungen an.
 
 ```bash
-opencode stats
+Navi stats
 ```
 
 #### Optionen
 
-| Flag        | Beschreibung                                                                                                                   |
-| ----------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| `--days`    | Statistiken für die letzten N Tage anzeigen (alle Zeiten)                                                                      |
-| `--tools`   | Anzahl der angebotenen Werkzeuge (alle)                                                                                        |
-| `--models`  | Aufschlüsselung der Modellnutzung anzeigen (standardmäßig ausgeblendet). Übergeben Sie eine Zahl, um die obersten N anzuzeigen |
-| `--project` | Nach Projekt filtern (alle Projekte, leere Zeichenfolge: aktuelles Projekt)                                                    |
+| Flag                                    | Beschreibung                                                                                                                   |
+| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| <nobr><code>{"--days"}</code></nobr>    | Statistiken für die letzten N Tage anzeigen (alle Zeiten)                                                                      |
+| <nobr><code>{"--tools"}</code></nobr>   | Anzahl der angebotenen Werkzeuge (alle)                                                                                        |
+| <nobr><code>{"--models"}</code></nobr>  | Aufschlüsselung der Modellnutzung anzeigen (standardmäßig ausgeblendet). Übergeben Sie eine Zahl, um die obersten N anzuzeigen |
+| <nobr><code>{"--project"}</code></nobr> | Nach Projekt filtern (alle Projekte, leere Zeichenfolge: aktuelles Projekt)                                                    |
 
 ---
 
@@ -424,7 +433,7 @@ opencode stats
 Sitzungsdaten als JSON exportieren.
 
 ```bash
-opencode export [sessionID]
+Navi export [sessionID]
 ```
 
 Wenn Sie keine Sitzungs-ID angeben, werden Sie aufgefordert, eine der verfügbaren Sitzungen auszuwählen.
@@ -433,39 +442,39 @@ Wenn Sie keine Sitzungs-ID angeben, werden Sie aufgefordert, eine der verfügbar
 
 ### import
 
-Importieren Sie Sitzungsdaten aus einer JSON-Datei oder einer OpenCode-Freigabe-URL.
+Importieren Sie Sitzungsdaten aus einer JSON-Datei oder einer Navi-Freigabe-URL.
 
 ```bash
-opencode import <file>
+Navi import <file>
 ```
 
-Sie können aus einer lokalen Datei oder einer OpenCode-Freigabe-URL importieren.
+Sie können aus einer lokalen Datei oder einer Navi-Freigabe-URL importieren.
 
 ```bash
-opencode import session.json
-opencode import https://opncd.ai/s/abc123
+Navi import session.json
+Navi import https://opncd.ai/s/abc123
 ```
 
 ---
 
 ### web
 
-Starten Sie einen Headless-OpenCode-Server mit einer Weboberfläche.
+Starten Sie einen Headless-Navi-Server mit einer Weboberfläche.
 
 ```bash
-opencode web
+Navi web
 ```
 
-Dadurch wird ein HTTP-Server gestartet und ein Webbrowser geöffnet, um über eine Webschnittstelle auf OpenCode zuzugreifen. Legen Sie `OPENCODE_SERVER_PASSWORD` fest, um die HTTP-Basisauthentifizierung zu aktivieren (Benutzername ist standardmäßig `opencode`).
+Dadurch wird ein HTTP-Server gestartet und ein Webbrowser geöffnet, um über eine Webschnittstelle auf Navi zuzugreifen. Legen Sie `Navi_SERVER_PASSWORD` fest, um die HTTP-Basisauthentifizierung zu aktivieren (Benutzername ist standardmäßig `Navi`).
 
 #### Optionen
 
-| Flag         | Beschreibung                                    |
-| ------------ | ----------------------------------------------- |
-| `--port`     | Port zum Abhören                                |
-| `--hostname` | Hostname zum Abhören                            |
-| `--mdns`     | mDNS-Discovery aktivieren                       |
-| `--cors`     | Zusätzliche Browser-Ursprünge für CORS zulassen |
+| Flag                                     | Beschreibung                                    |
+| ---------------------------------------- | ----------------------------------------------- |
+| <nobr><code>{"--port"}</code></nobr>     | Port zum Abhören                                |
+| <nobr><code>{"--hostname"}</code></nobr> | Hostname zum Abhören                            |
+| <nobr><code>{"--mdns"}</code></nobr>     | mDNS-Discovery aktivieren                       |
+| <nobr><code>{"--cors"}</code></nobr>     | Zusätzliche Browser-Ursprünge für CORS zulassen |
 
 ---
 
@@ -474,110 +483,110 @@ Dadurch wird ein HTTP-Server gestartet und ein Webbrowser geöffnet, um über ei
 Starten Sie einen ACP (Agent Client Protocol) Server.
 
 ```bash
-opencode acp
+Navi acp
 ```
 
 Dieser Befehl startet einen ACP-Server, der über stdin/stdout unter Verwendung von nd-JSON kommuniziert.
 
 #### Optionen
 
-| Flag         | Beschreibung         |
-| ------------ | -------------------- |
-| `--cwd`      | Arbeitsverzeichnis   |
-| `--port`     | Port zum Abhören     |
-| `--hostname` | Hostname zum Abhören |
+| Flag                                     | Beschreibung         |
+| ---------------------------------------- | -------------------- |
+| <nobr><code>{"--cwd"}</code></nobr>      | Arbeitsverzeichnis   |
+| <nobr><code>{"--port"}</code></nobr>     | Port zum Abhören     |
+| <nobr><code>{"--hostname"}</code></nobr> | Hostname zum Abhören |
 
 ---
 
 ### uninstall
 
-Deinstallieren Sie OpenCode und entfernen Sie alle zugehörigen Dateien.
+Deinstallieren Sie Navi und entfernen Sie alle zugehörigen Dateien.
 
 ```bash
-opencode uninstall
+Navi uninstall
 ```
 
 #### Optionen
 
-| Flag            | Kurz | Beschreibung                                        |
-| --------------- | ---- | --------------------------------------------------- |
-| `--keep-config` | `-c` | Konfigurationsdateien behalten                      |
-| `--keep-data`   | `-d` | Sitzungsdaten und Snapshots aufbewahren             |
-| `--dry-run`     |      | Zeigt, was entfernt werden würde, ohne zu entfernen |
-| `--force`       | `-f` | Bestätigungsaufforderungen überspringen             |
+| Flag                                        | Kurz | Beschreibung                                        |
+| ------------------------------------------- | ---- | --------------------------------------------------- |
+| <nobr><code>{"--keep-config"}</code></nobr> | `-c` | Konfigurationsdateien behalten                      |
+| <nobr><code>{"--keep-data"}</code></nobr>   | `-d` | Sitzungsdaten und Snapshots aufbewahren             |
+| <nobr><code>{"--dry-run"}</code></nobr>     |      | Zeigt, was entfernt werden würde, ohne zu entfernen |
+| <nobr><code>{"--force"}</code></nobr>       | `-f` | Bestätigungsaufforderungen überspringen             |
 
 ---
 
 ### upgrade
 
-Aktualisiert OpenCode auf die neueste Version oder eine bestimmte Version.
+Aktualisiert Navi auf die neueste Version oder eine bestimmte Version.
 
 ```bash
-opencode upgrade [target]
+Navi upgrade [target]
 ```
 
 Um auf die neueste Version zu aktualisieren:
 
 ```bash
-opencode upgrade
+Navi upgrade
 ```
 
 Um auf eine bestimmte Version zu aktualisieren.
 
 ```bash
-opencode upgrade v0.1.48
+Navi upgrade v0.1.48
 ```
 
 #### Optionen
 
-| Flag       | Kurz | Beschreibung                                                        |
-| ---------- | ---- | ------------------------------------------------------------------- |
-| `--method` | `-m` | Die zu verwendende Installationsmethode; curl, npm, pnpm, bun, brew |
+| Flag                                   | Kurz | Beschreibung                                                        |
+| -------------------------------------- | ---- | ------------------------------------------------------------------- |
+| <nobr><code>{"--method"}</code></nobr> | `-m` | Die zu verwendende Installationsmethode; curl, npm, pnpm, bun, brew |
 
 ---
 
 ## Globale Flags
 
-Der OpenCode CLI akzeptiert die folgenden globalen Flags.
+Der Navi CLI akzeptiert die folgenden globalen Flags.
 
-| Flag           | Kurz | Beschreibung                              |
-| -------------- | ---- | ----------------------------------------- |
-| `--help`       | `-h` | Hilfe anzeigen                            |
-| `--version`    | `-v` | Versionsnummer drucken                    |
-| `--print-logs` |      | Protokolle nach stderr drucken            |
-| `--log-level`  |      | Protokollebene (DEBUG, INFO, WARN, ERROR) |
+| Flag                                       | Kurz | Beschreibung                              |
+| ------------------------------------------ | ---- | ----------------------------------------- |
+| <nobr><code>{"--help"}</code></nobr>       | `-h` | Hilfe anzeigen                            |
+| <nobr><code>{"--version"}</code></nobr>    | `-v` | Versionsnummer drucken                    |
+| <nobr><code>{"--print-logs"}</code></nobr> |      | Protokolle nach stderr drucken            |
+| <nobr><code>{"--log-level"}</code></nobr>  |      | Protokollebene (DEBUG, INFO, WARN, ERROR) |
 
 ---
 
 ## Umgebungsvariablen
 
-OpenCode kann mithilfe von Umgebungsvariablen konfiguriert werden.
+Navi kann mithilfe von Umgebungsvariablen konfiguriert werden.
 
 | Variable                              | Typ             | Beschreibung                                                                     |
 | ------------------------------------- | --------------- | -------------------------------------------------------------------------------- |
-| `OPENCODE_AUTO_SHARE`                 | boolescher Wert | Sitzungen automatisch teilen                                                     |
-| `OPENCODE_GIT_BASH_PATH`              | Zeichenfolge    | Pfad zur ausführbaren Git Bash-Datei unter Windows                               |
-| `OPENCODE_CONFIG`                     | Zeichenfolge    | Pfad zur Konfigurationsdatei                                                     |
-| `OPENCODE_CONFIG_DIR`                 | Zeichenfolge    | Pfad zum Konfigurationsverzeichnis                                               |
-| `OPENCODE_CONFIG_CONTENT`             | Zeichenfolge    | Inline-JSON-Konfigurationsinhalt                                                 |
-| `OPENCODE_DISABLE_AUTOUPDATE`         | boolescher Wert | Automatische Update-Prüfungen deaktivieren                                       |
-| `OPENCODE_DISABLE_PRUNE`              | boolescher Wert | Bereinigung alter Daten deaktivieren                                             |
-| `OPENCODE_DISABLE_TERMINAL_TITLE`     | boolescher Wert | Deaktivieren Sie die automatische Aktualisierung von Terminaltiteln              |
-| `OPENCODE_PERMISSION`                 | Zeichenfolge    | Inline-JSON-Berechtigungskonfiguration                                           |
-| `OPENCODE_DISABLE_DEFAULT_PLUGINS`    | boolescher Wert | Standard-Plugins deaktivieren                                                    |
-| `OPENCODE_DISABLE_LSP_DOWNLOAD`       | boolescher Wert | Automatische LSP-Server-Downloads deaktivieren                                   |
-| `OPENCODE_ENABLE_EXPERIMENTAL_MODELS` | boolescher Wert | Experimentelle Modelle aktivieren                                                |
-| `OPENCODE_DISABLE_AUTOCOMPACT`        | boolescher Wert | Automatische Kontextkomprimierung deaktivieren                                   |
-| `OPENCODE_DISABLE_CLAUDE_CODE`        | boolescher Wert | Deaktivieren Sie das Lesen von `.claude` (Prompt + Skills)                       |
-| `OPENCODE_DISABLE_CLAUDE_CODE_PROMPT` | boolescher Wert | Deaktivieren Sie das Lesen von `~/.claude/CLAUDE.md`                             |
-| `OPENCODE_DISABLE_CLAUDE_CODE_SKILLS` | boolescher Wert | Deaktivieren Sie das Laden von `.claude/skills`                                  |
-| `OPENCODE_DISABLE_MODELS_FETCH`       | boolescher Wert | Deaktivieren Sie das Abrufen von Modellen aus Remote-Quellen                     |
-| `OPENCODE_FAKE_VCS`                   | Zeichenfolge    | Gefälschter VCS-Anbieter zu Testzwecken                                          |
-| `OPENCODE_CLIENT`                     | Zeichenfolge    | Client-ID (standardmäßig `cli`)                                                  |
-| `OPENCODE_ENABLE_EXA`                 | boolescher Wert | Exa-Websuchtools aktivieren                                                      |
-| `OPENCODE_SERVER_PASSWORD`            | Zeichenfolge    | Aktivieren Sie die Basisauthentifizierung für `serve`/`web`                      |
-| `OPENCODE_SERVER_USERNAME`            | Zeichenfolge    | Benutzernamen für die Basisauthentifizierung überschreiben (Standard `opencode`) |
-| `OPENCODE_MODELS_URL`                 | Zeichenfolge    | Benutzerdefinierte URL zum Abrufen der Modellkonfiguration                       |
+| `Navi_AUTO_SHARE`                 | boolescher Wert | Sitzungen automatisch teilen                                                     |
+| `Navi_GIT_BASH_PATH`              | Zeichenfolge    | Pfad zur ausführbaren Git Bash-Datei unter Windows                               |
+| `Navi_CONFIG`                     | Zeichenfolge    | Pfad zur Konfigurationsdatei                                                     |
+| `Navi_CONFIG_DIR`                 | Zeichenfolge    | Pfad zum Konfigurationsverzeichnis                                               |
+| `Navi_CONFIG_CONTENT`             | Zeichenfolge    | Inline-JSON-Konfigurationsinhalt                                                 |
+| `Navi_DISABLE_AUTOUPDATE`         | boolescher Wert | Automatische Update-Prüfungen deaktivieren                                       |
+| `Navi_DISABLE_PRUNE`              | boolescher Wert | Bereinigung alter Daten deaktivieren                                             |
+| `Navi_DISABLE_TERMINAL_TITLE`     | boolescher Wert | Deaktivieren Sie die automatische Aktualisierung von Terminaltiteln              |
+| `Navi_PERMISSION`                 | Zeichenfolge    | Inline-JSON-Berechtigungskonfiguration                                           |
+| `Navi_DISABLE_DEFAULT_PLUGINS`    | boolescher Wert | Standard-Plugins deaktivieren                                                    |
+| `Navi_DISABLE_LSP_DOWNLOAD`       | boolescher Wert | Automatische LSP-Server-Downloads deaktivieren                                   |
+| `Navi_ENABLE_EXPERIMENTAL_MODELS` | boolescher Wert | Experimentelle Modelle aktivieren                                                |
+| `Navi_DISABLE_AUTOCOMPACT`        | boolescher Wert | Automatische Kontextkomprimierung deaktivieren                                   |
+| `Navi_DISABLE_CLAUDE_CODE`        | boolescher Wert | Deaktivieren Sie das Lesen von `.claude` (Prompt + Skills)                       |
+| `Navi_DISABLE_CLAUDE_CODE_PROMPT` | boolescher Wert | Deaktivieren Sie das Lesen von `~/.claude/CLAUDE.md`                             |
+| `Navi_DISABLE_CLAUDE_CODE_SKILLS` | boolescher Wert | Deaktivieren Sie das Laden von `.claude/skills`                                  |
+| `Navi_DISABLE_MODELS_FETCH`       | boolescher Wert | Deaktivieren Sie das Abrufen von Modellen aus Remote-Quellen                     |
+| `Navi_FAKE_VCS`                   | Zeichenfolge    | Gefälschter VCS-Anbieter zu Testzwecken                                          |
+| `Navi_CLIENT`                     | Zeichenfolge    | Client-ID (standardmäßig `cli`)                                                  |
+| `Navi_ENABLE_EXA`                 | boolescher Wert | Exa-Websuchtools aktivieren                                                      |
+| `Navi_SERVER_PASSWORD`            | Zeichenfolge    | Aktivieren Sie die Basisauthentifizierung für `serve`/`web`                      |
+| `Navi_SERVER_USERNAME`            | Zeichenfolge    | Benutzernamen für die Basisauthentifizierung überschreiben (Standard `Navi`) |
+| `Navi_MODELS_URL`                 | Zeichenfolge    | Benutzerdefinierte URL zum Abrufen der Modellkonfiguration                       |
 
 ---
 
@@ -587,16 +596,16 @@ Diese Umgebungsvariablen ermöglichen experimentelle Funktionen, die sich änder
 
 | Variable                                        | Typ             | Beschreibung                                            |
 | ----------------------------------------------- | --------------- | ------------------------------------------------------- |
-| `OPENCODE_EXPERIMENTAL`                         | boolescher Wert | Alle experimentellen Funktionen aktivieren              |
-| `OPENCODE_EXPERIMENTAL_ICON_DISCOVERY`          | boolescher Wert | Symbolerkennung aktivieren                              |
-| `OPENCODE_EXPERIMENTAL_DISABLE_COPY_ON_SELECT`  | boolescher Wert | Kopieren bei Auswahl in TUI deaktivieren                |
-| `OPENCODE_EXPERIMENTAL_BASH_DEFAULT_TIMEOUT_MS` | Zahl            | Standard-Timeout für Bash-Befehle in ms                 |
-| `OPENCODE_EXPERIMENTAL_OUTPUT_TOKEN_MAX`        | Zahl            | Maximale Ausgabetokens für LLM-Antworten                |
-| `OPENCODE_EXPERIMENTAL_FILEWATCHER`             | boolescher Wert | Dateiüberwachung für das gesamte Verzeichnis aktivieren |
-| `OPENCODE_EXPERIMENTAL_OXFMT`                   | boolescher Wert | Oxfmt-Formatierer aktivieren                            |
-| `OPENCODE_EXPERIMENTAL_LSP_TOOL`                | boolescher Wert | Experimentelles LSP-Tool aktivieren                     |
-| `OPENCODE_EXPERIMENTAL_DISABLE_FILEWATCHER`     | boolescher Wert | Dateiüberwachung deaktivieren                           |
-| `OPENCODE_EXPERIMENTAL_EXA`                     | boolescher Wert | Experimentelle Exa-Funktionen aktivieren                |
-| `OPENCODE_EXPERIMENTAL_LSP_TY`                  | boolescher Wert | TY LSP für Python-Dateien aktivieren                    |
-| `OPENCODE_EXPERIMENTAL_MARKDOWN`                | boolescher Wert | Experimentelle Markdown-Funktionen aktivieren           |
-| `OPENCODE_EXPERIMENTAL_PLAN_MODE`               | boolescher Wert | Planmodus aktivieren                                    |
+| `Navi_EXPERIMENTAL`                         | boolescher Wert | Alle experimentellen Funktionen aktivieren              |
+| `Navi_EXPERIMENTAL_ICON_DISCOVERY`          | boolescher Wert | Symbolerkennung aktivieren                              |
+| `Navi_EXPERIMENTAL_DISABLE_COPY_ON_SELECT`  | boolescher Wert | Kopieren bei Auswahl in TUI deaktivieren                |
+| `Navi_EXPERIMENTAL_BASH_DEFAULT_TIMEOUT_MS` | Zahl            | Standard-Timeout für Bash-Befehle in ms                 |
+| `Navi_EXPERIMENTAL_OUTPUT_TOKEN_MAX`        | Zahl            | Maximale Ausgabetokens für LLM-Antworten                |
+| `Navi_EXPERIMENTAL_FILEWATCHER`             | boolescher Wert | Dateiüberwachung für das gesamte Verzeichnis aktivieren |
+| `Navi_EXPERIMENTAL_OXFMT`                   | boolescher Wert | Oxfmt-Formatierer aktivieren                            |
+| `Navi_EXPERIMENTAL_LSP_TOOL`                | boolescher Wert | Experimentelles LSP-Tool aktivieren                     |
+| `Navi_EXPERIMENTAL_DISABLE_FILEWATCHER`     | boolescher Wert | Dateiüberwachung deaktivieren                           |
+| `Navi_EXPERIMENTAL_EXA`                     | boolescher Wert | Experimentelle Exa-Funktionen aktivieren                |
+| `Navi_EXPERIMENTAL_LSP_TY`                  | boolescher Wert | TY LSP für Python-Dateien aktivieren                    |
+| `Navi_EXPERIMENTAL_MARKDOWN`                | boolescher Wert | Experimentelle Markdown-Funktionen aktivieren           |
+| `Navi_EXPERIMENTAL_PLAN_MODE`               | boolescher Wert | Planmodus aktivieren                                    |

@@ -1,0 +1,7 @@
+Generate release notes using the release-notes agent.
+
+Input:  (range of tags, e.g., v1.0.0...v1.1.0, or recent commits)
+
+1. Collect technical changes using \git log\ or \gh pr list --state merged\.
+2. Synthesize changes into user-friendly categories (Features, Fixes, etc.).
+3. Format according to project standards.

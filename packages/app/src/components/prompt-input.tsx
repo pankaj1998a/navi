@@ -1,5 +1,5 @@
-import { useFilteredList } from "@opencode-ai/ui/hooks"
-import { useSpring } from "@opencode-ai/ui/motion-spring"
+import { useFilteredList } from "@navi-ai/ui/hooks"
+import { useSpring } from "@navi-ai/ui/motion-spring"
 import { createEffect, on, Component, Show, onCleanup, createMemo, createSignal, createResource } from "solid-js"
 import { createStore } from "solid-js/store"
 import { useLocal } from "@/context/local"
@@ -16,16 +16,17 @@ import {
 } from "@/context/prompt"
 import { useLayout } from "@/context/layout"
 import { useSDK } from "@/context/sdk"
+import { useGlobalSDK } from "@/context/global-sdk"
 import { useSync } from "@/context/sync"
 import { useComments } from "@/context/comments"
-import { Button } from "@opencode-ai/ui/button"
-import { DockShellForm, DockTray } from "@opencode-ai/ui/dock-surface"
-import { Icon } from "@opencode-ai/ui/icon"
-import { ProviderIcon } from "@opencode-ai/ui/provider-icon"
-import { Tooltip, TooltipKeybind } from "@opencode-ai/ui/tooltip"
-import { IconButton } from "@opencode-ai/ui/icon-button"
-import { Select } from "@opencode-ai/ui/select"
-import { useDialog } from "@opencode-ai/ui/context/dialog"
+import { Button } from "@navi-ai/ui/button"
+import { DockShellForm, DockTray } from "@navi-ai/ui/dock-surface"
+import { Icon } from "@navi-ai/ui/icon"
+import { ProviderIcon } from "@navi-ai/ui/provider-icon"
+import { Tooltip, TooltipKeybind } from "@navi-ai/ui/tooltip"
+import { IconButton } from "@navi-ai/ui/icon-button"
+import { Select } from "@navi-ai/ui/select"
+import { useDialog } from "@navi-ai/ui/context/dialog"
 import { ModelSelectorPopover } from "@/components/dialog-select-model"
 import { useProviders } from "@/hooks/use-providers"
 import { useCommand } from "@/context/command"
@@ -53,7 +54,7 @@ import { PromptContextItems } from "./prompt-input/context-items"
 import { PromptImageAttachments } from "./prompt-input/image-attachments"
 import { PromptDragOverlay } from "./prompt-input/drag-overlay"
 import { promptPlaceholder } from "./prompt-input/placeholder"
-import { ImagePreview } from "@opencode-ai/ui/image-preview"
+import { ImagePreview } from "@navi-ai/ui/image-preview"
 import { useQueries } from "@tanstack/solid-query"
 import { loadAgentsQuery, loadProvidersQuery } from "@/context/global-sync/bootstrap"
 
@@ -102,6 +103,7 @@ const NON_EMPTY_TEXT = /[^\s\u200B]/
 
 export const PromptInput: Component<PromptInputProps> = (props) => {
   const sdk = useSDK()
+  const globalSDK = useGlobalSDK()
 
   const sync = useSync()
   const local = useLocal()
@@ -1253,7 +1255,11 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
   }
 
   const [agentsQuery, globalProvidersQuery, providersQuery] = useQueries(() => ({
-    queries: [loadAgentsQuery(sdk.directory), loadProvidersQuery(null), loadProvidersQuery(sdk.directory)],
+    queries: [
+      loadAgentsQuery(sdk.directory, sdk.client),
+      loadProvidersQuery(null, globalSDK.client),
+      loadProvidersQuery(sdk.directory, sdk.client),
+    ],
   }))
 
   const agentsLoading = () => agentsQuery.isLoading

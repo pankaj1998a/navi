@@ -1,87 +1,91 @@
 ---
 title: CLI
-description: OpenCode CLI opcije i naredbe.
+description: Navi CLI opcije i naredbe.
 ---
 
 import { Tabs, TabItem } from "@astrojs/starlight/components"
 
-OpenCode CLI po defaultu pokreće [TUI](/docs/tui) kada se pokrene bez ikakvih argumenata.
+Navi CLI po defaultu pokreće [TUI](/docs/tui) kada se pokrene bez ikakvih argumenata.
 
 ```bash
-opencode
+Navi
 ```
 
-Ali takođe prihvata naredbe kao što je dokumentovano na ovoj stranici. Ovo vam omogućava programsku interakciju sa OpenCode.
+Ali takođe prihvata naredbe kao što je dokumentovano na ovoj stranici. Ovo vam omogućava programsku interakciju sa Navi.
 
 ```bash
-opencode run "Explain how closures work in JavaScript"
+Navi run "Explain how closures work in JavaScript"
 ```
 
 ---
 
 ### tui
 
-Pokrenite OpenCode terminalski korisnički interfejs.
+Pokrenite Navi terminalski korisnički interfejs.
 
 ```bash
-opencode [project]
+Navi [project]
 ```
 
 #### Opcije
 
-| Opcija       | Kratko | Opis                                                                     |
-| ------------ | ------ | ------------------------------------------------------------------------ |
-| `--continue` | `-c`   | Nastavite posljednju sesiju                                              |
-| `--session`  | `-s`   | ID sesije za nastavak                                                    |
-| `--fork`     |        | Forkujte sesiju pri nastavku (koristiti sa `--continue` ili `--session`) |
-| `--prompt`   |        | Prompt za upotrebu                                                       |
-| `--model`    | `-m`   | Model za korištenje u obliku provider/model                              |
-| `--agent`    |        | Agent za korištenje                                                      |
-| `--port`     |        | Port na kojem treba slušati                                              |
-| `--hostname` |        | Hostname na kojem treba slušati                                          |
+| Opcija                                   | Kratko | Opis                                                                     |
+| ---------------------------------------- | ------ | ------------------------------------------------------------------------ |
+| <nobr><code>{"--continue"}</code></nobr> | `-c`   | Nastavite posljednju sesiju                                              |
+| <nobr><code>{"--session"}</code></nobr>  | `-s`   | ID sesije za nastavak                                                    |
+| <nobr><code>{"--fork"}</code></nobr>     |        | Forkujte sesiju pri nastavku (koristiti sa `--continue` ili `--session`) |
+| <nobr><code>{"--prompt"}</code></nobr>   |        | Prompt za upotrebu                                                       |
+| <nobr><code>{"--model"}</code></nobr>    | `-m`   | Model za korištenje u obliku provider/model                              |
+| <nobr><code>{"--agent"}</code></nobr>    |        | Agent za korištenje                                                      |
+| <nobr><code>{"--port"}</code></nobr>     |        | Port na kojem treba slušati                                              |
+| <nobr><code>{"--hostname"}</code></nobr> |        | Hostname na kojem treba slušati                                          |
 
 ---
 
 ## Naredbe
 
-OpenCode CLI takođe ima sljedeće naredbe.
+Navi CLI takođe ima sljedeće naredbe.
 
 ---
 
 ### agent
 
-Upravljajte OpenCode agentima.
+Upravljajte Navi agentima.
 
 ```bash
-opencode agent [command]
+Navi agent [command]
 ```
 
 ---
 
 ### attach
 
-Priključite terminal na već pokrenut OpenCode backend server pokrenut putem `serve` ili `web` naredbi.
+Priključite terminal na već pokrenut Navi backend server pokrenut putem `serve` ili `web` naredbi.
 
 ```bash
-opencode attach [url]
+Navi attach [url]
 ```
 
-Ovo omogućava korištenje TUI-ja sa udaljenim OpenCode backend-om. Na primjer:
+Ovo omogućava korištenje TUI-ja sa udaljenim Navi backend-om. Na primjer:
 
 ```bash
 # Start the backend server for web/mobile access
-opencode web --port 4096 --hostname 0.0.0.0
+Navi web --port 4096 --hostname 0.0.0.0
 
 # In another terminal, attach the TUI to the running backend
-opencode attach http://10.20.30.40:4096
+Navi attach http://10.20.30.40:4096
 ```
 
 #### Opcije
 
-| Opcija      | Kratko | Opis                                 |
-| ----------- | ------ | ------------------------------------ |
-| `--dir`     |        | Radni direktorij za pokretanje TUI-a |
-| `--session` | `-s`   | ID sesije za nastavak                |
+| Opcija                                   | Kratko | Opis                                                                                          |
+| ---------------------------------------- | ------ | --------------------------------------------------------------------------------------------- |
+| <nobr><code>{"--dir"}</code></nobr>      |        | Radni direktorij za pokretanje TUI-a                                                          |
+| <nobr><code>{"--continue"}</code></nobr> | `-c`   | Nastavi posljednju sesiju                                                                     |
+| <nobr><code>{"--session"}</code></nobr>  | `-s`   | ID sesije za nastavak                                                                         |
+| <nobr><code>{"--fork"}</code></nobr>     |        | Forkuj sesiju prilikom nastavka (koristite sa `--continue` ili `--session`)                   |
+| <nobr><code>{"--password"}</code></nobr> | `-p`   | Lozinka za osnovnu autentifikaciju (zadano: `Navi_SERVER_PASSWORD`)                       |
+| <nobr><code>{"--username"}</code></nobr> | `-u`   | Korisničko ime za osnovnu autentifikaciju (zadano: `Navi_SERVER_USERNAME` ili `Navi`) |
 
 ---
 
@@ -90,7 +94,7 @@ opencode attach http://10.20.30.40:4096
 Kreirajte novog agenta s prilagođenom konfiguracijom.
 
 ```bash
-opencode agent create
+Navi agent create
 ```
 
 Ova naredba će vas voditi kroz kreiranje novog agenta sa prilagođenim sistemskim promptom i konfiguracijom alata.
@@ -102,7 +106,7 @@ Ova naredba će vas voditi kroz kreiranje novog agenta sa prilagođenim sistemsk
 Navedite sve dostupne agente.
 
 ```bash
-opencode agent list
+Navi agent list
 ```
 
 ---
@@ -112,20 +116,20 @@ opencode agent list
 Naredba za upravljanje vjerodajnicama i prijavom za provajdere.
 
 ```bash
-opencode auth [command]
+Navi auth [command]
 ```
 
 ---
 
 #### login
 
-OpenCode pokreće lista provajdera na [Models.dev](https://models.dev), tako da možete koristiti `opencode auth login` da konfigurirate API ključeve za bilo kojeg provajdera kojeg želite koristiti. Ovo je pohranjeno u `~/.local/share/opencode/auth.json`.
+Navi pokreće lista provajdera na [Models.dev](https://models.dev), tako da možete koristiti `Navi auth login` da konfigurirate API ključeve za bilo kojeg provajdera kojeg želite koristiti. Ovo je pohranjeno u `~/.local/share/Navi/auth.json`.
 
 ```bash
-opencode auth login
+Navi auth login
 ```
 
-Kada se OpenCode pokrene, učitava dobavljače iz datoteke vjerodajnica. I ako postoje neki ključevi definirani u vašim okruženjima ili `.env` fajl u vašem projektu.
+Kada se Navi pokrene, učitava dobavljače iz datoteke vjerodajnica. I ako postoje neki ključevi definirani u vašim okruženjima ili `.env` fajl u vašem projektu.
 
 ---
 
@@ -134,13 +138,13 @@ Kada se OpenCode pokrene, učitava dobavljače iz datoteke vjerodajnica. I ako p
 Navodi sve autentifikovane dobavljače pohranjene u datoteci vjerodajnica.
 
 ```bash
-opencode auth list
+Navi auth list
 ```
 
 Ili kratka verzija.
 
 ```bash
-opencode auth ls
+Navi auth ls
 ```
 
 ---
@@ -150,7 +154,7 @@ opencode auth ls
 Odjavljuje vas s provajdera tako što ga briše iz datoteke vjerodajnica.
 
 ```bash
-opencode auth logout
+Navi auth logout
 ```
 
 ---
@@ -160,7 +164,7 @@ opencode auth logout
 Upravljajte GitHub agentom za automatizaciju repozitorija.
 
 ```bash
-opencode github [command]
+Navi github [command]
 ```
 
 ---
@@ -170,7 +174,7 @@ opencode github [command]
 Instalirajte GitHub agenta u svoj repozitorij.
 
 ```bash
-opencode github install
+Navi github install
 ```
 
 Ovo postavlja neophodni tok rada GitHub Actions i vodi vas kroz proces konfiguracije. [Saznajte više](/docs/github).
@@ -182,15 +186,15 @@ Ovo postavlja neophodni tok rada GitHub Actions i vodi vas kroz proces konfigura
 Pokrenite GitHub agent. Ovo se obično koristi u GitHub Actions.
 
 ```bash
-opencode github run
+Navi github run
 ```
 
 ##### Opcije
 
-| Opcija    | Opis                                   |
-| --------- | -------------------------------------- |
-| `--event` | GitHub mock event za pokretanje agenta |
-| `--token` | GitHub Personal Access Token           |
+| Opcija                                | Opis                                   |
+| ------------------------------------- | -------------------------------------- |
+| <nobr><code>{"--event"}</code></nobr> | GitHub mock event za pokretanje agenta |
+| <nobr><code>{"--token"}</code></nobr> | GitHub Personal Access Token           |
 
 ---
 
@@ -199,7 +203,7 @@ opencode github run
 Upravljajte Model Context Protocol (MCP) serverima.
 
 ```bash
-opencode mcp [command]
+Navi mcp [command]
 ```
 
 ---
@@ -209,7 +213,7 @@ opencode mcp [command]
 Dodajte MCP server svojoj konfiguraciji.
 
 ```bash
-opencode mcp add
+Navi mcp add
 ```
 
 Ova naredba će vas voditi kroz dodavanje lokalnog ili udaljenog MCP servera.
@@ -221,13 +225,13 @@ Ova naredba će vas voditi kroz dodavanje lokalnog ili udaljenog MCP servera.
 Navedite sve konfigurirane MCP servere i njihov status veze.
 
 ```bash
-opencode mcp list
+Navi mcp list
 ```
 
 Ili koristite kratku verziju.
 
 ```bash
-opencode mcp ls
+Navi mcp ls
 ```
 
 ---
@@ -237,20 +241,20 @@ opencode mcp ls
 Autentifikujte se sa MCP serverom koji je omogućen za OAuth.
 
 ```bash
-opencode mcp auth [name]
+Navi mcp auth [name]
 ```
 
 Ako ne navedete ime servera, od vas će biti zatraženo da izaberete neki od dostupnih servera koji podržavaju OAuth.
 Također možete navesti servere koji podržavaju OAuth i njihov status autentifikacije.
 
 ```bash
-opencode mcp auth list
+Navi mcp auth list
 ```
 
 Ili koristite kratku verziju.
 
 ```bash
-opencode mcp auth ls
+Navi mcp auth ls
 ```
 
 ---
@@ -260,7 +264,7 @@ opencode mcp auth ls
 Uklonite OAuth vjerodajnice za MCP server.
 
 ```bash
-opencode mcp logout [name]
+Navi mcp logout [name]
 ```
 
 ---
@@ -270,7 +274,7 @@ opencode mcp logout [name]
 Otklanjanje grešaka (debug) OAuth veze sa MCP serverom.
 
 ```bash
-opencode mcp debug <name>
+Navi mcp debug <name>
 ```
 
 ---
@@ -280,7 +284,7 @@ opencode mcp debug <name>
 Navedite sve dostupne modele konfiguriranih provajdera.
 
 ```bash
-opencode models [provider]
+Navi models [provider]
 ```
 
 Ova naredba prikazuje sve modele dostupne kod vaših konfiguriranih provajdera u formatu `provider/model`.
@@ -288,131 +292,136 @@ Ovo je korisno za pronalaženje tačnog naziva modela za korištenje u [vašoj k
 Opciono možete proslijediti ID provajdera za filtriranje modela po tom dobavljaču.
 
 ```bash
-opencode models anthropic
+Navi models anthropic
 ```
 
 #### Opcije
 
-| Opcija      | Opis                                                                     |
-| ----------- | ------------------------------------------------------------------------ |
-| `--refresh` | Osvježite keš modela sa models.dev                                       |
-| `--verbose` | Koristite detaljniji izlaz modela (uključuje metapodatke poput troškova) |
+| Opcija                                  | Opis                                                                     |
+| --------------------------------------- | ------------------------------------------------------------------------ |
+| <nobr><code>{"--refresh"}</code></nobr> | Osvježite keš modela sa models.dev                                       |
+| <nobr><code>{"--verbose"}</code></nobr> | Koristite detaljniji izlaz modela (uključuje metapodatke poput troškova) |
 
-Koristite `--refresh` zastavicu da ažurirate keširanu listu modela. Ovo je korisno kada su novi modeli dodani provajderu i želite da ih vidite u OpenCode.
+Koristite `--refresh` zastavicu da ažurirate keširanu listu modela. Ovo je korisno kada su novi modeli dodani provajderu i želite da ih vidite u Navi.
 
 ```bash
-opencode models --refresh
+Navi models --refresh
 ```
 
 ---
 
 ### run
 
-Pokrenite OpenCode u neinteraktivnom modu tako što ćete direktno proslijediti prompt.
+Pokrenite Navi u neinteraktivnom modu tako što ćete direktno proslijediti prompt.
 
 ```bash
-opencode run [message..]
+Navi run [message..]
 ```
 
 Ovo je korisno za skriptiranje, automatizaciju ili kada želite brz odgovor bez pokretanja punog TUI-ja. Na primjer:
 
-```bash "opencode run"
-opencode run Explain the use of context in Go
+```bash "Navi run"
+Navi run Explain the use of context in Go
 ```
 
-Također možete priključiti pokrenutu `opencode serve` instancu kako biste izbjegli vrijeme hladnog pokretanja MCP servera pri svakom pokretanju:
+Također možete priključiti pokrenutu `Navi serve` instancu kako biste izbjegli vrijeme hladnog pokretanja MCP servera pri svakom pokretanju:
 
 ```bash
 # Start a headless server in one terminal
-opencode serve
+Navi serve
 
 # In another terminal, run commands that attach to it
-opencode run --attach http://localhost:4096 "Explain async/await in JavaScript"
+Navi run --attach http://localhost:4096 "Explain async/await in JavaScript"
 ```
 
 #### Opcije
 
-| Opcija       | Kratko | Opis                                                                     |
-| ------------ | ------ | ------------------------------------------------------------------------ |
-| `--command`  |        | Naredba za pokretanje, koristite poruku za argumente                     |
-| `--continue` | `-c`   | Nastavite posljednju sesiju                                              |
-| `--session`  | `-s`   | ID sesije za nastavak                                                    |
-| `--fork`     |        | Forkujte sesiju pri nastavku (koristiti sa `--continue` ili `--session`) |
-| `--share`    |        | Podijelite sesiju                                                        |
-| `--model`    | `-m`   | Model za korištenje u obliku provider/model                              |
-| `--agent`    |        | Agent za korištenje                                                      |
-| `--file`     | `-f`   | Fajlovi koje treba priložiti poruci                                      |
-| `--format`   |        | Format: default (formatiran) ili json (sirovi JSON događaji)             |
-| `--title`    |        | Naslov sesije (koristi skraćeni prompt ako nije navedena vrijednost)     |
-| `--attach`   |        | Priključite na pokrenuti OpenCode server (npr. http://localhost:4096)    |
-| `--port`     |        | Port za lokalni server (zadano na nasumični port)                        |
+| Opcija                                   | Kratko | Opis                                                                                          |
+| ---------------------------------------- | ------ | --------------------------------------------------------------------------------------------- |
+| <nobr><code>{"--command"}</code></nobr>  |        | Naredba za pokretanje, koristite poruku za argumente                                          |
+| <nobr><code>{"--continue"}</code></nobr> | `-c`   | Nastavite posljednju sesiju                                                                   |
+| <nobr><code>{"--session"}</code></nobr>  | `-s`   | ID sesije za nastavak                                                                         |
+| <nobr><code>{"--fork"}</code></nobr>     |        | Forkujte sesiju pri nastavku (koristiti sa `--continue` ili `--session`)                      |
+| <nobr><code>{"--share"}</code></nobr>    |        | Podijelite sesiju                                                                             |
+| <nobr><code>{"--model"}</code></nobr>    | `-m`   | Model za korištenje u obliku provider/model                                                   |
+| <nobr><code>{"--agent"}</code></nobr>    |        | Agent za korištenje                                                                           |
+| <nobr><code>{"--file"}</code></nobr>     | `-f`   | Fajlovi koje treba priložiti poruci                                                           |
+| <nobr><code>{"--format"}</code></nobr>   |        | Format: default (formatiran) ili json (sirovi JSON događaji)                                  |
+| <nobr><code>{"--title"}</code></nobr>    |        | Naslov sesije (koristi skraćeni prompt ako nije navedena vrijednost)                          |
+| <nobr><code>{"--attach"}</code></nobr>   |        | Priključite na pokrenuti Navi server (npr. http://localhost:4096)                         |
+| <nobr><code>{"--password"}</code></nobr> | `-p`   | Lozinka za osnovnu autentifikaciju (zadano: `Navi_SERVER_PASSWORD`)                       |
+| <nobr><code>{"--username"}</code></nobr> | `-u`   | Korisničko ime za osnovnu autentifikaciju (zadano: `Navi_SERVER_USERNAME` ili `Navi`) |
+| <nobr><code>{"--dir"}</code></nobr>      |        | Direktorij za pokretanje, ili putanja na udaljenom serveru pri spajanju                       |
+| <nobr><code>{"--variant"}</code></nobr>  |        | Varijanta modela (napor zaključivanja specifičan za provajdera)                               |
+| <nobr><code>{"--thinking"}</code></nobr> |        | Prikaži blokove razmišljanja                                                                  |
+| <nobr><code>{"--port"}</code></nobr>     |        | Port za lokalni server (zadano na nasumični port)                                             |
 
 ---
 
 ### serve
 
-Pokrenite OpenCode headless server za API pristup. Pogledajte [server docs](/docs/server) za kompletan HTTP interfejs.
+Pokrenite Navi headless server za API pristup. Pogledajte [server docs](/docs/server) za kompletan HTTP interfejs.
 
 ```bash
-opencode serve
+Navi serve
 ```
 
-Ovo pokreće HTTP server koji pruža API pristup funkcionalnosti OpenCode-a bez TUI interfejsa. Postavite `OPENCODE_SERVER_PASSWORD` da omogućite HTTP osnovnu auth (korisničko ime je zadano na `opencode`).
+Ovo pokreće HTTP server koji pruža API pristup funkcionalnosti Navi-a bez TUI interfejsa. Postavite `Navi_SERVER_PASSWORD` da omogućite HTTP osnovnu auth (korisničko ime je zadano na `Navi`).
 
 #### Opcije
 
-| Opcija       | Opis                                                  |
-| ------------ | ----------------------------------------------------- |
-| `--port`     | Port na kojem treba slušati                           |
-| `--hostname` | Hostname na kojem treba slušati                       |
-| `--mdns`     | Omogući mDNS otkrivanje                               |
-| `--cors`     | Dodatni origin(i) pretraživača koji dozvoljavaju CORS |
+| Opcija                                   | Opis                                                  |
+| ---------------------------------------- | ----------------------------------------------------- |
+| <nobr><code>{"--port"}</code></nobr>     | Port na kojem treba slušati                           |
+| <nobr><code>{"--hostname"}</code></nobr> | Hostname na kojem treba slušati                       |
+| <nobr><code>{"--mdns"}</code></nobr>     | Omogući mDNS otkrivanje                               |
+| <nobr><code>{"--cors"}</code></nobr>     | Dodatni origin(i) pretraživača koji dozvoljavaju CORS |
 
 ---
 
 ### session
 
-Upravljajte OpenCode sesijama.
+Upravljajte Navi sesijama.
 
 ```bash
-opencode session [command]
+Navi session [command]
 ```
 
 ---
 
 #### list
 
-Navedite sve OpenCode sesije.
+Navedite sve Navi sesije.
 
 ```bash
-opencode session list
+Navi session list
 ```
 
 ##### Opcije
 
-| Opcija        | Kratko | Opis                                   |
-| ------------- | ------ | -------------------------------------- |
-| `--max-count` | `-n`   | Ograničenje na N najnovijih sesija     |
-| `--format`    |        | Izlazni format: table ili json (table) |
+| Opcija                                    | Kratko | Opis                                   |
+| ----------------------------------------- | ------ | -------------------------------------- |
+| <nobr><code>{"--max-count"}</code></nobr> | `-n`   | Ograničenje na N najnovijih sesija     |
+| <nobr><code>{"--format"}</code></nobr>    |        | Izlazni format: table ili json (table) |
 
 ---
 
 ### stats
 
-Prikaži statistiku upotrebe tokena i troškova za vaše OpenCode sesije.
+Prikaži statistiku upotrebe tokena i troškova za vaše Navi sesije.
 
 ```bash
-opencode stats
+Navi stats
 ```
 
 #### Opcije
 
-| Opcija      | Opis                                                                                                       |
-| ----------- | ---------------------------------------------------------------------------------------------------------- |
-| `--days`    | Prikaži statistiku za zadnjih N dana (sva vremena)                                                         |
-| `--tools`   | Broj alata za prikaz (svi)                                                                                 |
-| `--models`  | Prikaži raščlambu korištenja modela (skriveno prema zadanim postavkama). Proslijedite broj za prikaz top N |
-| `--project` | Filtriraj po projektu (svi projekti, prazan niz: trenutni projekt)                                         |
+| Opcija                                  | Opis                                                                                                       |
+| --------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| <nobr><code>{"--days"}</code></nobr>    | Prikaži statistiku za zadnjih N dana (sva vremena)                                                         |
+| <nobr><code>{"--tools"}</code></nobr>   | Broj alata za prikaz (svi)                                                                                 |
+| <nobr><code>{"--models"}</code></nobr>  | Prikaži raščlambu korištenja modela (skriveno prema zadanim postavkama). Proslijedite broj za prikaz top N |
+| <nobr><code>{"--project"}</code></nobr> | Filtriraj po projektu (svi projekti, prazan niz: trenutni projekt)                                         |
 
 ---
 
@@ -421,7 +430,7 @@ opencode stats
 Izvezite podatke sesije kao JSON.
 
 ```bash
-opencode export [sessionID]
+Navi export [sessionID]
 ```
 
 Ako ne unesete ID sesije, od vas će biti zatraženo da odaberete neku od dostupnih sesija.
@@ -430,39 +439,39 @@ Ako ne unesete ID sesije, od vas će biti zatraženo da odaberete neku od dostup
 
 ### import
 
-Uvezite podatke sesije iz JSON datoteke ili OpenCode dijeljenog URL-a.
+Uvezite podatke sesije iz JSON datoteke ili Navi dijeljenog URL-a.
 
 ```bash
-opencode import <file>
+Navi import <file>
 ```
 
-Možete uvesti iz lokalne datoteke ili OpenCode dijeljenog URL-a.
+Možete uvesti iz lokalne datoteke ili Navi dijeljenog URL-a.
 
 ```bash
-opencode import session.json
-opencode import https://opncd.ai/s/abc123
+Navi import session.json
+Navi import https://opncd.ai/s/abc123
 ```
 
 ---
 
 ### web
 
-Pokrenite OpenCode headless server sa web interfejsom.
+Pokrenite Navi headless server sa web interfejsom.
 
 ```bash
-opencode web
+Navi web
 ```
 
-Ovo pokreće HTTP server i otvara web pretraživač za pristup OpenCode-u preko web interfejsa. Postavite `OPENCODE_SERVER_PASSWORD` da omogućite HTTP osnovnu auth (korisničko ime je zadano na `opencode`).
+Ovo pokreće HTTP server i otvara web pretraživač za pristup Navi-u preko web interfejsa. Postavite `Navi_SERVER_PASSWORD` da omogućite HTTP osnovnu auth (korisničko ime je zadano na `Navi`).
 
 #### Opcije
 
-| Opcija       | Opis                                                  |
-| ------------ | ----------------------------------------------------- |
-| `--port`     | Port na kojem treba slušati                           |
-| `--hostname` | Hostname na kojem treba slušati                       |
-| `--mdns`     | Omogući mDNS otkrivanje                               |
-| `--cors`     | Dodatni origin(i) pretraživača koji dozvoljavaju CORS |
+| Opcija                                   | Opis                                                  |
+| ---------------------------------------- | ----------------------------------------------------- |
+| <nobr><code>{"--port"}</code></nobr>     | Port na kojem treba slušati                           |
+| <nobr><code>{"--hostname"}</code></nobr> | Hostname na kojem treba slušati                       |
+| <nobr><code>{"--mdns"}</code></nobr>     | Omogući mDNS otkrivanje                               |
+| <nobr><code>{"--cors"}</code></nobr>     | Dodatni origin(i) pretraživača koji dozvoljavaju CORS |
 
 ---
 
@@ -471,111 +480,111 @@ Ovo pokreće HTTP server i otvara web pretraživač za pristup OpenCode-u preko 
 Pokrenite ACP (Agent Client Protocol) server.
 
 ```bash
-opencode acp
+Navi acp
 ```
 
 Ova naredba pokreće ACP server koji komunicira preko stdin/stdout koristeći nd-JSON.
 
 #### Opcije
 
-| Opcija       | Opis                        |
-| ------------ | --------------------------- |
-| `--cwd`      | Radni direktorij            |
-| `--port`     | Port na kojem treba slušati |
-| `--hostname` | Hostname na kojem slušati   |
+| Opcija                                   | Opis                        |
+| ---------------------------------------- | --------------------------- |
+| <nobr><code>{"--cwd"}</code></nobr>      | Radni direktorij            |
+| <nobr><code>{"--port"}</code></nobr>     | Port na kojem treba slušati |
+| <nobr><code>{"--hostname"}</code></nobr> | Hostname na kojem slušati   |
 
 ---
 
 ### uninstall
 
-Deinstalirajte OpenCode i uklonite sve povezane datoteke.
+Deinstalirajte Navi i uklonite sve povezane datoteke.
 
 ```bash
-opencode uninstall
+Navi uninstall
 ```
 
 #### Opcije
 
-| Opcija          | Kratko | Opis                                          |
-| --------------- | ------ | --------------------------------------------- |
-| `--keep-config` | `-c`   | Sačuvajte konfiguracijske datoteke            |
-| `--keep-data`   | `-d`   | Sačuvajte podatke i snimke sesije             |
-| `--dry-run`     |        | Pokažite šta bi bilo uklonjeno bez uklanjanja |
-| `--force`       | `-f`   | Preskoči upite za potvrdu                     |
+| Opcija                                      | Kratko | Opis                                          |
+| ------------------------------------------- | ------ | --------------------------------------------- |
+| <nobr><code>{"--keep-config"}</code></nobr> | `-c`   | Sačuvajte konfiguracijske datoteke            |
+| <nobr><code>{"--keep-data"}</code></nobr>   | `-d`   | Sačuvajte podatke i snimke sesije             |
+| <nobr><code>{"--dry-run"}</code></nobr>     |        | Pokažite šta bi bilo uklonjeno bez uklanjanja |
+| <nobr><code>{"--force"}</code></nobr>       | `-f`   | Preskoči upite za potvrdu                     |
 
 ---
 
 ### upgrade
 
-Ažurira OpenCode na najnoviju verziju ili određenu verziju.
+Ažurira Navi na najnoviju verziju ili određenu verziju.
 
 ```bash
-opencode upgrade [target]
+Navi upgrade [target]
 ```
 
 Za nadogradnju na najnoviju verziju.
 
 ```bash
-opencode upgrade
+Navi upgrade
 ```
 
 Za nadogradnju na određenu verziju.
 
 ```bash
-opencode upgrade v0.1.48
+Navi upgrade v0.1.48
 ```
 
 #### Opcije
 
-| Opcija     | Kratko | Opis                                                    |
-| ---------- | ------ | ------------------------------------------------------- |
-| `--method` | `-m`   | Korišteni način instalacije; curl, npm, pnpm, bun, brew |
+| Opcija                                 | Kratko | Opis                                                    |
+| -------------------------------------- | ------ | ------------------------------------------------------- |
+| <nobr><code>{"--method"}</code></nobr> | `-m`   | Korišteni način instalacije; curl, npm, pnpm, bun, brew |
 
 ---
 
 ## Globalne opcije
 
-OpenCode CLI prihvata sljedeće globalne zastavice.
+Navi CLI prihvata sljedeće globalne zastavice.
 
-| Opcija         | Kratko | Opis                                      |
-| -------------- | ------ | ----------------------------------------- |
-| `--help`       | `-h`   | Prikaži pomoć                             |
-| `--version`    | `-v`   | Ispiši broj verzije                       |
-| `--print-logs` |        | Ispis logova u stderr                     |
-| `--log-level`  |        | Nivo logovanja (DEBUG, INFO, WARN, ERROR) |
+| Opcija                                     | Kratko | Opis                                      |
+| ------------------------------------------ | ------ | ----------------------------------------- |
+| <nobr><code>{"--help"}</code></nobr>       | `-h`   | Prikaži pomoć                             |
+| <nobr><code>{"--version"}</code></nobr>    | `-v`   | Ispiši broj verzije                       |
+| <nobr><code>{"--print-logs"}</code></nobr> |        | Ispis logova u stderr                     |
+| <nobr><code>{"--log-level"}</code></nobr>  |        | Nivo logovanja (DEBUG, INFO, WARN, ERROR) |
 
 ---
 
 ## Varijable okruženja
 
-OpenCode se može konfigurirati pomoću varijabli okruženja.
+Navi se može konfigurirati pomoću varijabli okruženja.
 
 | Varijabla                             | Tip     | Opis                                                               |
 | ------------------------------------- | ------- | ------------------------------------------------------------------ |
-| `OPENCODE_AUTO_SHARE`                 | boolean | Automatski dijeli sesije                                           |
-| `OPENCODE_GIT_BASH_PATH`              | string  | Putanja do Git Bash izvršne datoteke na Windows-u                  |
-| `OPENCODE_CONFIG`                     | string  | Putanja do konfiguracijskog fajla                                  |
-| `OPENCODE_TUI_CONFIG`                 | string  | Putanja do TUI konfiguracijskog fajla                              |
-| `OPENCODE_CONFIG_DIR`                 | string  | Putanja do konfiguracijskog direktorija                            |
-| `OPENCODE_CONFIG_CONTENT`             | string  | Inline json konfiguracijski sadržaj                                |
-| `OPENCODE_DISABLE_AUTOUPDATE`         | boolean | Onemogući automatske provjere ažuriranja                           |
-| `OPENCODE_DISABLE_PRUNE`              | boolean | Onemogući brisanje (pruning) starih podataka                       |
-| `OPENCODE_DISABLE_TERMINAL_TITLE`     | boolean | Onemogući automatsko ažuriranje naslova terminala                  |
-| `OPENCODE_PERMISSION`                 | string  | Inline json konfiguracija dozvola                                  |
-| `OPENCODE_DISABLE_DEFAULT_PLUGINS`    | boolean | Onemogući podrazumijevane dodatke (plugins)                        |
-| `OPENCODE_DISABLE_LSP_DOWNLOAD`       | boolean | Onemogući automatsko preuzimanje LSP servera                       |
-| `OPENCODE_ENABLE_EXPERIMENTAL_MODELS` | boolean | Omogući eksperimentalne modele                                     |
-| `OPENCODE_DISABLE_AUTOCOMPACT`        | boolean | Onemogući automatsko sažimanje konteksta                           |
-| `OPENCODE_DISABLE_CLAUDE_CODE`        | boolean | Onemogući čitanje iz `.claude` (prompt + vještine)                 |
-| `OPENCODE_DISABLE_CLAUDE_CODE_PROMPT` | boolean | Onemogući čitanje `~/.claude/CLAUDE.md`                            |
-| `OPENCODE_DISABLE_CLAUDE_CODE_SKILLS` | boolean | Onemogući učitavanje `.claude/skills`                              |
-| `OPENCODE_DISABLE_MODELS_FETCH`       | boolean | Onemogući dohvaćanje modela iz udaljenih izvora                    |
-| `OPENCODE_FAKE_VCS`                   | string  | Lažni VCS provajder za potrebe testiranja                          |
-| `OPENCODE_CLIENT`                     | string  | Identifikator klijenta (zadano na `cli`)                           |
-| `OPENCODE_ENABLE_EXA`                 | boolean | Omogući Exa alate za web pretraživanje                             |
-| `OPENCODE_SERVER_PASSWORD`            | string  | Omogući osnovnu autentifikaciju za `serve`/`web`                   |
-| `OPENCODE_SERVER_USERNAME`            | string  | Poništi osnovno korisničko ime autentifikacije (zadano `opencode`) |
-| `OPENCODE_MODELS_URL`                 | string  | Prilagođeni URL za dohvaćanje konfiguracije modela                 |
+| `Navi_AUTO_SHARE`                 | boolean | Automatski dijeli sesije                                           |
+| `Navi_GIT_BASH_PATH`              | string  | Putanja do Git Bash izvršne datoteke na Windows-u                  |
+| `Navi_CONFIG`                     | string  | Putanja do konfiguracijskog fajla                                  |
+| `Navi_TUI_CONFIG`                 | string  | Putanja do TUI konfiguracijskog fajla                              |
+| `Navi_CONFIG_DIR`                 | string  | Putanja do konfiguracijskog direktorija                            |
+| `Navi_CONFIG_CONTENT`             | string  | Inline json konfiguracijski sadržaj                                |
+| `Navi_DISABLE_AUTOUPDATE`         | boolean | Onemogući automatske provjere ažuriranja                           |
+| `Navi_DISABLE_PRUNE`              | boolean | Onemogući brisanje (pruning) starih podataka                       |
+| `Navi_DISABLE_TERMINAL_TITLE`     | boolean | Onemogući automatsko ažuriranje naslova terminala                  |
+| `Navi_PERMISSION`                 | string  | Inline json konfiguracija dozvola                                  |
+| `Navi_DISABLE_DEFAULT_PLUGINS`    | boolean | Onemogući podrazumijevane dodatke (plugins)                        |
+| `Navi_DISABLE_LSP_DOWNLOAD`       | boolean | Onemogući automatsko preuzimanje LSP servera                       |
+| `Navi_ENABLE_EXPERIMENTAL_MODELS` | boolean | Omogući eksperimentalne modele                                     |
+| `Navi_DISABLE_AUTOCOMPACT`        | boolean | Onemogući automatsko sažimanje konteksta                           |
+| `Navi_DISABLE_CLAUDE_CODE`        | boolean | Onemogući čitanje iz `.claude` (prompt + vještine)                 |
+| `Navi_DISABLE_CLAUDE_CODE_PROMPT` | boolean | Onemogući čitanje `~/.claude/CLAUDE.md`                            |
+| `Navi_DISABLE_CLAUDE_CODE_SKILLS` | boolean | Onemogući učitavanje `.claude/skills`                              |
+| `Navi_DISABLE_MODELS_FETCH`       | boolean | Onemogući dohvaćanje modela iz udaljenih izvora                    |
+| `Navi_FAKE_VCS`                   | string  | Lažni VCS provajder za potrebe testiranja                          |
+| `Navi_CLIENT`                     | string  | Identifikator klijenta (zadano na `cli`)                           |
+| `Navi_ENABLE_EXA`                 | boolean | Omogući Exa alate za web pretraživanje                             |
+| `Navi_SERVER_PASSWORD`            | string  | Omogući osnovnu autentifikaciju za `serve`/`web`                   |
+| `Navi_SERVER_USERNAME`            | string  | Poništi osnovno korisničko ime autentifikacije (zadano `Navi`) |
+| `Navi_MODELS_URL`                 | string  | Prilagođeni URL za dohvaćanje konfiguracije modela                 |
 
 ---
 
@@ -585,16 +594,16 @@ Ove varijable okruženja omogućavaju eksperimentalne karakteristike koje se mog
 
 | Varijabla                                       | Tip     | Opis                                              |
 | ----------------------------------------------- | ------- | ------------------------------------------------- |
-| `OPENCODE_EXPERIMENTAL`                         | boolean | Omogući sve eksperimentalne funkcije              |
-| `OPENCODE_EXPERIMENTAL_ICON_DISCOVERY`          | boolean | Omogući otkrivanje ikona                          |
-| `OPENCODE_EXPERIMENTAL_DISABLE_COPY_ON_SELECT`  | boolean | Onemogući kopiranje pri odabiru u TUI             |
-| `OPENCODE_EXPERIMENTAL_BASH_DEFAULT_TIMEOUT_MS` | number  | Zadano vremensko ograničenje za bash naredbe u ms |
-| `OPENCODE_EXPERIMENTAL_OUTPUT_TOKEN_MAX`        | number  | Maksimalni izlazni tokeni za LLM odgovore         |
-| `OPENCODE_EXPERIMENTAL_FILEWATCHER`             | boolean | Omogući praćenje datoteka za cijeli direktorij    |
-| `OPENCODE_EXPERIMENTAL_OXFMT`                   | boolean | Omogući oxfmt formatter                           |
-| `OPENCODE_EXPERIMENTAL_LSP_TOOL`                | boolean | Omogući eksperimentalni LSP alat                  |
-| `OPENCODE_EXPERIMENTAL_DISABLE_FILEWATCHER`     | boolean | Onemogući praćenje datoteka                       |
-| `OPENCODE_EXPERIMENTAL_EXA`                     | boolean | Omogući eksperimentalne Exa funkcije              |
-| `OPENCODE_EXPERIMENTAL_LSP_TY`                  | boolean | Omogući TY LSP za python datoteke                 |
-| `OPENCODE_EXPERIMENTAL_MARKDOWN`                | boolean | Omogući eksperimentalne Markdown funkcije         |
-| `OPENCODE_EXPERIMENTAL_PLAN_MODE`               | boolean | Omogući Plan mod                                  |
+| `Navi_EXPERIMENTAL`                         | boolean | Omogući sve eksperimentalne funkcije              |
+| `Navi_EXPERIMENTAL_ICON_DISCOVERY`          | boolean | Omogući otkrivanje ikona                          |
+| `Navi_EXPERIMENTAL_DISABLE_COPY_ON_SELECT`  | boolean | Onemogući kopiranje pri odabiru u TUI             |
+| `Navi_EXPERIMENTAL_BASH_DEFAULT_TIMEOUT_MS` | number  | Zadano vremensko ograničenje za bash naredbe u ms |
+| `Navi_EXPERIMENTAL_OUTPUT_TOKEN_MAX`        | number  | Maksimalni izlazni tokeni za LLM odgovore         |
+| `Navi_EXPERIMENTAL_FILEWATCHER`             | boolean | Omogući praćenje datoteka za cijeli direktorij    |
+| `Navi_EXPERIMENTAL_OXFMT`                   | boolean | Omogući oxfmt formatter                           |
+| `Navi_EXPERIMENTAL_LSP_TOOL`                | boolean | Omogući eksperimentalni LSP alat                  |
+| `Navi_EXPERIMENTAL_DISABLE_FILEWATCHER`     | boolean | Onemogući praćenje datoteka                       |
+| `Navi_EXPERIMENTAL_EXA`                     | boolean | Omogući eksperimentalne Exa funkcije              |
+| `Navi_EXPERIMENTAL_LSP_TY`                  | boolean | Omogući TY LSP za python datoteke                 |
+| `Navi_EXPERIMENTAL_MARKDOWN`                | boolean | Omogući eksperimentalne Markdown funkcije         |
+| `Navi_EXPERIMENTAL_PLAN_MODE`               | boolean | Omogući Plan mod                                  |

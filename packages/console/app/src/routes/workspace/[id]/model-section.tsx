@@ -1,8 +1,8 @@
-import { Model } from "@opencode-ai/console-core/model.js"
+import { Model } from "@navi-ai/console-core/model.js"
 import { query, action, useParams, createAsync, json } from "@solidjs/router"
 import { createMemo, For, Show } from "solid-js"
 import { withActor } from "~/context/auth.withActor"
-import { ZenData } from "@opencode-ai/console-core/model.js"
+import { ZenData } from "@navi-ai/console-core/model.js"
 import styles from "./model-section.module.css"
 import { querySessionInfo } from "../common"
 import {
@@ -45,6 +45,7 @@ const getModelsInfo = query(async (workspaceID: string) => {
       all: Object.entries(ZenData.list("full").models)
         .filter(([id, _model]) => !["claude-3-5-haiku"].includes(id))
         .filter(([id, _model]) => !id.startsWith("alpha-"))
+        .filter(([id, _model]) => !id.endsWith(":global"))
         .sort(([idA, modelA], [idB, modelB]) => {
           const priority = ["big-pickle", "minimax", "grok", "claude", "gpt", "gemini"]
           const getPriority = (id: string) => {

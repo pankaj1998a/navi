@@ -7,15 +7,15 @@ import config from "../../../../config.mjs"
 export const console = config.console
 export const email = `mailto:${config.email}`
 
-O OpenCode Go é uma assinatura de baixo custo — **US$ 5 no seu primeiro mês**, depois **US$ 10/mês** — que oferece acesso confiável a modelos abertos de programação populares.
+O Navi Go é uma assinatura de baixo custo — **US$ 5 no seu primeiro mês**, depois **US$ 10/mês** — que oferece acesso confiável a modelos abertos de programação populares.
 
 :::note
-O OpenCode Go está atualmente em beta.
+O Navi Go está atualmente em beta.
 :::
 
-O Go funciona como qualquer outro provedor no OpenCode. Você assina o OpenCode Go e
+O Go funciona como qualquer outro provedor no Navi. Você assina o Navi Go e
 obtém a sua chave de API. Ele é **totalmente opcional** e você não precisa usá-lo para
-usar o OpenCode.
+usar o Navi.
 
 Ele foi projetado principalmente para usuários internacionais, com modelos hospedados nos EUA, na UE e em Singapura para um acesso global estável.
 
@@ -31,7 +31,7 @@ No entanto, obter um acesso confiável e de baixa latência a eles pode ser dif�
 variam em qualidade e disponibilidade.
 
 :::tip
-Testamos um grupo selecionado de modelos e provedores que funcionam bem com o OpenCode.
+Testamos um grupo selecionado de modelos e provedores que funcionam bem com o Navi.
 :::
 
 Para resolver isso, fizemos algumas coisas:
@@ -43,22 +43,22 @@ Para resolver isso, fizemos algumas coisas:
 3. Por fim, avaliamos por benchmark a combinação de modelo/provedor e elaboramos
    uma lista que nos sentimos confortáveis em recomendar.
 
-O OpenCode Go lhe dá acesso a esses modelos por **US$ 5 no seu primeiro mês**, depois **US$ 10/mês**.
+O Navi Go lhe dá acesso a esses modelos por **US$ 5 no seu primeiro mês**, depois **US$ 10/mês**.
 
 ---
 
 ## Como funciona
 
-O OpenCode Go funciona como qualquer outro provedor no OpenCode.
+O Navi Go funciona como qualquer outro provedor no Navi.
 
-1. Você entra no **<a href={console}>OpenCode Zen</a>**, assina o Go e
+1. Você entra no **<a href={console}>Navi Zen</a>**, assina o Go e
    copia a sua chave de API.
-2. Você executa o comando `/connect` na TUI, seleciona `OpenCode Go` e cola
+2. Você executa o comando `/connect` na TUI, seleciona `Navi Go` e cola
    a sua chave de API.
 3. Execute `/models` na TUI para ver a lista de modelos disponíveis através do Go.
 
 :::note
-Apenas um membro por workspace pode assinar o OpenCode Go.
+Apenas um membro por workspace pode assinar o Navi Go.
 :::
 
 A lista atual de modelos inclui:
@@ -67,10 +67,8 @@ A lista atual de modelos inclui:
 - **GLM-5.1**
 - **Kimi K2.5**
 - **Kimi K2.6**
-- **MiMo-V2-Pro**
-- **MiMo-V2-Omni**
-- **MiMo-V2.5-Pro**
 - **MiMo-V2.5**
+- **MiMo-V2.5-Pro**
 - **MiniMax M2.5**
 - **Qwen3.5 Plus**
 - **Qwen3.6 Plus**
@@ -84,7 +82,7 @@ A lista de modelos pode mudar conforme testamos e adicionamos novos.
 
 ## Limites de uso
 
-O OpenCode Go inclui os seguintes limites:
+O Navi Go inclui os seguintes limites:
 
 - **Limite de 5 horas** — US$ 12 de uso
 - **Limite semanal** — US$ 30 de uso
@@ -100,10 +98,8 @@ A tabela abaixo fornece uma contagem estimada de requisições com base nos padr
 | GLM-5              | 1,150                   | 2,880                  | 5,750               |
 | Kimi K2.5          | 1,850                   | 4,630                  | 9,250               |
 | Kimi K2.6          | 1,150                   | 2,880                  | 5,750               |
-| MiMo-V2-Pro        | 1,290                   | 3,225                  | 6,450               |
-| MiMo-V2-Omni       | 2,150                   | 5,450                  | 10,900              |
-| MiMo-V2.5-Pro      | 1,290                   | 3,225                  | 6,450               |
 | MiMo-V2.5 (≤ 256K) | 2,150                   | 5,450                  | 10,900              |
+| MiMo-V2.5-Pro      | 1,290                   | 3,225                  | 6,450               |
 | MiniMax M2.7       | 3,400                   | 8,500                  | 17,000              |
 | MiniMax M2.5       | 6,300                   | 15,900                 | 31,800              |
 | Qwen3.6 Plus       | 3,300                   | 8,200                  | 16,300              |
@@ -120,10 +116,8 @@ As estimativas baseiam-se nos padrões médios de requisições observados:
 - MiniMax M2.7/M2.5 — 300 tokens de entrada, 55.000 em cache, 125 tokens de saída por requisição
 - Qwen3.5 Plus — 410 tokens de entrada, 47.000 em cache, 140 tokens de saída por requisição
 - Qwen3.6 Plus — 500 tokens de entrada, 57.000 em cache, 190 tokens de saída por requisição
-- MiMo-V2-Pro — 350 tokens de entrada, 41.000 em cache, 250 tokens de saída por requisição
-- MiMo-V2-Omni — 1000 tokens de entrada, 60.000 em cache, 140 tokens de saída por requisição
-- MiMo-V2.5-Pro — 350 tokens de entrada, 41.000 em cache, 250 tokens de saída por requisição
 - MiMo-V2.5 — 1000 tokens de entrada, 60.000 em cache, 140 tokens de saída por requisição
+- MiMo-V2.5-Pro — 350 tokens de entrada, 41.000 em cache, 250 tokens de saída por requisição
 
 Você pode acompanhar o seu uso atual no **<a href={console}>console</a>**.
 
@@ -149,24 +143,22 @@ Você também pode acessar os modelos do Go através dos seguintes endpoints de 
 
 | Modelo            | ID do Modelo      | Endpoint                                         | Pacote do AI SDK            |
 | ----------------- | ----------------- | ------------------------------------------------ | --------------------------- |
-| GLM-5.1           | glm-5.1           | `https://opencode.ai/zen/go/v1/chat/completions` | `@ai-sdk/openai-compatible` |
-| GLM-5             | glm-5             | `https://opencode.ai/zen/go/v1/chat/completions` | `@ai-sdk/openai-compatible` |
-| Kimi K2.5         | kimi-k2.5         | `https://opencode.ai/zen/go/v1/chat/completions` | `@ai-sdk/openai-compatible` |
-| Kimi K2.6         | kimi-k2.6         | `https://opencode.ai/zen/go/v1/chat/completions` | `@ai-sdk/openai-compatible` |
-| DeepSeek V4 Pro   | deepseek-v4-pro   | `https://opencode.ai/zen/go/v1/chat/completions` | `@ai-sdk/openai-compatible` |
-| DeepSeek V4 Flash | deepseek-v4-flash | `https://opencode.ai/zen/go/v1/chat/completions` | `@ai-sdk/openai-compatible` |
-| MiMo-V2-Pro       | mimo-v2-pro       | `https://opencode.ai/zen/go/v1/chat/completions` | `@ai-sdk/openai-compatible` |
-| MiMo-V2-Omni      | mimo-v2-omni      | `https://opencode.ai/zen/go/v1/chat/completions` | `@ai-sdk/openai-compatible` |
-| MiMo-V2.5-Pro     | mimo-v2.5-pro     | `https://opencode.ai/zen/go/v1/chat/completions` | `@ai-sdk/openai-compatible` |
-| MiMo-V2.5         | mimo-v2.5         | `https://opencode.ai/zen/go/v1/chat/completions` | `@ai-sdk/openai-compatible` |
-| MiniMax M2.7      | minimax-m2.7      | `https://opencode.ai/zen/go/v1/messages`         | `@ai-sdk/anthropic`         |
-| MiniMax M2.5      | minimax-m2.5      | `https://opencode.ai/zen/go/v1/messages`         | `@ai-sdk/anthropic`         |
-| Qwen3.6 Plus      | qwen3.6-plus      | `https://opencode.ai/zen/go/v1/chat/completions` | `@ai-sdk/alibaba`           |
-| Qwen3.5 Plus      | qwen3.5-plus      | `https://opencode.ai/zen/go/v1/chat/completions` | `@ai-sdk/alibaba`           |
+| GLM-5.1           | glm-5.1           | `https://Navi.ai/zen/go/v1/chat/completions` | `@ai-sdk/openai-compatible` |
+| GLM-5             | glm-5             | `https://Navi.ai/zen/go/v1/chat/completions` | `@ai-sdk/openai-compatible` |
+| Kimi K2.5         | kimi-k2.5         | `https://Navi.ai/zen/go/v1/chat/completions` | `@ai-sdk/openai-compatible` |
+| Kimi K2.6         | kimi-k2.6         | `https://Navi.ai/zen/go/v1/chat/completions` | `@ai-sdk/openai-compatible` |
+| DeepSeek V4 Pro   | deepseek-v4-pro   | `https://Navi.ai/zen/go/v1/chat/completions` | `@ai-sdk/openai-compatible` |
+| DeepSeek V4 Flash | deepseek-v4-flash | `https://Navi.ai/zen/go/v1/chat/completions` | `@ai-sdk/openai-compatible` |
+| MiMo-V2.5         | mimo-v2.5         | `https://Navi.ai/zen/go/v1/chat/completions` | `@ai-sdk/openai-compatible` |
+| MiMo-V2.5-Pro     | mimo-v2.5-pro     | `https://Navi.ai/zen/go/v1/chat/completions` | `@ai-sdk/openai-compatible` |
+| MiniMax M2.7      | minimax-m2.7      | `https://Navi.ai/zen/go/v1/messages`         | `@ai-sdk/anthropic`         |
+| MiniMax M2.5      | minimax-m2.5      | `https://Navi.ai/zen/go/v1/messages`         | `@ai-sdk/anthropic`         |
+| Qwen3.6 Plus      | qwen3.6-plus      | `https://Navi.ai/zen/go/v1/chat/completions` | `@ai-sdk/alibaba`           |
+| Qwen3.5 Plus      | qwen3.5-plus      | `https://Navi.ai/zen/go/v1/chat/completions` | `@ai-sdk/alibaba`           |
 
-O [ID do modelo](/docs/config/#models) na sua configuração do OpenCode
-usa o formato `opencode-go/<model-id>`. Por exemplo, para o Kimi K2.6, você usaria
-`opencode-go/kimi-k2.6` na sua configuração.
+O [ID do modelo](/docs/config/#models) na sua configuração do Navi
+usa o formato `Navi-go/<model-id>`. Por exemplo, para o Kimi K2.6, você usaria
+`Navi-go/kimi-k2.6` na sua configuração.
 
 ---
 
@@ -175,7 +167,7 @@ usa o formato `opencode-go/<model-id>`. Por exemplo, para o Kimi K2.6, você usa
 Você pode buscar a lista completa de modelos disponíveis e seus metadados em:
 
 ```
-https://opencode.ai/zen/go/v1/models
+https://Navi.ai/zen/go/v1/models
 ```
 
 ---
@@ -188,9 +180,9 @@ O plano foi projetado principalmente para usuários internacionais, com modelos 
 
 ## Objetivos
 
-Criamos o OpenCode Go para:
+Criamos o Navi Go para:
 
 1. Tornar a programação com IA **acessível** a mais pessoas com uma assinatura de baixo custo.
 2. Fornecer acesso **confiável** aos melhores modelos abertos de programação.
 3. Ter modelos sob curadoria que são **testados e avaliados (benchmarked)** para o uso por agentes de programação.
-4. Não ter **nenhuma restrição de fornecedor (lock-in)**, permitindo que você use qualquer outro provedor com o OpenCode também.
+4. Não ter **nenhuma restrição de fornecedor (lock-in)**, permitindo que você use qualquer outro provedor com o Navi também.

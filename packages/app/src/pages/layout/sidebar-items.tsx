@@ -1,10 +1,10 @@
-import type { Session } from "@opencode-ai/sdk/v2/client"
-import { Avatar } from "@opencode-ai/ui/avatar"
-import { Icon } from "@opencode-ai/ui/icon"
-import { IconButton } from "@opencode-ai/ui/icon-button"
-import { Spinner } from "@opencode-ai/ui/spinner"
-import { Tooltip } from "@opencode-ai/ui/tooltip"
-import { getFilename } from "@opencode-ai/core/util/path"
+import type { Session } from "@navi-ai/sdk/v2/client"
+import { Avatar } from "@navi-ai/ui/avatar"
+import { Icon } from "@navi-ai/ui/icon"
+import { IconButton } from "@navi-ai/ui/icon-button"
+import { Spinner } from "@navi-ai/ui/spinner"
+import { Tooltip } from "@navi-ai/ui/tooltip"
+import { getFilename } from "@navi-ai/core/util/path"
 import { A, useParams } from "@solidjs/router"
 import { type Accessor, createMemo, For, type JSX, Match, Show, Switch } from "solid-js"
 import { useGlobalSync } from "@/context/global-sync"
@@ -17,16 +17,21 @@ import { sessionTitle } from "@/utils/session-title"
 import { sessionPermissionRequest } from "../session/composer/session-request-tree"
 import { childSessionOnPath, hasProjectPermissions } from "./helpers"
 
-const OPENCODE_PROJECT_ID = "4b0ea68d7af9a6031a7ffda7ad66e0cb83315750"
+const NAVI_PROJECT_ID = "4b0ea68d7af9a6031a7ffda7ad66e0cb83315750"
 
 export function getProjectAvatarSource(id?: string, icon?: { color?: string; url?: string; override?: string }) {
-  if (id === OPENCODE_PROJECT_ID) return "https://opencode.ai/favicon.svg"
+  if (id === NAVI_PROJECT_ID) return "https://navi.ai/favicon.svg"
   if (icon?.override) return icon?.override
   if (icon?.color) return undefined
   return icon?.url
 }
 
-export const ProjectIcon = (props: { project: LocalProject; class?: string; notify?: boolean }): JSX.Element => {
+export const ProjectIcon = (props: {
+  project: LocalProject
+  class?: string
+  notify?: boolean
+  working?: boolean
+}): JSX.Element => {
   const globalSync = useGlobalSync()
   const notification = useNotification()
   const permission = usePermission()
@@ -64,6 +69,11 @@ export const ProjectIcon = (props: { project: LocalProject; class?: string; noti
             "bg-text-interactive-base": !hasPermissions() && !hasError(),
           }}
         />
+      </Show>
+      <Show when={props.working}>
+        <div class="absolute bottom-px right-px size-3 rounded-full bg-background-base z-10 flex items-center justify-center">
+          <Spinner class="size-[9px]" />
+        </div>
       </Show>
     </div>
   )

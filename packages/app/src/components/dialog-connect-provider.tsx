@@ -1,14 +1,14 @@
-import type { ProviderAuthAuthorization, ProviderAuthMethod } from "@opencode-ai/sdk/v2/client"
-import { Button } from "@opencode-ai/ui/button"
-import { useDialog } from "@opencode-ai/ui/context/dialog"
-import { Dialog } from "@opencode-ai/ui/dialog"
-import { Icon } from "@opencode-ai/ui/icon"
-import { IconButton } from "@opencode-ai/ui/icon-button"
-import { List, type ListRef } from "@opencode-ai/ui/list"
-import { ProviderIcon } from "@opencode-ai/ui/provider-icon"
-import { Spinner } from "@opencode-ai/ui/spinner"
-import { TextField } from "@opencode-ai/ui/text-field"
-import { showToast } from "@opencode-ai/ui/toast"
+import type { ProviderAuthAuthorization, ProviderAuthMethod } from "@navi-ai/sdk/v2/client"
+import { Button } from "@navi-ai/ui/button"
+import { useDialog } from "@navi-ai/ui/context/dialog"
+import { Dialog } from "@navi-ai/ui/dialog"
+import { Icon } from "@navi-ai/ui/icon"
+import { IconButton } from "@navi-ai/ui/icon-button"
+import { List, type ListRef } from "@navi-ai/ui/list"
+import { ProviderIcon } from "@navi-ai/ui/provider-icon"
+import { Spinner } from "@navi-ai/ui/spinner"
+import { TextField } from "@navi-ai/ui/text-field"
+import { showToast } from "@navi-ai/ui/toast"
 import { createEffect, createMemo, createResource, Match, onCleanup, onMount, Switch } from "solid-js"
 import { createStore, produce } from "solid-js/store"
 import { Link } from "@/components/link"
@@ -422,16 +422,16 @@ export function DialogConnectProvider(props: { provider: string }) {
     return (
       <div class="flex flex-col gap-6">
         <Switch>
-          <Match when={provider().id === "opencode"}>
+          <Match when={provider().id === "navi"}>
             <div class="flex flex-col gap-4">
-              <div class="text-14-regular text-text-base">{language.t("provider.connect.opencodeZen.line1")}</div>
-              <div class="text-14-regular text-text-base">{language.t("provider.connect.opencodeZen.line2")}</div>
+              <div class="text-14-regular text-text-base">{language.t("provider.connect.naviZen.line1")}</div>
+              <div class="text-14-regular text-text-base">{language.t("provider.connect.naviZen.line2")}</div>
               <div class="text-14-regular text-text-base">
-                {language.t("provider.connect.opencodeZen.visit.prefix")}
-                <Link href="https://opencode.ai/zen" tabIndex={-1}>
-                  {language.t("provider.connect.opencodeZen.visit.link")}
+                {language.t("provider.connect.naviZen.visit.prefix")}
+                <Link href="https://navi.ai/zen" tabIndex={-1}>
+                  {language.t("provider.connect.naviZen.visit.link")}
                 </Link>
-                {language.t("provider.connect.opencodeZen.visit.suffix")}
+                {language.t("provider.connect.naviZen.visit.suffix")}
               </div>
             </div>
           </Match>

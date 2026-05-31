@@ -9,14 +9,9 @@ import path from "path"
 
 import { createClient } from "@hey-api/openapi-ts"
 
-const openapiSource = process.env.OPENCODE_SDK_OPENAPI === "httpapi" ? "httpapi" : "hono"
-const opencode = path.resolve(dir, "../../opencode")
+const navi = path.resolve(dir, "../../navi")
 
-if (openapiSource === "httpapi") {
-  await $`bun dev generate --httpapi > ${dir}/openapi.json`.cwd(opencode)
-} else {
-  await $`bun dev generate > ${dir}/openapi.json`.cwd(opencode)
-}
+await $`bun dev generate > ${dir}/openapi.json`.cwd(navi)
 
 await createClient({
   input: "./openapi.json",
@@ -32,7 +27,7 @@ await createClient({
     },
     {
       name: "@hey-api/sdk",
-      instance: "OpencodeClient",
+      instance: "NaviClient",
       exportFromIndex: false,
       auth: false,
       paramsStructure: "flat",
