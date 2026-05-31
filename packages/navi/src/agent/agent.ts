@@ -471,7 +471,19 @@ export const layer = Layer.effect(
         }
 
         const get = Effect.fnUntraced(function* (agent: string) {
-          return agents[agent]
+          if (agents[agent]) return agents[agent]
+          const lowerAgent = agent.toLowerCase()
+          const matchedByKey = Object.keys(agents).find((key) => key.toLowerCase() === lowerAgent)
+          if (matchedByKey) return agents[matchedByKey]
+          const matchedByName = Object.values(agents).find((a) => a.name.toLowerCase() === lowerAgent)
+          if (matchedByName) return matchedByName
+          const normalize = (str: string) => str.toLowerCase().replace(/[^a-z0-9]/g, "")
+          const normalizedAgent = normalize(agent)
+          const matchedByNormalizedKey = Object.keys(agents).find((key) => normalize(key) === normalizedAgent)
+          if (matchedByNormalizedKey) return agents[matchedByNormalizedKey]
+          const matchedByNormalizedName = Object.values(agents).find((a) => normalize(a.name) === normalizedAgent)
+          if (matchedByNormalizedName) return matchedByNormalizedName
+          return undefined as any
         })
 
         const list = Effect.fnUntraced(function* () {

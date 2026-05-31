@@ -848,3 +848,38 @@ test("defaultAgent throws when all primary agents are disabled", async () => {
     },
   })
 })
+
+test("Agent.get performs case-insensitive and normalized lookups", async () => {
+  await using tmp = await tmpdir()
+  await WithInstance.provide({
+    directory: tmp.path,
+    fn: async () => {
+      // Test case-insensitive exact key matching
+      const build1 = await load(tmp.path, (svc) => svc.get("Build"))
+      expect(build1).toBeDefined()
+      expect(build1?.name).toBe("build")
+
+      // Test name matching
+      const bugBuster1 = await load(tmp.path, (svc) => svc.get("BugBuster"))
+      expect(bugBuster1).toBeDefined()
+      expect(bugBuster1?.name).toBe("BugBuster")
+
+      // Test normalized matching for kebab-case/camelCase
+      const bugBuster2 = await load(tmp.path, (svc) => svc.get("bugbuster"))
+      expect(bugBuster2).toBeDefined()
+      expect(bugBuster2?.name).toBe("BugBuster")
+
+      const securitySentinel1 = await load(tmp.path, (svc) => svc.get("security-sentinel"))
+      expect(securitySentinel1).toBeDefined()
+      expect(securitySentinel1?.name).toBe("SecuritySentinel")
+
+      const securitySentinel2 = await load(tmp.path, (svc) => svc.get("SecuritySentinel"))
+      expect(securitySentinel2).toBeDefined()
+      expect(securitySentinel2?.name).toBe("SecuritySentinel")
+
+      const securitySentinel3 = await load(tmp.path, (svc) => svc.get("securitysentinel"))
+      expect(securitySentinel3).toBeDefined()
+      expect(securitySentinel3?.name).toBe("SecuritySentinel")
+    },
+  })
+})
