@@ -884,6 +884,11 @@ export const dict = {
   "settings.models.description": "Model settings will be configurable here.",
   "settings.agents.title": "Agents",
   "settings.agents.description": "Agent settings will be configurable here.",
+  "settings.agents.model.description": "Choose which model each agent uses. By default, agents inherit the model selected by the main agent.",
+  "settings.agents.model.default": "Default (inherit)",
+  "settings.agents.badge.primary": "primary",
+  "settings.agents.badge.subagent": "subagent",
+
   "settings.commands.title": "Commands",
   "settings.commands.description": "Command settings will be configurable here.",
   "settings.mcp.title": "MCP",

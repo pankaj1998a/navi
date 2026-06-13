@@ -301,6 +301,43 @@ export const Info = Schema.Struct({
       }),
     }),
   ),
+  checkpoint: Schema.optional(
+    Schema.Struct({
+      memory_reconcile_on_search: Schema.optional(Schema.Boolean).annotate({
+        description: "Reconcile memory automatically on memory search (default: true)",
+      }),
+      memory_search_score_floor: Schema.optional(Schema.Number).annotate({
+        description: "BM25 score floor ratio for memory searches (default: 0.15)",
+      }),
+    }),
+  ),
+  memory: Schema.optional(
+    Schema.Struct({
+      cc_index: Schema.optional(Schema.Boolean).annotate({
+        description: "Whether to index Claude Code memory if present (default: false)",
+      }),
+    }),
+  ),
+  history: Schema.optional(
+    Schema.Struct({
+      kinds: Schema.optional(
+        Schema.mutable(
+          Schema.Array(
+            Schema.Union([
+              Schema.Literal("user_text"),
+              Schema.Literal("assistant_text"),
+              Schema.Literal("tool_input"),
+              Schema.Literal("tool_error"),
+              Schema.Literal("reasoning"),
+              Schema.Literal("tool_output"),
+            ]),
+          ),
+        ),
+      ).annotate({
+        description: "The kinds of messages/parts to index in FTS history (default: all kinds)",
+      }),
+    }),
+  ),
 })
   .annotate({ identifier: "Config" })
   .pipe(

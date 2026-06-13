@@ -12,7 +12,7 @@ import { Format } from "../format"
 import { AppFileSystem } from "@navi-ai/core/filesystem"
 import { InstanceState } from "@/effect/instance-state"
 import { trimDiff } from "./edit"
-import { assertExternalDirectoryEffect } from "./external-directory"
+import { assertWriteAllowed, askEditUnlessMemory } from "./external-directory"
 import * as Bom from "@/util/bom"
 
 const MAX_PROJECT_DIAGNOSTICS_FILES = 5
@@ -41,7 +41,7 @@ export const WriteTool = Tool.define(
           const filepath = path.isAbsolute(params.filePath)
             ? params.filePath
             : path.join(instance.directory, params.filePath)
-          yield* assertExternalDirectoryEffect(ctx, filepath)
+          yield* assertWriteAllowed(ctx, filepath)
 
           const exists = yield* fs.existsSafe(filepath)
           const source = exists ? yield* Bom.readFile(fs, filepath) : { bom: false, text: "" }
@@ -51,14 +51,9 @@ export const WriteTool = Tool.define(
           const contentNew = next.text
 
           const diff = trimDiff(createTwoFilesPatch(filepath, filepath, contentOld, contentNew))
-          yield* ctx.ask({
-            permission: "edit",
+          yield* askEditUnlessMemory(ctx, filepath, {
             patterns: [path.relative(instance.worktree, filepath)],
-            always: ["*"],
-            metadata: {
-              filepath,
-              diff,
-            },
+            diff,
           })
 
           yield* fs.writeWithDirs(filepath, Bom.join(contentNew, desiredBom))

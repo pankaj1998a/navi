@@ -12,7 +12,7 @@ import { generateText } from "ai"
 import { createAiGateway } from "ai-gateway-provider"
 import { createUnified } from "ai-gateway-provider/providers/unified"
 import { ProviderTransform } from "@/provider/transform"
-import type * as Provider from "@/provider/provider"
+import { Provider } from "@/provider/provider"
 import { ModelID, ProviderID } from "@/provider/schema"
 
 type Captured = { url: string; outerBody: unknown }

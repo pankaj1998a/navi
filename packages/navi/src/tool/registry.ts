@@ -13,6 +13,7 @@ import { WriteTool } from "./write"
 import { InvalidTool } from "./invalid"
 import { SkillTool } from "./skill"
 import * as Tool from "./tool"
+import { SessionStatus } from "@/session/status"
 import { Config } from "@/config/config"
 import { type ToolContext as PluginToolContext, type ToolDefinition } from "@navi-ai/plugin"
 import { Schema } from "effect"
@@ -39,10 +40,14 @@ import { LspTool } from "./lsp"
 import * as Truncate from "./truncate"
 import { ApplyPatchTool } from "./apply_patch"
 import { ToolSearchTool } from "./tool-search"
+import { Memory } from "@/memory"
+import { History } from "@/history"
+import { MemoryTool } from "./memory"
+import { HistoryTool } from "./history"
 import { Glob } from "@navi-ai/core/util/glob"
 import path from "path"
 import { pathToFileURL } from "url"
-import { Service } from "./registry-service"
+import { Service, type Interface, type TaskDef, type ReadDef } from "./registry-service"
 export { Service, type Interface, type TaskDef, type ReadDef } from "./registry-service"
 import { Effect, Layer, Context } from "effect"
 import { FetchHttpClient, HttpClient } from "effect/unstable/http"
@@ -105,6 +110,9 @@ export const layer: Layer.Layer<
   | Ripgrep.Service
   | Format.Service
   | Truncate.Service
+  | Memory.Service
+  | History.Service
+  | SessionStatus.Service
 > = Layer.effect(
   Service,
   Effect.gen(function* () {
@@ -142,6 +150,8 @@ export const layer: Layer.Layer<
     const patchtool = yield* ApplyPatchTool
     const skilltool = yield* SkillTool
     const toolsearch = yield* ToolSearchTool
+    const memorytool = yield* MemoryTool
+    const historytool = yield* HistoryTool
 
     const state = yield* InstanceState.make<State>(
       Effect.fn("ToolRegistry.state")(function* (ctx) {
@@ -250,6 +260,8 @@ export const layer: Layer.Layer<
           lsp: Tool.init(lsptool),
           plan: Tool.init(plan),
           tool_search: Tool.init(toolsearch),
+          memory: Tool.init(memorytool),
+          history: Tool.init(historytool),
         })
 
         return {
@@ -279,6 +291,8 @@ export const layer: Layer.Layer<
             tool.skill,
             tool.patch,
             tool.tool_search,
+            tool.memory,
+            tool.history,
             ...(Flag.NAVI_EXPERIMENTAL_LSP_TOOL ? [tool.lsp] : []),
             ...(Flag.NAVI_EXPERIMENTAL_PLAN_MODE && Flag.NAVI_CLIENT === "cli" ? [tool.plan] : []),
           ],
@@ -347,7 +361,7 @@ export const layer: Layer.Layer<
 
       return yield* Effect.forEach(
         filtered,
-        Effect.fnUntraced(function* (tool: Tool.Def) {
+        Effect.fnUntraced(function* (tool: Tool.Def<any, any>) {
           using _ = log.time(tool.id)
           const output = {
             description: tool.description,
@@ -383,25 +397,36 @@ export const layer: Layer.Layer<
 
 export const defaultLayer = Layer.suspend(() =>
   layer.pipe(
-    Layer.provide(Config.defaultLayer),
-    Layer.provide(Plugin.defaultLayer),
-    Layer.provide(Question.defaultLayer),
-    Layer.provide(Todo.defaultLayer),
-    Layer.provide(Skill.defaultLayer),
-    Layer.provide(Agent.defaultLayer),
-    Layer.provide(Session.defaultLayer),
-    Layer.provide(Provider.defaultLayer),
-    Layer.provide(Git.defaultLayer),
-    Layer.provide(Reference.defaultLayer),
-    Layer.provide(LSP.defaultLayer),
-    Layer.provide(Instruction.defaultLayer),
-    Layer.provide(AppFileSystem.defaultLayer),
-    Layer.provide(Bus.layer),
-    Layer.provide(FetchHttpClient.layer),
-    Layer.provide(Format.defaultLayer),
-    Layer.provide(CrossSpawnSpawner.defaultLayer),
-    Layer.provide(Ripgrep.defaultLayer),
-    Layer.provide(Truncate.defaultLayer),
+    Layer.provide(
+      Layer.mergeAll(
+        Config.defaultLayer,
+        Plugin.defaultLayer,
+        Question.defaultLayer,
+        Todo.defaultLayer,
+        Skill.defaultLayer,
+        Agent.defaultLayer,
+        Session.defaultLayer,
+        Provider.defaultLayer,
+        Git.defaultLayer,
+        Reference.defaultLayer,
+        LSP.defaultLayer,
+        Instruction.defaultLayer,
+        SessionStatus.defaultLayer,
+      ),
+    ),
+    Layer.provide(
+      Layer.mergeAll(
+        AppFileSystem.defaultLayer,
+        Bus.layer,
+        FetchHttpClient.layer,
+        Format.defaultLayer,
+        CrossSpawnSpawner.defaultLayer,
+        Ripgrep.defaultLayer,
+        Truncate.defaultLayer,
+        Memory.defaultLayer,
+        History.defaultLayer,
+      ),
+    ),
   ),
 )
 

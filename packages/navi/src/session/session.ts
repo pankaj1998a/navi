@@ -933,4 +933,14 @@ export function* listGlobal(input?: {
   }
 }
 
+export async function get(id: SessionID) {
+  const { AppRuntime } = await import("@/effect/app-runtime")
+  return AppRuntime.runPromise(Service.use((svc) => svc.get(id)))
+}
+
+export async function messages(input: { sessionID: SessionID; limit?: number }) {
+  const { AppRuntime } = await import("@/effect/app-runtime")
+  return AppRuntime.runPromise(Service.use((svc) => svc.messages(input)))
+}
+
 export * as Session from "./session"

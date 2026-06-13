@@ -291,10 +291,14 @@ function metadata(part: ToolPart, key: string) {
   return ("metadata" in part.state ? part.state.metadata?.[key] : undefined) ?? part.metadata?.[key]
 }
 
-function taskTab(part: ToolPart, sessionID: string): FooterSubagentTab {
+function taskTab(part: ToolPart, sessionID: string, existingTab?: FooterSubagentTab): FooterSubagentTab {
   const label = Locale.titlecase(text(part.state.input.subagent_type) ?? "general")
   const description = text(part.state.input.description) ?? stateTitle(part) ?? inputLabel(part.state.input) ?? ""
-  const status = part.state.status === "error" ? "error" : part.state.status === "completed" ? "completed" : "running"
+  
+  let status: "running" | "completed" | "error" = part.state.status === "error" ? "error" : part.state.status === "completed" ? "completed" : "running"
+  if (existingTab && existingTab.status === "running") {
+    status = "running"
+  }
 
   return {
     sessionID,
@@ -327,7 +331,7 @@ function syncTaskTab(data: SubagentData, part: ToolPart, children?: Set<string>)
     return false
   }
 
-  const next = taskTab(part, sessionID)
+  const next = taskTab(part, sessionID, data.tabs.get(sessionID))
   if (sameSubagentTab(data.tabs.get(sessionID), next)) {
     ensureDetail(data, sessionID)
     return false
@@ -789,8 +793,18 @@ export function reduceSubagentData(input: {
 
   const detail = ensureDetail(input.data, sessionID)
   if (event.type === "session.status") {
+    let changed = false
+    const tab = input.data.tabs.get(sessionID)
+    if (tab) {
+      const nextStatus = event.properties.status.type === "busy" ? ("running" as const) : ("completed" as const)
+      if (tab.status !== nextStatus) {
+        tab.status = nextStatus
+        tab.lastUpdatedAt = Date.now()
+        changed = true
+      }
+    }
     if (event.properties.status.type !== "retry") {
-      return false
+      return changed
     }
 
     return appendCommits(detail, [

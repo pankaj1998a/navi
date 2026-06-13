@@ -1,6 +1,7 @@
 import { createMemo, createSignal } from "solid-js"
 import { useLocal } from "@tui/context/local"
 import { useSync } from "@tui/context/sync"
+import { useSDK } from "@tui/context/sdk"
 import { map, pipe, flatMap, entries, filter, sortBy, take } from "remeda"
 import { DialogSelect } from "@tui/ui/dialog-select"
 import { useDialog } from "@tui/ui/dialog"
@@ -12,6 +13,7 @@ import { useConnected } from "./use-connected"
 export function DialogModel(props: { providerID?: string; agent?: string }) {
   const local = useLocal()
   const sync = useSync()
+  const sdk = useSDK()
   const dialog = useDialog()
   const [query, setQuery] = createSignal("")
 
@@ -132,15 +134,57 @@ export function DialogModel(props: { providerID?: string; agent?: string }) {
     return value.name
   })
 
+  // Determine if props.agent is the currently active primary agent or a different agent
+  const isConfiguringCurrentAgent = createMemo(() => {
+    if (!props.agent) return true
+    return props.agent === local.agent.current()?.name
+  })
+
+  async function persistAgentModelToConfig(agentName: string, providerID: string, modelID: string) {
+    const workspace = undefined // instance-level config
+    try {
+      const res = await sdk.client.config.get({ workspace })
+      if (res.error || !res.data) return
+      const current = res.data as Record<string, unknown>
+      const currentAgents = (current.agent ?? {}) as Record<string, Record<string, unknown>>
+      const currentAgentCfg = currentAgents[agentName] ?? {}
+      await sdk.client.config.update({
+        workspace,
+        config: {
+          ...current,
+          agent: {
+            ...currentAgents,
+            [agentName]: {
+              ...currentAgentCfg,
+              model: `${providerID}/${modelID}`,
+            },
+          },
+        } as Parameters<typeof sdk.client.config.update>[0]["config"],
+      })
+    } catch {
+      // best-effort: don't break the dialog if config persistence fails
+    }
+  }
+
   function onSelect(providerID: string, modelID: string) {
-    local.model.set({ providerID, modelID }, { recent: true, agent: props.agent })
+    if (isConfiguringCurrentAgent()) {
+      // Setting model for the active primary agent — use TUI in-memory state only
+      local.model.set({ providerID, modelID }, { recent: true, agent: props.agent })
+    } else {
+      // Setting model for a different agent (e.g. a subagent):
+      // - Store in TUI memory (without polluting `recent` — local.tsx guards this)
+      // - Also persist to server config so server-side task spawning uses the right model
+      local.model.set({ providerID, modelID }, { recent: false, agent: props.agent })
+      void persistAgentModelToConfig(props.agent!, providerID, modelID)
+    }
+
     const list = local.model.variant.list()
     const cur = local.model.variant.selected()
     if (cur === "default" || (cur && list.includes(cur))) {
       dialog.clear()
       return
     }
-    if (list.length > 0) {
+    if (list.length > 0 && isConfiguringCurrentAgent()) {
       dialog.replace(() => <DialogVariant />)
       return
     }

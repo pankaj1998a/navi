@@ -612,4 +612,19 @@ export const defaultLayer = layer.pipe(
   Layer.provide(Skill.defaultLayer),
 )
 
+export async function get(agent: string) {
+  const { AppRuntime } = await import("@/effect/app-runtime")
+  return AppRuntime.runPromise(Service.use((svc) => svc.get(agent)))
+}
+
+export async function list() {
+  const { AppRuntime } = await import("@/effect/app-runtime")
+  return AppRuntime.runPromise(Service.use((svc) => svc.list()))
+}
+
+export async function defaultAgent() {
+  const { AppRuntime } = await import("@/effect/app-runtime")
+  return AppRuntime.runPromise(Service.use((svc) => svc.defaultAgent()))
+}
+
 export * as Agent from "./agent"

@@ -249,7 +249,7 @@ export function createRalphLoopHook(options: RalphLoopOptions & { input: PluginI
                 
                 if (messages && Array.isArray(messages)) {
                     // Check for completion promise in the most recent assistant message
-                    const assistantMessages = (messages as Message.Info[]).filter(m => m.role === 'assistant')
+                    const assistantMessages = messages.filter(m => m.info.role === 'assistant')
                     const lastAiMessage = assistantMessages[assistantMessages.length - 1]
                     
                     if (lastAiMessage) {

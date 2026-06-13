@@ -27,7 +27,7 @@ describe("provider model status schemas", () => {
       }).status,
     ).toBeUndefined()
     expect(
-      Schema.decodeUnknownSync(Provider.Model)({
+      Provider.Model.parse({
         id: "test-model",
         providerID: "test-provider",
         api: {

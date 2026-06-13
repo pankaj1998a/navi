@@ -2,13 +2,13 @@
  * Smart summarization utility for large tool results.
  */
 
-import { Log } from "../util/log"
+import * as Log from "@navi-ai/core/util/log"
 import { Provider } from "../provider/provider"
-import { LLM } from "../session/llm"
 import { Agent } from "../agent/agent"
 import { MessageID, SessionID } from "../session/schema"
 import { ProviderID, ModelID } from "../provider/schema"
 import { MessageV2 } from "../session/message-v2"
+import { generateText } from "ai"
 
 const log = Log.create({ service: "summarize" })
 
@@ -59,9 +59,10 @@ export async function summarizeLargeResult(response: string, context: Summarizat
             return response.substring(0, 40000) + "\n\n[Result truncated - no model available]"
         }
 
-        const stream = await LLM.stream({
-            agent,
-            model,
+        const language = await Provider.getLanguage(model)
+
+        const { text } = await generateText({
+            model: language,
             messages: [
                 {
                     role: "user",
@@ -83,23 +84,10 @@ ${response.substring(0, MAX_SUMMARIZATION_INPUT * 4)}
 Provide a concise but comprehensive summary.`,
                 },
             ],
-            abort: new AbortController().signal,
-            sessionID: context.sessionID,
-            system: [],
-            retries: 2,
-            user: {
-                id: MessageID.ascending(),
-                sessionID: SessionID.make(context.sessionID),
-                role: "user",
-                time: { created: Date.now() },
-                agent: "summarize",
-                model: { providerID: model.providerID, modelID: model.id },
-            },
-            tools: {},
+            abortSignal: new AbortController().signal,
         })
 
-        const result = await stream.text
-        return result
+        return text
     } catch (error) {
         log.error("Summarization failed", { error })
         return response.substring(0, 40000) + "\n\n[Result truncated - summarization failed]"

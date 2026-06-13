@@ -124,6 +124,7 @@ export const layer = Layer.effect(
     const ops = Effect.fn("SessionPrompt.ops")(function* () {
       return {
         cancel: (sessionID: SessionID) => cancel(sessionID),
+        cancelChildren: (parentID: SessionID) => state.cancelChildren(parentID),
         resolvePromptParts: (template: string) => resolvePromptParts(template),
         prompt: (input: PromptInput) => prompt(input).pipe(Effect.catch(Effect.die)),
       } satisfies TaskPromptOps
@@ -382,7 +383,8 @@ NOTE: At any point in time through this workflow you should feel free to ask the
       const promptOps = yield* ops()
 
       const context = (args: any, options: ToolExecutionOptions): Tool.Context => ({
-        sessionID: input.session.id,
+        sessionID: input.session.parentID ?? input.session.id,
+        taskId: input.session.parentID ? input.session.id : undefined,
         abort: options.abortSignal!,
         messageID: input.processor.message.id,
         callID: options.toolCallId,
@@ -1911,5 +1913,30 @@ const bashRegex = /!`([^`]+)`/g
 const argsRegex = /(?:\[Image\s+\d+\]|"[^"]*"|'[^']*'|[^\s"']+)/gi
 const placeholderRegex = /\$(\d+)/g
 const quoteTrimRegex = /^["']|["']$/g
+
+export async function prompt(input: PromptInput) {
+  const { AppRuntime } = await import("@/effect/app-runtime")
+  return AppRuntime.runPromise(Service.use((svc) => svc.prompt(input)))
+}
+
+export async function loop(input: LoopInput) {
+  const { AppRuntime } = await import("@/effect/app-runtime")
+  return AppRuntime.runPromise(Service.use((svc) => svc.loop(input)))
+}
+
+export async function cancel(sessionID: SessionID) {
+  const { AppRuntime } = await import("@/effect/app-runtime")
+  return AppRuntime.runPromise(Service.use((svc) => svc.cancel(sessionID)))
+}
+
+export async function shell(input: ShellInput) {
+  const { AppRuntime } = await import("@/effect/app-runtime")
+  return AppRuntime.runPromise(Service.use((svc) => svc.shell(input)))
+}
+
+export async function command(input: CommandInput) {
+  const { AppRuntime } = await import("@/effect/app-runtime")
+  return AppRuntime.runPromise(Service.use((svc) => svc.command(input)))
+}
 
 export * as SessionPrompt from "./prompt"

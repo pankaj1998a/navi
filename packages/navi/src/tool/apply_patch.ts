@@ -6,7 +6,7 @@ import { FileWatcher } from "../file/watcher"
 import { InstanceState } from "@/effect/instance-state"
 import { Patch } from "../patch"
 import { createTwoFilesPatch, diffLines } from "diff"
-import { assertExternalDirectoryEffect } from "./external-directory"
+import { assertWriteAllowed, askEditUnlessMemory } from "./external-directory"
 import { trimDiff } from "./edit"
 import { LSP } from "@/lsp/lsp"
 import { AppFileSystem } from "@navi-ai/core/filesystem"
@@ -71,7 +71,7 @@ export const ApplyPatchTool = Tool.define(
 
       for (const hunk of hunks) {
         const filePath = path.resolve(instance.directory, hunk.path)
-        yield* assertExternalDirectoryEffect(ctx, filePath)
+        yield* assertWriteAllowed(ctx, filePath)
 
         switch (hunk.type) {
           case "add": {
@@ -136,7 +136,7 @@ export const ApplyPatchTool = Tool.define(
             }
 
             const movePath = hunk.move_path ? path.resolve(instance.directory, hunk.move_path) : undefined
-            yield* assertExternalDirectoryEffect(ctx, movePath)
+            yield* assertWriteAllowed(ctx, movePath)
 
             fileChanges.push({
               filePath,
@@ -199,15 +199,11 @@ export const ApplyPatchTool = Tool.define(
 
       // Check permissions if needed
       const relativePaths = fileChanges.map((c) => path.relative(instance.worktree, c.filePath).replaceAll("\\", "/"))
-      yield* ctx.ask({
-        permission: "edit",
+      const primaryFilePath = fileChanges[0]?.filePath
+      yield* askEditUnlessMemory(ctx, primaryFilePath, {
         patterns: relativePaths,
-        always: ["*"],
-        metadata: {
-          filepath: relativePaths.join(", "),
-          diff: totalDiff,
-          files,
-        },
+        diff: totalDiff,
+        files,
       })
 
       // Apply the changes

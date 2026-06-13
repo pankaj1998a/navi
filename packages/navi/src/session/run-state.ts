@@ -9,6 +9,7 @@ import { SessionStatus } from "./status"
 export interface Interface {
   readonly assertNotBusy: (sessionID: SessionID) => Effect.Effect<void>
   readonly cancel: (sessionID: SessionID) => Effect.Effect<void>
+  readonly cancelChildren: (parentID: SessionID) => Effect.Effect<void>
   readonly ensureRunning: (
     sessionID: SessionID,
     onInterrupt: Effect.Effect<MessageV2.WithParts>,
@@ -28,6 +29,7 @@ export const layer = Layer.effect(
   Service,
   Effect.gen(function* () {
     const status = yield* SessionStatus.Service
+    const sessions = yield* Session.Service
 
     const state = yield* InstanceState.make(
       Effect.fn("SessionRunState.state")(function* () {
@@ -84,6 +86,17 @@ export const layer = Layer.effect(
       yield* existing.cancel
     })
 
+    const cancelChildren = Effect.fn("SessionRunState.cancelChildren")(function* (parentID: SessionID) {
+      const data = yield* InstanceState.get(state)
+      for (const [sessionID, existing] of data.runners.entries()) {
+        if (!existing.busy) continue
+        const info = yield* sessions.get(sessionID).pipe(Effect.catchCause(() => Effect.succeed(undefined)))
+        if (info?.parentID === parentID) {
+          yield* existing.cancel
+        }
+      }
+    })
+
     const ensureRunning = Effect.fn("SessionRunState.ensureRunning")(function* (
       sessionID: SessionID,
       onInterrupt: Effect.Effect<MessageV2.WithParts>,
@@ -101,10 +114,17 @@ export const layer = Layer.effect(
       return yield* (yield* runner(sessionID, onInterrupt)).startShell(work, ready)
     })
 
-    return Service.of({ assertNotBusy, cancel, ensureRunning, startShell })
+    return Service.of({ assertNotBusy, cancel, cancelChildren, ensureRunning, startShell })
   }),
 )
 
-export const defaultLayer = layer.pipe(Layer.provide(SessionStatus.defaultLayer))
+export const defaultLayer = layer.pipe(
+  Layer.provide(
+    Layer.mergeAll(
+      SessionStatus.defaultLayer,
+      Session.defaultLayer,
+    ),
+  ),
+)
 
 export * as SessionRunState from "./run-state"

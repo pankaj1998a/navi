@@ -8,10 +8,11 @@ import { deriveSubagentSessionPermission } from "../agent/subagent-permissions"
 import type { SessionPrompt } from "../session/prompt"
 import { Config } from "@/config/config"
 import { Effect, Exit, Schema } from "effect"
-import { EffectBridge } from "@/effect/bridge"
+import { SessionStatus } from "@/session/status"
 
 export interface TaskPromptOps {
   cancel(sessionID: SessionID): Effect.Effect<void>
+  cancelChildren(parentID: SessionID): Effect.Effect<void>
   resolvePromptParts(template: string): Effect.Effect<SessionPrompt.PromptInput["parts"]>
   prompt(input: SessionPrompt.PromptInput): Effect.Effect<MessageV2.WithParts>
 }
@@ -35,6 +36,7 @@ export const TaskTool = Tool.define(
     const agent = yield* Agent.Service
     const config = yield* Config.Service
     const sessions = yield* Session.Service
+    const statusSvc = yield* SessionStatus.Service
 
     const run = Effect.fn("TaskTool.execute")(function* (
       params: Schema.Schema.Type<typeof Parameters>,
@@ -104,64 +106,114 @@ export const TaskTool = Tool.define(
 
       const ops = ctx.extra?.promptOps as TaskPromptOps
       if (!ops) return yield* Effect.fail(new Error("TaskTool requires promptOps in ctx.extra"))
-      const runCancel = yield* EffectBridge.make()
 
-      const messageID = MessageID.ascending()
-      const cancel = ops.cancel(nextSession.id)
+      // Check messages of nextSession to see if we've already prompted it with this prompt
+      const msgs = yield* sessions.messages({ sessionID: nextSession.id })
+      const lastUserMsg = msgs.findLast((m) => m.info.role === "user")
+      const lastUserText = lastUserMsg?.parts.findLast((p) => p.type === "text")?.text ?? ""
 
-      function onAbort() {
-        runCancel.fork(cancel)
+      const currentStatus = yield* statusSvc.get(nextSession.id)
+
+      if (lastUserMsg && lastUserText === params.prompt) {
+        // This is a status check/poll for the existing prompt
+        if (currentStatus.type === "busy") {
+          return {
+            title: params.description,
+            metadata: {
+              sessionId: nextSession.id,
+              model,
+            },
+            output: [
+              `task_id: ${nextSession.id} (for resuming to continue this task if needed)`,
+              "",
+              "Status: running",
+              "The subagent is currently still working on the task in the background. Please check back later using the task tool with the same task_id.",
+            ].join("\n"),
+          }
+        } else {
+          // If status is idle, it has finished or is not running. Let's get the final result.
+          const lastMsg = msgs.findLast((m) => m.info.role === "assistant")
+          const textPart = lastMsg?.parts.findLast((p) => p.type === "text")?.text ?? ""
+          return {
+            title: params.description,
+            metadata: {
+              sessionId: nextSession.id,
+              model,
+            },
+            output: [
+              `task_id: ${nextSession.id}`,
+              "",
+              "Status: completed",
+              "<task_result>",
+              textPart,
+              "</task_result>",
+            ].join("\n"),
+          }
+        }
       }
 
-      return yield* Effect.acquireUseRelease(
-        Effect.sync(() => {
-          ctx.abort.addEventListener("abort", onAbort)
-        }),
-        () =>
-          Effect.gen(function* () {
-            const parts = yield* ops.resolvePromptParts(params.prompt)
-            const result = yield* ops.prompt({
-              messageID,
-              sessionID: nextSession.id,
-              model: {
-                modelID: model.modelID,
-                providerID: model.providerID,
-              },
-              agent: next.name,
-              tools: {
-                ...(next.permission.some((rule) => rule.permission === "todowrite") ? {} : { todowrite: false }),
-                ...(next.permission.some((rule) => rule.permission === id) ? {} : { task: false }),
-                ...Object.fromEntries((cfg.experimental?.primary_tools ?? []).map((item) => [item, false])),
-              },
-              parts,
-            })
+      // If we are sending a new/different instruction (or first time)
+      if (currentStatus.type === "busy") {
+        return {
+          title: params.description,
+          metadata: {
+            sessionId: nextSession.id,
+            model,
+          },
+          output: [
+            `task_id: ${nextSession.id} (for resuming to continue this task if needed)`,
+            "",
+            "Status: running",
+            "The subagent is currently busy working on a previous task. Please wait until it is finished before sending a new instruction.",
+          ].join("\n"),
+        }
+      }
 
-            return {
-              title: params.description,
-              metadata: {
-                sessionId: nextSession.id,
-                model,
-              },
-              output: [
-                `task_id: ${nextSession.id} (for resuming to continue this task if needed)`,
-                "",
-                "<task_result>",
-                result.parts.findLast((item) => item.type === "text")?.text ?? "",
-                "</task_result>",
-              ].join("\n"),
-            }
-          }),
-        (_, exit) =>
-          Effect.gen(function* () {
-            if (Exit.hasInterrupts(exit)) yield* cancel
-          }).pipe(
-            Effect.ensuring(
-              Effect.sync(() => {
-                ctx.abort.removeEventListener("abort", onAbort)
-              }),
-            ),
-          ),
+      const env = yield* Effect.context()
+
+      // Start new prompt execution in the background
+      const messageID = MessageID.ascending()
+      const runPrompt = Effect.gen(function* () {
+        const parts = yield* ops.resolvePromptParts(params.prompt)
+        yield* ops.prompt({
+          messageID,
+          sessionID: nextSession.id,
+          model: {
+            modelID: model.modelID,
+            providerID: model.providerID,
+          },
+          agent: next.name,
+          tools: {
+            ...(next.permission.some((rule) => rule.permission === "todowrite") ? {} : { todowrite: false }),
+            ...(next.permission.some((rule) => rule.permission === id) ? {} : { task: false }),
+            ...Object.fromEntries((cfg.experimental?.primary_tools ?? []).map((item) => [item, false])),
+          },
+          parts,
+        })
+      }).pipe(
+        Effect.catchCause((cause) => {
+          // Log subagent failure but don't crash parent
+          return Effect.void
+        }),
+        Effect.provide(env),
       )
+
+      // Fork prompt in the background!
+      yield* Effect.forkDetach(runPrompt)
+
+      return {
+        title: params.description,
+        metadata: {
+          sessionId: nextSession.id,
+          model,
+        },
+        output: [
+          `task_id: ${nextSession.id} (for resuming to continue this task if needed)`,
+          "",
+          "Status: running",
+          "The subagent has started the task in the background. You can check the status of this task later by calling this tool again with task_id: \"" + nextSession.id + "\".",
+        ].join("\n"),
+      }
     })
 
     return {

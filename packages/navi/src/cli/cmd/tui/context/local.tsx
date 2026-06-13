@@ -300,7 +300,12 @@ export const { use: useLocal, provider: LocalProvider } = createSimpleContext({
             const agentName = options?.agent || agent.current()?.name
             if (!agentName) return
             setModelStore("model", agentName, model)
-            if (options?.recent) {
+            // Only update the shared recent list when setting a model for the currently
+            // active agent. If the user is configuring a different agent (e.g. a subagent
+            // via /agent), we must NOT push that model onto the recent list — otherwise
+            // it becomes the fallback model for the primary agent (plan/build/architect).
+            const isCurrentAgent = agentName === agent.current()?.name
+            if (options?.recent && isCurrentAgent) {
               const uniq = uniqueBy([model, ...modelStore.recent], (x) => `${x.providerID}/${x.modelID}`)
               if (uniq.length > 10) uniq.pop()
               setModelStore(

@@ -162,16 +162,6 @@ export namespace Provider {
     env: Record<string, string | undefined>
   }): Record<string, CustomLoader> {
     return {
-    async anthropic() {
-      return {
-        autoload: false,
-        options: {
-          headers: {
-            "anthropic-beta": "interleaved-thinking-2025-05-14,fine-grained-tool-streaming-2025-05-14",
-          },
-        },
-      }
-    },
     async Navi(input) {
       const hasKey = await (async () => {
         const allEnv = dep.env
@@ -447,6 +437,7 @@ export namespace Provider {
       headers: z.record(z.string(), z.string()),
       release_date: z.string(),
       variants: z.record(z.string(), z.record(z.string(), z.any())).optional(),
+      isFree: z.boolean().optional(),
     })
     .meta({
       ref: "Model",
@@ -582,7 +573,7 @@ export namespace Provider {
       const pluginSvc = yield* Plugin.Service
       const modelsDevSvc = yield* ModelsDev.Service
 
-      const cache = yield* InstanceState.make<State>(() =>
+      const cache = yield* InstanceState.make(() =>
         Effect.gen(function* () {
           using _ = log.time("state")
           const cfg = yield* configSvc.get()

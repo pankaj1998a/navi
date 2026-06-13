@@ -26,6 +26,9 @@ import { Ripgrep } from "@/file/ripgrep"
 import * as Truncate from "@/tool/truncate"
 import { InstanceState } from "@/effect/instance-state"
 import { Reference } from "@/reference/reference"
+import { Memory } from "@/memory"
+import { History } from "@/history"
+import { SessionStatus } from "@/session/status"
 
 const node = CrossSpawnSpawner.defaultLayer
 const originalExperimentalScout = Flag.NAVI_EXPERIMENTAL_SCOUT
@@ -35,24 +38,35 @@ const configLayer = TestConfig.layer({
 
 const registryLayer = ToolRegistry.layer.pipe(
   Layer.provide(configLayer),
-  Layer.provide(Plugin.defaultLayer),
-  Layer.provide(Question.defaultLayer),
-  Layer.provide(Todo.defaultLayer),
-  Layer.provide(Skill.defaultLayer),
-  Layer.provide(Agent.defaultLayer),
-  Layer.provide(Session.defaultLayer),
-  Layer.provide(Provider.defaultLayer),
-  Layer.provide(Git.defaultLayer),
-  Layer.provide(Reference.defaultLayer),
-  Layer.provide(LSP.defaultLayer),
-  Layer.provide(Instruction.defaultLayer),
-  Layer.provide(AppFileSystem.defaultLayer),
-  Layer.provide(Bus.layer),
-  Layer.provide(FetchHttpClient.layer),
-  Layer.provide(Format.defaultLayer),
-  Layer.provide(node),
-  Layer.provide(Ripgrep.defaultLayer),
-  Layer.provide(Truncate.defaultLayer),
+  Layer.provide(
+    Layer.mergeAll(
+      Plugin.defaultLayer,
+      Question.defaultLayer,
+      Todo.defaultLayer,
+      Skill.defaultLayer,
+      Agent.defaultLayer,
+      Session.defaultLayer,
+      Provider.defaultLayer,
+      Git.defaultLayer,
+      Reference.defaultLayer,
+      LSP.defaultLayer,
+      SessionStatus.defaultLayer,
+    ),
+  ),
+  Layer.provide(
+    Layer.mergeAll(
+      Instruction.defaultLayer,
+      AppFileSystem.defaultLayer,
+      Bus.layer,
+      FetchHttpClient.layer,
+      Format.defaultLayer,
+      node,
+      Ripgrep.defaultLayer,
+      Truncate.defaultLayer,
+      Memory.defaultLayer,
+      History.defaultLayer,
+    ),
+  ),
 )
 
 const it = testEffect(Layer.mergeAll(registryLayer, node))

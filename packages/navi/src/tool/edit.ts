@@ -15,7 +15,7 @@ import { Bus } from "../bus"
 import { Format } from "../format"
 import { InstanceState } from "@/effect/instance-state"
 import { Snapshot } from "@/snapshot"
-import { assertExternalDirectoryEffect } from "./external-directory"
+import { assertWriteAllowed, askEditUnlessMemory } from "./external-directory"
 import { AppFileSystem } from "@navi-ai/core/filesystem"
 import * as Bom from "@/util/bom"
 
@@ -80,7 +80,7 @@ export const EditTool = Tool.define(
           const filePath = path.isAbsolute(params.filePath)
             ? params.filePath
             : path.join(instance.directory, params.filePath)
-          yield* assertExternalDirectoryEffect(ctx, filePath)
+          yield* assertWriteAllowed(ctx, filePath)
 
           let diff = ""
           let contentOld = ""
@@ -95,14 +95,9 @@ export const EditTool = Tool.define(
                 contentOld = source.text
                 contentNew = next.text
                 diff = trimDiff(createTwoFilesPatch(filePath, filePath, contentOld, contentNew))
-                yield* ctx.ask({
-                  permission: "edit",
+                yield* askEditUnlessMemory(ctx, filePath, {
                   patterns: [path.relative(instance.worktree, filePath)],
-                  always: ["*"],
-                  metadata: {
-                    filepath: filePath,
-                    diff,
-                  },
+                  diff,
                 })
                 yield* afs.writeWithDirs(filePath, Bom.join(contentNew, desiredBom))
                 if (yield* format.file(filePath)) {
@@ -138,14 +133,9 @@ export const EditTool = Tool.define(
                   normalizeLineEndings(contentNew),
                 ),
               )
-              yield* ctx.ask({
-                permission: "edit",
+              yield* askEditUnlessMemory(ctx, filePath, {
                 patterns: [path.relative(instance.worktree, filePath)],
-                always: ["*"],
-                metadata: {
-                  filepath: filePath,
-                  diff,
-                },
+                diff,
               })
 
               yield* afs.writeWithDirs(filePath, Bom.join(contentNew, desiredBom))
