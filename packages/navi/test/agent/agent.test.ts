@@ -144,6 +144,7 @@ test("scout agent allows repo cloning and repo cache reads", async () => {
 test("reference config creates scout-backed subagents", async () => {
   await withExperimentalScout(true, async () => {
     await using tmp = await tmpdir({
+      git: true,
       config: {
         reference: {
           effect: "github.com/effect/effect-smol",
@@ -524,7 +525,7 @@ test("Agent.list keeps the default agent first and sorts the rest by name", asyn
     fn: async () => {
       const names = (await load(tmp.path, (svc) => svc.list())).map((a) => a.name)
       expect(names[0]).toBe("plan")
-      expect(names.slice(1)).toEqual(names.slice(1).toSorted((a, b) => a.localeCompare(b)))
+      expect(names.slice(1)).toEqual(names.slice(1).toSorted((a, b) => a.toLowerCase().localeCompare(b.toLowerCase())))
     },
   })
 })
@@ -837,6 +838,7 @@ test("defaultAgent throws when all primary agents are disabled", async () => {
       agent: {
         build: { disable: true },
         plan: { disable: true },
+        architect: { disable: true },
       },
     },
   })

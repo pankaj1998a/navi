@@ -12,6 +12,7 @@ import { TaskTool, type TaskPromptOps } from "@/tool/task"
 import { Truncate } from "@/tool/truncate"
 import { ToolRegistry } from "@/tool/registry"
 import { SessionStatus } from "@/session/status"
+import { Git } from "@/git"
 import { disposeAllInstances } from "../fixture/fixture"
 import { testEffect } from "../lib/effect"
 
@@ -33,6 +34,7 @@ const it = testEffect(
     Truncate.defaultLayer,
     ToolRegistry.defaultLayer,
     SessionStatus.defaultLayer,
+    Git.defaultLayer,
   ),
 )
 

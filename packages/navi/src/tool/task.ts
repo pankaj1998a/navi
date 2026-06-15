@@ -7,8 +7,9 @@ import { Agent } from "../agent/agent"
 import { deriveSubagentSessionPermission } from "../agent/subagent-permissions"
 import type { SessionPrompt } from "../session/prompt"
 import { Config } from "@/config/config"
-import { Effect, Exit, Schema } from "effect"
+import { Cause, Effect, Exit, Schema } from "effect"
 import { EffectBridge } from "@/effect/bridge"
+import { Git } from "@/git"
 
 export interface TaskPromptOps {
   cancel(sessionID: SessionID): Effect.Effect<void>
@@ -36,6 +37,7 @@ export const TaskTool = Tool.define(
     const agent = yield* Agent.Service
     const config = yield* Config.Service
     const sessions = yield* Session.Service
+    const git = yield* Git.Service
 
     const run = Effect.fn("TaskTool.execute")(function* (
       params: Schema.Schema.Type<typeof Parameters>,
@@ -114,6 +116,21 @@ export const TaskTool = Tool.define(
         runCancel.fork(cancel)
       }
 
+      const cwd = msg.info.path.cwd
+
+      const gitHasChanges = yield* Effect.gen(function* () {
+        if (!(yield* git.hasHead(cwd))) return false
+        const status = yield* git.status(cwd)
+        return status.length > 0
+      }).pipe(Effect.catch(() => Effect.succeed(false)))
+
+      const stashName = `navi-pre-task-${nextSession.id}`
+      let stashed = false
+      if (gitHasChanges) {
+        const stashResult = yield* git.run(["stash", "push", "--include-untracked", "-m", stashName], { cwd })
+        stashed = stashResult.exitCode === 0
+      }
+
       return yield* Effect.acquireUseRelease(
         Effect.sync(() => {
           ctx.abort.addEventListener("abort", onAbort)
@@ -121,40 +138,95 @@ export const TaskTool = Tool.define(
         () =>
           Effect.gen(function* () {
             const parts = yield* ops.resolvePromptParts(params.prompt)
-            const result = yield* ops.prompt({
-              messageID,
-              sessionID: nextSession.id,
-              model: {
-                modelID: model.modelID,
-                providerID: model.providerID,
-              },
-              agent: next.name,
-              tools: {
-                ...(next.permission.some((rule) => rule.permission === "todowrite") ? {} : { todowrite: false }),
-                ...(next.permission.some((rule) => rule.permission === id) ? {} : { task: false }),
-                ...Object.fromEntries((cfg.experimental?.primary_tools ?? []).map((item) => [item, false])),
-              },
-              parts,
-            })
+            const resultExit = yield* Effect.exit(
+              ops.prompt({
+                messageID,
+                sessionID: nextSession.id,
+                model: {
+                  modelID: model.modelID,
+                  providerID: model.providerID,
+                },
+                agent: next.name,
+                tools: {
+                  ...(next.permission.some((rule) => rule.permission === "todowrite") ? {} : { todowrite: false }),
+                  ...(next.permission.some((rule) => rule.permission === id) ? {} : { task: false }),
+                  ...Object.fromEntries((cfg.experimental?.primary_tools ?? []).map((item) => [item, false])),
+                },
+                parts,
+              }),
+            )
+
+            let status: "success" | "failed" | "aborted" = "success"
+            let error: { category: string; message: string } | undefined
+            let textOutput = ""
+
+            if (Exit.isFailure(resultExit)) {
+              status = "failed"
+              const err = Cause.squash(resultExit.cause)
+              const errMsg = err instanceof Error ? err.message : String(err)
+              
+              let category = "tool_failure"
+              if (errMsg.toLowerCase().includes("rate limit") || errMsg.toLowerCase().includes("too many requests")) {
+                category = "rate_limit"
+              } else if (errMsg.toLowerCase().includes("abort") || errMsg.toLowerCase().includes("cancel")) {
+                category = "aborted"
+                status = "aborted"
+              } else if (errMsg.toLowerCase().includes("context window") || errMsg.toLowerCase().includes("context overflow")) {
+                category = "context_overflow"
+              }
+
+              error = { category, message: errMsg }
+              textOutput = `Subagent task failed with error: ${errMsg}`
+            } else {
+              const result = resultExit.value
+              textOutput = result.parts.findLast((item) => item.type === "text")?.text ?? ""
+              if (result.info.error) {
+                status = "failed"
+                error = {
+                  category: "tool_failure",
+                  message: result.info.error.message || "Unknown error",
+                }
+              }
+            }
 
             return {
               title: params.description,
               metadata: {
                 sessionId: nextSession.id,
                 model,
+                status,
+                ...(error ? { error } : {}),
               },
               output: [
                 `task_id: ${nextSession.id} (for resuming to continue this task if needed)`,
+                `status: ${status}`,
+                ...(error ? [`error_category: ${error.category}`, `error_message: ${error.message}`] : []),
                 "",
                 "<task_result>",
-                result.parts.findLast((item) => item.type === "text")?.text ?? "",
+                textOutput,
                 "</task_result>",
               ].join("\n"),
             }
           }),
-        (_, exit) =>
+        (resource, exit) =>
           Effect.gen(function* () {
-            if (Exit.hasInterrupts(exit)) yield* cancel
+            const hasInterrupted = Exit.hasInterrupts(exit)
+            let failed = hasInterrupted
+            if (!failed && Exit.isSuccess(exit)) {
+              const res = exit.value
+              if (res.metadata?.status === "failed" || res.metadata?.status === "aborted") {
+                failed = true
+              }
+            }
+
+            if (failed) {
+              yield* cancel
+              yield* git.run(["reset", "--hard"], { cwd }).pipe(Effect.ignore)
+              yield* git.run(["clean", "-fd"], { cwd }).pipe(Effect.ignore)
+            }
+            if (stashed) {
+              yield* git.run(["stash", "pop"], { cwd }).pipe(Effect.ignore)
+            }
           }).pipe(
             Effect.ensuring(
               Effect.sync(() => {

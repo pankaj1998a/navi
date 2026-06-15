@@ -396,12 +396,35 @@ export const layer: Layer.Layer<
             )
             const omitted = normalized.filter(Exit.isFailure).length
             const attachments = normalized.filter(Exit.isSuccess).map((item) => item.value)
+
+            const parts = MessageV2.parts(ctx.assistantMessage.id)
+            const currentPartIndex = parts.findIndex(p => p.type === "tool" && p.callID === value.toolCallId)
+            let consecutiveCount = 1
+            if (currentPartIndex !== -1 && toolCall) {
+              const currentPart = parts[currentPartIndex] as MessageV2.ToolPart
+              const inputStr = JSON.stringify(currentPart.state.input)
+              for (let i = currentPartIndex - 1; i >= 0; i--) {
+                const part = parts[i]
+                if (part.type === "tool" && part.tool === currentPart.tool && JSON.stringify(part.state.input) === inputStr) {
+                  consecutiveCount++
+                } else if (part.type === "tool") {
+                  break
+                }
+              }
+            }
+
+            let baseOutput = value.output.output
+            if (consecutiveCount >= 2 && toolCall) {
+              const toolPart = toolCall.part
+              baseOutput += `\n\n[SYSTEM WARNING: You have executed the tool "${toolPart.tool}" with the exact same arguments ${consecutiveCount} times consecutively. The output is identical. If you are stuck in a loop trying to fix a problem, please check your approach, inspect or edit files, or ask the user for help to proceed.]`
+            }
+
             const output = {
               ...value.output,
               output:
                 omitted === 0
-                  ? value.output.output
-                  : `${value.output.output}\n\n[${omitted} image${omitted === 1 ? "" : "s"} omitted: could not be resized below the inline image size limit.]`,
+                  ? baseOutput
+                  : `${baseOutput}\n\n[${omitted} image${omitted === 1 ? "" : "s"} omitted: could not be resized below the inline image size limit.]`,
               attachments: attachments?.length ? attachments : undefined,
             }
             // TODO(v2): Temporary dual-write while migrating session messages to v2 events.
@@ -432,20 +455,42 @@ export const layer: Layer.Layer<
 
           case "tool-error": {
             const toolCall = yield* readToolCall(value.toolCallId)
+            const parts = MessageV2.parts(ctx.assistantMessage.id)
+            const currentPartIndex = parts.findIndex(p => p.type === "tool" && p.callID === value.toolCallId)
+            let consecutiveCount = 1
+            if (currentPartIndex !== -1 && toolCall) {
+              const currentPart = parts[currentPartIndex] as MessageV2.ToolPart
+              const inputStr = JSON.stringify(currentPart.state.input)
+              for (let i = currentPartIndex - 1; i >= 0; i--) {
+                const part = parts[i]
+                if (part.type === "tool" && part.tool === currentPart.tool && JSON.stringify(part.state.input) === inputStr) {
+                  consecutiveCount++
+                } else if (part.type === "tool") {
+                  break
+                }
+              }
+            }
+
+            let errMsg = errorMessage(value.error)
+            if (consecutiveCount >= 2 && toolCall) {
+              const toolPart = toolCall.part
+              errMsg += `\n\n[SYSTEM WARNING: You have executed the tool "${toolPart.tool}" with the exact same arguments ${consecutiveCount} times consecutively. It keeps failing with the same error. Please try a different approach, resolve any syntax issues, or ask the user for assistance.]`
+            }
+
             // TODO(v2): Temporary dual-write while migrating session messages to v2 events.
             EventV2.run(SessionEvent.Tool.Failed.Sync, {
               sessionID: ctx.sessionID,
               callID: value.toolCallId,
               error: {
                 type: "unknown",
-                message: errorMessage(value.error),
+                message: errMsg,
               },
               provider: {
                 executed: toolCall?.part.metadata?.providerExecuted === true,
               },
               timestamp: DateTime.makeUnsafe(Date.now()),
             })
-            yield* failToolCall(value.toolCallId, value.error)
+            yield* failToolCall(value.toolCallId, new Error(errMsg))
             return
           }
 
