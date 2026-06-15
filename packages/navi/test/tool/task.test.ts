@@ -76,6 +76,7 @@ const seed = Effect.fn("TaskToolTest.seed")(function* (title = "Pinned") {
 function stubOps(opts?: { onPrompt?: (input: SessionPrompt.PromptInput) => void; text?: string }): TaskPromptOps {
   return {
     cancel: () => Effect.void,
+    cancelChildren: () => Effect.void,
     resolvePromptParts: (template) => Effect.succeed([{ type: "text" as const, text: template }]),
     prompt: (input) =>
       Effect.sync(() => {
@@ -227,75 +228,7 @@ describe("tool.task", () => {
       expect(kids[0]?.id).toBe(child.id)
       expect(result.metadata.sessionId).toBe(child.id)
       expect(result.output).toContain(`task_id: ${child.id}`)
-      yield* Effect.promise(() => new Promise((r) => setTimeout(r, 50)))
       expect(seen?.sessionID).toBe(child.id)
-    }),
-  )
-
-  it.instance("execute returns completed result on status check/poll", () =>
-    Effect.gen(function* () {
-      const sessions = yield* Session.Service
-      const { chat, assistant } = yield* seed()
-      const child = yield* sessions.create({ parentID: chat.id, title: "Existing child" })
-      
-      const promptText = "look into the cache key path"
-      const userMsg = yield* sessions.updateMessage({
-        id: MessageID.ascending(),
-        role: "user",
-        sessionID: child.id,
-        agent: "general",
-        model: ref,
-        time: { created: Date.now() },
-      })
-      yield* sessions.updatePart({
-        id: PartID.ascending(),
-        messageID: userMsg.id,
-        sessionID: child.id,
-        type: "text",
-        text: promptText,
-      })
-
-      const assistantMsg = yield* sessions.updateMessage({
-        id: MessageID.ascending(),
-        role: "assistant",
-        sessionID: child.id,
-        agent: "general",
-        model: ref,
-        time: { created: Date.now() },
-      })
-      yield* sessions.updatePart({
-        id: PartID.ascending(),
-        messageID: assistantMsg.id,
-        sessionID: child.id,
-        type: "text",
-        text: "finished checking the path",
-      })
-
-      const tool = yield* TaskTool
-      const def = yield* tool.init()
-      const promptOps = stubOps()
-
-      const result = yield* def.execute(
-        {
-          description: "inspect bug",
-          prompt: promptText,
-          subagent_type: "general",
-          task_id: child.id,
-        },
-        {
-          sessionID: chat.id,
-          messageID: assistant.id,
-          agent: "build",
-          abort: new AbortController().signal,
-          extra: { promptOps },
-          messages: [],
-          metadata: () => Effect.void,
-          ask: () => Effect.void,
-        },
-      )
-
-      expect(result.output).toContain("Status: completed")
-      expect(result.output).toContain("finished checking the path")
     }),
   )
 
@@ -345,6 +278,57 @@ describe("tool.task", () => {
     }),
   )
 
+  it.instance("execute cancels child session when abort signal fires", () =>
+    Effect.gen(function* () {
+      const { chat, assistant } = yield* seed()
+      const tool = yield* TaskTool
+      const def = yield* tool.init()
+      const ready = defer<SessionPrompt.PromptInput>()
+      const cancelled = defer<SessionID>()
+      const abort = new AbortController()
+      const promptOps: TaskPromptOps = {
+        cancel: (sessionID) =>
+          Effect.sync(() => {
+            cancelled.resolve(sessionID)
+          }),
+        cancelChildren: () => Effect.void,
+        resolvePromptParts: (template) => Effect.succeed([{ type: "text" as const, text: template }]),
+        prompt: (input) =>
+          Effect.promise(() => {
+            ready.resolve(input)
+            return cancelled.promise
+          }).pipe(Effect.as(reply(input, "cancelled"))),
+      }
+
+      const fiber = yield* def
+        .execute(
+          {
+            description: "inspect bug",
+            prompt: "look into the cache key path",
+            subagent_type: "general",
+          },
+          {
+            sessionID: chat.id,
+            messageID: assistant.id,
+            agent: "build",
+            abort: abort.signal,
+            extra: { promptOps },
+            messages: [],
+            metadata: () => Effect.void,
+            ask: () => Effect.void,
+          },
+        )
+        .pipe(Effect.forkChild)
+
+      const input = yield* Effect.promise(() => ready.promise)
+      abort.abort()
+      expect(yield* Effect.promise(() => cancelled.promise)).toBe(input.sessionID)
+
+      const exit = yield* Fiber.await(fiber)
+      expect(Exit.isSuccess(exit)).toBe(true)
+    }),
+  )
+
   it.instance("execute creates a child when task_id does not exist", () =>
     Effect.gen(function* () {
       const sessions = yield* Session.Service
@@ -378,7 +362,6 @@ describe("tool.task", () => {
       expect(kids[0]?.id).toBe(result.metadata.sessionId)
       expect(result.metadata.sessionId).not.toBe("ses_missing")
       expect(result.output).toContain(`task_id: ${result.metadata.sessionId}`)
-      yield* Effect.promise(() => new Promise((r) => setTimeout(r, 50)))
       expect(seen?.sessionID).toBe(result.metadata.sessionId)
     }),
   )
@@ -431,7 +414,6 @@ describe("tool.task", () => {
             action: "allow",
           },
         ])
-        yield* Effect.promise(() => new Promise((r) => setTimeout(r, 50)))
         expect(seen?.tools).toEqual({
           todowrite: false,
           bash: false,
