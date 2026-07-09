@@ -1,5 +1,4 @@
 import yargs from "yargs"
-process.stderr.write("DEBUG: index.ts load start\n")
 import { hideBin } from "yargs/helpers"
 import { RunCommand } from "./cli/cmd/run"
 import { GenerateCommand } from "./cli/cmd/generate"
@@ -42,7 +41,6 @@ import { drizzle } from "drizzle-orm/bun-sqlite"
 import { ensureProcessMetadata } from "@navi-ai/core/util/navi-process"
 
 const processMetadata = ensureProcessMetadata("main")
-process.stderr.write("DEBUG: index.ts loading" + EOL)
 
 process.on("unhandledRejection", (e) => {
   Log.Default.error("rejection", {
@@ -90,7 +88,6 @@ const cli = yargs(args)
     type: "boolean",
   })
   .middleware(async (opts) => {
-    process.stderr.write("DEBUG: Middleware started" + EOL)
     if (opts.pure) {
       process.env.NAVI_PURE = "1"
     }
@@ -117,7 +114,6 @@ const cli = yargs(args)
       process_role: processMetadata.processRole,
       run_id: processMetadata.runID,
     })
-    process.stderr.write("DEBUG: Log initialized" + EOL)
 
     const marker = path.join(Global.Path.data, "navi.db")
     if (!(await Filesystem.exists(marker))) {
