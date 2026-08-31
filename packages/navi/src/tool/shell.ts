@@ -1,6 +1,6 @@
 import { Effect, Stream } from "effect"
 import os from "os"
-import { createWriteStream } from "node:fs"
+import fsSync, { createWriteStream } from "node:fs"
 import * as Tool from "./tool"
 import path from "path"
 import * as Log from "@navi-ai/core/util/log"
@@ -18,6 +18,7 @@ import { ShellID } from "./shell/id"
 
 import * as Truncate from "./truncate"
 import { Plugin } from "@/plugin"
+import { Sandbox } from "../sandbox"
 import { ChildProcess } from "effect/unstable/process"
 import { ChildProcessSpawner } from "effect/unstable/process/ChildProcessSpawner"
 import { ShellPrompt, type Parameters } from "./shell/prompt"
@@ -178,7 +179,7 @@ function provider(text: string) {
 function dynamic(text: string, ps: boolean) {
   if (text.startsWith("(") || text.startsWith("@(")) return true
   if (text.includes("$(") || text.includes("${") || text.includes("`")) return true
-  if (ps) return /\$(?!env:)/i.test(text)
+  if (ps) return /\$(?!(env:|HOME|PWD|PSHOME))/i.test(text)
   return text.includes("$")
 }
 
@@ -287,20 +288,25 @@ const ask = Effect.fn("ShellTool.ask")(function* (ctx: Tool.Context, scan: Scan)
   })
 })
 
-function cmd(shell: string, command: string, cwd: string, env: NodeJS.ProcessEnv) {
-  if (process.platform === "win32" && Shell.ps(shell)) {
-    return ChildProcess.make(shell, ["-NoLogo", "-NoProfile", "-NonInteractive", "-Command", command], {
-      cwd,
-      env,
-      stdin: "ignore",
-      detached: false,
-    })
+function cmd(shell: string, command: string, cwd: string, env: NodeJS.ProcessEnv, mode = "workspace-write") {
+  const policy: Sandbox.SandboxPolicy = {
+    mode: mode as Sandbox.SandboxMode,
+    workspaceRoot: cwd,
   }
 
-  return ChildProcess.make(command, [], {
-    shell,
+  const isCmd = path.basename(shell).toLowerCase().startsWith("cmd")
+  const defaultArgs =
+    process.platform === "win32" && Shell.ps(shell)
+      ? ["-NoLogo", "-NoProfile", "-NonInteractive", "-Command", command]
+      : isCmd
+        ? ["/c", command]
+        : ["-c", command]
+
+  const confined = Sandbox.confineSync(shell, defaultArgs, policy, env)
+
+  return ChildProcess.make(confined.command, confined.args, {
     cwd,
-    env,
+    env: confined.env,
     stdin: "ignore",
     detached: process.platform !== "win32",
   })
@@ -363,11 +369,16 @@ export const ShellTool = Tool.define(
 
     const argPath = Effect.fn("ShellTool.argPath")(function* (arg: string, cwd: string, ps: boolean, shell: string) {
       const text = ps ? expand(arg, cwd, shell) : home(unquote(arg))
-      const file = text && prefix(text)
-      if (!file || dynamic(file, ps)) return
+      if (!text) return { dynamic: false as const, path: undefined }
+      if (dynamic(text, ps)) {
+        return { dynamic: true as const, path: undefined }
+      }
+      const file = prefix(text)
+      if (!file) return { dynamic: false as const, path: undefined }
       const next = ps ? provider(file) : file
-      if (!next) return
-      return yield* resolvePath(next, cwd, shell)
+      if (!next) return { dynamic: false as const, path: undefined }
+      const resolved = yield* resolvePath(next, cwd, shell)
+      return { dynamic: false as const, path: resolved }
     })
 
     const collect = Effect.fn("ShellTool.collect")(function* (
@@ -389,9 +400,17 @@ export const ShellTool = Tool.define(
         const tokens = command.map((item) => item.text)
         const cmd = ps || shellKind === "cmd" ? tokens[0]?.toLowerCase() : tokens[0]
 
+        let hasDynamicArg = false
         if (cmd && (FILES.has(cmd) || (shellKind === "cmd" && CMD_FILES.has(cmd)))) {
           for (const arg of pathArgs(command, ps, shellKind === "cmd")) {
-            const resolved = yield* argPath(arg, cwd, ps, shell)
+            const res = yield* argPath(arg, cwd, ps, shell)
+            if (res?.dynamic) {
+              hasDynamicArg = true
+              scan.patterns.add(source(node))
+              scan.dirs.add(cwd)
+              continue
+            }
+            const resolved = res?.path
             log.info("resolved path", { arg, resolved })
             if (!resolved || containsPath(resolved, instance)) continue
             const dir = (yield* fs.isDir(resolved)) ? resolved : path.dirname(resolved)
@@ -401,7 +420,9 @@ export const ShellTool = Tool.define(
 
         if (tokens.length && (!cmd || !CWD.has(cmd))) {
           scan.patterns.add(source(node))
-          scan.always.add(BashArity.prefix(tokens).join(" ") + " *")
+          if (!hasDynamicArg) {
+            scan.always.add(BashArity.prefix(tokens).join(" ") + " *")
+          }
         }
       }
 

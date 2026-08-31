@@ -1,5 +1,5 @@
 import { NodeFileSystem } from "@effect/platform-node"
-import { dirname, join, relative, resolve as pathResolve } from "path"
+import { dirname, join, relative, resolve as pathResolve, isAbsolute } from "path"
 import { realpathSync } from "fs"
 import * as NFS from "fs/promises"
 import { lookup } from "mime-types"
@@ -195,7 +195,6 @@ export namespace AppFileSystem {
   }
 
   export function normalizePath(p: string): string {
-    if (process.platform !== "win32") return p
     const resolved = pathResolve(windowsPath(p))
     try {
       return realpathSync.native(resolved)
@@ -225,11 +224,24 @@ export namespace AppFileSystem {
 
   export function windowsPath(p: string): string {
     if (process.platform !== "win32") return p
+    const converted =
+      p
+        .replace(/^\/([a-zA-Z]):(?:[\\/]|$)/, (_, drive) => `${drive.toUpperCase()}:/`)
+        .replace(/^\/([a-zA-Z])(?:\/|$)/, (_, drive) => `${drive.toUpperCase()}:/`)
+        .replace(/^\/cygdrive\/([a-zA-Z])(?:\/|$)/, (_, drive) => `${drive.toUpperCase()}:/`)
+        .replace(/^\/mnt\/([a-zA-Z])(?:\/|$)/, (_, drive) => `${drive.toUpperCase()}:/`)
+    if (converted !== p) return converted
+    // For drive-less POSIX absolute like "/Users/..." (from lowercased Windows path without drive),
+    // prepend system drive so pathResolve doesn't use repo drive (V:) while temp is on C:.
+    // Exclude "/tmp" which is Git Bash's POSIX tmp that should be resolved via cygpath, not C:/tmp.
+    if ((p.startsWith("/") || p.startsWith("\\")) && !/^[A-Za-z]:/.test(p)) {
+      const lower = p.toLowerCase()
+      if (lower === "/tmp" || lower.startsWith("/tmp/") || lower === "\\tmp" || lower.startsWith("\\tmp\\") || lower.startsWith("\\tmp/")) return p
+      const systemDrive = (process.env.SystemDrive || "C:").replace(/:+$/, "").toUpperCase() + ":"
+      const suffix = p.includes("\\") ? p.replace(/\\/g, "/") : p
+      return `${systemDrive}${suffix}`
+    }
     return p
-      .replace(/^\/([a-zA-Z]):(?:[\\/]|$)/, (_, drive) => `${drive.toUpperCase()}:/`)
-      .replace(/^\/([a-zA-Z])(?:\/|$)/, (_, drive) => `${drive.toUpperCase()}:/`)
-      .replace(/^\/cygdrive\/([a-zA-Z])(?:\/|$)/, (_, drive) => `${drive.toUpperCase()}:/`)
-      .replace(/^\/mnt\/([a-zA-Z])(?:\/|$)/, (_, drive) => `${drive.toUpperCase()}:/`)
   }
 
   export function overlaps(a: string, b: string) {
@@ -239,6 +251,10 @@ export namespace AppFileSystem {
   }
 
   export function contains(parent: string, child: string) {
-    return !relative(parent, child).startsWith("..")
+    const p = resolve(parent)
+    const c = resolve(child)
+    const rel = relative(p, c)
+    if (isAbsolute(rel)) return false
+    return !rel.startsWith("..")
   }
 }

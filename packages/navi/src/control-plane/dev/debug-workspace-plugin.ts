@@ -16,7 +16,9 @@ async function waitForHealth(port: number) {
       if (response.ok) {
         return
       }
-    } catch {}
+    } catch (e) {
+      // Ignore fetch errors while waiting for server to start up
+    }
 
     await sleep(250)
   }

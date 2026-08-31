@@ -334,13 +334,13 @@ export const layer = Layer.effect(
           .from(SessionTable)
           .where(eq(SessionTable.workspace_id, space.id))
           .all()
-          .map((row) => row.id),
+          .map((row: any) => row.id),
       )
       const state = sessionIDs.length
         ? Object.fromEntries(
             (yield* db((db) =>
               db.select().from(EventSequenceTable).where(inArray(EventSequenceTable.aggregate_id, sessionIDs)).all(),
-            )).map((row) => [row.aggregate_id, row.seq]),
+            )).map((row: any) => [row.aggregate_id, row.seq]),
           )
         : {}
 
@@ -846,12 +846,12 @@ export const layer = Layer.effect(
           .where(eq(WorkspaceTable.project_id, project.id))
           .all()
           .map(fromRow)
-          .sort((a, b) => a.id.localeCompare(b.id)),
+          .sort((a: any, b: any) => a.id.localeCompare(b.id)),
       )
     })
 
     const syncList = Effect.fn("Workspace.syncList")(function* (project: Project.Info) {
-      const names = new Set((yield* list(project)).map((workspace) => workspace.name))
+      const names = new Set((yield* list(project)).map((workspace: any) => workspace.name))
       const discovered = yield* Effect.forEach(
         registeredAdapters(project.id),
         ([type, adapter]) =>
@@ -921,10 +921,10 @@ export const layer = Layer.effect(
           .where(eq(SessionTable.workspace_id, id))
           .all(),
       )
-      const sessionIDs = new Set(sessions.map((sessionInfo) => sessionInfo.id))
+      const sessionIDs = new Set(sessions.map((sessionInfo: any) => sessionInfo.id))
       yield* Effect.forEach(
-        sessions.filter((sessionInfo) => !sessionInfo.parentID || !sessionIDs.has(sessionInfo.parentID)),
-        (sessionInfo) =>
+        sessions.filter((sessionInfo: any) => !sessionInfo.parentID || !sessionIDs.has(sessionInfo.parentID)),
+        (sessionInfo: any) =>
           session.remove(sessionInfo.id).pipe(Effect.catchIf(NotFoundError.isInstance, () => Effect.void)),
         { discard: true },
       )
@@ -1068,7 +1068,7 @@ function synced(state: Record<string, number>) {
         .from(EventSequenceTable)
         .where(inArray(EventSequenceTable.aggregate_id, ids))
         .all(),
-    ).map((row) => [row.id, row.seq]),
+    ).map((row: any) => [row.id, row.seq]),
   ) as Record<string, number>
 
   return ids.every((id) => {

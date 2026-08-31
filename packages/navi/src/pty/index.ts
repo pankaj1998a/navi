@@ -124,11 +124,15 @@ export const layer = Layer.effect(
     function teardown(session: Active) {
       try {
         session.process.kill()
-      } catch {}
+      } catch (err) {
+        log.error("Failed to kill pty process during teardown", { error: err })
+      }
       for (const [sub, ws] of session.subscribers.entries()) {
         try {
           if (sock(ws) === sub) ws.close()
-        } catch {}
+        } catch (err) {
+          log.error("Failed to close subscriber socket during teardown", { error: err })
+        }
       }
       session.subscribers.clear()
     }

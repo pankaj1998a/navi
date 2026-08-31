@@ -1,5 +1,5 @@
-import type { SQLiteBunDatabase } from "drizzle-orm/bun-sqlite"
-import type { NodeSQLiteDatabase } from "drizzle-orm/node-sqlite"
+type SQLiteBunDatabase = any
+type NodeSQLiteDatabase = any
 import { Global } from "@navi-ai/core/global"
 import * as Log from "@navi-ai/core/util/log"
 import { ProjectTable } from "../project/project.sql"
@@ -22,7 +22,7 @@ type Options = {
   progress?: (event: Progress) => void
 }
 
-export async function run(db: SQLiteBunDatabase<any, any> | NodeSQLiteDatabase<any, any>, options?: Options) {
+export async function run(db: SQLiteBunDatabase | NodeSQLiteDatabase, options?: Options) {
   const storageDir = path.join(Global.Path.data, "storage")
 
   if (!existsSync(storageDir)) {

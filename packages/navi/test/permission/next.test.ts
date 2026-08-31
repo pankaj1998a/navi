@@ -920,8 +920,8 @@ it.live("reply - publishes replied event", () =>
       const fiber = yield* ask({
         id: PermissionID.make("per_test7"),
         sessionID: SessionID.make("session_test"),
-        permission: "bash",
-        patterns: ["ls"],
+        permission: "git",
+        patterns: ["status"],
         metadata: {},
         always: [],
         ruleset: [],

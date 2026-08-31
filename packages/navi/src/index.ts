@@ -87,6 +87,10 @@ const cli = yargs(args)
     describe: "run without external plugins",
     type: "boolean",
   })
+  .option("debug", {
+    describe: "enable debug logging",
+    type: "boolean",
+  })
   .middleware(async (opts) => {
     if (opts.pure) {
       process.env.NAVI_PURE = "1"
@@ -97,6 +101,14 @@ const cli = yargs(args)
       dev: Installation.isLocal(),
       level: (() => {
         if (opts.logLevel) return opts.logLevel as Log.Level
+        const debugEnv =
+          process.env.NAV_DEBUG?.toLowerCase() === "true" ||
+          process.env.NAV_DEBUG === "1" ||
+          process.env.NAVI_DEBUG?.toLowerCase() === "true" ||
+          process.env.NAVI_DEBUG === "1" ||
+          process.argv.includes("--debug") ||
+          (opts as Record<string, unknown>).debug === true
+        if (debugEnv) return "DEBUG"
         if (Installation.isLocal()) return "DEBUG"
         return "INFO"
       })(),

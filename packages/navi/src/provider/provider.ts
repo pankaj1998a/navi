@@ -22,6 +22,9 @@ import { Filesystem } from "../util/filesystem"
 import { Effect, Layer, Context, Schema, Runtime } from "effect"
 import { InstanceState } from "@/effect/instance-state"
 
+import { fileURLToPath } from "url"
+import { AppFileSystem } from "@navi-ai/core/filesystem"
+
 // Direct imports for bundled providers
 import { createAmazonBedrock, type AmazonBedrockProviderSettings } from "@ai-sdk/amazon-bedrock"
 import { createAnthropic } from "@ai-sdk/anthropic"
@@ -162,13 +165,13 @@ export namespace Provider {
     env: Record<string, string | undefined>
   }): Record<string, CustomLoader> {
     return {
-    async Navi(input) {
+    async navi(input) {
       const hasKey = await (async () => {
         const allEnv = dep.env
         if (input.env.some((item) => allEnv[item])) return true
-        if (await dep.auth("Navi")) return true
+        if (await dep.auth("navi")) return true
         const config = dep.config
-        if (config.provider?.["Navi"]?.options?.apiKey) return true
+        if (config.provider?.["navi"]?.options?.apiKey) return true
         return false
       })()
 
@@ -438,6 +441,14 @@ export namespace Provider {
       release_date: z.string(),
       variants: z.record(z.string(), z.record(z.string(), z.any())).optional(),
       isFree: z.boolean().optional(),
+      catalog: z
+        .object({
+          providerID: z.string(),
+          source: z.enum(["embedded", "cache", "fetch", "stale-cache"]),
+          fetchedAt: z.string(),
+          ageMs: z.number().optional(),
+        })
+        .optional(),
     })
     .meta({
       ref: "Model",
@@ -492,7 +503,7 @@ export namespace Provider {
       family: model.family,
       api: {
         id: model.id,
-        url: model.provider?.api ?? provider.api!,
+        url: model.provider?.api ?? provider.api ?? "",
         npm: model.provider?.npm ?? provider.npm ?? "@ai-sdk/openai-compatible",
       },
       status: model.status ?? "active",
@@ -524,10 +535,10 @@ export namespace Provider {
         output: model.limit.output,
       },
       capabilities: {
-        temperature: model.temperature,
-        reasoning: model.reasoning,
-        attachment: model.attachment,
-        toolcall: model.tool_call,
+        temperature: model.temperature ?? false,
+        reasoning: model.reasoning ?? false,
+        attachment: model.attachment ?? false,
+        toolcall: model.tool_call ?? true,
         input: {
           text: model.modalities?.input?.includes("text") ?? false,
           audio: model.modalities?.input?.includes("audio") ?? false,
@@ -544,7 +555,7 @@ export namespace Provider {
         },
         interleaved: model.interleaved ?? false,
       },
-      release_date: model.release_date,
+      release_date: model.release_date ?? "",
       variants: {},
     }
 
@@ -554,13 +565,59 @@ export namespace Provider {
   }
 
   export function fromModelsDevProvider(provider: ModelsDev.Provider): Info {
+    const models: Record<string, Model> = {}
+    for (const [modelID, model] of Object.entries(provider.models)) {
+      const baseModel = fromModelsDevModel(provider, model)
+      models[modelID] = baseModel
+
+      if (model.experimental?.modes) {
+        for (const [modeName, modeConfig] of Object.entries(model.experimental.modes)) {
+          const modeModelID = `${modelID}-${modeName}`
+
+          let experimentalOver200K = undefined
+          if (modeConfig.cost?.context_over_200k) {
+            experimentalOver200K = {
+              input: modeConfig.cost.context_over_200k.input,
+              output: modeConfig.cost.context_over_200k.output,
+              cache: {
+                read: modeConfig.cost.context_over_200k.cache_read ?? 0,
+                write: modeConfig.cost.context_over_200k.cache_write ?? 0,
+              }
+            }
+          } else if (baseModel.cost.experimentalOver200K) {
+            experimentalOver200K = baseModel.cost.experimentalOver200K
+          }
+
+          const modeModel: Model = {
+            ...baseModel,
+            id: ModelID.make(modeModelID),
+            cost: {
+              ...baseModel.cost,
+              input: modeConfig.cost?.input ?? baseModel.cost.input,
+              output: modeConfig.cost?.output ?? baseModel.cost.output,
+              cache: {
+                read: modeConfig.cost?.cache_read ?? baseModel.cost.cache.read,
+                write: modeConfig.cost?.cache_write ?? baseModel.cost.cache.write,
+              },
+              experimentalOver200K,
+            },
+            options: {
+              ...baseModel.options,
+              ...(modeConfig.provider?.body ? { serviceTier: modeConfig.provider.body.service_tier } : {}),
+            }
+          }
+          models[modeModelID] = modeModel
+        }
+      }
+    }
+
     return {
       id: ProviderID.make(provider.id),
       source: "custom",
       name: provider.name,
       env: [...(provider.env ?? [])],
       options: {},
-      models: mapValues(provider.models, (model) => fromModelsDevModel(provider, model)),
+      models,
     }
   }
 
@@ -679,7 +736,7 @@ export namespace Provider {
                     existingModel?.api.npm ??
                     modelsDev[providerID]?.npm ??
                     "@ai-sdk/openai-compatible",
-                  url: model.provider?.api ?? provider?.api ?? existingModel?.api.url ?? modelsDev[providerID]?.api,
+                  url: model.provider?.api ?? provider?.api ?? existingModel?.api.url ?? modelsDev[providerID]?.api ?? "",
                 },
                 status: model.status ?? existingModel?.status ?? "active",
                 name,
@@ -709,7 +766,16 @@ export namespace Provider {
                       model.modalities?.output?.includes("video") ?? existingModel?.capabilities.output.video ?? false,
                     pdf: model.modalities?.output?.includes("pdf") ?? existingModel?.capabilities.output.pdf ?? false,
                   },
-                  interleaved: (model as any).interleaved ?? false,
+                  interleaved:
+                    (model as any).interleaved ??
+                    ((model.provider?.npm ??
+                      provider.npm ??
+                      existingModel?.api.npm ??
+                      modelsDev[providerID]?.npm ??
+                      "@ai-sdk/openai-compatible") === "@ai-sdk/openai-compatible" &&
+                    modelID.includes("deepseek-r1")
+                      ? { field: "reasoning_content" }
+                      : false),
                 },
                 cost: {
                   input: (model as any)?.cost?.input ?? existingModel?.cost?.input ?? 0,
@@ -776,7 +842,10 @@ export namespace Provider {
             if (!plugin.auth.loader) continue
 
             const options = yield* Effect.promise(() =>
-              (plugin.auth!.loader! as any)(() => runPromise(authSvc.get(providerID)), database[plugin.auth!.provider]),
+              (plugin.auth!.loader! as any)(
+                () => runPromise(authSvc.get(providerID)),
+                structuredClone(database[plugin.auth!.provider]),
+              ),
             )
             const opts = options ?? {}
             const patch: Partial<Info> = providers[providerID] ? { options: opts } : { source: "custom", options: opts }
@@ -798,7 +867,7 @@ export namespace Provider {
               log.error("Provider does not exist in model list " + providerID)
               continue
             }
-            const result = yield* Effect.promise(() => fn(data))
+            const result = yield* Effect.promise(() => fn(structuredClone(data)))
             if (result && (result.autoload || providers[providerID])) {
               if (result.getModel) modelLoaders[providerID] = result.getModel
               if (result.vars) varsLoaders[providerID] = result.vars
@@ -820,6 +889,45 @@ export namespace Provider {
             if (provider.name) partial.name = provider.name
             if (provider.options) partial.options = provider.options
             mergeProvider(providerID, partial)
+
+            const targetProvider = providers[providerID]
+            const dbProvider = database[providerID]
+            if (targetProvider && dbProvider) {
+              for (const [modelID, dbModel] of Object.entries(dbProvider.models)) {
+                const targetModel = targetProvider.models[modelID]
+                if (!targetModel) {
+                  if (provider.models?.[modelID]) {
+                    targetProvider.models[modelID] = dbModel
+                  }
+                } else {
+                  const configModel = provider.models?.[modelID]
+                  if (configModel) {
+                    if (configModel.name) targetModel.name = configModel.name
+                    if (configModel.status) targetModel.status = configModel.status
+                    if (configModel.temperature !== undefined) targetModel.capabilities.temperature = configModel.temperature
+                    if (configModel.reasoning !== undefined) targetModel.capabilities.reasoning = configModel.reasoning
+                    if (configModel.attachment !== undefined) targetModel.capabilities.attachment = configModel.attachment
+                    if (configModel.tool_call !== undefined) targetModel.capabilities.toolcall = configModel.tool_call
+                    if (configModel.interleaved !== undefined) {
+                      targetModel.capabilities.interleaved = configModel.interleaved
+                    }
+                    if (configModel.cost) {
+                      if (configModel.cost.input !== undefined) targetModel.cost.input = configModel.cost.input
+                      if (configModel.cost.output !== undefined) targetModel.cost.output = configModel.cost.output
+                      if (configModel.cost.cache_read !== undefined) targetModel.cost.cache.read = configModel.cost.cache_read
+                      if (configModel.cost.cache_write !== undefined) targetModel.cost.cache.write = configModel.cost.cache_write
+                    }
+                    if (configModel.limit) {
+                      if (configModel.limit.context !== undefined) targetModel.limit.context = configModel.limit.context
+                      if (configModel.limit.output !== undefined) targetModel.limit.output = configModel.limit.output
+                    }
+                    if (configModel.options) {
+                      targetModel.options = mergeDeep(targetModel.options, configModel.options)
+                    }
+                  }
+                }
+              }
+            }
           }
 
           for (const [id, provider] of Object.entries(providers)) {
@@ -1011,16 +1119,29 @@ export namespace Provider {
             return loaded as SDK
           }
 
+          const SAFE_NPM_PKG_REGEX = /^(@[a-z0-9-~][a-z0-9-._~]*\/)?[a-z0-9-~][a-z0-9-._~]*$/i
           let installedPath: string
           if (!model.api.npm.startsWith("file://")) {
+            if (!SAFE_NPM_PKG_REGEX.test(model.api.npm)) {
+              throw new Error(`Invalid or unsafe npm package name for provider: "${model.api.npm}"`)
+            }
             installedPath = await (async () => {
-              const { execFileSync } = await import("child_process")
-              try {
-                execFileSync("bun", ["add", model.api.npm + "@latest", "--silent"], { stdio: "ignore" })
-              } catch {}
+              const proc = Bun.spawn(["bun", "add", model.api.npm + "@latest", "--silent"], {
+                stdout: "ignore",
+                stderr: "ignore",
+              })
+              const exitCode = await proc.exited
+              if (exitCode !== 0) {
+                throw new Error(`Failed to install provider package ${model.api.npm} (exit code ${exitCode})`)
+              }
               return model.api.npm
             })()
           } else {
+            const localPath = fileURLToPath(model.api.npm)
+            const allowed = AppFileSystem.contains(Global.Path.data, localPath) || AppFileSystem.contains(process.cwd(), localPath)
+            if (!allowed) {
+              throw new Error(`Local provider file loading denied outside workspace: ${localPath}`)
+            }
             log.info("loading local provider", { pkg: model.api.npm })
             installedPath = model.api.npm
           }
@@ -1127,7 +1248,7 @@ export namespace Provider {
           "gemini-2.5-flash",
           "gpt-5-nano",
         ]
-        if (providerID.startsWith("Navi")) {
+        if (providerID.startsWith("navi")) {
           priority = ["gpt-5-nano"]
         }
         if (providerID.startsWith("github-copilot")) {
@@ -1258,13 +1379,99 @@ export namespace Provider {
     }
   }
 
+  const Num = Schema.Number.annotate({ jsonSchema: { type: "number" } })
+
+  export const ModelSchema = Schema.Struct({
+    id: ModelID,
+    providerID: ProviderID,
+    api: Schema.Struct({
+      id: Schema.String,
+      url: Schema.String,
+      npm: Schema.String,
+    }),
+    name: Schema.String,
+    family: Schema.optional(Schema.String),
+    capabilities: Schema.Struct({
+      temperature: Schema.Boolean,
+      reasoning: Schema.Boolean,
+      attachment: Schema.Boolean,
+      toolcall: Schema.Boolean,
+      input: Schema.Struct({
+        text: Schema.Boolean,
+        audio: Schema.Boolean,
+        image: Schema.Boolean,
+        video: Schema.Boolean,
+        pdf: Schema.Boolean,
+      }),
+      output: Schema.Struct({
+        text: Schema.Boolean,
+        audio: Schema.Boolean,
+        image: Schema.Boolean,
+        video: Schema.Boolean,
+        pdf: Schema.Boolean,
+      }),
+      interleaved: Schema.optional(
+        Schema.Union([
+          Schema.Boolean,
+          Schema.Struct({
+            field: Schema.Union([Schema.Literal("reasoning_content"), Schema.Literal("reasoning_details")]),
+          }),
+        ]),
+      ),
+    }),
+    cost: Schema.Struct({
+      input: Num,
+      output: Num,
+      reasoning: Schema.optional(Num),
+      cache: Schema.Struct({
+        read: Num,
+        write: Num,
+      }),
+      experimentalOver200K: Schema.optional(
+        Schema.Struct({
+          input: Num,
+          output: Num,
+          reasoning: Schema.optional(Num),
+          cache: Schema.Struct({
+            read: Num,
+            write: Num,
+          }),
+        }),
+      ),
+    }),
+    limit: Schema.Struct({
+      context: Num,
+      input: Schema.optional(Num),
+      output: Num,
+    }),
+    status: Schema.Union([Schema.Literal("alpha"), Schema.Literal("beta"), Schema.Literal("deprecated"), Schema.Literal("active")]),
+    options: Schema.Record(Schema.String, Schema.UndefinedOr(Schema.Unknown)),
+    headers: Schema.Record(Schema.String, Schema.String),
+    release_date: Schema.optional(Schema.String),
+    variants: Schema.optional(Schema.Record(Schema.String, Schema.Record(Schema.String, Schema.Unknown))),
+    isFree: Schema.optional(Schema.Boolean),
+    catalog: Schema.optional(
+      Schema.Struct({
+        providerID: Schema.String,
+        source: Schema.Union([
+          Schema.Literal("embedded"),
+          Schema.Literal("cache"),
+          Schema.Literal("fetch"),
+          Schema.Literal("stale-cache"),
+        ]),
+        fetchedAt: Schema.String,
+        ageMs: Schema.optional(Num),
+      }),
+    ),
+  })
+
   export const PublicInfo = Schema.Struct({
     id: ProviderID,
     name: Schema.String,
     source: Schema.Union([Schema.Literal("env"), Schema.Literal("config"), Schema.Literal("custom"), Schema.Literal("api")]),
     env: Schema.Array(Schema.String),
-    options: Schema.Record(Schema.String, Schema.Any),
-    models: Schema.Record(Schema.String, Schema.Any),
+    options: Schema.Record(Schema.String, Schema.UndefinedOr(Schema.Unknown)),
+    models: Schema.Record(Schema.String, ModelSchema),
   })
 
   const DefaultModelIDs = Schema.Record(Schema.String, Schema.String)
@@ -1282,8 +1489,27 @@ export namespace Provider {
 
   export function toPublicInfo(info: Info): typeof PublicInfo.Type {
     if (!info) return {} as any
-    const { key, ...rest } = info
-    return rest as any
+    const { key, options, models, ...rest } = info
+    const sanitizedOptions = options
+      ? Object.fromEntries(Object.entries(options).filter(([_, v]) => typeof v !== "function" && v !== undefined))
+      : {}
+    const sanitizedModels = models
+      ? mapValues(models, (m) => {
+          if (!m) return m
+          const modelOptions = m.options
+            ? Object.fromEntries(Object.entries(m.options).filter(([_, v]) => typeof v !== "function" && v !== undefined))
+            : {}
+          return {
+            ...m,
+            options: modelOptions,
+          }
+        })
+      : {}
+    return {
+      ...rest,
+      options: sanitizedOptions,
+      models: sanitizedModels,
+    } as any
   }
 
   export function defaultModelIDs(providers: Record<ProviderID, Info>): Record<string, string> {

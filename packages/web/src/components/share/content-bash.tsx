@@ -2,6 +2,13 @@ import style from "./content-bash.module.css"
 import { createResource, createSignal } from "solid-js"
 import { createOverflow, useShareMessages } from "./common"
 import { codeToHtml } from "shiki"
+import { isServer } from "solid-js/web"
+import DOMPurify from "dompurify"
+
+function sanitize(html: string): string {
+  if (isServer) return html
+  return DOMPurify.isSupported ? DOMPurify.sanitize(html) : html
+}
 
 interface Props {
   command: string
@@ -15,26 +22,28 @@ export function ContentBash(props: Props) {
   const [commandHtml] = createResource(
     () => props.command,
     async (command) => {
-      return codeToHtml(command || "", {
+      const parsed = await codeToHtml(command || "", {
         lang: "bash",
         themes: {
           light: "github-light",
           dark: "github-dark",
         },
       })
+      return sanitize(parsed)
     },
   )
 
   const [outputHtml] = createResource(
     () => props.output,
     async (output) => {
-      return codeToHtml(output || "", {
+      const parsed = await codeToHtml(output || "", {
         lang: "console",
         themes: {
           light: "github-light",
           dark: "github-dark",
         },
       })
+      return sanitize(parsed)
     },
   )
 
@@ -66,3 +75,4 @@ export function ContentBash(props: Props) {
     </div>
   )
 }
+

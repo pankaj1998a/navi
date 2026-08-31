@@ -13,8 +13,8 @@ import { Tooltip } from "@navi-ai/ui/tooltip"
 import { ModelTooltip } from "./model-tooltip"
 import { useLanguage } from "@/context/language"
 
-const isFree = (provider: string, cost: { input: number } | undefined) =>
-  provider === "navi" && (!cost || cost.input === 0)
+const isFree = (provider: string, cost: { input: number | string } | undefined) =>
+  provider === "navi" && (!cost || cost.input === 0 || cost.input === "0")
 
 type ModelState = ReturnType<typeof useLocal>["model"]
 

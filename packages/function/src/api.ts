@@ -36,9 +36,9 @@ export class SyncServer extends DurableObject<Env> {
     })
   }
 
-  async webSocketMessage(_ws, _message) {}
+  async webSocketMessage(_ws: WebSocket, _message: ArrayBuffer | string) {}
 
-  async webSocketClose(ws, code, _reason, _wasClean) {
+  async webSocketClose(ws: WebSocket, code: number, _reason?: string, _wasClean?: boolean) {
     ws.close(code, "Durable Object is closing WebSocket")
   }
 
@@ -66,9 +66,9 @@ export class SyncServer extends DurableObject<Env> {
   }
 
   public async share(sessionID: string) {
-    let secret = await this.getSecret()
-    if (secret) return secret
-    secret = randomUUID()
+    const existingSecret = await this.getSecret()
+    if (existingSecret) throw new Error("Session is already shared")
+    const secret = randomUUID()
 
     await this.ctx.storage.put("secret", secret)
     await this.ctx.storage.put("sessionID", sessionID)
@@ -121,11 +121,15 @@ export default new Hono<{ Bindings: Env }>()
     const short = SyncServer.shortName(sessionID)
     const id = c.env.SYNC_SERVER.idFromName(short)
     const stub = c.env.SYNC_SERVER.get(id)
-    const secret = await stub.share(sessionID)
-    return c.json({
-      secret,
-      url: `https://${c.env.WEB_DOMAIN}/s/${short}`,
-    })
+    try {
+      const secret = await stub.share(sessionID)
+      return c.json({
+        secret,
+        url: `https://${c.env.WEB_DOMAIN}/s/${short}`,
+      })
+    } catch (err: any) {
+      return c.json({ error: err?.message || "Session is already shared" }, { status: 409 })
+    }
   })
   .post("/share_delete", async (c) => {
     const body = await c.req.json<{ sessionID: string; secret: string }>()
@@ -167,19 +171,33 @@ export default new Hono<{ Bindings: Env }>()
       return c.text("Error: Upgrade header is required", { status: 426 })
     }
     const id = c.req.query("id")
+    const secret = c.req.query("secret")
     console.log("share_poll", id)
     if (!id) return c.text("Error: Share ID is required", { status: 400 })
     const stub = c.env.SYNC_SERVER.get(c.env.SYNC_SERVER.idFromName(id))
+    if (!secret) return c.text("Error: Secret is required", { status: 401 })
+    try {
+      await stub.assertSecret(secret)
+    } catch (err: any) {
+      return c.text("Error: Unauthorized secret", { status: 401 })
+    }
     return stub.fetch(c.req.raw)
   })
   .get("/share_data", async (c) => {
     const id = c.req.query("id")
+    const secret = c.req.query("secret")
     console.log("share_data", id)
     if (!id) return c.text("Error: Share ID is required", { status: 400 })
+    if (!secret) return c.json({ error: "Secret is required" }, { status: 401 })
     const stub = c.env.SYNC_SERVER.get(c.env.SYNC_SERVER.idFromName(id))
+    try {
+      await stub.assertSecret(secret)
+    } catch (err: any) {
+      return c.json({ error: "Unauthorized secret" }, { status: 401 })
+    }
     const data = await stub.getData()
 
-    let info
+    let info: any
     const messages: Record<string, any> = {}
     data.forEach((d) => {
       const [root, type] = d.key.split("/")
@@ -202,6 +220,13 @@ export default new Hono<{ Bindings: Env }>()
     return c.json({ info, messages })
   })
   .post("/feishu", async (c) => {
+    const feishuToken = (Resource as any).FEISHU_VERIFICATION_TOKEN?.value || process.env.FEISHU_VERIFICATION_TOKEN
+    if (feishuToken) {
+      const headerToken = c.req.header("X-Lark-Verification-Token") || c.req.header("X-Feishu-Verification-Token")
+      if (headerToken !== feishuToken) {
+        return c.json({ error: "Invalid Feishu verification token" }, { status: 401 })
+      }
+    }
     const body = (await c.req.json()) as {
       challenge?: string
       event?: {
@@ -276,9 +301,11 @@ export default new Hono<{ Bindings: Env }>()
         audience: EXPECTED_AUDIENCE,
       })
       const sub = payload.sub // e.g. 'repo:my-org/my-repo:ref:refs/heads/main'
-      const parts = sub.split(":")[1].split("/")
-      owner = parts[0]
-      repo = parts[1]
+      if (!sub) return c.json({ error: "Invalid token payload" }, { status: 403 })
+      const subParts = sub.split(":")[1]?.split("/")
+      if (!subParts || subParts.length < 2) return c.json({ error: "Invalid sub claim format" }, { status: 403 })
+      owner = subParts[0]
+      repo = subParts[1]
     } catch (err) {
       console.error("Token verification failed:", err)
       return c.json({ error: "Invalid or expired token" }, { status: 403 })
@@ -323,7 +350,7 @@ export default new Hono<{ Bindings: Env }>()
       // Verify permissions
       const userClient = new Octokit({ auth: token })
       const { data: repoData } = await userClient.repos.get({ owner, repo })
-      if (!repoData.permissions.admin && !repoData.permissions.push && !repoData.permissions.maintain)
+      if (!repoData.permissions || (!repoData.permissions.admin && !repoData.permissions.push && !repoData.permissions.maintain))
         throw new Error("User does not have write permissions")
 
       // Get installation token
@@ -362,6 +389,9 @@ export default new Hono<{ Bindings: Env }>()
   .get("/get_github_app_installation", async (c) => {
     const owner = c.req.query("owner")
     const repo = c.req.query("repo")
+    if (!owner || !repo) {
+      return c.json({ error: "owner and repo parameters are required" }, { status: 400 })
+    }
 
     const auth = createAppAuth({
       appId: Resource.GITHUB_APP_ID.value,

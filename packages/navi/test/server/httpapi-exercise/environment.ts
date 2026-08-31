@@ -1,11 +1,14 @@
 import { Flag } from "@navi-ai/core/flag/flag"
 import { Effect } from "effect"
 import path from "path"
+import os from "os"
+
+const tempDir = process.env.TMPDIR ?? os.tmpdir()
 
 const preserveExerciseGlobalRoot = !!process.env.NAVI_HTTPAPI_EXERCISE_GLOBAL
 export const exerciseGlobalRoot =
   process.env.NAVI_HTTPAPI_EXERCISE_GLOBAL ??
-  path.join(process.env.TMPDIR ?? "/tmp", `navi-httpapi-global-${process.pid}`)
+  path.join(tempDir, `navi-httpapi-global-${process.pid}`)
 process.env.XDG_DATA_HOME = path.join(exerciseGlobalRoot, "data")
 process.env.XDG_CONFIG_HOME = path.join(exerciseGlobalRoot, "config")
 process.env.XDG_STATE_HOME = path.join(exerciseGlobalRoot, "state")
@@ -17,7 +20,7 @@ export const exerciseDataDirectory = path.join(exerciseGlobalRoot, "data", "navi
 const preserveExerciseDatabase = !!process.env.NAVI_HTTPAPI_EXERCISE_DB
 export const exerciseDatabasePath =
   process.env.NAVI_HTTPAPI_EXERCISE_DB ??
-  path.join(process.env.TMPDIR ?? "/tmp", `navi-httpapi-exercise-${process.pid}.db`)
+  path.join(tempDir, `navi-httpapi-exercise-${process.pid}.db`)
 process.env.NAVI_DB = exerciseDatabasePath
 Flag.NAVI_DB = exerciseDatabasePath
 

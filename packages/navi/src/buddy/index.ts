@@ -90,7 +90,9 @@ export namespace Buddy {
         let id = "default"
         try {
             id = Instance.project?.id || "default"
-        } catch (e) {}
+        } catch (e) {
+            // Ignore error if Instance is accessed outside of an active context and fall back to default ID
+        }
 
         const rng = mulberry32(hashString(id + "buddy-salt-v1"))
         const species: Species = preferredSpecies || pick(rng, SPECIES)

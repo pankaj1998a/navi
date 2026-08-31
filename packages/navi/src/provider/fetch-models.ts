@@ -32,6 +32,40 @@ export interface FetchModelsOptions {
     npm: string
     /** Optional transform applied to each raw model object from the API */
     transform?: (raw: any) => Partial<Provider.Model> | undefined
+    /** ETag for If-None-Match revalidation */
+    etag?: string
+}
+
+/** In-flight dedup: concurrent callers for same URL share one fetch */
+const inflight = new Map<string, Promise<Record<string, Provider.Model> | undefined>>()
+
+/** Pending ETags captured from last fetch, consumed by model-cache writeCache */
+export const pendingEtags = new Map<string, string>()
+
+function cacheFileForProvider(providerID: string): string {
+    // Mirror model-cache.ts cacheFile() without circular import
+    try {
+        // dynamic import to avoid hard dep if Global unavailable
+        const { Global } = require("../global") as typeof import("../global")
+        const path = require("path") as typeof import("path")
+        const safe = providerID.replace(/[^a-z0-9_-]/gi, "_")
+        return path.join(Global.Path.cache, "provider-models", `${safe}.json`)
+    } catch {
+        return ""
+    }
+}
+
+async function readEtagForProvider(providerID: string): Promise<string | undefined> {
+    const filePath = cacheFileForProvider(providerID)
+    if (!filePath) return undefined
+    try {
+        const file = Bun.file(filePath)
+        if (!(await file.exists())) return undefined
+        const entry = (await file.json()) as { etag?: string }
+        return entry.etag
+    } catch {
+        return undefined
+    }
 }
 
 /** Standard OpenAI list-models response shape (simplified) */
@@ -97,52 +131,91 @@ function buildModel(
 export async function fetchOpenAICompatibleModels(
     opts: FetchModelsOptions,
 ): Promise<Record<string, Provider.Model> | undefined> {
-    try {
-        const { providerID, url, apiKey, headers: extraHeaders, baseURL, npm, transform } = opts
-
-        const headers: Record<string, string> = {
-            "User-Agent": Installation.USER_AGENT,
-            Accept: "application/json",
-            ...extraHeaders,
-        }
-        if (apiKey) headers["Authorization"] = `Bearer ${apiKey}`
-
-        log.info("fetching models", { providerID, url })
-        const res = await fetch(url, {
-            headers,
-            signal: AbortSignal.timeout(10_000),
-        })
-
-        if (!res.ok) {
-            const text = await res.text().catch(() => "")
-            log.error("failed to fetch models", { providerID, status: res.status, text })
-            return undefined
-        }
-
-        const data: any = await res.json()
-
-        // Handle both { data: [...] } and plain [ ... ] responses
-        const rawList: any[] = Array.isArray(data) ? data : (data?.data ?? [])
-
-        if (!Array.isArray(rawList) || rawList.length === 0) {
-            log.warn("empty model list", { providerID })
-            return undefined
-        }
-
-        const models: Record<string, Provider.Model> = {}
-        for (const raw of rawList) {
-            if (typeof raw.id !== "string") continue
-            const extra = transform ? transform(raw) : {}
-            if (extra === undefined) continue   // allow transform to skip a model
-            models[raw.id] = buildModel(raw, providerID, baseURL, npm, extra ?? {})
-        }
-
-        log.info("fetched models", { providerID, count: Object.keys(models).length })
-        return models
-    } catch (e) {
-        log.error("fetch error", { providerID: opts.providerID, error: e })
-        return undefined
+    const existing = inflight.get(opts.url)
+    if (existing) {
+        log.info("dedup inflight fetch", { providerID: opts.providerID, url: opts.url })
+        return existing
     }
+
+    const promise = (async (): Promise<Record<string, Provider.Model> | undefined> => {
+        try {
+            const { providerID, url, apiKey, headers: extraHeaders, baseURL, npm, transform } = opts
+
+            const headers: Record<string, string> = {
+                "User-Agent": Installation.USER_AGENT,
+                Accept: "application/json",
+                ...extraHeaders,
+            }
+            if (apiKey) headers["Authorization"] = `Bearer ${apiKey}`
+
+            // ETag revalidation: prefer explicit etag, else try to read from cache
+            let etag = opts.etag
+            if (!etag) etag = await readEtagForProvider(providerID)
+            if (etag) headers["If-None-Match"] = etag
+
+            log.info("fetching models", { providerID, url, revalidate: !!etag })
+            const res = await fetch(url, {
+                headers,
+                signal: AbortSignal.timeout(10_000),
+            })
+
+            if (res.status === 304) {
+                log.info("models not modified (304)", { providerID })
+                // Touch cache fresh time by updating fetchedAt via write-through
+                // Caller will keep stale-cache models; we just ensure next read is fresh
+                try {
+                    const fp = cacheFileForProvider(providerID)
+                    if (fp) {
+                        const f = Bun.file(fp)
+                        if (await f.exists()) {
+                            const entry = (await f.json()) as any
+                            entry.fetchedAt = new Date().toISOString()
+                            await Bun.write(fp, JSON.stringify(entry, null, 2))
+                        }
+                    }
+                } catch {}
+                return undefined
+            }
+
+            if (!res.ok) {
+                const text = await res.text().catch(() => "")
+                log.error("failed to fetch models", { providerID, status: res.status, text })
+                return undefined
+            }
+
+            const etagHeader = res.headers.get("etag") ?? res.headers.get("ETag") ?? undefined
+            if (etagHeader) pendingEtags.set(providerID, etagHeader)
+
+            const data: any = await res.json()
+
+            // Handle both { data: [...] } and plain [ ... ] responses
+            const rawList: any[] = Array.isArray(data) ? data : (data?.data ?? [])
+
+            if (!Array.isArray(rawList) || rawList.length === 0) {
+                log.warn("empty model list", { providerID })
+                return undefined
+            }
+
+            const models: Record<string, Provider.Model> = {}
+            for (const raw of rawList) {
+                if (typeof raw.id !== "string") continue
+                const extra = transform ? transform(raw) : {}
+                if (extra === undefined) continue   // allow transform to skip a model
+                models[raw.id] = buildModel(raw, providerID, baseURL, npm, extra ?? {})
+            }
+
+            log.info("fetched models", { providerID, count: Object.keys(models).length, etag: etagHeader })
+            return models
+        } catch (e) {
+            log.error("fetch error", { providerID: opts.providerID, error: e })
+            return undefined
+        } finally {
+            inflight.delete(opts.url)
+        }
+    })()
+
+    inflight.set(opts.url, promise)
+    return promise
 }
 
 

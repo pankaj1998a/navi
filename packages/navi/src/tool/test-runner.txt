@@ -1,0 +1,20 @@
+Smart Test Runner and Automated Failure Diagnostic tool.
+
+Auto-detects the project's testing framework:
+- Bun Test (`bun test`)
+- Vitest (`vitest run` / `npx vitest run`)
+- Jest (`jest` / `npx jest`)
+- PyTest (`pytest`)
+- Cargo Test (`cargo test`)
+- Go Test (`go test ./...`)
+- NPM Test (`npm test`)
+
+Parameters:
+- `path`: (Optional) Specific test file or directory path to execute. If omitted, runs all tests or affected tests.
+- `filter`: (Optional) Test name pattern/filter (e.g. "-t 'auth'" or test description substring).
+- `timeout`: (Optional) Execution timeout in seconds (default 60s).
+
+The tool runs the tests in a clean subprocess, analyzes the output, and returns:
+- Status (Passed / Failed)
+- Number of tests passed/failed
+- For failures: Isolated test failure names, exact assertions that failed, and actionable stack traces.

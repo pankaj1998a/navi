@@ -33,6 +33,10 @@ export const WebFetchTool = Tool.define(
           if (!params.url.startsWith("http://") && !params.url.startsWith("https://")) {
             throw new Error("URL must start with http:// or https://")
           }
+          const parsedUrl = new URL(params.url)
+          if (isInternalHost(parsedUrl.hostname)) {
+            throw new Error(`SSRF blocked: Requests to internal network host "${parsedUrl.hostname}" are disallowed.`)
+          }
 
           yield* ctx.ask({
             permission: "webfetch",
@@ -196,4 +200,27 @@ function convertHTMLToMarkdown(html: string): string {
   })
   turndownService.remove(["script", "style", "meta", "link"])
   return turndownService.turndown(html)
+}
+
+function isInternalHost(hostname: string): boolean {
+  const host = hostname.toLowerCase().trim()
+  if (
+    host === "localhost" ||
+    host === "127.0.0.1" ||
+    host === "::1" ||
+    host === "0.0.0.0" ||
+    host.endsWith(".local") ||
+    host.endsWith(".internal")
+  ) {
+    return true
+  }
+  const parts = host.split(".").map(Number)
+  if (parts.length === 4 && parts.every((p) => !isNaN(p) && p >= 0 && p <= 255)) {
+    if (parts[0] === 10) return true
+    if (parts[0] === 172 && parts[1] >= 16 && parts[1] <= 31) return true
+    if (parts[0] === 192 && parts[1] === 168) return true
+    if (parts[0] === 169 && parts[1] === 254) return true
+    if (parts[0] === 127) return true
+  }
+  return false
 }

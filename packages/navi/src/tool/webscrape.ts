@@ -52,7 +52,7 @@ export const WebScrapeTool = Tool.define(
             }
           } catch (err) {
             const msg = err instanceof Error ? err.message : String(err)
-            throw new Error(`Scrape failed for ${params.url}: ${msg}`)
+            throw new Error(`Scrape failed for ${params.url}: ${msg}`, { cause: err })
           }
 
           const data = result?.data || {}

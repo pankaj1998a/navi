@@ -36,7 +36,7 @@ const buildCassette = (
   metadata: CassetteMetadata | undefined,
 ): Cassette => ({
   version: 1,
-  metadata: { name, recordedAt: new Date().toISOString(), ...(metadata ?? {}) },
+  metadata: { name, recordedAt: new Date().toISOString(), ...metadata },
   interactions,
 })
 

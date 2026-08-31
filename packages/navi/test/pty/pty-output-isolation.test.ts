@@ -134,7 +134,10 @@ describe("pty", () => {
               ctx.connId = 2
 
               yield* pty.write(a.id, "AAA\n")
-              yield* Effect.promise(() => sleep(100))
+              for (let i = 0; i < 20; i++) {
+                if (out.join("").includes("AAA")) break
+                yield* Effect.promise(() => sleep(100))
+              }
 
               expect(out.join("")).toContain("AAA")
             } finally {

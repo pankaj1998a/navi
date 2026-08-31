@@ -48,7 +48,8 @@ async function httpGet(url: string, timeoutMs = 12_000): Promise<string | null> 
         clearTimeout(timer)
         if (!res.ok) return null
         return await res.text()
-    } catch {
+    } catch (e: any) {
+        log.warn("httpGet request failed", { url, error: e.message || String(e) })
         return null
     } finally {
         clearTimeout(timer)
@@ -190,7 +191,12 @@ async function searchDuckDuckGo(query: string, num: number): Promise<SearchResul
         // DDG encodes the real URL in the uddg param
         const uddgMatch = href.match(/uddg=([^&]+)/)
         if (uddgMatch) {
-            try { href = decodeURIComponent(uddgMatch[1]) } catch { continue }
+            try {
+                href = decodeURIComponent(uddgMatch[1])
+            } catch (e) {
+                // Ignore malformed URI decoding and skip
+                continue
+            }
         }
 
         if (!href.startsWith("http") || seen.has(href)) continue

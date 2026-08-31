@@ -1,4 +1,5 @@
-import { Native } from "../util/native"
+import * as NativeImport from "../native"
+const Native = NativeImport as any
 import { Log } from "@navi-ai/core/util/log"
 import { Instance } from "../project/instance"
 import path from "path"
@@ -12,51 +13,55 @@ export class IndexService {
   private static graph = new Native.SymbolGraph()
   private static vectorStore = new Native.VectorStore()
   private static isInitialized = false
+  private static initializingPromise: Promise<void> | null = null
 
   /**
-   * Builds the entire project graph and vector index.
+   * Builds the entire project graph and vector index asynchronously.
    */
   static async initialize() {
     if (this.isInitialized) return
-    
+    if (this.initializingPromise) return this.initializingPromise
+
     const root = Instance.directory
     if (!root) {
       this.log.warn("Cannot initialize index: No project directory found.")
       return
     }
 
-    this.log.info("Building Symbolic Knowledge Graph...", { root })
-    
-    try {
-      // 1. Scan codebase using native Rust multi-threading
-      const tags = await Native.scanCodebase(root)
-      this.log.info(`Scanned ${tags.length} symbols.`)
+    this.initializingPromise = (async () => {
+      this.log.info("Building Symbolic Knowledge Graph in background...", { root })
+      try {
+        const tags = await Native.scanCodebase(root)
+        this.log.info(`Scanned ${tags.length} symbols.`)
 
-      // 2. Populate the graph and vector store
-      this.graph.clear()
-      this.vectorStore.clear()
+        this.graph.clear()
+        this.vectorStore.clear()
 
-      for (const tag of tags) {
-        this.graph.addNode(tag)
-      }
+        for (const tag of tags) {
+          this.graph.addNode(tag)
+        }
 
-      // 3. Go support fallback (if Rust scanner didn't pick up .go files)
-      const goFiles = await IndexService.findFiles(root, [".go"])
-      if (goFiles.length > 0) {
-        IndexService.log.info(`Scanning ${goFiles.length} Go files via fallback...`)
-        for (const file of goFiles) {
-          const goTags = await IndexService.fallbackScanGo(file)
-          for (const tag of goTags) {
-            IndexService.graph.addNode(tag)
+        const goFiles = await IndexService.findFiles(root, [".go"])
+        if (goFiles.length > 0) {
+          IndexService.log.info(`Scanning ${goFiles.length} Go files via fallback...`)
+          for (const file of goFiles) {
+            const goTags = await IndexService.fallbackScanGo(file)
+            for (const tag of goTags) {
+              IndexService.graph.addNode(tag)
+            }
           }
         }
-      }
 
-      this.isInitialized = true
-      this.log.info("Knowledge Graph initialized successfully.")
-    } catch (e) {
-      this.log.error("Failed to initialize Knowledge Graph", { error: String(e) })
-    }
+        this.isInitialized = true
+        this.log.info("Knowledge Graph initialized successfully.")
+      } catch (e) {
+        this.log.error("Failed to initialize Knowledge Graph", { error: String(e) })
+      } finally {
+        this.initializingPromise = null
+      }
+    })()
+
+    return this.initializingPromise
   }
 
   static getGraph() {
@@ -76,12 +81,26 @@ export class IndexService {
   }
 
   /**
-   * Rescans a specific file and updates the graph.
+   * Rescans a specific file and updates the graph incrementally.
    */
   static async updateFile(filePath: string) {
     if (!this.isInitialized) return
     this.log.debug("Updating index for file", { filePath })
-    // Implementation for incremental updates...
+    try {
+      if (filePath.endsWith(".go")) {
+        const goTags = await IndexService.fallbackScanGo(filePath)
+        for (const tag of goTags) {
+          IndexService.graph.addNode(tag)
+        }
+      } else {
+        const tags = await Native.scanCodebase(filePath)
+        for (const tag of tags) {
+          IndexService.graph.addNode(tag)
+        }
+      }
+    } catch (e) {
+      this.log.error("Failed to update index for file", { filePath, error: String(e) })
+    }
   }
 
   /**

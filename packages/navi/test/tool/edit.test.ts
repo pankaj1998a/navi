@@ -511,6 +511,35 @@ describe("tool.edit", () => {
         },
       })
     })
+
+    test("throws error on disproportionate match", async () => {
+      await using tmp = await tmpdir()
+      const filepath = path.join(tmp.path, "file.txt")
+      const hugeWhitespace = " ".repeat(600)
+      const fileContent = `line1\nline2\n${hugeWhitespace}line3\nline4\n`
+      await fs.writeFile(filepath, fileContent, "utf-8")
+
+      await WithInstance.provide({
+        directory: tmp.path,
+        fn: async () => {
+          const edit = await resolve()
+          const oldString = "line2\nline3\nline4"
+
+          await expect(
+            Effect.runPromise(
+              edit.execute(
+                {
+                  filePath: filepath,
+                  oldString,
+                  newString: "replacement",
+                },
+                ctx,
+              ),
+            ),
+          ).rejects.toThrow("Refusing replacement because the matched span is much larger than oldString")
+        },
+      })
+    })
   })
 
   describe("line endings", () => {

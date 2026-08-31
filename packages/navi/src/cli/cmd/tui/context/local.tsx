@@ -209,6 +209,32 @@ export const { use: useLocal, provider: LocalProvider } = createSimpleContext({
         )
       })
 
+      let lastFallbackToast: string | undefined
+      createEffect(() => {
+        const fallback = fallbackModel()
+        if (!fallback) return
+        let requested: { providerID: string; modelID: string } | undefined
+        let requestedRaw: string | undefined
+        if (args.model) {
+          requested = parseModel(args.model)
+          requestedRaw = args.model
+        } else if (sync.data.config.model) {
+          requested = parseModel(sync.data.config.model)
+          requestedRaw = sync.data.config.model
+        }
+        if (!requested || !requestedRaw) return
+        if (requested.providerID === fallback.providerID && requested.modelID === fallback.modelID) return
+        if (isModelValid(requested)) return
+        const key = `${requestedRaw}->${fallback.providerID}/${fallback.modelID}`
+        if (lastFallbackToast === key) return
+        lastFallbackToast = key
+        toast.show({
+          variant: "info",
+          message: `Switched to ${fallback.providerID}/${fallback.modelID} (your choice ${requestedRaw} unavailable)`,
+          duration: 4000,
+        })
+      })
+
       return {
         current: currentModel,
         get ready() {

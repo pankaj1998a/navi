@@ -23,7 +23,7 @@ export const GitLabProvider: ProviderLoader.Info = {
         // version 0.1.x of navi matches Navi current logic
         const aiGatewayHeaders = {
             "User-Agent": `navi/${Installation.USER_AGENT} gitlab-ai-provider (unknown) (${os.platform()} ${os.release()}; ${os.arch()})`,
-            ...(providerConfig?.options?.aiGatewayHeaders || {}),
+            ...providerConfig?.options?.aiGatewayHeaders,
         }
 
         return {
@@ -35,7 +35,7 @@ export const GitLabProvider: ProviderLoader.Info = {
                 featureFlags: {
                     duo_agent_platform_agentic_chat: true,
                     duo_agent_platform: true,
-                    ...(providerConfig?.options?.featureFlags || {}),
+                    ...providerConfig?.options?.featureFlags,
                 },
             },
             async getModel(sdk: any, modelID: string) {
@@ -44,7 +44,7 @@ export const GitLabProvider: ProviderLoader.Info = {
                     featureFlags: {
                         duo_agent_platform_agentic_chat: true,
                         duo_agent_platform: true,
-                        ...(providerConfig?.options?.featureFlags || {}),
+                        ...providerConfig?.options?.featureFlags,
                     },
                 })
             },

@@ -37,7 +37,9 @@ function fileName(url: string, filename?: string) {
     if (name) {
       return decodeURIComponent(name)
     }
-  } catch {}
+  } catch (e) {
+    // Ignore URL parsing errors and return the original URL as a fallback
+  }
 
   return url
 }

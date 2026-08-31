@@ -1,0 +1,14 @@
+Repository Knowledge Items (KI) System.
+
+Use this tool to index, retrieve, and persist architectural decisions, database schemas, API conventions, and codebase patterns in `.navi/knowledge/`.
+
+Supported actions:
+- "list": List all saved knowledge items, summaries, and tags.
+- "read": Read the detailed documentation/artifact for a specific knowledge item by `id` or `title`.
+- "save": Save or update a knowledge item with `id`, `title`, `summary`, and `content` (markdown format with diagrams/patterns).
+- "search": Search knowledge items by query keywords or tags.
+
+Use this tool when:
+- Starting work on an unfamiliar subsystem to review past architectural patterns
+- Documenting complex subsystem designs, state machines, or database relationships
+- Saving repository conventions so future sessions adhere to established patterns

@@ -14,7 +14,8 @@ export async function exists(p: string): Promise<boolean> {
 export async function isDir(p: string): Promise<boolean> {
   try {
     return statSync(p).isDirectory()
-  } catch {
+  } catch (e) {
+    // Return false if path does not exist or is inaccessible
     return false
   }
 }
@@ -115,7 +116,8 @@ export function normalizePath(p: string): string {
   const resolved = win32.normalize(win32.resolve(windowsPath(p)))
   try {
     return realpathSync.native(resolved)
-  } catch {
+  } catch (e) {
+    // Return resolved path if canonical lookup fails
     return resolved
   }
 }
@@ -144,16 +146,23 @@ export function resolve(p: string): string {
 
 export function windowsPath(p: string): string {
   if (process.platform !== "win32") return p
-  return (
-    p
-      .replace(/^\/([a-zA-Z]):(?:[\\/]|$)/, (_, drive) => `${drive.toUpperCase()}:/`)
-      // Git Bash for Windows paths are typically /<drive>/...
-      .replace(/^\/([a-zA-Z])(?:\/|$)/, (_, drive) => `${drive.toUpperCase()}:/`)
-      // Cygwin git paths are typically /cygdrive/<drive>/...
-      .replace(/^\/cygdrive\/([a-zA-Z])(?:\/|$)/, (_, drive) => `${drive.toUpperCase()}:/`)
-      // WSL paths are typically /mnt/<drive>/...
-      .replace(/^\/mnt\/([a-zA-Z])(?:\/|$)/, (_, drive) => `${drive.toUpperCase()}:/`)
-  )
+  const converted = p
+    .replace(/^\/([a-zA-Z]):(?:[\\/]|$)/, (_, drive) => `${drive.toUpperCase()}:/`)
+    // Git Bash for Windows paths are typically /<drive>/...
+    .replace(/^\/([a-zA-Z])(?:\/|$)/, (_, drive) => `${drive.toUpperCase()}:/`)
+    // Cygwin git paths are typically /cygdrive/<drive>/...
+    .replace(/^\/cygdrive\/([a-zA-Z])(?:\/|$)/, (_, drive) => `${drive.toUpperCase()}:/`)
+    // WSL paths are typically /mnt/<drive>/...
+    .replace(/^\/mnt\/([a-zA-Z])(?:\/|$)/, (_, drive) => `${drive.toUpperCase()}:/`)
+  if (converted !== p) return converted
+  if ((p.startsWith("/") || p.startsWith("\\")) && !/^[A-Za-z]:/.test(p)) {
+    const lower = p.toLowerCase()
+    if (lower === "/tmp" || lower.startsWith("/tmp/") || lower === "\\tmp" || lower.startsWith("\\tmp\\") || lower.startsWith("\\tmp/")) return p
+    const systemDrive = (process.env.SystemDrive || "C:").replace(/:+$/, "").toUpperCase() + ":"
+    const suffix = p.includes("\\") ? p.replace(/\\/g, "/") : p
+    return `${systemDrive}${suffix}`
+  }
+  return p
 }
 export function overlaps(a: string, b: string) {
   const relA = relative(a, b)
@@ -231,7 +240,7 @@ export async function globUp(pattern: string, start: string, stop?: string) {
         dot: true,
       })
       result.push(...matches)
-    } catch {
+    } catch (e) {
       // Skip invalid glob patterns
     }
     if (stop === current) break

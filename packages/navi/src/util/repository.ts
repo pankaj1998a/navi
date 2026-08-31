@@ -120,7 +120,8 @@ export function parseRepositoryReference(input: string) {
       remote: host === "github.com" ? githubRemote(pathname.join("/")) : cleaned,
       protocol: url.protocol,
     })
-  } catch {
+  } catch (e) {
+    // Ignore URL parsing failure and fallback/return null
     return null
   }
 }

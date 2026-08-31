@@ -174,26 +174,45 @@ function parseJSON(value: unknown) {
 export function policy(opts: {
   provider: string
   parse: (error: unknown) => Err
+  initialAttempt?: number
+  maxAttempts?: number
   set: (input: { attempt: number; message: string; action?: Retryable["action"]; next: number }) => Effect.Effect<void>
 }) {
+  const max = opts.maxAttempts ?? 5
+  const baseAttempt = opts.initialAttempt ?? 0
+
   return Schedule.fromStepWithMetadata(
     Effect.succeed((meta: Schedule.InputMetadata<unknown>) => {
+      const effectiveAttempt = baseAttempt + meta.attempt
+      if (effectiveAttempt >= max) return Cause.done(effectiveAttempt)
       const error = opts.parse(meta.input)
       const retry = retryable(error, opts.provider)
-      if (!retry) return Cause.done(meta.attempt)
+      if (!retry) return Cause.done(effectiveAttempt)
       return Effect.gen(function* () {
-        const wait = delay(meta.attempt, MessageV2.APIError.isInstance(error) ? error : undefined)
+        const wait = delay(effectiveAttempt, MessageV2.APIError.isInstance(error) ? error : undefined)
         const now = yield* Clock.currentTimeMillis
         yield* opts.set({
-          attempt: meta.attempt,
+          attempt: effectiveAttempt,
           message: retry.message,
           action: retry.action,
           next: now + wait,
         })
-        return [meta.attempt, Duration.millis(wait)] as [number, Duration.Duration]
+        return [effectiveAttempt, Duration.millis(wait)] as [number, Duration.Duration]
       })
     }),
   )
+}
+
+export function deriveRetryCount(
+  messages: readonly MessageV2.WithParts[],
+  messageID: string,
+): number {
+  const target = messages.find((m) => m.info.id === messageID)
+  if (!target) return 0
+  if (target.info.role === "assistant" && typeof target.info.retries === "number") {
+    return target.info.retries
+  }
+  return 0
 }
 
 export * as SessionRetry from "./retry"

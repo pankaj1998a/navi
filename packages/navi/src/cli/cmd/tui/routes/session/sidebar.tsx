@@ -59,7 +59,7 @@ export function Sidebar(props: { sessionID?: string; overlay?: boolean }) {
               <TuiPluginRuntime.Slot
                 name="sidebar_title"
                 mode="single_winner"
-                session_id={props.sessionID}
+                session_id={props.sessionID ?? ""}
                 title={s().title}
                 share_url={s().share?.url}
               >
@@ -94,12 +94,12 @@ export function Sidebar(props: { sessionID?: string; overlay?: boolean }) {
               </TuiPluginRuntime.Slot>
             )}
           </Show>
-          <TuiPluginRuntime.Slot name="sidebar_content" session_id={props.sessionID} />
+          <TuiPluginRuntime.Slot name="sidebar_content" session_id={props.sessionID ?? ""} />
         </box>
       </scrollbox>
 
       <box flexShrink={0} gap={1} paddingTop={1}>
-        <TuiPluginRuntime.Slot name="sidebar_footer" mode="single_winner" session_id={props.sessionID}>
+        <TuiPluginRuntime.Slot name="sidebar_footer" mode="single_winner" session_id={props.sessionID ?? ""}>
           <text fg={theme.textMuted}>
             <span style={{ fg: theme.success }}>•</span> <b>Navi</b> <span>{InstallationVersion}</span>
           </text>

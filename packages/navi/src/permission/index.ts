@@ -182,7 +182,7 @@ export const layer = Layer.effect(
       let needsAsk = false
 
       for (const pattern of request.patterns) {
-        const rule = evaluate(request.permission, pattern, ruleset, approved)
+        const rule = evaluate(request.permission, pattern, approved, ruleset)
         log.info("evaluated", { permission: request.permission, pattern, action: rule })
         if (rule.action === "deny") {
           return yield* new DeniedError({
@@ -253,6 +253,27 @@ export const layer = Layer.effect(
           pattern,
           action: "allow",
         })
+      }
+
+      const ctx = yield* InstanceState.context.pipe(Effect.catchCause(() => Effect.succeed(undefined)))
+      if (ctx) {
+        yield* Effect.sync(() =>
+          Database.use((db) =>
+            db
+              .insert(PermissionTable)
+              .values({
+                project_id: ctx.project.id,
+                data: approved,
+              })
+              .onConflictDoUpdate({
+                target: PermissionTable.project_id,
+                set: { data: approved },
+              })
+              .run(),
+          ),
+        ).pipe(
+          Effect.catchCause((cause) => Effect.sync(() => log.error("failed to persist permission approval", { cause }))),
+        )
       }
 
       for (const [id, item] of pending.entries()) {

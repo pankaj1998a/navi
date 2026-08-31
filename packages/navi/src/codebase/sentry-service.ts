@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { Bus } from "../bus"
 import { BusEvent } from "../bus/bus-event"
 import { FileWatcher } from "../file/watcher"

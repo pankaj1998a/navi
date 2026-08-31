@@ -20,7 +20,7 @@ export function load(ids?: string[]) {
     return db.select().from(EventSequenceTable).where(inArray(EventSequenceTable.aggregate_id, ids)).all()
   })
 
-  return Object.fromEntries(rows.map((row) => [row.aggregate_id, row.seq])) as State
+  return Object.fromEntries(rows.map((row: any) => [row.aggregate_id, row.seq])) as State
 }
 
 export function diff(prev: State, next: State) {

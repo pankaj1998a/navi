@@ -14,8 +14,8 @@ import { popularProviders } from "@/hooks/use-providers"
 import { SettingsList } from "./settings-list"
 
 
-const isFree = (provider: string, cost: { input: number } | undefined) =>
-  provider === "navi" && (!cost || cost.input === 0)
+const isFree = (provider: string, cost: { input: number | string } | undefined) =>
+  provider === "navi" && (!cost || cost.input === 0 || cost.input === "0")
 
 // A standalone model-picker popover that calls onSelect with the chosen model
 const AgentModelPicker: Component<{
@@ -160,9 +160,9 @@ export const SettingsAgents: Component = () => {
     await globalSync.updateConfig({
       ...current,
       agent: {
-        ...(current.agent ?? {}),
+        ...current.agent,
         [agentName]: {
-          ...(current.agent?.[agentName] ?? {}),
+          ...current.agent?.[agentName],
           model: `${providerID}/${modelID}`,
         },
       },
@@ -175,7 +175,7 @@ export const SettingsAgents: Component = () => {
     await globalSync.updateConfig({
       ...current,
       agent: {
-        ...(current.agent ?? {}),
+        ...current.agent,
         [agentName]: restAgentCfg as NonNullable<typeof current.agent>[string],
       },
     })

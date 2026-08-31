@@ -133,7 +133,7 @@ const layer = Layer.effect(
       const limits = Object.fromEntries(
         providers.flatMap((provider) =>
           Object.entries(provider.models ?? {}).flatMap(([modelID, info]) => {
-            const limit = info?.limit?.context
+            const limit = (info as any)?.limit?.context
             if (typeof limit !== "number" || limit <= 0) {
               return []
             }
@@ -154,7 +154,7 @@ const layer = Layer.effect(
       const info = providers.find((item) => item.id === model.providerID)?.models?.[model.modelID]
       return {
         providers,
-        variants: Object.keys(info?.variants ?? {}),
+        variants: Object.keys((info as any)?.variants ?? {}),
         limits,
       }
     })

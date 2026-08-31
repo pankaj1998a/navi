@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { chromium, type Browser, type Page, type BrowserContext } from 'playwright-core';
 import { Log } from '../util/log.js';
 

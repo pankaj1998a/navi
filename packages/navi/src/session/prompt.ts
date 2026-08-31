@@ -61,6 +61,7 @@ import { AgentAttachment, FileAttachment, Source } from "@/v2/session-prompt"
 import * as DateTime from "effect/DateTime"
 import { eq } from "@/storage/db"
 import * as Database from "@/storage/db"
+import { scrubSecrets } from "@/util/secret-scrubber"
 import { SessionTable } from "./session.sql"
 
 // @ts-ignore
@@ -136,7 +137,8 @@ export const layer = Layer.effect(
     })
 
     const resolvePromptParts = Effect.fn("SessionPrompt.resolvePromptParts")(function* (template: string) {
-      const ctx = yield* InstanceState.context
+      const ctx = yield* InstanceState.context.pipe(Effect.catchCause(() => Effect.succeed(undefined)))
+      if (!ctx) return [{ type: "text" as const, text: template }]
       const parts: Types.DeepMutable<PromptInput["parts"]> = [{ type: "text", text: template }]
       const files = ConfigMarkdown.files(template)
       const seen = new Set<string>()
@@ -146,9 +148,39 @@ export const layer = Layer.effect(
           const name = match[1]
           if (seen.has(name)) return
           seen.add(name)
-          const filepath = name.startsWith("~/")
+          const isHome = name.startsWith("~/")
+          const filepath = isHome
             ? path.join(os.homedir(), name.slice(2))
             : path.resolve(ctx.worktree, name)
+
+          if (isHome) {
+            const isSensitive = [
+              /\.ssh[/\\]/i,
+              /\.aws[/\\]/i,
+              /\.gnupg[/\\]/i,
+              /\.config[/\\]gh/i,
+              /keys(\.txt)?/i,
+              /\.pem$/i,
+              /\.key$/i,
+              /\.env/i,
+              /id_rsa/i,
+              /id_ed25519/i,
+              /credentials/i,
+              /\.netrc/i,
+            ].some((pattern) => pattern.test(filepath))
+            if (isSensitive) {
+              log.warn("blocking sensitive home directory file reference", { name, filepath })
+              return
+            }
+          }
+
+          if (!isHome) {
+            const rel = path.relative(ctx.worktree, filepath)
+            if (rel.startsWith("..") || path.isAbsolute(rel)) {
+              log.warn("@file reference escapes worktree, skipping", { name, filepath })
+              return
+            }
+          }
 
           const info = yield* fsys.stat(filepath).pipe(Effect.option)
           if (Option.isNone(info)) {
@@ -267,6 +299,7 @@ export const layer = Layer.effect(
       const assistantMessage = input.messages.findLast((msg) => msg.info.role === "assistant")
       if (input.agent.name !== "plan" && assistantMessage?.info.agent === "plan") {
         const ctx = yield* InstanceState.context
+        if (!ctx) return input.messages
         const plan = Session.plan(input.session, ctx)
         if (!(yield* fsys.existsSafe(plan))) return input.messages
         const part = yield* sessions.updatePart({
@@ -284,6 +317,7 @@ export const layer = Layer.effect(
       if (input.agent.name !== "plan" || assistantMessage?.info.agent === "plan") return input.messages
 
       const ctx = yield* InstanceState.context
+      if (!ctx) return input.messages
       const plan = Session.plan(input.session, ctx)
       const exists = yield* fsys.existsSafe(plan)
       if (!exists) yield* fsys.ensureDir(path.dirname(plan)).pipe(Effect.catch(Effect.die))
@@ -518,7 +552,9 @@ NOTE: At any point in time through this workflow you should feel free to ask the
                 }
               }
 
-              const truncated = yield* truncate.output(textParts.join("\n\n"), {}, input.agent)
+              const joined = scrubSecrets(textParts.join("\n\n")).text
+              const fenced = `<untrusted-tool-output tool="${key}">\n${joined}\n</untrusted-tool-output>`
+              const truncated = yield* truncate.output(fenced, {}, input.agent)
               const metadata = {
                 ...result.metadata,
                 truncated: truncated.truncated,
@@ -558,7 +594,9 @@ NOTE: At any point in time through this workflow you should feel free to ask the
       msgs: MessageV2.WithParts[]
     }) {
       const { task, model, lastUser, sessionID, session, msgs } = input
-      const ctx = yield* InstanceState.context
+      const ctx = yield* InstanceState.context.pipe(
+        Effect.catchCause(() => Effect.die("Instance context unavailable")),
+      )
       const promptOps = yield* ops()
       const { task: taskTool } = yield* registry.named()
       const taskModel = task.model ? yield* getModel(task.model.providerID, task.model.modelID, sessionID) : model
@@ -747,7 +785,9 @@ NOTE: At any point in time through this workflow you should feel free to ask the
         Effect.gen(function* () {
           const markReady = ready ? ready.open.pipe(Effect.asVoid) : Effect.void
           const { msg, part, cwd } = yield* Effect.gen(function* () {
-            const ctx = yield* InstanceState.context
+            const ctx = yield* InstanceState.context.pipe(
+              Effect.catchCause(() => Effect.die("Instance context unavailable")),
+            )
             const session = yield* sessions.get(input.sessionID).pipe(Effect.orDie)
             if (session.revert) {
               yield* revert.cleanup(session)
@@ -1260,6 +1300,14 @@ NOTE: At any point in time through this workflow you should feel free to ask the
           ]
         }
 
+        if (part.type === "text" && part.text) {
+          const scrubbed = scrubSecrets(part.text)
+          if (scrubbed.scrubbedCount > 0) {
+            log.info("scrubbed secrets from prompt text", { count: scrubbed.scrubbedCount })
+          }
+          return [{ ...part, text: scrubbed.text, messageID: info.id, sessionID: input.sessionID }]
+        }
+
         return [{ ...part, messageID: info.id, sessionID: input.sessionID }]
       })
 
@@ -1407,7 +1455,9 @@ NOTE: At any point in time through this workflow you should feel free to ask the
 
     const runLoop: (sessionID: SessionID) => Effect.Effect<MessageV2.WithParts> = Effect.fn("SessionPrompt.run")(
       function* (sessionID: SessionID) {
-        const ctx = yield* InstanceState.context
+        const ctx = yield* InstanceState.context.pipe(
+          Effect.catchCause(() => Effect.die("Instance context unavailable")),
+        )
         const slog = elog.with({ sessionID })
         let structured: unknown
         let step = 0
@@ -1689,11 +1739,33 @@ NOTE: At any point in time through this workflow you should feel free to ask the
       if (shellMatches.length > 0) {
         const cfg = yield* config.get()
         const sh = Shell.preferred(cfg.shell)
-        const results = yield* Effect.promise(() =>
-          Promise.all(
-            shellMatches.map(async ([, cmd]) => (await Process.text([cmd], { shell: sh, nothrow: true })).text),
-          ),
-        )
+        const agentObj = yield* agents.get(agentName)
+        const sessionObj = yield* sessions.get(input.sessionID).pipe(Effect.orDie)
+        const results: string[] = []
+
+        for (const [, cmdStr] of shellMatches) {
+          const permitted = yield* permission
+            .ask({
+              sessionID: input.sessionID,
+              permission: "bash",
+              patterns: [cmdStr],
+              always: [cmdStr],
+              metadata: { description: `Execute template command: ${cmdStr}` },
+              ruleset: Permission.merge(agentObj?.permission ?? [], sessionObj.permission ?? []),
+            })
+            .pipe(
+              Effect.map(() => true),
+              Effect.catch(() => Effect.succeed(false)),
+            )
+
+          if (permitted) {
+            const res = yield* Effect.promise(() => Process.text([cmdStr], { shell: sh, nothrow: true }))
+            results.push(res.text)
+          } else {
+            results.push("[Command execution denied]")
+          }
+        }
+
         let index = 0
         template = template.replace(bashRegex, () => results[index++])
       }

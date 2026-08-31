@@ -22,7 +22,7 @@ export function normalizeProviderList(input: ProviderListResponse): ProviderList
     ...input,
     all: input.all.map((provider) => ({
       ...provider,
-      models: Object.fromEntries(Object.entries(provider.models).filter(([, info]) => info.status !== "deprecated")),
+      models: Object.fromEntries(Object.entries(provider.models).filter(([, info]) => (info as any).status !== "deprecated")),
     })),
   }
 }

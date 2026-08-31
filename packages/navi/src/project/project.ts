@@ -1,4 +1,5 @@
 import z from "zod"
+import os from "os"
 import { and } from "drizzle-orm"
 import { Database } from "@/storage/db"
 import { eq } from "drizzle-orm"
@@ -201,7 +202,15 @@ export const layer: Layer.Layer<
       type DiscoveryResult = { id: ProjectID; worktree: string; sandbox: string; vcs: Info["vcs"] }
 
       const data: DiscoveryResult = yield* Effect.gen(function* () {
-        const dotgitMatches = yield* fs.up({ targets: [".git"], start: directory }).pipe(Effect.orDie)
+        const stopDir = yield* Effect.sync(() => {
+          const tmp = AppFileSystem.normalizePath(os.tmpdir())
+          const normalizedDir = AppFileSystem.normalizePath(directory)
+          if (normalizedDir.toLowerCase().startsWith(tmp.toLowerCase())) {
+            return tmp
+          }
+          return undefined
+        })
+        const dotgitMatches = yield* fs.up({ targets: [".git"], start: directory, stop: stopDir }).pipe(Effect.orDie)
         const dotgit = dotgitMatches[0]
 
         if (!dotgit) {
@@ -477,7 +486,7 @@ export const layer: Layer.Layer<
     const removeSandbox = Effect.fn("Project.removeSandbox")(function* (id: ProjectID, directory: string) {
       const row = yield* db((d) => d.select().from(ProjectTable).where(eq(ProjectTable.id, id)).get())
       if (!row) throw new Error(`Project not found: ${id}`)
-      const sboxes = row.sandboxes.filter((s) => s !== directory)
+      const sboxes = row.sandboxes.filter((s: any) => s !== directory)
       const result = yield* db((d) =>
         d
           .update(ProjectTable)
@@ -521,7 +530,7 @@ export function list() {
       .select()
       .from(ProjectTable)
       .all()
-      .map((row) => fromRow(row)),
+      .map((row: any) => fromRow(row)),
   )
 }
 

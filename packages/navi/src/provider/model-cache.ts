@@ -24,6 +24,7 @@ export interface CacheReadOptions {
 interface CacheEntry {
   providerID: string
   fetchedAt: string // ISO timestamp
+  etag?: string
   models: Record<string, Provider.Model>
 }
 
@@ -85,16 +86,37 @@ export async function readCacheEntry(
 export async function writeCache(
   providerID: string,
   models: Record<string, Provider.Model>,
+  etag?: string,
 ): Promise<void> {
   try {
     await fs.mkdir(cacheDir(), { recursive: true })
+    // If etag not supplied, try pendingEtags from fetch-models (ETag revalidation)
+    let resolvedEtag = etag
+    if (!resolvedEtag) {
+      try {
+        const { pendingEtags } = await import("./fetch-models")
+        const pending = pendingEtags.get(providerID)
+        if (pending) {
+          resolvedEtag = pending
+          pendingEtags.delete(providerID)
+        }
+      } catch {}
+    }
+    // Fallback: preserve previous etag if still missing
+    if (!resolvedEtag) {
+      try {
+        const prev = await readCacheEntry(providerID, { allowExpired: true })
+        resolvedEtag = prev?.entry.etag
+      } catch {}
+    }
     const entry: CacheEntry = {
       providerID,
       fetchedAt: new Date().toISOString(),
+      etag: resolvedEtag,
       models,
     }
     await Bun.write(cacheFile(providerID), JSON.stringify(entry, null, 2))
-    log.info("cache written", { providerID, count: Object.keys(models).length })
+    log.info("cache written", { providerID, count: Object.keys(models).length, etag: resolvedEtag })
   } catch (e) {
     log.warn("failed to write cache", { providerID, error: e })
   }

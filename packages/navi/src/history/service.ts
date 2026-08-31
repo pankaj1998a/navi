@@ -221,7 +221,7 @@ export const layer = Layer.effect(
       const out: MessageContext[] = messages.map((m) => {
         const role: "user" | "assistant" =
           (m.data as { role?: "user" | "assistant" })?.role === "user" ? "user" : "assistant"
-        const partsHere = (byMessage.get(m.id) ?? []).map((p) => {
+        const partsHere = (byMessage.get(m.id) ?? []).map((p: any) => {
           const d = p.data as {
             type: string
             text?: string

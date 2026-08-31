@@ -61,6 +61,12 @@ export const ContextOverflowError = namedSchemaError("ContextOverflowError", {
   message: Schema.String,
   responseBody: Schema.optional(Schema.String),
 })
+export const BudgetExceededError = namedSchemaError("BudgetExceededError", {
+  message: Schema.String,
+  limitValue: Schema.Finite,
+  actualValue: Schema.Finite,
+  budgetType: Schema.Union([Schema.Literal("cost"), Schema.Literal("tokens")]),
+})
 
 export class OutputFormatText extends Schema.Class<OutputFormatText>("OutputFormatText")({
   type: Schema.Literal("text"),
@@ -456,6 +462,7 @@ const AssistantErrorSchema = Schema.Union([
   StructuredOutputError.EffectSchema,
   ContextOverflowError.EffectSchema,
   APIError.EffectSchema,
+  BudgetExceededError.EffectSchema,
 ]).annotate({ discriminator: "name" })
 type AssistantError = Schema.Schema.Type<typeof AssistantErrorSchema>
 
@@ -566,6 +573,7 @@ export const Assistant = Schema.Struct({
   structured: Schema.optional(Schema.Any),
   variant: Schema.optional(Schema.String),
   finish: Schema.optional(Schema.String),
+  retries: Schema.optional(NonNegativeInt),
 })
   .annotate({ identifier: "AssistantMessage" })
   .pipe(withStatics((s) => ({ zod: zod(s) })))
@@ -1062,7 +1070,7 @@ export function parts(message_id: MessageID) {
     db.select().from(PartTable).where(eq(PartTable.message_id, message_id)).orderBy(PartTable.id).all(),
   )
   return rows.map(
-    (row) =>
+    (row: any) =>
       ({
         ...row.data,
         id: row.id,
@@ -1234,6 +1242,8 @@ export function fromError(
         { cause: e },
       ).toObject()
     }
+    case BudgetExceededError.isInstance(e):
+      return e.toObject()
     case e instanceof Error:
       return new NamedError.Unknown({ message: errorMessage(e) }, { cause: e }).toObject()
     default:
@@ -1260,7 +1270,9 @@ export function fromError(
             },
           ).toObject()
         }
-      } catch {}
+      } catch (err) {
+        // Fall back to NamedError.Unknown if stream error parsing fails
+      }
       return new NamedError.Unknown({ message: JSON.stringify(e) }, { cause: e }).toObject()
   }
 }

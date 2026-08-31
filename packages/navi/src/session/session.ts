@@ -20,7 +20,7 @@ import { lt } from "drizzle-orm"
 import { or } from "drizzle-orm"
 import { SyncEvent } from "../sync"
 import type { SQL } from "drizzle-orm"
-import { PartTable, SessionTable } from "./session.sql"
+import { PartTable, SessionTable, MessageTable } from "./session.sql"
 import { ProjectTable } from "../project/project.sql"
 import { Storage } from "@/storage/storage"
 import * as Log from "@navi-ai/core/util/log"
@@ -498,7 +498,9 @@ export const layer: Layer.Layer<Service, never, Bus.Service | Storage.Service | 
       path?: string
       permission?: Permission.Ruleset
     }) {
-      const ctx = yield* InstanceState.context
+      const ctx = yield* InstanceState.context.pipe(
+        Effect.catchCause(() => Effect.die("Instance context unavailable")),
+      )
       const result: Info = {
         id: SessionID.descending(input.id),
         slug: Slug.create(),
@@ -540,7 +542,8 @@ export const layer: Layer.Layer<Service, never, Bus.Service | Storage.Service | 
     })
 
     const list = Effect.fn("Session.list")(function* (input?: ListInput) {
-      const ctx = yield* InstanceState.context
+      const ctx = yield* InstanceState.context.pipe(Effect.catchCause(() => Effect.succeed(undefined)))
+      if (!ctx) return []
       return Array.from(listByProject({ projectID: ctx.project.id, ...input }))
     })
 
@@ -589,7 +592,7 @@ export const layer: Layer.Layer<Service, never, Bus.Service | Storage.Service | 
       Effect.gen(function* () {
         yield* sync.run(MessageV2.Event.PartUpdated, {
           sessionID: part.sessionID,
-          part: structuredClone(part),
+          part: { ...part },
           time: Date.now(),
         })
         return part
@@ -626,7 +629,9 @@ export const layer: Layer.Layer<Service, never, Bus.Service | Storage.Service | 
       permission?: Permission.Ruleset
       workspaceID?: WorkspaceID
     }) {
-      const ctx = yield* InstanceState.context
+      const ctx = yield* InstanceState.context.pipe(
+        Effect.catchCause(() => Effect.die("Instance context unavailable")),
+      )
       const workspace = yield* InstanceState.workspaceID
       return yield* createNext({
         parentID: input?.parentID,
@@ -641,7 +646,9 @@ export const layer: Layer.Layer<Service, never, Bus.Service | Storage.Service | 
     })
 
     const fork = Effect.fn("Session.fork")(function* (input: { sessionID: SessionID; messageID?: MessageID }) {
-      const ctx = yield* InstanceState.context
+      const ctx = yield* InstanceState.context.pipe(
+        Effect.catchCause(() => Effect.die("Instance context unavailable")),
+      )
       const original = yield* get(input.sessionID)
       const title = getForkedTitle(original.title)
       const session = yield* createNext({
@@ -907,7 +914,7 @@ export function* listGlobal(input?: {
     return query.orderBy(desc(SessionTable.time_updated), desc(SessionTable.id)).limit(limit).all()
   })
 
-  const ids = [...new Set(rows.map((row) => row.project_id))]
+  const ids = [...new Set(rows.map((row: any) => row.project_id))]
   const projects = new Map<string, ProjectInfo>()
 
   if (ids.length > 0) {
@@ -915,7 +922,7 @@ export function* listGlobal(input?: {
       db
         .select({ id: ProjectTable.id, name: ProjectTable.name, worktree: ProjectTable.worktree })
         .from(ProjectTable)
-        .where(inArray(ProjectTable.id, ids))
+        .where(inArray(ProjectTable.id as any, ids as any))
         .all(),
     )
     for (const item of items) {
@@ -942,5 +949,58 @@ export async function messages(input: { sessionID: SessionID; limit?: number }) 
   const { AppRuntime } = await import("@/effect/app-runtime")
   return AppRuntime.runPromise(Service.use((svc) => svc.messages(input)))
 }
+
+/**
+ * Recursively sum cost and token usage across a session and all its descendants.
+ * Used by budget enforcement to check whether a session tree has exceeded limits.
+ */
+export const getTreeUsage = Effect.fn("Session.getTreeUsage")(function* (rootID: SessionID) {
+  // Collect all session IDs in the tree via BFS using DB queries
+  const visited = new Set<string>([rootID])
+  const queue: SessionID[] = [rootID]
+
+  while (queue.length > 0) {
+    const batchIDs = queue.splice(0, queue.length)
+    const rows = yield* Effect.sync(() =>
+      Database.use((db) =>
+        db
+          .select({ id: SessionTable.id })
+          .from(SessionTable)
+          .where(inArray(SessionTable.parent_id as any, batchIDs))
+          .all(),
+      ),
+    )
+    for (const row of rows) {
+      if (!visited.has(row.id)) {
+        visited.add(row.id)
+        queue.push(row.id as SessionID)
+      }
+    }
+  }
+
+  // Sum cost and total tokens across all messages in all collected sessions
+  let totalCost = 0
+  let totalTokens = 0
+
+  for (const sessionID of visited) {
+    const msgs = yield* Effect.sync(() =>
+      Database.use((db) =>
+        db
+          .select({ data: MessageTable.data })
+          .from(MessageTable)
+          .where(eq(MessageTable.session_id, sessionID as SessionID))
+          .all(),
+      ),
+    )
+    for (const row of msgs) {
+      const info = row.data as MessageV2.Info | undefined
+      if (!info || info.role !== "assistant") continue
+      totalCost += (info as MessageV2.Assistant).cost ?? 0
+      totalTokens += (info as MessageV2.Assistant).tokens?.total ?? 0
+    }
+  }
+
+  return { cost: totalCost, tokens: totalTokens }
+})
 
 export * as Session from "./session"

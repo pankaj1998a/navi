@@ -11345,8 +11345,8 @@
     "id": "navi",
     "env": ["NAVI_API_KEY"],
     "npm": "@ai-sdk/openai-compatible",
-    "api": "https://navi.ai/zen/v1",
-    "name": "Navi Zen",
+    "api": "https://navi.ai/v1",
+    "name": "Navi",
     "doc": "https://navi.ai/docs/zen",
     "models": {
       "gpt-5.2-codex": {

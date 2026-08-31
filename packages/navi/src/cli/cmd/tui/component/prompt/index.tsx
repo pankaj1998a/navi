@@ -1155,7 +1155,9 @@ export function Prompt(props: PromptProps) {
             ...nonTextParts.map(assign),
           ],
         })
-        .catch(() => {})
+        .catch((err) => {
+          // Ignore errors as they are handled in the session flow or reported elsewhere
+        })
       if (editorParts.length > 0) editor.markSelectionSent()
     }
     history.append({
@@ -1227,7 +1229,9 @@ export function Prompt(props: PromptProps) {
       if (raw.startsWith("file://")) {
         try {
           return fileURLToPath(raw)
-        } catch {}
+        } catch (e) {
+          // Ignore invalid file URL parsing errors and fall through
+        }
       }
       if (process.platform === "win32") return raw
       return raw.replace(/\\(.)/g, "$1")
@@ -1238,7 +1242,9 @@ export function Prompt(props: PromptProps) {
         const mime = await Filesystem.mimeType(filepath)
         const filename = path.basename(filepath)
         if (mime === "image/svg+xml") {
-          const content = await Filesystem.readText(filepath).catch(() => {})
+          const content = await Filesystem.readText(filepath).catch((err) => {
+            // Ignore file read error and return undefined
+          })
           if (content) {
             pasteText(content, `[SVG: ${filename ?? "image"}]`)
             return
@@ -1247,7 +1253,9 @@ export function Prompt(props: PromptProps) {
         if (mime.startsWith("image/") || mime === "application/pdf") {
           const content = await Filesystem.readArrayBuffer(filepath)
             .then((buffer) => Buffer.from(buffer).toString("base64"))
-            .catch(() => {})
+            .catch((err) => {
+              // Ignore attachment read error and return undefined
+            })
           if (content) {
             await pasteAttachment({
               filename,
@@ -1258,7 +1266,9 @@ export function Prompt(props: PromptProps) {
             return
           }
         }
-      } catch {}
+      } catch (err) {
+        // Ignore errors if the pasted text is not a valid local file path
+      }
     }
 
     const lineCount = (pastedContent.match(/\n/g)?.length ?? 0) + 1
@@ -1343,7 +1353,9 @@ export function Prompt(props: PromptProps) {
     setStore("extmarkToPartIndex", new Map())
   }
 
+  const isPlan = createMemo(() => local.agent.current()?.name === "plan")
   const highlight = createMemo(() => {
+    if (isPlan()) return theme.warning
     if (leader()) return theme.border
     if (store.mode === "shell") return theme.primary
     const agent = local.agent.current()
@@ -1368,6 +1380,7 @@ export function Prompt(props: PromptProps) {
 
   const placeholderText = createMemo(() => {
     if (props.showPlaceholder === false) return undefined
+    if (isPlan()) return "Ask to plan… (read-only)"
     if (store.mode === "shell") {
       if (!shell().length) return undefined
       const example = shell()[store.placeholder % shell().length]

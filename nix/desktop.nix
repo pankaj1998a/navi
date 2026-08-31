@@ -21,11 +21,11 @@
   openssl,
   webkitgtk_4_1,
   gst_all_1,
-  opencode,
+  navi,
 }:
 rustPlatform.buildRustPackage (finalAttrs: {
-  pname = "opencode-desktop";
-  inherit (opencode)
+  pname = "navi-desktop";
+  inherit (navi)
     version
     src
     node_modules
@@ -72,7 +72,7 @@ rustPlatform.buildRustPackage (finalAttrs: {
     patchShebangs packages/desktop/node_modules
 
     mkdir -p packages/desktop/src-tauri/sidecars
-    cp ${opencode}/bin/opencode packages/desktop/src-tauri/sidecars/opencode-cli-${stdenv.hostPlatform.rust.rustcTarget}
+    cp ${navi}/bin/navi packages/desktop/src-tauri/sidecars/navi-cli-${stdenv.hostPlatform.rust.rustcTarget}
   '';
 
   # see publish-tauri job in .github/workflows/publish.yml
@@ -82,19 +82,17 @@ rustPlatform.buildRustPackage (finalAttrs: {
     "--no-sign" # no code signing or auto updates
   ];
 
-  # FIXME: workaround for concerns about case insensitive filesystems
-  # should be removed once binary is renamed or decided otherwise
-  # darwin output is a .app bundle so no conflict
+  # see desktop packaging
   postFixup = lib.optionalString stdenv.hostPlatform.isLinux ''
-    mv $out/bin/OpenCode $out/bin/opencode-desktop
-    sed -i 's|^Exec=OpenCode$|Exec=opencode-desktop|' $out/share/applications/OpenCode.desktop
+    mv $out/bin/Navi $out/bin/navi-desktop
+    sed -i 's|^Exec=Navi$|Exec=navi-desktop|' $out/share/applications/Navi.desktop
   '';
 
   meta = {
-    description = "OpenCode Desktop App";
-    homepage = "https://opencode.ai";
+    description = "Navi Desktop App";
+    homepage = "https://navi.ai";
     license = lib.licenses.mit;
-    mainProgram = "opencode-desktop";
-    inherit (opencode.meta) platforms;
+    mainProgram = "navi-desktop";
+    inherit (navi.meta) platforms;
   };
 })

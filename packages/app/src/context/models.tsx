@@ -49,7 +49,7 @@ export const { use: useModels, provider: ModelsProvider } = createSimpleContext(
       () =>
         new Map(
           available().map((model) => {
-            const parsed = DateTime.fromISO(model.release_date)
+            const parsed = DateTime.fromISO(model.release_date ?? "")
             return [modelKey({ providerID: model.provider.id, modelID: model.id }), parsed] as const
           }),
         ),
@@ -74,7 +74,7 @@ export const { use: useModels, provider: ModelsProvider } = createSimpleContext(
             values(),
             (groups) =>
               groups.flatMap((g) => {
-                const first = firstBy(g, [(x) => x.release_date, "desc"])
+                const first = firstBy(g, [(x) => x.release_date ?? "", "desc"])
                 return first ? [{ modelID: first.id, providerID: first.provider.id }] : []
               }),
           ),

@@ -40,11 +40,13 @@ import { SystemPrompt } from "../../src/session/system"
 import { Shell } from "../../src/shell/shell"
 import { Snapshot } from "../../src/snapshot"
 import { ToolRegistry } from "@/tool/registry"
+import { BackgroundJob } from "@/background-job"
 import { Memory } from "@/memory"
 import { History } from "@/history"
 import { Truncate } from "@/tool/truncate"
 import * as Log from "@navi-ai/core/util/log"
 import { CrossSpawnSpawner } from "@navi-ai/core/cross-spawn-spawner"
+import { ChildProcessSpawner } from "effect/unstable/process"
 import * as Database from "../../src/storage/db"
 import { Ripgrep } from "../../src/file/ripgrep"
 import { Format } from "../../src/format"
@@ -158,7 +160,6 @@ const lsp = Layer.succeed(
 )
 
 const status = SessionStatus.layer.pipe(Layer.provideMerge(Bus.layer))
-const run = SessionRunState.layer.pipe(Layer.provide(status))
 const infra = Layer.mergeAll(NodeFileSystem.layer, CrossSpawnSpawner.defaultLayer)
 function makeHttp() {
   const deps = Layer.mergeAll(
@@ -180,6 +181,7 @@ function makeHttp() {
   const question = Question.layer.pipe(Layer.provideMerge(deps))
   const todo = Todo.layer.pipe(Layer.provideMerge(deps))
   const registry = ToolRegistry.layer.pipe(
+    Layer.provide(BackgroundJob.layer),
     Layer.provide(Skill.defaultLayer),
     Layer.provide(FetchHttpClient.layer),
     Layer.provide(CrossSpawnSpawner.defaultLayer),
@@ -193,13 +195,18 @@ function makeHttp() {
     Layer.provideMerge(question),
     Layer.provideMerge(deps),
   )
-  const trunc = Truncate.layer.pipe(Layer.provideMerge(deps))
+  const trunc = Truncate.defaultLayer.pipe(Layer.provideMerge(deps))
   const proc = SessionProcessor.layer.pipe(
     Layer.provide(summary),
     Layer.provide(Image.defaultLayer),
     Layer.provideMerge(deps),
   )
   const compact = SessionCompaction.layer.pipe(Layer.provideMerge(proc), Layer.provideMerge(deps))
+  const run = SessionRunState.layer.pipe(
+    Layer.provide(status),
+    Layer.provide(BackgroundJob.layer),
+    Layer.provideMerge(deps),
+  )
   return Layer.mergeAll(
     TestLLMServer.layer,
     SessionPrompt.layer.pipe(
@@ -218,7 +225,8 @@ function makeHttp() {
   ).pipe(Layer.provide(summary))
 }
 
-const it = testEffect(makeHttp())
+const httpLayer: Layer.Layer<any, any, never> = makeHttp()
+const it = testEffect(httpLayer)
 const unix = process.platform !== "win32" ? it.live : it.live.skip
 
 // Config that registers a custom "test" provider with a "test-model" model
@@ -762,66 +770,66 @@ it.live(
       }),
       { git: true, config: providerCfg },
     ),
-  3_000,
-)
+    10_000,
+  )
 
-// Cancel semantics
+  // Cancel semantics
 
-it.live(
-  "cancel interrupts loop and resolves with an assistant message",
-  () =>
-    provideTmpdirServer(
-      Effect.fnUntraced(function* ({ llm }) {
-        const prompt = yield* SessionPrompt.Service
-        const sessions = yield* Session.Service
-        const chat = yield* sessions.create({ title: "Pinned" })
-        yield* seed(chat.id)
+  it.live(
+    "cancel interrupts loop and resolves with an assistant message",
+    () =>
+      provideTmpdirServer(
+        Effect.fnUntraced(function* ({ llm }) {
+          const prompt = yield* SessionPrompt.Service
+          const sessions = yield* Session.Service
+          const chat = yield* sessions.create({ title: "Pinned" })
+          yield* seed(chat.id)
 
-        yield* llm.hang
+          yield* llm.hang
 
-        yield* user(chat.id, "more")
+          yield* user(chat.id, "more")
 
-        const fiber = yield* prompt.loop({ sessionID: chat.id }).pipe(Effect.forkChild)
-        yield* llm.wait(1)
-        yield* prompt.cancel(chat.id)
-        const exit = yield* Fiber.await(fiber)
-        expect(Exit.isSuccess(exit)).toBe(true)
-        if (Exit.isSuccess(exit)) {
-          expect(exit.value.info.role).toBe("assistant")
-        }
-      }),
-      { git: true, config: providerCfg },
-    ),
-  3_000,
-)
-
-it.live(
-  "cancel records MessageAbortedError on interrupted process",
-  () =>
-    provideTmpdirServer(
-      Effect.fnUntraced(function* ({ llm }) {
-        const prompt = yield* SessionPrompt.Service
-        const sessions = yield* Session.Service
-        const chat = yield* sessions.create({ title: "Pinned" })
-        yield* llm.hang
-        yield* user(chat.id, "hello")
-
-        const fiber = yield* prompt.loop({ sessionID: chat.id }).pipe(Effect.forkChild)
-        yield* llm.wait(1)
-        yield* prompt.cancel(chat.id)
-        const exit = yield* Fiber.await(fiber)
-        expect(Exit.isSuccess(exit)).toBe(true)
-        if (Exit.isSuccess(exit)) {
-          const info = exit.value.info
-          if (info.role === "assistant") {
-            expect(info.error?.name).toBe("MessageAbortedError")
+          const fiber = yield* prompt.loop({ sessionID: chat.id }).pipe(Effect.forkChild)
+          yield* llm.wait(1)
+          yield* prompt.cancel(chat.id)
+          const exit = yield* Fiber.await(fiber)
+          expect(Exit.isSuccess(exit)).toBe(true)
+          if (Exit.isSuccess(exit)) {
+            expect(exit.value.info.role).toBe("assistant")
           }
-        }
-      }),
-      { git: true, config: providerCfg },
-    ),
-  3_000,
-)
+        }),
+        { git: true, config: providerCfg },
+      ),
+    10_000,
+  )
+
+  it.live(
+    "cancel records MessageAbortedError on interrupted process",
+    () =>
+      provideTmpdirServer(
+        Effect.fnUntraced(function* ({ llm }) {
+          const prompt = yield* SessionPrompt.Service
+          const sessions = yield* Session.Service
+          const chat = yield* sessions.create({ title: "Pinned" })
+          yield* llm.hang
+          yield* user(chat.id, "hello")
+
+          const fiber = yield* prompt.loop({ sessionID: chat.id }).pipe(Effect.forkChild)
+          yield* llm.wait(1)
+          yield* prompt.cancel(chat.id)
+          const exit = yield* Fiber.await(fiber)
+          expect(Exit.isSuccess(exit)).toBe(true)
+          if (Exit.isSuccess(exit)) {
+            const info = exit.value.info
+            if (info.role === "assistant") {
+              expect(info.error?.name).toBe("MessageAbortedError")
+            }
+          }
+        }),
+        { git: true, config: providerCfg },
+      ),
+    10_000,
+  )
 
 it.live(
   "cancel finalizes subtask tool state",

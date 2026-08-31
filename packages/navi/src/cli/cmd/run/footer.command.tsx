@@ -532,7 +532,7 @@ export function RunModelSelectBody(props: {
   const entries = createMemo<ModelEntry[]>(() =>
     (props.providers() ?? [])
       .flatMap((provider) =>
-        Object.entries(provider.models)
+        (Object.entries(provider.models) as [string, any][])
           .filter(([, model]) => model.status !== "deprecated")
           .map(([modelID, model]) => {
             const title = model.name ?? modelID

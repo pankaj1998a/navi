@@ -4,7 +4,27 @@ import markedShiki from "marked-shiki"
 import { createOverflow, useShareMessages } from "./common"
 import { CopyButton } from "./copy-button"
 import { createResource, createSignal } from "solid-js"
+import { isServer } from "solid-js/web"
+import DOMPurify from "dompurify"
 import style from "./content-markdown.module.css"
+
+if (typeof window !== "undefined" && DOMPurify.isSupported) {
+  DOMPurify.addHook("afterSanitizeAttributes", (node: Element) => {
+    if (!(node instanceof HTMLAnchorElement)) return
+    if (node.target !== "_blank") return
+
+    const rel = node.getAttribute("rel") ?? ""
+    const set = new Set(rel.split(/\s+/).filter(Boolean))
+    set.add("noopener")
+    set.add("noreferrer")
+    node.setAttribute("rel", Array.from(set).join(" "))
+  })
+}
+
+function sanitize(html: string): string {
+  if (isServer) return html
+  return DOMPurify.isSupported ? DOMPurify.sanitize(html) : html
+}
 
 const markedWithShiki = marked.use(
   {
@@ -37,7 +57,8 @@ export function ContentMarkdown(props: Props) {
   const [html] = createResource(
     () => strip(props.text),
     async (markdown) => {
-      return markedWithShiki.parse(markdown)
+      const parsed = await markedWithShiki.parse(markdown)
+      return sanitize(parsed)
     },
   )
   const [expanded, setExpanded] = createSignal(false)

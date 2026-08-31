@@ -572,10 +572,10 @@ export async function geminiCliFetch(input: RequestInfo | URL, init?: RequestIni
         if (error.message === "INSUFFICIENT_SCOPES") {
           skipGeminiFileMigration = true
           await Auth.remove("gemini-cli")
-          throw new Error("Gemini CLI: insufficient authentication scopes. Please log in again with `navi auth login gemini-cli`.")
+          throw new Error("Gemini CLI: insufficient authentication scopes. Please log in again with `navi auth login gemini-cli`.", { cause: error })
         }
         if (error.message === "NO_CODE_ASSIST_PROJECT") {
-          throw new Error("Gemini CLI: your account does not have Gemini Code Assist access.")
+          throw new Error("Gemini CLI: your account does not have Gemini Code Assist access.", { cause: error })
         }
       }
       throw error

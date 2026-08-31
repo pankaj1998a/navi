@@ -302,10 +302,8 @@ export const layer: Layer.Layer<
     })
 
     const canonical = Effect.fnUntraced(function* (input: string) {
-      const abs = pathSvc.resolve(input)
-      const real = yield* fs.realPath(abs).pipe(Effect.catch(() => Effect.succeed(abs)))
-      const normalized = pathSvc.normalize(real)
-      return process.platform === "win32" ? normalized.toLowerCase() : normalized
+      const resolved = yield* Effect.sync(() => AppFileSystem.resolve(input))
+      return process.platform === "win32" ? resolved.toLowerCase() : resolved
     })
 
     function parseWorktreeList(text: string) {
@@ -392,6 +390,10 @@ export const layer: Layer.Layer<
       }
 
       const directory = yield* canonical(input.directory)
+      const primary = yield* canonical(ctx.worktree)
+      if (directory === primary) {
+        throw new RemoveFailedError({ message: "Cannot remove the primary workspace" })
+      }
 
       const list = yield* git(["worktree", "list", "--porcelain"], { cwd: ctx.worktree })
       if (list.code !== 0) {
@@ -402,6 +404,10 @@ export const layer: Layer.Layer<
       const entry = yield* locateWorktree(entries, directory)
 
       if (!entry?.path) {
+        const root = yield* canonical(pathSvc.join(Global.Path.data, "worktree"))
+        if (!directory.startsWith(root + pathSvc.sep)) {
+          throw new RemoveFailedError({ message: "Cannot remove directory outside worktree root" })
+        }
         const directoryExists = yield* fs.exists(directory).pipe(Effect.orDie)
         if (directoryExists) {
           yield* stopFsmonitor(directory)

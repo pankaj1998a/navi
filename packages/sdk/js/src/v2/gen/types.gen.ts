@@ -187,6 +187,16 @@ export type ApiError = {
   }
 }
 
+export type BudgetExceededError = {
+  name: "BudgetExceededError"
+  data: {
+    message: string
+    limitValue: number
+    actualValue: number
+    budgetType: "cost" | "tokens"
+  }
+}
+
 export type QuestionOption = {
   /**
    * Display text (1-5 words, concise)
@@ -426,6 +436,7 @@ export type AssistantMessage = {
     | StructuredOutputError
     | ContextOverflowError
     | ApiError
+    | BudgetExceededError
   parentID: string
   modelID: string
   providerID: string
@@ -1279,91 +1290,24 @@ export type Config = {
     primary_tools?: Array<string>
     continue_loop_on_deny?: boolean
     mcp_timeout?: number
-  }
-}
-
-export type Model = {
-  id: string
-  providerID: string
-  api: {
-    id: string
-    url: string
-    npm: string
-  }
-  name: string
-  family?: string
-  capabilities: {
-    temperature: boolean
-    reasoning: boolean
-    attachment: boolean
-    toolcall: boolean
-    input: {
-      text: boolean
-      audio: boolean
-      image: boolean
-      video: boolean
-      pdf: boolean
-    }
-    output: {
-      text: boolean
-      audio: boolean
-      image: boolean
-      video: boolean
-      pdf: boolean
-    }
-    interleaved:
-      | boolean
-      | {
-          field: "reasoning_content" | "reasoning_details"
-        }
-  }
-  cost: {
-    input: number
-    output: number
-    cache: {
-      read: number
-      write: number
-    }
-    experimentalOver200K?: {
-      input: number
-      output: number
-      cache: {
-        read: number
-        write: number
-      }
+    background_subagents?: boolean
+    evaluation?: {
+      enabled?: boolean
+      directory?: string
     }
   }
-  limit: {
-    context: number
-    input?: number
-    output: number
+  checkpoint?: {
+    memory_reconcile_on_search?: boolean
+    /**
+     * BM25 score floor ratio for memory searches (default: 0.15)
+     */
+    memory_search_score_floor?: number | "NaN" | "Infinity" | "-Infinity" | "Infinity" | "-Infinity" | "NaN"
   }
-  status: "alpha" | "beta" | "deprecated" | "active"
-  options: {
-    [key: string]: unknown
+  memory?: {
+    cc_index?: boolean
   }
-  headers: {
-    [key: string]: string
-  }
-  release_date: string
-  variants?: {
-    [key: string]: {
-      [key: string]: unknown
-    }
-  }
-}
-
-export type Provider = {
-  id: string
-  name: string
-  source: "env" | "config" | "custom" | "api"
-  env: Array<string>
-  key?: string
-  options: {
-    [key: string]: unknown
-  }
-  models: {
-    [key: string]: Model
+  history?: {
+    kinds?: Array<"user_text" | "assistant_text" | "tool_input" | "tool_error" | "reasoning" | "tool_output">
   }
 }
 
@@ -2422,6 +2366,7 @@ export type EventSessionError = {
       | StructuredOutputError
       | ContextOverflowError
       | ApiError
+      | BudgetExceededError
   }
 }
 
@@ -3609,7 +3554,90 @@ export type ConfigProvidersResponses = {
    * List of providers
    */
   200: {
-    providers: Array<Provider>
+    providers: Array<{
+      id: string
+      name: string
+      source: "env" | "config" | "custom" | "api"
+      env: Array<string>
+      options: {
+        [key: string]: unknown
+      }
+      models: {
+        [key: string]: {
+          id: string
+          providerID: string
+          api: {
+            id: string
+            url: string
+            npm: string
+          }
+          name: string
+          family?: string
+          capabilities: {
+            temperature: boolean
+            reasoning: boolean
+            attachment: boolean
+            toolcall: boolean
+            input: {
+              text: boolean
+              audio: boolean
+              image: boolean
+              video: boolean
+              pdf: boolean
+            }
+            output: {
+              text: boolean
+              audio: boolean
+              image: boolean
+              video: boolean
+              pdf: boolean
+            }
+            interleaved?:
+              | boolean
+              | {
+                  field: "reasoning_content" | "reasoning_details"
+                }
+          }
+          cost: {
+            input: number | "NaN" | "Infinity" | "-Infinity" | "Infinity" | "-Infinity" | "NaN"
+            output: number | "NaN" | "Infinity" | "-Infinity" | "Infinity" | "-Infinity" | "NaN"
+            reasoning?: number | "NaN" | "Infinity" | "-Infinity" | "Infinity" | "-Infinity" | "NaN"
+            cache: {
+              read: number | "NaN" | "Infinity" | "-Infinity" | "Infinity" | "-Infinity" | "NaN"
+              write: number | "NaN" | "Infinity" | "-Infinity" | "Infinity" | "-Infinity" | "NaN"
+            }
+            experimentalOver200K?: {
+              input: number | "NaN" | "Infinity" | "-Infinity" | "Infinity" | "-Infinity" | "NaN"
+              output: number | "NaN" | "Infinity" | "-Infinity" | "Infinity" | "-Infinity" | "NaN"
+              reasoning?: number | "NaN" | "Infinity" | "-Infinity" | "Infinity" | "-Infinity" | "NaN"
+              cache: {
+                read: number | "NaN" | "Infinity" | "-Infinity" | "Infinity" | "-Infinity" | "NaN"
+                write: number | "NaN" | "Infinity" | "-Infinity" | "Infinity" | "-Infinity" | "NaN"
+              }
+            }
+          }
+          limit: {
+            context: number | "NaN" | "Infinity" | "-Infinity" | "Infinity" | "-Infinity" | "NaN"
+            input?: number | "NaN" | "Infinity" | "-Infinity" | "Infinity" | "-Infinity" | "NaN"
+            output: number | "NaN" | "Infinity" | "-Infinity" | "Infinity" | "-Infinity" | "NaN"
+          }
+          status: "alpha" | "beta" | "deprecated" | "active"
+          options: {
+            [key: string]: unknown
+          }
+          headers: {
+            [key: string]: string
+          }
+          release_date?: string
+          variants?: {
+            [key: string]: {
+              [key: string]: unknown
+            }
+          }
+          isFree?: boolean
+        }
+      }
+    }>
     default: {
       [key: string]: string
     }
@@ -5014,7 +5042,90 @@ export type ProviderListResponses = {
    * List of providers
    */
   200: {
-    all: Array<Provider>
+    all: Array<{
+      id: string
+      name: string
+      source: "env" | "config" | "custom" | "api"
+      env: Array<string>
+      options: {
+        [key: string]: unknown
+      }
+      models: {
+        [key: string]: {
+          id: string
+          providerID: string
+          api: {
+            id: string
+            url: string
+            npm: string
+          }
+          name: string
+          family?: string
+          capabilities: {
+            temperature: boolean
+            reasoning: boolean
+            attachment: boolean
+            toolcall: boolean
+            input: {
+              text: boolean
+              audio: boolean
+              image: boolean
+              video: boolean
+              pdf: boolean
+            }
+            output: {
+              text: boolean
+              audio: boolean
+              image: boolean
+              video: boolean
+              pdf: boolean
+            }
+            interleaved?:
+              | boolean
+              | {
+                  field: "reasoning_content" | "reasoning_details"
+                }
+          }
+          cost: {
+            input: number | "NaN" | "Infinity" | "-Infinity" | "Infinity" | "-Infinity" | "NaN"
+            output: number | "NaN" | "Infinity" | "-Infinity" | "Infinity" | "-Infinity" | "NaN"
+            reasoning?: number | "NaN" | "Infinity" | "-Infinity" | "Infinity" | "-Infinity" | "NaN"
+            cache: {
+              read: number | "NaN" | "Infinity" | "-Infinity" | "Infinity" | "-Infinity" | "NaN"
+              write: number | "NaN" | "Infinity" | "-Infinity" | "Infinity" | "-Infinity" | "NaN"
+            }
+            experimentalOver200K?: {
+              input: number | "NaN" | "Infinity" | "-Infinity" | "Infinity" | "-Infinity" | "NaN"
+              output: number | "NaN" | "Infinity" | "-Infinity" | "Infinity" | "-Infinity" | "NaN"
+              reasoning?: number | "NaN" | "Infinity" | "-Infinity" | "Infinity" | "-Infinity" | "NaN"
+              cache: {
+                read: number | "NaN" | "Infinity" | "-Infinity" | "Infinity" | "-Infinity" | "NaN"
+                write: number | "NaN" | "Infinity" | "-Infinity" | "Infinity" | "-Infinity" | "NaN"
+              }
+            }
+          }
+          limit: {
+            context: number | "NaN" | "Infinity" | "-Infinity" | "Infinity" | "-Infinity" | "NaN"
+            input?: number | "NaN" | "Infinity" | "-Infinity" | "Infinity" | "-Infinity" | "NaN"
+            output: number | "NaN" | "Infinity" | "-Infinity" | "Infinity" | "-Infinity" | "NaN"
+          }
+          status: "alpha" | "beta" | "deprecated" | "active"
+          options: {
+            [key: string]: unknown
+          }
+          headers: {
+            [key: string]: string
+          }
+          release_date?: string
+          variants?: {
+            [key: string]: {
+              [key: string]: unknown
+            }
+          }
+          isFree?: boolean
+        }
+      }
+    }>
     default: {
       [key: string]: string
     }

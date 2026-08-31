@@ -15,7 +15,7 @@
 
 import type { Hooks } from "@navi-ai/plugin"
 import { Log } from "@navi-ai/core/util/log"
-import { existsSync, readFileSync, readdirSync, statSync, realpathSync } from "node:fs"
+import { promises as fs } from "node:fs"
 import { join, relative, resolve, dirname } from "node:path"
 import { homedir } from "node:os"
 
@@ -41,12 +41,15 @@ const RULE_EXTENSIONS = [".md", ".mdc"]
 /**
  * Find the project root by looking for marker files
  */
-function findProjectRoot(filePath: string): string | null {
+async function findProjectRoot(filePath: string): Promise<string | null> {
     let dir = dirname(filePath)
     while (dir !== dirname(dir)) {
         for (const marker of PROJECT_MARKERS) {
-            if (existsSync(join(dir, marker))) {
+            try {
+                await fs.access(join(dir, marker))
                 return dir
+            } catch (e) {
+                // Ignore and try next marker
             }
         }
         dir = dirname(dir)
@@ -83,7 +86,7 @@ function parseRuleFrontmatter(content: string): { metadata: RuleFrontmatter; bod
             if (key === "description") {
                 metadata.description = value.replace(/^["']|["']$/g, "")
             } else if (key === "globs") {
-                const globValue = value.replace(/^["'\[]|["'\]]$/g, "")
+                const globValue = value.replace(/^["'[]|["'\]]$/g, "")
                 metadata.globs = globValue.includes(",") ? globValue.split(",").map((g) => g.trim()) : globValue
             } else if (key === "alwaysApply") {
                 metadata.alwaysApply = value.toLowerCase() === "true"
@@ -139,39 +142,54 @@ function shouldApplyRule(
 /**
  * Find rule files in project and user directories
  */
-function findRuleFiles(projectRoot: string | null, userHome: string, targetFile: string): string[] {
+async function findRuleFiles(projectRoot: string | null, userHome: string): Promise<string[]> {
     const ruleFiles: string[] = []
 
     if (projectRoot) {
         // Check single file rules
         for (const ruleFile of PROJECT_RULE_FILES) {
             const path = join(projectRoot, ruleFile)
-            if (existsSync(path)) {
+            try {
+                await fs.access(path)
                 ruleFiles.push(path)
+            } catch (e) {
+                // Ignore and try next
             }
         }
 
         // Check rule directories
         for (const [subdir, rulesDir] of PROJECT_RULE_SUBDIRS) {
             const dir = join(projectRoot, subdir, rulesDir)
-            if (existsSync(dir) && statSync(dir).isDirectory()) {
-                for (const file of readdirSync(dir)) {
-                    if (RULE_EXTENSIONS.some((ext) => file.endsWith(ext))) {
-                        ruleFiles.push(join(dir, file))
+            try {
+                const stat = await fs.stat(dir)
+                if (stat.isDirectory()) {
+                    const files = await fs.readdir(dir)
+                    for (const file of files) {
+                        if (RULE_EXTENSIONS.some((ext) => file.endsWith(ext))) {
+                            ruleFiles.push(join(dir, file))
+                        }
                     }
                 }
+            } catch (e) {
+                // Ignore if path doesn't exist
             }
         }
     }
 
     // Check user-level rules (~/.claude/rules)
     const userRuleDir = join(userHome, ".claude", "rules")
-    if (existsSync(userRuleDir) && statSync(userRuleDir).isDirectory()) {
-        for (const file of readdirSync(userRuleDir)) {
-            if (RULE_EXTENSIONS.some((ext) => file.endsWith(ext))) {
-                ruleFiles.push(join(userRuleDir, file))
+    try {
+        const stat = await fs.stat(userRuleDir)
+        if (stat.isDirectory()) {
+            const files = await fs.readdir(userRuleDir)
+            for (const file of files) {
+                if (RULE_EXTENSIONS.some((ext) => file.endsWith(ext))) {
+                    ruleFiles.push(join(userRuleDir, file))
+                }
             }
         }
+    } catch (e) {
+        // Ignore if path doesn't exist
     }
 
     return ruleFiles
@@ -247,28 +265,28 @@ export function createRulesInjectorHook(options?: RulesInjectorOptions) {
 
             // Get file path from output title (typically the file path)
             const filePath = output.title
-            if (!filePath || !filePath.includes("/") && !filePath.includes("\\")) {
+            if (!filePath || (!filePath.includes("/") && !filePath.includes("\\"))) {
                 return
             }
 
             const resolvedPath = resolve(filePath)
-            const projectRoot = findProjectRoot(resolvedPath)
+            const projectRoot = await findProjectRoot(resolvedPath)
             const cache = getSessionCache(input.sessionID)
 
             // Find applicable rules
-            const ruleFiles = findRuleFiles(projectRoot, userHome, resolvedPath)
+            const ruleFiles = await findRuleFiles(projectRoot, userHome)
             const injectedRules: { path: string; content: string; reason: string }[] = []
 
             for (const rulePath of ruleFiles) {
                 try {
-                    const realPath = realpathSync(rulePath)
+                    const realPath = await fs.realpath(rulePath)
 
                     // Skip if already injected
                     if (cache.injectedPaths.has(realPath)) {
                         continue
                     }
 
-                    const content = readFileSync(rulePath, "utf-8")
+                    const content = await fs.readFile(rulePath, "utf-8")
                     const { metadata, body } = parseRuleFrontmatter(content)
 
                     // Check if rule applies
@@ -295,7 +313,7 @@ export function createRulesInjectorHook(options?: RulesInjectorOptions) {
 
                     cache.injectedPaths.add(realPath)
                     cache.injectedHashes.add(hash)
-                } catch {
+                } catch (e) {
                     // Skip unreadable files
                 }
             }

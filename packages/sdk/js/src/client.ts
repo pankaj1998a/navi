@@ -30,11 +30,17 @@ function rewrite(request: Request, directory?: string) {
   return next
 }
 
+/** Default HTTP idle timeout (Bun Request.timeout). Long enough for agent prompts; finite to avoid hung sockets. */
+const DEFAULT_HTTP_TIMEOUT_MS = 600_000
+
 export function createNaviClient(config?: Config & { directory?: string }) {
   if (!config?.fetch) {
     const customFetch: any = (req: any) => {
-      // @ts-ignore
-      req.timeout = false
+      // Bun: Request.timeout is idle timeout in ms. Browsers ignore this property.
+      // Previously set to `false` (no timeout), which could hang forever on stalled connections.
+      if (req && typeof req === "object") {
+        ;(req as { timeout?: number }).timeout = DEFAULT_HTTP_TIMEOUT_MS
+      }
       return fetch(req)
     }
     config = {

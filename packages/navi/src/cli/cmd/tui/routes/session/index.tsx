@@ -7,6 +7,7 @@ import {
   For,
   Match,
   on,
+  onCleanup,
   onMount,
   Show,
   Switch,
@@ -137,6 +138,8 @@ const sessionBindingCommands = [
   "session.page.down",
   "session.line.up",
   "session.line.down",
+  "session.scroll.left",
+  "session.scroll.right",
   "session.half.page.up",
   "session.half.page.down",
   "session.first",
@@ -218,7 +221,7 @@ export function Session() {
   const [timestamps, setTimestamps] = kv.signal<"hide" | "show">("timestamps", "hide")
   const [showDetails, setShowDetails] = kv.signal("tool_details_visibility", true)
   const [showAssistantMetadata, _setShowAssistantMetadata] = kv.signal("assistant_metadata_visibility", true)
-  const [showScrollbar, setShowScrollbar] = kv.signal("scrollbar_visible", false)
+  const [showScrollbar, setShowScrollbar] = kv.signal("scrollbar_visible", true)
   const [diffWrapMode] = kv.signal<"word" | "none">("diff_wrap_mode", "word")
   const [_animationsEnabled, _setAnimationsEnabled] = kv.signal("animations_enabled", true)
   const [showGenericToolOutput, setShowGenericToolOutput] = kv.signal("generic_tool_output_visibility", false)
@@ -263,7 +266,9 @@ export function Session() {
         // (which will be non-interactive)
         try {
           await sync.bootstrap({ fatal: false })
-        } catch {}
+        } catch (e) {
+          // Ignore non-fatal sync bootstrapping failures for non-existent/legacy workspaces
+        }
       }
       editor.reconnect(result.data.directory)
       await sync.session.sync(sessionID)
@@ -290,9 +295,11 @@ export function Session() {
     if (part.tool === "plan_exit") {
       local.agent.set("build")
       lastSwitch = part.id
+      toast.show({ message: "Plan mode exited — build mode active", variant: "info", duration: 3000 })
     } else if (part.tool === "plan_enter") {
       local.agent.set("plan")
       lastSwitch = part.id
+      toast.show({ message: "Plan mode active — read-only", variant: "warning", duration: 3000 })
     }
   })
 
@@ -405,6 +412,7 @@ export function Session() {
   }
 
   const local = useLocal()
+  const isPlan = createMemo(() => local.agent.current()?.name === "plan")
 
   function moveFirstChild() {
     if (children().length === 1) return
@@ -593,7 +601,9 @@ export function Session() {
       },
       run: async () => {
         const status = sync.data.session_status?.[route.sessionID]
-        if (status?.type !== "idle") await sdk.client.session.abort({ sessionID: route.sessionID }).catch(() => {})
+        if (status?.type !== "idle") await sdk.client.session.abort({ sessionID: route.sessionID }).catch((err) => {
+          // Ignore errors aborting the session
+        })
         const revert = session()?.revert?.messageID
         const message = messages().findLast((x) => (!revert || x.id < revert) && x.role === "user")
         if (!message) return
@@ -746,7 +756,6 @@ export function Session() {
       title: "Line up",
       value: "session.line.up",
       category: "Session",
-      enabled: false,
       run: () => {
         scroll.scrollBy(-1)
         dialog.clear()
@@ -756,9 +765,28 @@ export function Session() {
       title: "Line down",
       value: "session.line.down",
       category: "Session",
-      enabled: false,
       run: () => {
         scroll.scrollBy(1)
+        dialog.clear()
+      },
+    },
+    {
+      title: "Scroll left",
+      value: "session.scroll.left",
+      category: "Session",
+      run: () => {
+        if ("scrollX" in (scroll as any)) (scroll as any).scrollX -= 4
+        else if ("scrollLeft" in (scroll as any)) (scroll as any).scrollLeft -= 4
+        dialog.clear()
+      },
+    },
+    {
+      title: "Scroll right",
+      value: "session.scroll.right",
+      category: "Session",
+      run: () => {
+        if ("scrollX" in (scroll as any)) (scroll as any).scrollX += 4
+        else if ("scrollLeft" in (scroll as any)) (scroll as any).scrollLeft += 4
         dialog.clear()
       },
     },
@@ -913,7 +941,7 @@ export function Session() {
           )
           await Clipboard.copy(transcript)
           toast.show({ message: "Session transcript copied to clipboard!", variant: "success" })
-        } catch {
+        } catch (err) {
           toast.show({ message: "Failed to copy session transcript", variant: "error" })
         }
         dialog.clear()
@@ -974,7 +1002,7 @@ export function Session() {
 
             toast.show({ message: `Session exported to ${filename}`, variant: "success" })
           }
-        } catch {
+        } catch (err) {
           toast.show({ message: "Failed to export session", variant: "error" })
         }
         dialog.clear()
@@ -1099,13 +1127,36 @@ export function Session() {
         <box flexDirection="row" flexGrow={1} minHeight={0}>
           <box flexGrow={1} minHeight={0} paddingBottom={1} paddingLeft={2} paddingRight={2} gap={1}>
             <Show when={session()}>
+              <Show when={isPlan()}>
+                <box
+                  flexShrink={0}
+                  border={["bottom"]}
+                  borderColor={theme.warning}
+                  backgroundColor={theme.backgroundPanel}
+                  paddingLeft={2}
+                  paddingRight={2}
+                  paddingTop={1}
+                  paddingBottom={1}
+                >
+                  <text fg={theme.warning} attributes={TextAttributes.BOLD}>
+                    Plan · Read-Only · /plan_exit to approve
+                  </text>
+                </box>
+              </Show>
               <scrollbox
                 ref={(r) => (scroll = r)}
                 viewportOptions={{
-                  paddingRight: showScrollbar() ? 1 : 0,
+                  paddingRight: 1,
                 }}
                 verticalScrollbarOptions={{
                   paddingLeft: 1,
+                  visible: true,
+                  trackOptions: {
+                    backgroundColor: theme.backgroundElement,
+                    foregroundColor: theme.border,
+                  },
+                }}
+                horizontalScrollbarOptions={{
                   visible: showScrollbar(),
                   trackOptions: {
                     backgroundColor: theme.backgroundElement,

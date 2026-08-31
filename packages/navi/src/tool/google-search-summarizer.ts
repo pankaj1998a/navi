@@ -48,7 +48,8 @@ export async function summarizeWithGoogleAi(
     }
 
     return { mode: "gemini", summary: text.trim() }
-  } catch {
+  } catch (e) {
+    // Fall back to heuristic summary generation on error
     return { mode: "heuristic", summary: summarizeResults(results) }
   }
 }

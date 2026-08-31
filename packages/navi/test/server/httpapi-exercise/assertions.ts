@@ -43,8 +43,11 @@ export function isRecord(value: unknown): value is JsonObject {
   return !!value && typeof value === "object" && !Array.isArray(value)
 }
 
-export function check(value: boolean, message: string): asserts value {
-  if (!value) throw new Error(message)
+export function check(value: boolean, message: string, ...detail: unknown[]): asserts value {
+  if (!value) {
+    const suffix = detail.length > 0 ? " | details: " + detail.map(d => typeof d === "object" ? JSON.stringify(d) : String(d)).join(", ") : ""
+    throw new Error(message + suffix)
+  }
 }
 
 export function message(error: unknown) {

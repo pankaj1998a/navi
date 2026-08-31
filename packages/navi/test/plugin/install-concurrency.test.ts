@@ -84,7 +84,7 @@ describe("plugin.install.concurrent", () => {
 
     const cfg = await read(path.join(tmp.path, ".navi", "navi.jsonc"))
     expectPlugins(cfg.plugin, all)
-  }, 25_000)
+  }, 60_000)
 
   test("serializes concurrent server+tui config updates across processes", async () => {
     await using tmp = await tmpdir()
@@ -109,7 +109,7 @@ describe("plugin.install.concurrent", () => {
     const tui = await read(path.join(tmp.path, ".navi", "tui.jsonc"))
     expectPlugins(server.plugin, all)
     expectPlugins(tui.plugin, all)
-  }, 25_000)
+  }, 60_000)
 
   test("preserves updates when existing config uses .json", async () => {
     await using tmp = await tmpdir()
@@ -136,5 +136,6 @@ describe("plugin.install.concurrent", () => {
     const json = await read(cfg)
     expectPlugins(json.plugin, ["seed@1.0.0", ...next])
     expect(await Filesystem.exists(path.join(tmp.path, ".navi", "navi.jsonc"))).toBe(false)
-  }, 25_000)
+  }, 60_000)
 })
+

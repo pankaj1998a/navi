@@ -132,7 +132,7 @@ function variantsFor(providers: RunProvider[], model: RunInput["model"]) {
     return []
   }
 
-  return Object.keys(providers.find((item) => item.id === model.providerID)?.models?.[model.modelID]?.variants ?? {})
+  return Object.keys((providers.find((item) => item.id === model.providerID)?.models?.[model.modelID] as any)?.variants ?? {})
 }
 
 async function resolveExitTitle(

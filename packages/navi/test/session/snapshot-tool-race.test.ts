@@ -52,6 +52,7 @@ import { SessionRunState } from "../../src/session/run-state"
 import { SessionStatus } from "../../src/session/status"
 import { Snapshot } from "../../src/snapshot"
 import { ToolRegistry } from "@/tool/registry"
+import { BackgroundJob } from "@/background-job"
 import { Memory } from "@/memory"
 import { History } from "@/history"
 import { Truncate } from "@/tool/truncate"
@@ -107,7 +108,6 @@ const lsp = Layer.succeed(
 )
 
 const status = SessionStatus.layer.pipe(Layer.provideMerge(Bus.layer))
-const run = SessionRunState.layer.pipe(Layer.provide(status))
 const infra = Layer.mergeAll(NodeFileSystem.layer, CrossSpawnSpawner.defaultLayer)
 
 function makeHttp() {
@@ -130,6 +130,7 @@ function makeHttp() {
   const question = Question.layer.pipe(Layer.provideMerge(deps))
   const todo = Todo.layer.pipe(Layer.provideMerge(deps))
   const registry = ToolRegistry.layer.pipe(
+    Layer.provide(BackgroundJob.layer),
     Layer.provide(Skill.defaultLayer),
     Layer.provide(FetchHttpClient.layer),
     Layer.provide(CrossSpawnSpawner.defaultLayer),
@@ -143,13 +144,18 @@ function makeHttp() {
     Layer.provideMerge(question),
     Layer.provideMerge(deps),
   )
-  const trunc = Truncate.layer.pipe(Layer.provideMerge(deps))
+  const trunc = Truncate.defaultLayer.pipe(Layer.provideMerge(deps))
   const proc = SessionProcessor.layer.pipe(
     Layer.provide(SessionSummary.defaultLayer),
     Layer.provide(Image.defaultLayer),
     Layer.provideMerge(deps),
   )
   const compact = SessionCompaction.layer.pipe(Layer.provideMerge(proc), Layer.provideMerge(deps))
+  const run = SessionRunState.layer.pipe(
+    Layer.provide(status),
+    Layer.provide(BackgroundJob.layer),
+    Layer.provideMerge(deps),
+  )
   return Layer.mergeAll(
     TestLLMServer.layer,
     SessionSummary.defaultLayer,
@@ -169,7 +175,8 @@ function makeHttp() {
   )
 }
 
-const it = testEffect(makeHttp())
+const httpLayer: Layer.Layer<any, any, never> = makeHttp()
+const it = testEffect(httpLayer)
 
 const providerCfg = (url: string) => ({
   provider: {

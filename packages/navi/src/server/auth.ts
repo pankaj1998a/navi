@@ -4,6 +4,8 @@ import { ConfigService } from "@/effect/config-service"
 import { Flag } from "@navi-ai/core/flag/flag"
 import { Config as EffectConfig, Context, Option, Redacted } from "effect"
 
+import crypto from "node:crypto"
+
 export type Credentials = {
   password?: string
   username?: string
@@ -25,11 +27,21 @@ export function required(config: Info) {
   return Option.isSome(config.password) && config.password.value !== ""
 }
 
+export function safeCompare(a: string, b: string): boolean {
+  const aBuf = Buffer.from(a)
+  const bBuf = Buffer.from(b)
+  if (aBuf.length !== bBuf.length) {
+    crypto.timingSafeEqual(aBuf, aBuf)
+    return false
+  }
+  return crypto.timingSafeEqual(aBuf, bBuf)
+}
+
 export function authorized(credentials: DecodedCredentials, config: Info) {
   return (
     Option.isSome(config.password) &&
     credentials.username === config.username &&
-    Redacted.value(credentials.password) === config.password.value
+    safeCompare(Redacted.value(credentials.password), config.password.value)
   )
 }
 

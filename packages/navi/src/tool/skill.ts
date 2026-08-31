@@ -47,13 +47,18 @@ export const SkillTool = Tool.define(
             Effect.map((chunk) => [...chunk].map((file) => `<file>${file}</file>`).join("\n")),
           )
 
+          const sanitizedContent = info.content
+            .trim()
+            .replace(/<\/skill_content>/gi, "")
+            .replace(/<system-reminder>/gi, "[filtered-system-reminder]")
+            .replace(/<\/system-reminder>/gi, "[filtered-system-reminder]")
           return {
             title: `Loaded skill: ${info.name}`,
             output: [
               `<skill_content name="${info.name}">`,
               `# Skill: ${info.name}`,
               "",
-              info.content.trim(),
+              sanitizedContent,
               "",
               `Base directory for this skill: ${base}`,
               "Relative paths in this skill (e.g., scripts/, reference/) are relative to this base directory.",

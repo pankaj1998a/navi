@@ -1,0 +1,9 @@
+Help the user inspect, configure, or create scheduled background tasks and recurring cron jobs.
+
+Input: $ARGUMENTS
+
+If the input asks to list or check jobs, use the `schedule` tool with `action: "list"`.
+If the input describes a recurring task or reminder:
+1. Formulate a 5-field cron expression (or interval).
+2. Propose or execute the `schedule` tool with `action: "create"`, specifying the name, command, and expression.
+3. Confirm the next scheduled run times with the user.

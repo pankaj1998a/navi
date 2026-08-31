@@ -1,4 +1,4 @@
-import { createEffect, onMount } from "solid-js"
+import { batch, createEffect, onMount } from "solid-js"
 import { createStore } from "solid-js/store"
 import { makeEventListener } from "@solid-primitives/event-listener"
 import { createSimpleContext } from "../context/helper"
@@ -233,8 +233,10 @@ export const { use: useTheme, provider: ThemeProvider } = createSimpleContext({
         })
       }
       if (e.key === STORAGE_KEYS.COLOR_SCHEME && e.newValue) {
-        setStore("colorScheme", e.newValue as ColorScheme)
-        setStore("mode", e.newValue === "system" ? getSystemMode() : (e.newValue as "light" | "dark"))
+        batch(() => {
+          setStore("colorScheme", e.newValue as ColorScheme)
+          setStore("mode", e.newValue === "system" ? getSystemMode() : (e.newValue as "light" | "dark"))
+        })
       }
     }
 
@@ -255,9 +257,11 @@ export const { use: useTheme, provider: ThemeProvider } = createSimpleContext({
         write(STORAGE_KEYS.THEME_ID, savedTheme)
         clear()
       }
-      if (savedTheme !== store.themeId) setStore("themeId", savedTheme)
-      if (savedScheme !== store.colorScheme) setStore("colorScheme", savedScheme)
-      setStore("mode", savedScheme === "system" ? getSystemMode() : savedScheme)
+      batch(() => {
+        if (savedTheme !== store.themeId) setStore("themeId", savedTheme)
+        if (savedScheme !== store.colorScheme) setStore("colorScheme", savedScheme)
+        setStore("mode", savedScheme === "system" ? getSystemMode() : savedScheme)
+      })
       void load(savedTheme).then((theme) => {
         if (!theme || store.themeId !== savedTheme) return
         cacheThemeVariants(theme, savedTheme)
@@ -294,9 +298,11 @@ export const { use: useTheme, provider: ThemeProvider } = createSimpleContext({
     }
 
     const setColorScheme = (scheme: ColorScheme) => {
-      setStore("colorScheme", scheme)
+      batch(() => {
+        setStore("colorScheme", scheme)
+        setStore("mode", scheme === "system" ? getSystemMode() : scheme)
+      })
       write(STORAGE_KEYS.COLOR_SCHEME, scheme)
-      setStore("mode", scheme === "system" ? getSystemMode() : scheme)
     }
 
     return {
@@ -343,12 +349,16 @@ export const { use: useTheme, provider: ThemeProvider } = createSimpleContext({
         if (store.previewScheme) {
           setColorScheme(store.previewScheme)
         }
-        setStore("previewThemeId", null)
-        setStore("previewScheme", null)
+        batch(() => {
+          setStore("previewThemeId", null)
+          setStore("previewScheme", null)
+        })
       },
       cancelPreview: () => {
-        setStore("previewThemeId", null)
-        setStore("previewScheme", null)
+        batch(() => {
+          setStore("previewThemeId", null)
+          setStore("previewScheme", null)
+        })
         void load(store.themeId).then((theme) => {
           if (!theme) return
           applyTheme(theme, store.themeId, store.mode)

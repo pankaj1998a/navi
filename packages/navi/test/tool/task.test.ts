@@ -1,5 +1,5 @@
 import { afterEach, describe, expect } from "bun:test"
-import { Effect, Exit, Fiber, Layer } from "effect"
+import { Cause, Effect, Exit, Fiber, Layer } from "effect"
 import { Agent } from "@/agent/agent"
 import { Config } from "@/config/config"
 import { CrossSpawnSpawner } from "@navi-ai/core/cross-spawn-spawner"
@@ -13,6 +13,7 @@ import { Truncate } from "@/tool/truncate"
 import { ToolRegistry } from "@/tool/registry"
 import { SessionStatus } from "@/session/status"
 import { Git } from "@/git"
+import { BackgroundJob } from "@/background-job"
 import { disposeAllInstances } from "../fixture/fixture"
 import { testEffect } from "../lib/effect"
 
@@ -35,6 +36,7 @@ const it = testEffect(
     ToolRegistry.defaultLayer,
     SessionStatus.defaultLayer,
     Git.defaultLayer,
+    BackgroundJob.layer,
   ),
 )
 
@@ -229,7 +231,7 @@ describe("tool.task", () => {
       expect(kids).toHaveLength(1)
       expect(kids[0]?.id).toBe(child.id)
       expect(result.metadata.sessionId).toBe(child.id)
-      expect(result.output).toContain(`task_id: ${child.id}`)
+      expect(result.output).toContain(`<task id="${child.id}" state="completed">`)
       expect(seen?.sessionID).toBe(child.id)
     }),
   )
@@ -363,7 +365,7 @@ describe("tool.task", () => {
       expect(kids).toHaveLength(1)
       expect(kids[0]?.id).toBe(result.metadata.sessionId)
       expect(result.metadata.sessionId).not.toBe("ses_missing")
-      expect(result.output).toContain(`task_id: ${result.metadata.sessionId}`)
+      expect(result.output).toContain(`<task id="${result.metadata.sessionId}" state="completed">`)
       expect(seen?.sessionID).toBe(result.metadata.sessionId)
     }),
   )
@@ -434,6 +436,149 @@ describe("tool.task", () => {
         },
         experimental: {
           primary_tools: ["bash", "read"],
+        },
+      },
+    },
+  )
+
+  it.instance(
+    "execute fails when background is true and background subagents are disabled",
+    () =>
+      Effect.gen(function* () {
+        const { chat, assistant } = yield* seed()
+        const tool = yield* TaskTool
+        const def = yield* tool.init()
+        const promptOps = stubOps()
+
+        const exit = yield* def.execute(
+          {
+            description: "inspect bug",
+            prompt: "look into the cache key path",
+            subagent_type: "general",
+            background: true,
+          },
+          {
+            sessionID: chat.id,
+            messageID: assistant.id,
+            agent: "build",
+            abort: new AbortController().signal,
+            extra: { promptOps },
+            messages: [],
+            metadata: () => Effect.void,
+            ask: () => Effect.void,
+          },
+        ).pipe(Effect.exit)
+
+        if (Exit.isFailure(exit)) {
+          const err = Cause.squash(exit.cause) as Error
+          expect(err.message).toContain("Background subagents are disabled via configuration")
+        } else {
+          throw new Error("expected failure")
+        }
+      }),
+    {
+      config: {
+        experimental: {
+          background_subagents: false,
+        },
+      },
+    },
+  )
+
+  it.instance(
+    "execute succeeds when background is true and background subagents are enabled via config",
+    () =>
+      Effect.gen(function* () {
+        const { chat, assistant } = yield* seed()
+        const tool = yield* TaskTool
+        const def = yield* tool.init()
+        const promptOps = stubOps()
+
+        const result = yield* def.execute(
+          {
+            description: "inspect bug",
+            prompt: "look into the cache key path",
+            subagent_type: "reviewer",
+            background: true,
+          },
+          {
+            sessionID: chat.id,
+            messageID: assistant.id,
+            agent: "build",
+            abort: new AbortController().signal,
+            extra: { promptOps },
+            messages: [],
+            metadata: () => Effect.void,
+            ask: () => Effect.void,
+          },
+        )
+
+        expect(result.metadata.background).toBe(true)
+        expect(result.output).toContain("Background task started")
+      }),
+    {
+      config: {
+        agent: {
+          reviewer: {
+            mode: "subagent",
+            permission: {
+              task: "allow",
+            },
+          },
+        },
+        experimental: {
+          background_subagents: true,
+        },
+      },
+    },
+  )
+
+  it.instance(
+    "execute uses subagent configured model when specified in config rather than parent agent model",
+    () =>
+      Effect.gen(function* () {
+        const { chat, assistant } = yield* seed()
+        const tool = yield* TaskTool
+        const def = yield* tool.init()
+        let promptModel: { providerID: string; modelID: string } | undefined
+        const promptOps = stubOps({
+          onPrompt: (input) => {
+            promptModel = input.model
+          },
+        })
+
+        yield* def.execute(
+          {
+            description: "explore codebase",
+            prompt: "find all api endpoints",
+            subagent_type: "custom_explorer",
+          },
+          {
+            sessionID: chat.id,
+            messageID: assistant.id,
+            agent: "build",
+            abort: new AbortController().signal,
+            extra: { promptOps },
+            messages: [],
+            metadata: () => Effect.void,
+            ask: () => Effect.void,
+          },
+        )
+
+        expect(promptModel).toBeDefined()
+        expect(promptModel?.providerID).toBe("openai")
+        expect(promptModel?.modelID).toBe("gpt-4o-mini")
+      }),
+    {
+      config: {
+        agent: {
+          custom_explorer: {
+            mode: "subagent",
+            model: "openai/gpt-4o-mini",
+            permission: {
+              task: "allow",
+            },
+          },
         },
       },
     },

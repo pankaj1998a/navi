@@ -1,4 +1,4 @@
-import { createMemo, createSignal } from "solid-js"
+import { createMemo, createSignal, Show } from "solid-js"
 import { useLocal } from "@tui/context/local"
 import { useSync } from "@tui/context/sync"
 import { useSDK } from "@tui/context/sdk"
@@ -9,18 +9,39 @@ import { createDialogProviderOptions, DialogProvider } from "./dialog-provider"
 import { DialogVariant } from "./dialog-variant"
 import * as fuzzysort from "fuzzysort"
 import { useConnected } from "./use-connected"
+import { useTheme } from "@tui/context/theme"
 
 export function DialogModel(props: { providerID?: string; agent?: string }) {
   const local = useLocal()
   const sync = useSync()
   const sdk = useSDK()
   const dialog = useDialog()
+  const { theme } = useTheme()
   const [query, setQuery] = createSignal("")
 
   const connected = useConnected()
   const providers = createDialogProviderOptions()
 
   const showExtra = createMemo(() => connected() && !props.providerID)
+
+  function staleBadge(model: any): string | undefined {
+    const catalog = (model as any)?.catalog as { source?: string; fetchedAt?: string; ageMs?: number } | undefined
+    if (!catalog || catalog.source !== "stale-cache") return undefined
+    const ageMs = catalog.ageMs ?? (catalog.fetchedAt ? Date.now() - new Date(catalog.fetchedAt).getTime() : 0)
+    const days = Math.floor(ageMs / (24 * 60 * 60 * 1000))
+    const age = days > 0 ? `${days}d` : `${Math.floor(ageMs / (60 * 60 * 1000))}h`
+    return `cached ${age} ago · stale`
+  }
+
+  function modelFooter(model: any, fallback?: string): string | import("solid-js").JSX.Element | undefined {
+    const badge = staleBadge(model)
+    if (badge) {
+      // yellow stale badge - combine with fallback if present
+      const text = fallback ? `${fallback} · ${badge}` : badge
+      return (<span style={{ fg: theme.warning }}>{text}</span>) as any
+    }
+    return fallback
+  }
 
   const options = createMemo(() => {
     // ... same options logic ...
@@ -37,6 +58,7 @@ export function DialogModel(props: { providerID?: string; agent?: string }) {
         if (!provider) return []
         const model = provider.models[item.modelID]
         if (!model) return []
+        const free = model.cost?.input === 0 && provider.id === "navi" ? "Free" : undefined
         return [
           {
             key: item,
@@ -45,7 +67,7 @@ export function DialogModel(props: { providerID?: string; agent?: string }) {
             description: provider.name,
             category,
             disabled: provider.id === "navi" && model.id.includes("-nano"),
-            footer: model.cost?.input === 0 && provider.id === "navi" ? "Free" : undefined,
+            footer: modelFooter(model, free),
             onSelect: () => {
               onSelect(provider.id, model.id)
             },
@@ -74,19 +96,22 @@ export function DialogModel(props: { providerID?: string; agent?: string }) {
           entries(),
           filter(([_, info]) => info.status !== "deprecated"),
           filter(([_, info]) => (props.providerID ? info.providerID === props.providerID : true)),
-          map(([model, info]) => ({
-            value: { providerID: provider.id, modelID: model },
-            title: info.name ?? model,
-            description: favorites.some((item) => item.providerID === provider.id && item.modelID === model)
-              ? "(Favorite)"
-              : undefined,
-            category: connected() ? provider.name : undefined,
-            disabled: provider.id === "navi" && model.includes("-nano"),
-            footer: info.cost?.input === 0 && provider.id === "navi" ? "Free" : undefined,
-            onSelect() {
-              onSelect(provider.id, model)
-            },
-          })),
+          map(([model, info]) => {
+            const free = info.cost?.input === 0 && provider.id === "navi" ? "Free" : undefined
+            return {
+              value: { providerID: provider.id, modelID: model },
+              title: info.name ?? model,
+              description: favorites.some((item) => item.providerID === provider.id && item.modelID === model)
+                ? "(Favorite)"
+                : undefined,
+              category: connected() ? provider.name : undefined,
+              disabled: provider.id === "navi" && model.includes("-nano"),
+              footer: modelFooter(info, free),
+              onSelect() {
+                onSelect(provider.id, model)
+              },
+            }
+          }),
           filter((x) => {
             if (!showSections) return true
             if (favorites.some((item) => item.providerID === x.value.providerID && item.modelID === x.value.modelID))
@@ -159,7 +184,7 @@ export function DialogModel(props: { providerID?: string; agent?: string }) {
               model: `${providerID}/${modelID}`,
             },
           },
-        } as Parameters<typeof sdk.client.config.update>[0]["config"],
+        } as NonNullable<Parameters<typeof sdk.client.config.update>[0]>["config"],
       })
     } catch {
       // best-effort: don't break the dialog if config persistence fails
@@ -191,31 +216,48 @@ export function DialogModel(props: { providerID?: string; agent?: string }) {
     dialog.clear()
   }
 
+  const selectedStale = createMemo(() => {
+    const cur = local.model.current()
+    if (!cur) return undefined
+    const provider = sync.data.provider.find((p) => p.id === cur.providerID)
+    const model = provider?.models[cur.modelID] as any
+    return staleBadge(model)
+  })
+
   return (
-    <DialogSelect<ReturnType<typeof options>[number]["value"]>
-      options={options()}
-      actions={[
-        {
-          command: "model.dialog.provider",
-          title: connected() ? "Connect provider" : "View all providers",
-          onTrigger() {
-            dialog.replace(() => <DialogProvider />)
+    <box flexDirection="column" gap={1}>
+      <DialogSelect<ReturnType<typeof options>[number]["value"]>
+        options={options()}
+        actions={[
+          {
+            command: "model.dialog.provider",
+            title: connected() ? "Connect provider" : "View all providers",
+            onTrigger() {
+              dialog.replace(() => <DialogProvider />)
+            },
           },
-        },
-        {
-          command: "model.dialog.favorite",
-          title: "Favorite",
-          disabled: !connected(),
-          onTrigger: (option) => {
-            local.model.toggleFavorite(option.value as { providerID: string; modelID: string })
+          {
+            command: "model.dialog.favorite",
+            title: "Favorite",
+            disabled: !connected(),
+            onTrigger: (option) => {
+              local.model.toggleFavorite(option.value as { providerID: string; modelID: string })
+            },
           },
-        },
-      ]}
-      onFilter={setQuery}
-      flat={true}
-      skipFilter={true}
-      title={title()}
-      current={local.model.current()}
-    />
+        ]}
+        onFilter={setQuery}
+        flat={true}
+        skipFilter={true}
+        title={title()}
+        current={local.model.current()}
+      />
+      <Show when={selectedStale()}>
+        {(badge) => (
+          <box paddingLeft={4} paddingRight={4}>
+            <text fg={theme.warning}>{badge()}</text>
+          </box>
+        )}
+      </Show>
+    </box>
   )
 }

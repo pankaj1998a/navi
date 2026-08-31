@@ -1,4 +1,3 @@
-import { Player } from "cli-sound"
 import { mkdirSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { basename, join } from "node:path"
@@ -43,7 +42,6 @@ function args(kind: Kind, file: string, volume: number) {
   return [kind, "-c", `(New-Object Media.SoundPlayer '${file.replace(/'/g, "''")}').PlaySync()`]
 }
 
-let item: Player | null | undefined
 let kind: Kind | null | undefined
 let proc: Process.Child | undefined
 let tail: ReturnType<typeof setTimeout> | undefined
@@ -51,56 +49,49 @@ let cache: Promise<{ hum: string; pulse: string[] }> | undefined
 let seq = 0
 let shot = 0
 
-function load() {
-  if (item !== undefined) return item
-  try {
-    item = new Player({ volume: 0.35 })
-  } catch {
-    item = null
-  }
-  return item
-}
-
-async function file(path: string) {
-  mkdirSync(DIR, { recursive: true })
-  const next = join(DIR, basename(path))
-  const out = Bun.file(next)
-  if (await out.exists()) return next
-  await Bun.write(out, Bun.file(path))
-  return next
-}
-
-function asset() {
-  cache ??= Promise.all([file(HUM), Promise.all(FILE.map(file))]).then(([hum, pulse]) => ({ hum, pulse }))
-  return cache
-}
-
-function pick() {
-  if (kind !== undefined) return kind
-  kind = LIST.find((item) => which(item)) ?? null
-  return kind
-}
-
-function run(file: string, volume: number) {
-  const kind = pick()
-  if (!kind) return
-  return Process.spawn(args(kind, file, volume), {
-    stdin: "ignore",
-    stdout: "ignore",
-    stderr: "ignore",
-  })
-}
-
 function clear() {
   if (!tail) return
   clearTimeout(tail)
   tail = undefined
 }
 
+function asset(): Promise<{ hum: string; pulse: string[] }> {
+  if (cache) return cache
+  cache = (async () => {
+    mkdirSync(DIR, { recursive: true })
+    const pulsePaths: string[] = []
+    for (const f of FILE) {
+      const target = join(DIR, basename(f))
+      await Bun.write(target, Bun.file(f))
+      pulsePaths.push(target)
+    }
+    const humTarget = join(DIR, basename(HUM))
+    await Bun.write(humTarget, Bun.file(HUM))
+    return { hum: humTarget, pulse: pulsePaths }
+  })()
+  return cache
+}
+
+function run(file: string, volume: number): Process.Child | undefined {
+  if (kind === null) return
+  if (kind === undefined) {
+    for (const item of LIST) {
+      if (which(item)) {
+        kind = item
+        break
+      }
+    }
+    if (!kind) {
+      kind = null
+      return
+    }
+  }
+  const cmdArgs = args(kind, file, volume)
+  return Process.spawn(cmdArgs, { stdin: "ignore", stdout: "ignore", stderr: "ignore" })
+}
+
 function play(file: string, volume: number) {
-  const item = load()
-  if (!item) return run(file, volume)?.exited
-  return item.play(file, { volume }).catch(() => run(file, volume)?.exited)
+  return run(file, volume)?.exited
 }
 
 export function start() {
@@ -145,7 +136,10 @@ export function pulse(scale = 1) {
   stop(140)
   const index = shot++ % FILE.length
   void asset()
-    .then(({ pulse }) => play(pulse[index], 0.26 + 0.14 * scale))
+    .then(({ pulse }) => {
+      const target = pulse[index]
+      if (target) void play(target, 0.26 + 0.14 * scale)
+    })
     .catch(() => undefined)
 }
 

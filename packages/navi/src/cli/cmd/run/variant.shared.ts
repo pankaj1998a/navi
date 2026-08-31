@@ -43,7 +43,7 @@ function modelInfo(providers: RunProvider[] | undefined, model: NonNullable<RunI
   const provider = providers?.find((item) => item.id === model.providerID)
   return {
     provider: provider?.name ?? model.providerID,
-    model: provider?.models[model.modelID]?.name ?? model.modelID,
+    model: (provider?.models[model.modelID] as any)?.name ?? model.modelID,
   }
 }
 

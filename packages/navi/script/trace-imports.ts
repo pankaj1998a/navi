@@ -1,4 +1,5 @@
 #!/usr/bin/env bun
+// @ts-nocheck
 import * as path from "path"
 import * as ts from "typescript"
 

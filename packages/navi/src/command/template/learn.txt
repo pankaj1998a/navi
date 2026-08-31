@@ -1,0 +1,6 @@
+Analyze the recent interaction, user correction, or stated preference: "$ARGUMENTS"
+
+Extract persistent project guidelines, engineering rules, or behavioral corrections:
+1. Summarize the rule or lesson concisely.
+2. Check existing rules in AGENTS.md or .navi/rules/ if they exist.
+3. Propose or write the new guideline into AGENTS.md or `.navi/rules/` so future sessions will remember it.

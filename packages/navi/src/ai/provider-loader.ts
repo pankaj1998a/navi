@@ -65,7 +65,7 @@ export class ProviderLoader {
                     throw new Error(`Unknown provider: ${providerId}`)
             }
         } catch (e) {
-            throw new Error(`Failed to load provider ${providerId}: ${e}`)
+            throw new Error(`Failed to load provider ${providerId}: ${e}`, { cause: e })
         }
 
         this.loadedProviders.set(providerId, providerModule)

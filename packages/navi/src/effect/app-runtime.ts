@@ -123,11 +123,15 @@ const wrap = (effect: Parameters<typeof rt.runSync>[0]) => {
   try {
     const inst = Instance.current
     next = Effect.provideService(next, InstanceRef, inst)
-  } catch (e) {}
+  } catch (e) {
+    // Ignore error if Instance.current is accessed outside of an active context.
+  }
   try {
     const ws = WorkspaceContext.workspaceID
     next = Effect.provideService(next, WorkspaceRef, ws)
-  } catch (e) {}
+  } catch (e) {
+    // Ignore error if WorkspaceContext.workspaceID is accessed outside of an active context.
+  }
   return next as never
 }
 

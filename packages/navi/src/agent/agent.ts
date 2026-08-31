@@ -11,6 +11,9 @@ import PROMPT_GENERATE from "./generate.txt"
 import PROMPT_COMPACTION from "./prompt/compaction.txt"
 import PROMPT_EXPLORE from "./prompt/explore.txt"
 import PROMPT_SCOUT from "./prompt/scout.txt"
+import PROMPT_REVIEWER from "./prompt/reviewer.txt"
+import PROMPT_TDD from "./prompt/tdd.txt"
+import PROMPT_BRIDGE from "./prompt/bridge.txt"
 import PROMPT_SUMMARY from "./prompt/summary.txt"
 import PROMPT_TITLE from "./prompt/title.txt"
 import { Permission } from "@/permission"
@@ -199,6 +202,63 @@ export const layer = Layer.effect(
             ),
             description: `Fast agent specialized for exploring codebases. Use this when you need to quickly find files by patterns (eg. "src/components/**/*.tsx"), search code for keywords (eg. "API endpoints"), or answer questions about the codebase (eg. "how do API endpoints work?"). When calling this agent, specify the desired thoroughness level: "quick" for basic searches, "medium" for moderate exploration, or "very thorough" for comprehensive analysis across multiple locations and naming conventions.`,
             prompt: PROMPT_EXPLORE,
+            options: {},
+            mode: "subagent",
+            native: true,
+          },
+          reviewer: {
+            name: "reviewer",
+            permission: Permission.merge(
+              defaults,
+              Permission.fromConfig({
+                "*": "deny",
+                grep: "allow",
+                glob: "allow",
+                read: "allow",
+                bash: "allow",
+                question: "allow",
+                external_directory: readonlyExternalDirectory,
+              }),
+              user,
+            ),
+            description: `Elite code review and security auditing agent. Use this agent to inspect git diffs, audit security vulnerabilities (OWASP, credential leaks, SSRF, injection), check performance and resource leaks, and verify adherence to strict project conventions before merging or committing code.`,
+            prompt: PROMPT_REVIEWER,
+            options: {},
+            mode: "subagent",
+            native: true,
+          },
+          tdd: {
+            name: "tdd",
+            permission: Permission.merge(
+              defaults,
+              Permission.fromConfig({
+                "*": "allow",
+              }),
+              user,
+            ),
+            description: `Test-Driven Development (TDD) engineer. Use this agent to write failing reproduction unit tests first, execute targeted test runners, implement minimal code to pass tests, and refactor with empirical safety.`,
+            prompt: PROMPT_TDD,
+            options: {},
+            mode: "subagent",
+            native: true,
+          },
+          bridge: {
+            name: "bridge",
+            permission: Permission.merge(
+              defaults,
+              Permission.fromConfig({
+                "*": "deny",
+                browser: "allow",
+                read: "allow",
+                webfetch: "allow",
+                websearch: "allow",
+                question: "allow",
+                external_directory: readonlyExternalDirectory,
+              }),
+              user,
+            ),
+            description: `Frontier AI Web Bridge subagent. Use this subagent to consult frontier AI web models (Kimi, DeepSeek, Claude, ChatGPT, Perplexity) via browser automation in an isolated sandbox. Enforces 1-site-at-a-time consultations, verified page closure, and shields main agent context from DOM bloat.`,
+            prompt: PROMPT_BRIDGE,
             options: {},
             mode: "subagent",
             native: true,

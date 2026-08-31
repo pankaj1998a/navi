@@ -99,7 +99,7 @@ export async function openBrowserSecurely(url: string): Promise<void> {
       }
     }
 
-    throw new Error(`Failed to open browser: ${error instanceof Error ? error.message : "Unknown error"}`)
+    throw new Error(`Failed to open browser: ${error instanceof Error ? error.message : "Unknown error"}`, { cause: error })
   }
 }
 

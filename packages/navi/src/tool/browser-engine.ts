@@ -3,8 +3,7 @@
  * Shared headless browser engine for all web tools (search, fetch, crawl, scrape).
  * Uses Puppeteer + locally-installed Chrome/Chromium — no external service required.
  */
-import * as chromeLauncher from "chrome-launcher"
-import puppeteer, { type Browser, type Page } from "puppeteer-core"
+import type { Browser, Page } from "puppeteer-core"
 import TurndownService from "turndown"
 import * as Log from "@navi-ai/core/util/log"
 
@@ -21,11 +20,12 @@ let _browser: Browser | undefined
 let _browserRefCount = 0
 
 async function getChromePath(): Promise<string> {
-    // 1) Try chrome-launcher first
+    // 1) Try chrome-launcher first (lazy-loaded to avoid startup cost)
     try {
+        const chromeLauncher = await import("chrome-launcher")
         const found = chromeLauncher.Launcher.getFirstInstallation()
         if (found) return found
-    } catch {
+    } catch (e) {
         // chrome-launcher failed, fall through to manual detection
     }
 
@@ -109,6 +109,7 @@ export async function getBrowser(opts?: { visible?: boolean }): Promise<Browser>
     }
 
     log.info("launching headless browser")
+    const puppeteer = (await import("puppeteer-core")).default
     _browser = await puppeteer.launch(launchOpts)
     _browser.on("disconnected", () => {
         log.warn("browser disconnected")

@@ -358,11 +358,10 @@ function ApiMethod(props: ApiMethodProps) {
           navi: (
             <box gap={1}>
               <text fg={theme.textMuted}>
-                Navi Zen gives you access to all the best coding models at the cheapest prices with a single API
-                key.
+                Navi gives you access to models with a single API key.
               </text>
               <text fg={theme.text}>
-                Go to <span style={{ fg: theme.primary }}>https://navi.ai/zen</span> to get a key
+                Go to <span style={{ fg: theme.primary }}>https://navi.ai</span> to get a key
               </text>
             </box>
           ),
@@ -373,7 +372,7 @@ function ApiMethod(props: ApiMethodProps) {
                 with generous usage limits.
               </text>
               <text fg={theme.text}>
-                Go to <span style={{ fg: theme.primary }}>https://navi.ai/zen</span> and enable Navi Go
+                Go to <span style={{ fg: theme.primary }}>https://navi.ai</span> and enable Navi Go
               </text>
             </box>
           ),

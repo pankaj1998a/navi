@@ -68,7 +68,9 @@ function message(providerID: ProviderID, e: APICallError) {
       if (errMsg && typeof errMsg === "string") {
         return `${msg}: ${errMsg}`
       }
-    } catch {}
+    } catch (err) {
+      // Ignore JSON parse errors for non-JSON responses
+    }
 
     // If responseBody is HTML (e.g. from a gateway or proxy error page),
     // provide a human-readable message instead of dumping raw markup

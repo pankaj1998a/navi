@@ -27,7 +27,22 @@ import { ContentBash } from "./content-bash"
 import { ContentError } from "./content-error"
 import { formatCount, formatDuration, formatNumber, normalizeLocale, useShareMessages } from "../share/common"
 import { ContentMarkdown } from "./content-markdown"
-import type { MessageV2 } from "navi/session/message-v2"
+import type {
+  Message as SDKMessage,
+  Part as SDKPart,
+  ToolPart as SDKToolPart,
+  ToolStateCompleted as SDKToolStateCompleted,
+  AssistantMessage as SDKAssistantMessage,
+} from "@navi-ai/sdk/v2"
+
+declare namespace MessageV2 {
+  type Info = SDKMessage
+  type Part = SDKPart
+  type ToolPart = SDKToolPart
+  type ToolStateCompleted = SDKToolStateCompleted
+  type Assistant = SDKAssistantMessage
+}
+
 import type { Diagnostic } from "vscode-languageserver-types"
 
 import styles from "./part.module.css"

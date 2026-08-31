@@ -29,6 +29,10 @@ const FOLDERS = new Set([
   "mypy_cache",
   ".history",
   ".gradle",
+  ".artifacts",
+  ".gemini",
+  ".bundle",
+  ".yarn",
 ])
 
 const FILES = [

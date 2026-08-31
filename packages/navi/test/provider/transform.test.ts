@@ -847,11 +847,83 @@ describe("ProviderTransform.schema - gemini non-object properties removal", () =
           properties: { invalid: { type: "string" } },
         },
       },
+      required: ["data"],
     } as any
 
     const result = ProviderTransform.schema(openaiModel, schema) as any
 
     expect(result.properties.data.properties).toBeDefined()
+  })
+})
+
+describe("ProviderTransform.schema - openai/azure strict schema sanitization", () => {
+  const openaiModel = {
+    providerID: "openai",
+    api: {
+      id: "gpt-4",
+    },
+  } as any
+
+  test("makes optional properties nullable and sets additionalProperties to false", () => {
+    const schema = {
+      type: "object",
+      properties: {
+        requiredField: { type: "string" },
+        optionalField: { type: "number" },
+        optionalWithAnyOf: { anyOf: [{ type: "boolean" }] },
+        optionalWithTypeArray: { type: ["string", "number"] },
+      },
+      required: ["requiredField"],
+    } as any
+
+    const result = ProviderTransform.schema(openaiModel, schema) as any
+
+    expect(result.additionalProperties).toBe(false)
+    expect(result.required).toEqual([
+      "requiredField",
+      "optionalField",
+      "optionalWithAnyOf",
+      "optionalWithTypeArray",
+    ])
+    expect(result.properties.requiredField).toEqual({ type: "string" })
+    expect(result.properties.optionalField).toEqual({
+      anyOf: [{ type: "number" }, { type: "null" }],
+    })
+    expect(result.properties.optionalWithAnyOf).toEqual({
+      anyOf: [{ type: "boolean" }, { type: "null" }],
+    })
+    expect(result.properties.optionalWithTypeArray).toEqual({
+      type: ["string", "number", "null"],
+    })
+  })
+
+  test("recursively sanitizes nested objects", () => {
+    const schema = {
+      type: "object",
+      properties: {
+        nested: {
+          type: "object",
+          properties: {
+            innerOptional: { type: "string" },
+          },
+        },
+      },
+    } as any
+
+    const result = ProviderTransform.schema(openaiModel, schema) as any
+
+    expect(result.additionalProperties).toBe(false)
+    expect(result.required).toEqual(["nested"])
+
+    const nested = result.properties.nested.anyOf[0]
+    expect(nested.type).toBe("object")
+    expect(nested.additionalProperties).toBe(false)
+    expect(nested.required).toEqual(["innerOptional"])
+    expect(nested.properties.innerOptional).toEqual({
+      anyOf: [{ type: "string" }, { type: "null" }],
+    })
+
+    expect(result.properties.nested.anyOf[1]).toEqual({ type: "null" })
   })
 })
 

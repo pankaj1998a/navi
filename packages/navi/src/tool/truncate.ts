@@ -9,6 +9,7 @@ import { Identifier } from "../id/id"
 import * as Log from "@navi-ai/core/util/log"
 import { ToolID } from "./schema"
 import { TRUNCATION_DIR } from "./truncation-dir"
+import { scrubSecrets } from "@/util/secret-scrubber"
 
 const log = Log.create({ service: "truncation" })
 const RETENTION = Duration.days(7)
@@ -67,9 +68,10 @@ export const layer = Layer.effect(
     })
 
     const write = Effect.fn("Truncate.write")(function* (text: string) {
+      const scrubbed = scrubSecrets(text).text
       const file = path.join(TRUNCATION_DIR, ToolID.ascending())
       yield* fs.ensureDir(TRUNCATION_DIR).pipe(Effect.orDie)
-      yield* fs.writeFileString(file, text).pipe(Effect.orDie)
+      yield* fs.writeFileString(file, scrubbed).pipe(Effect.orDie)
       return file
     })
 

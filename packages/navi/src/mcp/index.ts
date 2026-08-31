@@ -33,9 +33,19 @@ import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process"
 import { CrossSpawnSpawner } from "@navi-ai/core/cross-spawn-spawner"
 import { zod as effectZod } from "@navi-ai/core/effect-zod"
 import { withStatics } from "@navi-ai/core/schema"
+import { applyToolGuard } from "@/tool/guard"
+import { scrubSecrets } from "@/util/secret-scrubber"
 
 const log = Log.create({ service: "mcp" })
 const DEFAULT_TIMEOUT = 30_000
+export const MAX_MCP_RESOURCE_BLOB_BYTES = 10 * 1024 * 1024
+export const SUPPORTED_MCP_RESOURCE_ATTACHMENT_MIMES = new Set([
+  "application/pdf",
+  "image/gif",
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+])
 
 const TolerantToolSchema = ToolSchema.extend({
   outputSchema: z.unknown().optional(),
@@ -124,6 +134,18 @@ function isMcpConfigured(entry: McpEntry): entry is ConfigMCP.Info {
 
 const sanitize = (s: string) => s.replace(/[^a-zA-Z0-9_-]/g, "_")
 
+function sanitizeMcpDescription(desc: string): string {
+  let out = desc
+    .replace(/<\/tool>/gi, "")
+    .replace(/<system-reminder>/gi, "")
+    .replace(/<\/system-reminder>/gi, "")
+    .replace(/Ignore previous instructions/gi, "[filtered]")
+    .replace(/Ignore all previous instructions/gi, "[filtered]")
+    .replace(/<\/?\s*tool[^>]*>/gi, "")
+  if (out.length > 2000) out = out.slice(0, 2000) + "...[truncated]"
+  return out
+}
+
 function remoteURL(key: string, value: string) {
   if (URL.canParse(value)) return new URL(value)
   log.warn("invalid remote mcp url", { key })
@@ -161,8 +183,8 @@ function listTools(key: string, client: MCPClient, timeout: number) {
   )
 }
 
-// Convert MCP tool definition to AI SDK Tool type
-function convertMcpTool(mcpTool: MCPToolDef, client: MCPClient, timeout?: number): Tool {
+// Convert MCP tool definition to AI SDK Tool type with guard and truncation protections
+function convertMcpTool(mcpTool: MCPToolDef, client: MCPClient, clientName: string, timeout?: number): Tool {
   const inputSchema = mcpTool.inputSchema
 
   // Spread first, then override type to ensure it's always "object"
@@ -173,11 +195,14 @@ function convertMcpTool(mcpTool: MCPToolDef, client: MCPClient, timeout?: number
     additionalProperties: false,
   }
 
+  const toolFullName = `mcp_${sanitize(clientName)}_${sanitize(mcpTool.name)}`
+  const MAX_MCP_OUTPUT_CHARS = 250_000
+
   return dynamicTool({
-    description: mcpTool.description ?? "",
+    description: sanitizeMcpDescription(mcpTool.description ?? ""),
     inputSchema: jsonSchema(schema),
     execute: async (args: unknown) => {
-      return client.callTool(
+      const res = await client.callTool(
         {
           name: mcpTool.name,
           arguments: (args || {}) as Record<string, unknown>,
@@ -188,6 +213,28 @@ function convertMcpTool(mcpTool: MCPToolDef, client: MCPClient, timeout?: number
           timeout,
         },
       )
+
+      if (res && Array.isArray(res.content)) {
+        for (const item of res.content) {
+          if (item && item.type === "text" && typeof item.text === "string") {
+            let text = item.text
+            if (text.length > MAX_MCP_OUTPUT_CHARS) {
+              text = text.slice(0, MAX_MCP_OUTPUT_CHARS) + "\n...[MCP output truncated to prevent context overflow]"
+            }
+            const guarded = applyToolGuard({
+              toolId: toolFullName,
+              sessionID: "mcp-session",
+              agent: "mcp",
+              args,
+              output: text,
+            })
+            const scrubbed = scrubSecrets(guarded).text
+            item.text = `<untrusted-tool-output tool="${toolFullName}">\n${scrubbed}\n</untrusted-tool-output>`
+          }
+        }
+      }
+
+      return res
     },
   })
 }
@@ -532,6 +579,7 @@ export const layer = Layer.effect(
           defs: {},
         }
 
+        const mcpConcurrency = (cfg as any).experimental?.toolConcurrency ?? 8
         yield* Effect.forEach(
           Object.entries(config),
           ([key, mcp]) =>
@@ -556,7 +604,7 @@ export const layer = Layer.effect(
                 watch(s, key, result.mcpClient, bridge, mcp.timeout)
               }
             }),
-          { concurrency: "unbounded" },
+          { concurrency: mcpConcurrency },
         )
 
         yield* Effect.addFinalizer(() =>
@@ -567,16 +615,27 @@ export const layer = Layer.effect(
                 Effect.gen(function* () {
                   const pid = client.transport instanceof StdioClientTransport ? client.transport.pid : null
                   if (typeof pid === "number") {
-                    const pids = yield* descendants(pid)
-                    for (const dpid of pids) {
-                      try {
-                        process.kill(dpid, "SIGTERM")
-                      } catch {}
+                    if (process.platform === "win32") {
+                      const handle = yield* spawner.spawn(
+                        ChildProcess.make("taskkill", ["/pid", String(pid), "/T", "/F"], { stdin: "ignore" }),
+                      ).pipe(Effect.catch(() => Effect.succeed(undefined)))
+                      if (handle) {
+                        yield* handle.exitCode.pipe(Effect.catch(() => Effect.succeed(0)))
+                      }
+                    } else {
+                      const pids = yield* descendants(pid)
+                      for (const dpid of pids) {
+                        try {
+                          process.kill(dpid, "SIGTERM")
+                        } catch (e) {
+                          // Ignore if descendant process is already dead or permission denied
+                        }
+                      }
                     }
                   }
                   yield* Effect.tryPromise(() => client.close()).pipe(Effect.ignore)
                 }),
-              { concurrency: "unbounded" },
+              { concurrency: mcpConcurrency },
             )
             pendingOAuthTransports.clear()
           }),
@@ -677,6 +736,7 @@ export const layer = Layer.effect(
         ([clientName]) => s.status[clientName]?.status === "connected",
       )
 
+      const toolsConcurrency = (cfg as any).experimental?.toolConcurrency ?? 8
       yield* Effect.forEach(
         connectedClients,
         ([clientName, client]) =>
@@ -692,10 +752,10 @@ export const layer = Layer.effect(
 
             const timeout = entry?.timeout ?? defaultTimeout
             for (const mcpTool of listed) {
-              result[sanitize(clientName) + "_" + sanitize(mcpTool.name)] = convertMcpTool(mcpTool, client, timeout)
+              result[sanitize(clientName) + "_" + sanitize(mcpTool.name)] = convertMcpTool(mcpTool, client, clientName, timeout)
             }
           }),
-        { concurrency: "unbounded" },
+        { concurrency: toolsConcurrency },
       )
       return result
     })
@@ -709,7 +769,7 @@ export const layer = Layer.effect(
         Object.entries(s.clients).filter(([name]) => s.status[name]?.status === "connected"),
         ([clientName, client]) =>
           fetchFromClient(clientName, client, listFn, label).pipe(Effect.map((items) => Object.entries(items ?? {}))),
-        { concurrency: "unbounded" },
+        { concurrency: 8 },
       ).pipe(Effect.map((results) => Object.fromEntries<T & { client: string }>(results.flat())))
     }
 

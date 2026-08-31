@@ -1,4 +1,4 @@
-import { execSync } from 'child_process';
+import { execFileSync } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 import { Log } from "@navi-ai/core/util/log";
@@ -16,6 +16,12 @@ import { Provider } from '../provider/provider';
  */
 
 const log = Log.create({ service: 'navi-eval' });
+
+const SHA_REGEX = /^[0-9a-f]{7,40}$/i;
+
+function isValidSha(sha: string): boolean {
+  return SHA_REGEX.test(sha.trim());
+}
 
 export interface EvalTask {
   sha: string;
@@ -47,7 +53,12 @@ export class NaviEval {
   private loadState(): EvalState {
     if (fs.existsSync(this.statePath)) {
       try {
-        return JSON.parse(fs.readFileSync(this.statePath, 'utf-8'));
+        const loaded = JSON.parse(fs.readFileSync(this.statePath, 'utf-8'));
+        if (loaded.lastProcessedCommitSha && !isValidSha(loaded.lastProcessedCommitSha)) {
+          log.warn(`Invalid SHA found in eval-state.json, ignoring: ${loaded.lastProcessedCommitSha}`);
+          loaded.lastProcessedCommitSha = null;
+        }
+        return loaded;
       } catch (e) {
         log.error(`Failed to load eval state: ${e}`);
       }
@@ -74,17 +85,24 @@ export class NaviEval {
   public getCommitList(count: number, startAfterSha?: string): string[] {
     try {
       if (startAfterSha) {
-        const output = execSync(
-          `git log --format=%H --reverse ${startAfterSha}..HEAD`,
+        if (!isValidSha(startAfterSha)) {
+          log.error(`Invalid startAfterSha format: ${startAfterSha}`);
+          return [];
+        }
+        const output = execFileSync(
+          'git',
+          ['log', '--format=%H', '--reverse', `${startAfterSha}..HEAD`],
           { cwd: this.repoPath, encoding: 'utf-8' }
         ).trim();
-        return output ? output.split('\n') : [];
+        return output ? output.split('\n').filter(isValidSha) : [];
       }
-      const output = execSync(
-        `git log --format=%H -n ${count} --reverse`,
+      const safeCount = Math.max(1, Math.floor(count));
+      const output = execFileSync(
+        'git',
+        ['log', '--format=%H', '-n', String(safeCount), '--reverse'],
         { cwd: this.repoPath, encoding: 'utf-8' }
       ).trim();
-      return output ? output.split('\n') : [];
+      return output ? output.split('\n').filter(isValidSha) : [];
     } catch (e) {
       log.error(`Failed to get commit list: ${e}`);
       return [];
@@ -95,27 +113,32 @@ export class NaviEval {
    * Generates an EvalTask from a single commit.
    */
   public async buildTask(sha: string): Promise<EvalTask | null> {
+    if (!isValidSha(sha)) {
+      log.error(`Invalid sha provided to buildTask: ${sha}`);
+      return null;
+    }
     try {
-      const parents = execSync(`git log --pretty=%P -n 1 ${sha}`, {
+      const parents = execFileSync('git', ['log', '--pretty=%P', '-n', '1', sha], {
         cwd: this.repoPath,
         encoding: 'utf-8',
       }).trim();
 
       if (!parents || parents.split(' ').length > 1) return null; // Skip initial/merge
       const parentSha = parents.split(' ')[0];
+      if (!isValidSha(parentSha)) return null;
 
-      const message = execSync(`git log --format=%B -n 1 ${sha}`, {
+      const message = execFileSync('git', ['log', '--format=%B', '-n', '1', sha], {
         cwd: this.repoPath,
         encoding: 'utf-8',
       }).trim();
 
-      const diff = execSync(`git diff ${parentSha} ${sha}`, {
+      const diff = execFileSync('git', ['diff', parentSha, sha], {
         cwd: this.repoPath,
         encoding: 'utf-8',
         maxBuffer: 10 * 1024 * 1024,
       });
 
-      const filesOutput = execSync(`git diff --name-only ${parentSha} ${sha}`, {
+      const filesOutput = execFileSync('git', ['diff', '--name-only', parentSha, sha], {
         cwd: this.repoPath,
         encoding: 'utf-8',
       }).trim();
@@ -187,8 +210,8 @@ ${diff.slice(0, 5000)}
       
       // 1. Reset repo to parent state
       try {
-        execSync(`git reset --hard ${task.parentSha}`, { cwd: this.repoPath, stdio: 'ignore' });
-        execSync(`git clean -fd`, { cwd: this.repoPath, stdio: 'ignore' });
+        execFileSync('git', ['reset', '--hard', task.parentSha], { cwd: this.repoPath, stdio: 'ignore' });
+        execFileSync('git', ['clean', '-fd'], { cwd: this.repoPath, stdio: 'ignore' });
       } catch (e) {
         log.error(`Failed to reset repo to ${task.parentSha}: ${e}`);
         continue;
@@ -210,7 +233,7 @@ ${diff.slice(0, 5000)}
         await SessionPrompt.loop({ sessionID });
 
         // 3. Capture the resulting diff
-        agentDiff = execSync(`git diff`, { 
+        agentDiff = execFileSync('git', ['diff'], { 
           cwd: this.repoPath, 
           encoding: 'utf-8', 
           maxBuffer: 10 * 1024 * 1024 

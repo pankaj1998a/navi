@@ -16,6 +16,10 @@ import PROMPT_TELEPORT from "./template/teleport.txt"
 import PROMPT_GITHUB_PR_REVIEW from "./template/github_pr_review.txt"
 import PROMPT_GITHUB_ISSUE_TRIAGE from "./template/github_issue_triage.txt"
 import PROMPT_RELEASE_NOTES from "./template/release_notes.txt"
+import PROMPT_GOAL from "./template/goal.txt"
+import PROMPT_SCHEDULE from "./template/schedule.txt"
+import PROMPT_GRILL_ME from "./template/grill_me.txt"
+import PROMPT_LEARN from "./template/learn.txt"
 
 type State = {
   commands: Record<string, Info>
@@ -151,6 +155,42 @@ export const layer = Layer.effect(
           return PROMPT_RELEASE_NOTES
         },
         hints: hints(PROMPT_RELEASE_NOTES),
+      }
+      commands["goal"] = {
+        name: "goal",
+        description: "Execute a persistent autonomous goal until fully verified",
+        source: "command",
+        get template() {
+          return PROMPT_GOAL
+        },
+        hints: ["$ARGUMENTS"],
+      }
+      commands["schedule"] = {
+        name: "schedule",
+        description: "Inspect, configure, or create scheduled background tasks and cron jobs",
+        source: "command",
+        get template() {
+          return PROMPT_SCHEDULE
+        },
+        hints: ["$ARGUMENTS"],
+      }
+      commands["grill-me"] = {
+        name: "grill-me",
+        description: "Interactive technical design and requirements interview before coding",
+        source: "command",
+        get template() {
+          return PROMPT_GRILL_ME
+        },
+        hints: ["$ARGUMENTS"],
+      }
+      commands["learn"] = {
+        name: "learn",
+        description: "Extract and persist project rules, learnings, and conventions",
+        source: "command",
+        get template() {
+          return PROMPT_LEARN
+        },
+        hints: ["$ARGUMENTS"],
       }
 
       for (const [name, command] of Object.entries(cfg.command ?? {})) {

@@ -16,7 +16,7 @@
 
 import type { Hooks } from "@navi-ai/plugin"
 import { Log } from "@navi-ai/core/util/log"
-import { existsSync, readFileSync, realpathSync } from "node:fs"
+import { promises as fs } from "node:fs"
 import { dirname, join, resolve } from "node:path"
 
 const log = Log.create({ service: "directory-agents-injector" })
@@ -44,11 +44,21 @@ function getSessionCache(sessionID: string): Set<string> {
  */
 const PROJECT_MARKERS = [".git", "package.json", "pyproject.toml", "Cargo.toml", "go.mod"]
 
-function findProjectRoot(startDir: string): string | null {
+async function exists(path: string): Promise<boolean> {
+    try {
+        await fs.access(path)
+        return true
+    } catch (e) {
+        // Return false if path does not exist or is not accessible
+        return false
+    }
+}
+
+async function findProjectRoot(startDir: string): Promise<string | null> {
     let dir = startDir
     while (dir !== dirname(dir)) {
         for (const marker of PROJECT_MARKERS) {
-            if (existsSync(join(dir, marker))) {
+            if (await exists(join(dir, marker))) {
                 return dir
             }
         }
@@ -60,7 +70,7 @@ function findProjectRoot(startDir: string): string | null {
 /**
  * Find context files walking up from a directory
  */
-function findContextFilesUp(startDir: string, projectRoot: string | null): string[] {
+async function findContextFilesUp(startDir: string, projectRoot: string | null): Promise<string[]> {
     const found: string[] = []
     let current = startDir
 
@@ -68,7 +78,7 @@ function findContextFilesUp(startDir: string, projectRoot: string | null): strin
         // Check for context files
         for (const filename of CONTEXT_FILES) {
             const path = join(current, filename)
-            if (existsSync(path)) {
+            if (await exists(path)) {
                 found.push(path)
                 break // Only inject one file per directory
             }
@@ -119,10 +129,10 @@ export function createDirectoryAgentsInjectorHook(options?: DirectoryAgentsInjec
     ): Promise<void> {
         // Resolve the file path
         const resolved = filePath.startsWith("/") ? filePath : resolve(cwd, filePath)
-        if (!existsSync(resolved)) return
+        if (!(await exists(resolved))) return
 
         const dir = dirname(resolved)
-        const projectRoot = findProjectRoot(dir)
+        const projectRoot = await findProjectRoot(dir)
         const cache = getSessionCache(sessionID)
 
         // Find context files up the directory tree
@@ -134,7 +144,7 @@ export function createDirectoryAgentsInjectorHook(options?: DirectoryAgentsInjec
             if (!cache.has(current)) {
                 for (const filename of contextFiles) {
                     const path = join(current, filename)
-                    if (existsSync(path)) {
+                    if (await exists(path)) {
                         contextPaths.push(path)
                         cache.add(current)
                         break
@@ -153,7 +163,7 @@ export function createDirectoryAgentsInjectorHook(options?: DirectoryAgentsInjec
         const reversedPaths = contextPaths.reverse()
         for (const contextPath of reversedPaths) {
             try {
-                let content = readFileSync(contextPath, "utf-8")
+                let content = await fs.readFile(contextPath, "utf-8")
 
                 // Truncate if too large
                 if (content.length > maxContentSize) {
@@ -162,8 +172,9 @@ export function createDirectoryAgentsInjectorHook(options?: DirectoryAgentsInjec
 
                 output.output += `\n\n[Directory Context: ${contextPath}]\n${content}`
                 log.info("Injected directory context", { path: contextPath, sessionID })
-            } catch {
+            } catch (e: any) {
                 // Skip unreadable files
+                log.warn("Failed to read directory context file", { path: contextPath, error: e.message })
             }
         }
     }

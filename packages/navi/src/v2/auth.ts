@@ -111,7 +111,9 @@ export const layer = Layer.effect(
       if (process.env.NAVI_AUTH_CONTENT) {
         try {
           return JSON.parse(process.env.NAVI_AUTH_CONTENT)
-        } catch {}
+        } catch (e) {
+          // Ignore invalid JSON in NAVI_AUTH_CONTENT and fall back to reading from filesystem
+        }
       }
 
       const raw = yield* fsys.readJson(file).pipe(Effect.orElseSucceed(() => null))

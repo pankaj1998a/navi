@@ -102,6 +102,43 @@ function formatError(error: Error, depth = 0): string {
     : result
 }
 
+const SECRET_PATTERNS: { pattern: RegExp; replacement: string }[] = [
+  {
+    pattern: /-----BEGIN (?:RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----[\s\S]*?-----END (?:RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----/g,
+    replacement: "[REDACTED PRIVATE KEY]",
+  },
+  { pattern: /\bsk-ant-api\d{2}-[a-zA-Z0-9_-]{32,}\b/g, replacement: "[REDACTED ANTHROPIC KEY]" },
+  {
+    pattern: /\bsk-(?:proj-|admin-|[a-zA-Z0-9]{20,})[a-zA-Z0-9_-]{12,}\b/g,
+    replacement: "[REDACTED OPENAI KEY]",
+  },
+  { pattern: /\b(AKIA|ASIA|ABIA|ACCA)[0-9A-Z]{16}\b/g, replacement: "[REDACTED AWS ACCESS KEY]" },
+  {
+    pattern: /\b(?:ghp|gho|ghu|ghs|ghr|github_pat)_[a-zA-Z0-9_]{36,82}\b/g,
+    replacement: "[REDACTED GITHUB TOKEN]",
+  },
+  { pattern: /\bBearer\s+[a-zA-Z0-9_\-.]{30,}\b/gi, replacement: "Bearer [REDACTED TOKEN]" },
+]
+
+function scrubString(input: string): string {
+  let out = input
+  for (const { pattern, replacement } of SECRET_PATTERNS) {
+    pattern.lastIndex = 0
+    if (pattern.test(out)) {
+      pattern.lastIndex = 0
+      out = out.replace(pattern, replacement)
+    }
+    pattern.lastIndex = 0
+  }
+  // Generic secret assignment last, handled separately to preserve key
+  const generic = /(?:api[_-]?key|secret|access[_-]?token|password|auth[_-]?token)\s*[:=]\s*["']?([a-zA-Z0-9_-]{20,})["']?/gi
+  out = out.replace(generic, (m) => {
+    const key = m.split(/[:=]/)[0]
+    return `${key}: "[REDACTED SECRET]"`
+  })
+  return out
+}
+
 let last = Date.now()
 export function create(tags?: Record<string, any>) {
   tags = tags || {}
@@ -121,16 +158,23 @@ export function create(tags?: Record<string, any>) {
     })
       .filter(([_, value]) => value !== undefined && value !== null)
       .map(([key, value]) => {
-        const prefix = `${key}=`
-        if (value instanceof Error) return prefix + formatError(value)
-        if (typeof value === "object") return prefix + JSON.stringify(value)
-        return prefix + value
+        const p = `${key}=`
+        if (value instanceof Error) return p + scrubString(formatError(value))
+        if (typeof value === "object") return p + scrubString(JSON.stringify(value))
+        if (typeof value === "string") return p + scrubString(value)
+        return p + scrubString(String(value))
       })
       .join(" ")
     const next = new Date()
     const diff = next.getTime() - last
     last = next.getTime()
-    return [next.toISOString().split(".")[0], "+" + diff + "ms", prefix, message].filter(Boolean).join(" ") + "\n"
+    const scrubbedMessage =
+      typeof message === "string"
+        ? scrubString(message)
+        : message != null
+          ? scrubString(String(message))
+          : message
+    return [next.toISOString().split(".")[0], "+" + diff + "ms", prefix, scrubbedMessage].filter(Boolean).join(" ") + "\n"
   }
   const result: Logger = {
     debug(message?: any, extra?: Record<string, any>) {

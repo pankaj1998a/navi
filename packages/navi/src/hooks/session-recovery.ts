@@ -85,7 +85,8 @@ function getErrorMessage(error: unknown): string {
 
     try {
         return JSON.stringify(error).toLowerCase()
-    } catch {
+    } catch (e) {
+        // Ignore serialization failure and return fallback
         return ""
     }
 }

@@ -299,6 +299,18 @@ export const Info = Schema.Struct({
       mcp_timeout: Schema.optional(PositiveInt).annotate({
         description: "Timeout in milliseconds for model context protocol (MCP) requests",
       }),
+      background_subagents: Schema.optional(Schema.Boolean).annotate({
+        description: "Enable background subagents",
+      }),
+      toolConcurrency: Schema.optional(PositiveInt).annotate({
+        description: "Maximum concurrent tool executions (default: 8)",
+      }),
+      evaluation: Schema.optional(
+        Schema.Struct({
+          enabled: Schema.optional(Schema.Boolean),
+          directory: Schema.optional(Schema.String),
+        }),
+      ),
     }),
   ),
   checkpoint: Schema.optional(
@@ -431,7 +443,15 @@ export const layer = Layer.effect(
     const env = yield* Env.Service
     const npmSvc = yield* Npm.Service
 
-    const readConfigFile = (filepath: string) => fs.readFileStringSafe(filepath).pipe(Effect.orDie)
+    const readConfigFile = (filepath: string) =>
+      fs.readFileStringSafe(filepath).pipe(
+        Effect.catchCause((cause) =>
+          Effect.sync(() => {
+            log.warn("failed to read config file", { path: filepath, cause: String(cause) })
+            return ""
+          }),
+        ),
+      )
 
     const loadConfig = Effect.fnUntraced(function* (
       text: string,
@@ -460,7 +480,17 @@ export const layer = Layer.effect(
       log.info("loading", { path: filepath })
       const text = yield* readConfigFile(filepath)
       if (!text) return {} as Info
-      return yield* loadConfig(text, { path: filepath })
+      return yield* loadConfig(text, { path: filepath }).pipe(
+        Effect.catchCause((cause) =>
+          Effect.sync(() => {
+            log.error("failed to load config file, skipping corrupt or unreadable file", {
+              path: filepath,
+              cause: String(cause),
+            })
+            return {} as Info
+          }),
+        ),
+      )
     })
 
     const loadGlobal = Effect.fnUntraced(function* () {
@@ -612,7 +642,14 @@ export const layer = Layer.effect(
         }
 
         if (!Flag.NAVI_DISABLE_PROJECT_CONFIG) {
-          for (const file of yield* ConfigPaths.files("navi", ctx.directory, ctx.worktree).pipe(Effect.orDie)) {
+          for (const file of yield* ConfigPaths.files("navi", ctx.directory, ctx.worktree).pipe(
+            Effect.catchCause((cause) =>
+              Effect.sync(() => {
+                log.warn("failed to resolve project config paths", { cause: String(cause) })
+                return []
+              }),
+            ),
+          )) {
             yield* merge(file, yield* loadFile(file), "local")
           }
         }
@@ -799,7 +836,25 @@ export const layer = Layer.effect(
 
     const state = yield* InstanceState.make<State>(
       Effect.fn("Config.state")(function* (ctx) {
-        return yield* loadInstanceState(ctx).pipe(Effect.orDie)
+        return yield* loadInstanceState(ctx).pipe(
+          Effect.catchCause((cause) =>
+            Effect.sync(() => {
+              log.error("failed to load instance state config, using empty config fallback", {
+                cause: String(cause),
+              })
+              return {
+                config: {},
+                directories: [],
+                deps: [],
+                consoleState: {
+                  consoleManagedProviders: [],
+                  activeOrgName: undefined,
+                  switchableOrgCount: 0,
+                },
+              }
+            }),
+          ),
+        )
       }),
     )
 
@@ -821,13 +876,22 @@ export const layer = Layer.effect(
       )
     })
 
+    const atomicWrite = (targetFile: string, content: string) =>
+      Effect.gen(function* () {
+        const tmpFile = `${targetFile}.tmp.${Math.random().toString(36).slice(2)}`
+        yield* fs.writeFileString(tmpFile, content)
+        yield* fs.rename(tmpFile, targetFile)
+      }).pipe(
+        Effect.catchCause((cause) =>
+          Effect.die(`Failed to write config file atomically: ${targetFile} (${cause})`),
+        ),
+      )
+
     const update = Effect.fn("Config.update")(function* (config: Info) {
       const dir = yield* InstanceState.directory
       const file = path.join(dir, "config.json")
       const existing = yield* loadFile(file)
-      yield* fs
-        .writeFileString(file, JSON.stringify(mergeDeep(writable(existing), writable(config)), null, 2))
-        .pipe(Effect.orDie)
+      yield* atomicWrite(file, JSON.stringify(mergeDeep(writable(existing), writable(config)), null, 2))
     })
 
     const invalidate = Effect.fn("Config.invalidate")(function* () {
@@ -846,13 +910,13 @@ export const layer = Layer.effect(
         const merged = mergeDeep(writable(existing), patch)
         const serialized = JSON.stringify(merged, null, 2)
         changed = serialized !== before
-        if (changed) yield* fs.writeFileString(file, serialized).pipe(Effect.orDie)
+        if (changed) yield* atomicWrite(file, serialized)
         next = merged
       } else {
         const updated = patchJsonc(before, patch)
         next = ConfigParse.effectSchema(Info, ConfigParse.jsonc(updated, file), file)
         changed = updated !== before
-        if (changed) yield* fs.writeFileString(file, updated).pipe(Effect.orDie)
+        if (changed) yield* atomicWrite(file, updated)
       }
 
       if (changed) yield* invalidate()

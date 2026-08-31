@@ -5,9 +5,65 @@ import { IconArrowDown } from "./icons"
 import { IconNavi } from "./icons/custom"
 import { ShareI18nProvider, formatCurrency, formatNumber, normalizeLocale } from "./share/common"
 import styles from "./share.module.css"
-import type { MessageV2 } from "navi/session/message-v2"
-import type { Message } from "navi/session/message"
-import type { Session } from "navi/session/index"
+import type {
+  Message as SDKMessage,
+  Part as SDKPart,
+  Session as SDKSession,
+} from "@navi-ai/sdk/v2"
+
+declare namespace MessageV2 {
+  type Info = SDKMessage
+  type Part = SDKPart
+}
+
+declare namespace Session {
+  type Info = SDKSession
+}
+
+interface MessageV1 {
+  id: string
+  role: "user" | "assistant"
+  parts: Array<any>
+  metadata: {
+    sessionID: string
+    time: {
+      created: number
+      completed?: number
+    }
+    error?: any
+    tool: Record<string, {
+      title: string
+      time: {
+        start: number
+        end: number
+      }
+      [key: string]: any
+    }>
+    assistant?: {
+      cost: number
+      path: {
+        cwd: string
+        root: string
+      }
+      summary?: boolean
+      tokens?: {
+        input: number
+        output: number
+        reasoning: number
+        cache: {
+          read: number
+          write: number
+        }
+      }
+      modelID: string
+      providerID: string
+    }
+  }
+}
+
+declare namespace Message {
+  type Info = MessageV1
+}
 import { Part, ProviderIcon } from "./share/part"
 
 type MessageWithParts = MessageV2.Info & { parts: MessageV2.Part[] }

@@ -79,7 +79,7 @@ async function getContextLimit(
 
   const provider = providers.find((p) => p.id === providerID)
   const model = provider?.models[modelID]
-  return model?.limit.context ?? null
+  return (model as any)?.limit?.context ?? null
 }
 
 async function sendUsageUpdate(
@@ -1700,21 +1700,21 @@ async function defaultModel(config: ACPConfig, cwd?: string): Promise<{ provider
 
   const naviProvider = providers.find((p) => p.id === "navi")
   if (naviProvider) {
-    const [best] = Provider.sort(Object.values(naviProvider.models))
+    const [best] = Provider.sort(Object.values(naviProvider.models) as any[])
     if (best) {
       return {
-        providerID: ProviderID.make(best.providerID),
-        modelID: ModelID.make(best.id),
+        providerID: ProviderID.make((best as any).providerID),
+        modelID: ModelID.make((best as any).id),
       }
     }
   }
 
   const models = providers.flatMap((p) => Object.values(p.models))
-  const [best] = Provider.sort(models)
+  const [best] = Provider.sort(models as any[])
   if (best) {
     return {
-      providerID: ProviderID.make(best.providerID),
-      modelID: ModelID.make(best.id),
+      providerID: ProviderID.make((best as any).providerID),
+      modelID: ModelID.make((best as any).id),
     }
   }
 
@@ -1812,7 +1812,7 @@ function sortProvidersByName<T extends { name: string }>(providers: T[]): T[] {
 }
 
 function modelVariantsFromProviders(
-  providers: Array<{ id: string; models: Record<string, { variants?: Record<string, any> }> }>,
+  providers: Array<{ id: string; models: Record<string, any> }>,
   model: { providerID: ProviderID; modelID: ModelID },
 ): string[] {
   const provider = providers.find((entry) => entry.id === model.providerID)
@@ -1879,7 +1879,7 @@ function buildVariantMeta(input: {
 
 function parseModelSelection(
   modelId: string,
-  providers: Array<{ id: string; models: Record<string, { variants?: Record<string, any> }> }>,
+  providers: Array<{ id: string; models: Record<string, any> }>,
 ): { model: { providerID: ProviderID; modelID: ModelID }; variant?: string } {
   const parsed = Provider.parseModel(modelId)
   const provider = providers.find((p) => p.id === parsed.providerID)

@@ -15,6 +15,7 @@ import { InstanceState } from "@/effect/instance-state"
 import { containsPath } from "@/project/instance-context"
 import { NonNegativeInt, withStatics } from "@navi-ai/core/schema"
 import { zod, ZodOverride } from "@navi-ai/core/effect-zod"
+import { Hash } from "@navi-ai/core/util/hash"
 
 const log = Log.create({ service: "lsp" })
 
@@ -130,6 +131,7 @@ interface State {
   servers: Record<string, LSPServer.Info>
   broken: Set<string>
   spawning: Map<string, Promise<LSPClient.Info | undefined>>
+  fileHashes: Map<string, string>
 }
 
 export interface Interface {
@@ -207,6 +209,7 @@ export const layer = Layer.effect(
           servers,
           broken: new Set(),
           spawning: new Map(),
+          fileHashes: new Map(),
         }
 
         yield* Effect.addFinalizer(() =>
@@ -356,6 +359,22 @@ export const layer = Layer.effect(
     const touchFile = Effect.fn("LSP.touchFile")(function* (input: string, diagnostics?: "document" | "full") {
       log.info("touching file", { file: input })
       const clients = yield* getClients(input)
+      // Hash short-circuit: skip didChange if file content unchanged
+      const s = yield* InstanceState.get(state)
+      const hashResult = yield* Effect.promise(() =>
+        Bun.file(input)
+          .text()
+          .then((text) => Hash.fast(text))
+          .catch(() => undefined as string | undefined),
+      ).pipe(Effect.orElseSucceed(() => undefined as string | undefined))
+      if (hashResult !== undefined) {
+        const prev = s.fileHashes.get(input)
+        if (prev !== undefined && prev === hashResult) {
+          log.info("skipping touchFile - hash unchanged", { file: input })
+          return
+        }
+        s.fileHashes.set(input, hashResult)
+      }
       yield* Effect.promise(() =>
         Promise.all(
           clients.map(async (client) => {

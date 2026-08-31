@@ -95,13 +95,37 @@ export const layer = Layer.effect(
             Effect.promise(() => Promise.allSettled(subs.map((sub) => sub.unsubscribe()))),
           )
 
+          // Coalesce rapid events (e.g. git checkout) — 80ms window, dedup create+update → change
+          const pending = new Map<string, "add" | "change" | "unlink">()
+          let flushTimer: ReturnType<typeof setTimeout> | undefined
+          const flush = InstanceState.bind(() => {
+            for (const [file, event] of pending) {
+              void Bus.publish(Event.Updated, { file, event })
+            }
+            pending.clear()
+            flushTimer = undefined
+          })
+          yield* Effect.addFinalizer(() =>
+            Effect.sync(() => {
+              if (flushTimer) clearTimeout(flushTimer)
+            }),
+          )
           const cb: ParcelWatcher.SubscribeCallback = InstanceState.bind((err, evts) => {
             if (err) return
             for (const evt of evts) {
-              if (evt.type === "create") void Bus.publish(Event.Updated, { file: evt.path, event: "add" })
-              if (evt.type === "update") void Bus.publish(Event.Updated, { file: evt.path, event: "change" })
-              if (evt.type === "delete") void Bus.publish(Event.Updated, { file: evt.path, event: "unlink" })
+              const mapped: "add" | "change" | "unlink" =
+                evt.type === "create" ? "add" : evt.type === "update" ? "change" : "unlink"
+              const existing = pending.get(evt.path)
+              if (existing) {
+                if (existing === mapped) continue
+                // create+update or update+create → change; any delete wins as unlink
+                if (existing === "unlink" || mapped === "unlink") pending.set(evt.path, "unlink")
+                else pending.set(evt.path, "change")
+              } else {
+                pending.set(evt.path, mapped)
+              }
             }
+            if (!flushTimer) flushTimer = setTimeout(flush, 80)
           })
 
           const subscribe = (dir: string, ignore: string[]) => {

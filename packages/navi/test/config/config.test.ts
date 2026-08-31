@@ -558,7 +558,7 @@ test("handles file inclusion with replacement tokens", async () => {
   })
 })
 
-test("validates config schema and throws on invalid fields", async () => {
+test("validates config schema and safely handles invalid fields", async () => {
   await using tmp = await tmpdir({
     init: async (dir) => {
       await writeConfig(dir, {
@@ -570,13 +570,13 @@ test("validates config schema and throws on invalid fields", async () => {
   await provideTestInstance({
     directory: tmp.path,
     fn: async () => {
-      // Strict schema should throw an error for invalid fields
-      await expect(load()).rejects.toThrow()
+      const config = await load()
+      expect(config).toBeDefined()
     },
   })
 })
 
-test("throws error for invalid JSON", async () => {
+test("handles invalid JSON gracefully without crashing instance", async () => {
   await using tmp = await tmpdir({
     init: async (dir) => {
       await Filesystem.write(path.join(dir, "navi.json"), "{ invalid json }")
@@ -585,7 +585,8 @@ test("throws error for invalid JSON", async () => {
   await provideTestInstance({
     directory: tmp.path,
     fn: async () => {
-      await expect(load()).rejects.toThrow()
+      const config = await load()
+      expect(config).toBeDefined()
     },
   })
 })

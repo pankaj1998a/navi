@@ -229,7 +229,7 @@ export const layer = Layer.effect(
           const rows = input.limit === undefined ? query.all() : query.limit(input.limit).all()
           return direction === "previous" ? rows.toReversed() : rows
         })
-        return rows.map((row) => decode(row))
+        return rows.map((row: any) => decode(row))
       }),
       context: Effect.fn("V2Session.context")(function* (sessionID) {
         const rows = Database.use((db) => {
@@ -261,7 +261,7 @@ export const layer = Layer.effect(
             .orderBy(asc(SessionMessageTable.time_created), asc(SessionMessageTable.id))
             .all()
         })
-        return rows.map((row) => decode(row))
+        return rows.map((row: any) => decode(row))
       }),
       prompt: Effect.fn("V2Session.prompt")(function* (_input) {
         return {} as any

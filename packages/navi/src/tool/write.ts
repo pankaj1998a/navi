@@ -11,7 +11,7 @@ import { FileWatcher } from "../file/watcher"
 import { Format } from "../format"
 import { AppFileSystem } from "@navi-ai/core/filesystem"
 import { InstanceState } from "@/effect/instance-state"
-import { trimDiff } from "./edit"
+import { trimDiff, validateSyntax } from "./edit"
 import { assertWriteAllowed, askEditUnlessMemory } from "./external-directory"
 import * as Bom from "@/util/bom"
 
@@ -83,6 +83,9 @@ export const WriteTool = Tool.define(
             projectDiagnosticsCount++
             output += `\n\nLSP errors detected in other files:\n${block}`
           }
+
+          const syntaxErr = validateSyntax(filepath, contentNew)
+          if (syntaxErr) output += `\n\n⚠️ ${syntaxErr}\nPlease fix this syntax error immediately.`
 
           return {
             title: path.relative(instance.worktree, filepath),
