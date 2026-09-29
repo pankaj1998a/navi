@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "filePath": {
+      "description": "The absolute path to the file or directory to read",
+      "type": "string"
+    },
+    "offset": {
+      "description": "The line number to start reading from (1-indexed)",
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "limit": {
+      "description": "The maximum number of lines to read (defaults to 2000)",
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    }
+  },
+  "required": [
+    "filePath"
+  ]
+}

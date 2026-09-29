@@ -77,6 +77,7 @@ function parsePatchHeader(
   startIdx: number,
 ): { filePath: string; movePath?: string; nextIdx: number } | null {
   const line = lines[startIdx]
+  if (!line) return null
 
   if (line.startsWith("*** Add File:")) {
     const filePath = line.slice("*** Add File:".length).trim()
@@ -94,8 +95,9 @@ function parsePatchHeader(
     let nextIdx = startIdx + 1
 
     // Check for move directive
-    if (nextIdx < lines.length && lines[nextIdx].startsWith("*** Move to:")) {
-      movePath = lines[nextIdx].slice("*** Move to:".length).trim()
+    const moveLine = lines[nextIdx]
+    if (nextIdx < lines.length && moveLine?.startsWith("*** Move to:")) {
+      movePath = moveLine.slice("*** Move to:".length).trim()
       nextIdx++
     }
 
@@ -109,10 +111,10 @@ function parseUpdateFileChunks(lines: string[], startIdx: number): { chunks: Upd
   const chunks: UpdateFileChunk[] = []
   let i = startIdx
 
-  while (i < lines.length && !lines[i].startsWith("***")) {
-    if (lines[i].startsWith("@@")) {
+  while (i < lines.length && !lines[i]?.startsWith("***")) {
+    if (lines[i]?.startsWith("@@")) {
       // Parse context line
-      const contextLine = lines[i].substring(2).trim()
+      const contextLine = lines[i]?.substring(2).trim() ?? ""
       i++
 
       const oldLines: string[] = []
@@ -120,8 +122,12 @@ function parseUpdateFileChunks(lines: string[], startIdx: number): { chunks: Upd
       let isEndOfFile = false
 
       // Parse change lines
-      while (i < lines.length && !lines[i].startsWith("@@") && !lines[i].startsWith("***")) {
+      while (i < lines.length && !lines[i]?.startsWith("@@") && !lines[i]?.startsWith("***")) {
         const changeLine = lines[i]
+        if (!changeLine) {
+          i++
+          continue
+        }
 
         if (changeLine === "*** End of File") {
           isEndOfFile = true
@@ -163,9 +169,9 @@ function parseAddFileContent(lines: string[], startIdx: number): { content: stri
   let content = ""
   let i = startIdx
 
-  while (i < lines.length && !lines[i].startsWith("***")) {
-    if (lines[i].startsWith("+")) {
-      content += lines[i].substring(1) + "\n"
+  while (i < lines.length && !lines[i]?.startsWith("***")) {
+    if (lines[i]?.startsWith("+")) {
+      content += (lines[i]?.substring(1) ?? "") + "\n"
     }
     i++
   }
@@ -182,7 +188,7 @@ function stripHeredoc(input: string): string {
   // Match heredoc patterns like: cat <<'EOF'\n...\nEOF or <<EOF\n...\nEOF
   const heredocMatch = input.match(/^(?:cat\s+)?<<['"]?(\w+)['"]?\s*\n([\s\S]*?)\n\1\s*$/)
   if (heredocMatch) {
-    return heredocMatch[2]
+    return heredocMatch[2] ?? input
   }
   return input
 }
@@ -214,7 +220,7 @@ export function parsePatch(patchText: string): { hunks: Hunk[] } {
       continue
     }
 
-    if (lines[i].startsWith("*** Add File:")) {
+    if (lines[i]?.startsWith("*** Add File:")) {
       const { content, nextIdx } = parseAddFileContent(lines, header.nextIdx)
       hunks.push({
         type: "add",
@@ -222,13 +228,13 @@ export function parsePatch(patchText: string): { hunks: Hunk[] } {
         contents: content,
       })
       i = nextIdx
-    } else if (lines[i].startsWith("*** Delete File:")) {
+    } else if (lines[i]?.startsWith("*** Delete File:")) {
       hunks.push({
         type: "delete",
         path: header.filePath,
       })
       i = header.nextIdx
-    } else if (lines[i].startsWith("*** Update File:")) {
+    } else if (lines[i]?.startsWith("*** Update File:")) {
       const { chunks, nextIdx } = parseUpdateFileChunks(lines, header.nextIdx)
       hunks.push({
         type: "update",
@@ -255,13 +261,13 @@ export function maybeParseApplyPatch(
   const APPLY_PATCH_COMMANDS = ["apply_patch", "applypatch"]
 
   // Direct invocation: apply_patch <patch>
-  if (argv.length === 2 && APPLY_PATCH_COMMANDS.includes(argv[0])) {
+  if (argv.length === 2 && APPLY_PATCH_COMMANDS.includes(argv[0] ?? "")) {
     try {
-      const { hunks } = parsePatch(argv[1])
+      const { hunks } = parsePatch(argv[1] ?? "")
       return {
         type: MaybeApplyPatch.Body,
         args: {
-          patch: argv[1],
+          patch: argv[1] ?? "",
           hunks,
         },
       }
@@ -276,11 +282,11 @@ export function maybeParseApplyPatch(
   // Bash heredoc form: bash -lc 'apply_patch <<"EOF" ...'
   if (argv.length === 3 && argv[0] === "bash" && argv[1] === "-lc") {
     // Simple extraction - in real implementation would need proper bash parsing
-    const script = argv[2]
+    const script = argv[2] ?? ""
     const heredocMatch = script.match(/apply_patch\s*<<['"](\w+)['"]\s*\n([\s\S]*?)\n\1/)
 
     if (heredocMatch) {
-      const patchContent = heredocMatch[2]
+      const patchContent = heredocMatch[2] ?? ""
       try {
         const { hunks } = parsePatch(patchContent)
         return {
@@ -310,7 +316,7 @@ interface ApplyPatchFileUpdate {
 }
 
 export function deriveNewContentsFromChunks(filePath: string, chunks: UpdateFileChunk[]): ApplyPatchFileUpdate {
-  // Read original file content
+  // Read original file content (sync fast-path; see deriveNewContentsFromChunksAsync for Effect callers)
   let originalContent: ReturnType<typeof Bom.split>
   try {
     originalContent = Bom.split(readFileSync(filePath, "utf-8"))
@@ -342,6 +348,35 @@ export function deriveNewContentsFromChunks(filePath: string, chunks: UpdateFile
   return {
     unified_diff: unifiedDiff,
     content: newContent,
+    bom: originalContent.bom || next.bom,
+  }
+}
+
+// Async variant for Effect/async callers — avoids blocking the event loop on large files.
+export async function deriveNewContentsFromChunksAsync(
+  filePath: string,
+  chunks: UpdateFileChunk[],
+): Promise<ApplyPatchFileUpdate> {
+  let text: string
+  try {
+    text = await fs.readFile(filePath, "utf-8")
+  } catch (error) {
+    throw new Error(`Failed to read file ${filePath}: ${error}`, { cause: error })
+  }
+  const originalContent = Bom.split(text)
+  let originalLines = originalContent.text.split("\n")
+  if (originalLines.length > 0 && originalLines[originalLines.length - 1] === "") {
+    originalLines.pop()
+  }
+  const replacements = computeReplacements(originalLines, filePath, chunks)
+  let newLines = applyReplacements(originalLines, replacements)
+  if (newLines.length === 0 || newLines[newLines.length - 1] !== "") {
+    newLines.push("")
+  }
+  const next = Bom.split(newLines.join("\n"))
+  return {
+    unified_diff: generateUnifiedDiff(originalContent.text, next.text),
+    content: next.text,
     bom: originalContent.bom || next.bom,
   }
 }
@@ -407,14 +442,18 @@ function applyReplacements(lines: string[], replacements: Array<[number, number,
   const result = [...lines]
 
   for (let i = replacements.length - 1; i >= 0; i--) {
-    const [startIdx, oldLen, newSegment] = replacements[i]
+    const entry = replacements[i]
+    if (!entry) continue
+    const [startIdx, oldLen, newSegment] = entry
 
     // Remove old lines
     result.splice(startIdx, oldLen)
 
     // Insert new lines
     for (let j = 0; j < newSegment.length; j++) {
-      result.splice(startIdx + j, 0, newSegment[j])
+      const seg = newSegment[j]
+      if (seg === undefined) continue
+      result.splice(startIdx + j, 0, seg)
     }
   }
 
@@ -440,7 +479,7 @@ function tryMatch(lines: string[], pattern: string[], startIndex: number, compar
     if (fromEnd >= startIndex) {
       let matches = true
       for (let j = 0; j < pattern.length; j++) {
-        if (!compare(lines[fromEnd + j], pattern[j])) {
+        if (!compare(lines[fromEnd + j] ?? "", pattern[j] ?? "")) {
           matches = false
           break
         }
@@ -453,7 +492,7 @@ function tryMatch(lines: string[], pattern: string[], startIndex: number, compar
   for (let i = startIndex; i <= lines.length - pattern.length; i++) {
     let matches = true
     for (let j = 0; j < pattern.length; j++) {
-      if (!compare(lines[i + j], pattern[j])) {
+      if (!compare(lines[i + j] ?? "", pattern[j] ?? "")) {
         matches = false
         break
       }
@@ -592,7 +631,7 @@ export async function maybeParseApplyPatchVerified(
   // Detect implicit patch invocation (raw patch without apply_patch command)
   if (argv.length === 1) {
     try {
-      parsePatch(argv[0])
+      parsePatch(argv[0] ?? "")
       return {
         type: MaybeApplyPatchVerified.CorrectnessError,
         error: new Error(ApplyPatchError.ImplicitInvocation),
@@ -644,7 +683,7 @@ export async function maybeParseApplyPatchVerified(
           case "update":
             const updatePath = path.resolve(effectiveCwd, hunk.path)
             try {
-              const fileUpdate = deriveNewContentsFromChunks(updatePath, hunk.chunks)
+              const fileUpdate = await deriveNewContentsFromChunksAsync(updatePath, hunk.chunks)
               changes.set(resolvedPath, {
                 type: "update",
                 unified_diff: fileUpdate.unified_diff,

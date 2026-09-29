@@ -1,5 +1,5 @@
 import { Cause, Effect, Layer, Context, Schema } from "effect"
-// @ts-ignore
+// @ts-expect-error -- no types for @parcel/watcher wrapper entry
 import { createWrapper } from "@parcel/watcher/wrapper"
 import type ParcelWatcher from "@parcel/watcher"
 import { readdir } from "fs/promises"

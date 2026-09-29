@@ -1,6 +1,6 @@
 import { Effect, Stream } from "effect"
 import os from "os"
-import fsSync, { createWriteStream } from "node:fs"
+import { createWriteStream } from "node:fs"
 import * as Tool from "./tool"
 import path from "path"
 import * as Log from "@navi-ai/core/util/log"
@@ -18,7 +18,6 @@ import { ShellID } from "./shell/id"
 
 import * as Truncate from "./truncate"
 import { Plugin } from "@/plugin"
-import { Sandbox } from "../sandbox"
 import { ChildProcess } from "effect/unstable/process"
 import { ChildProcessSpawner } from "effect/unstable/process/ChildProcessSpawner"
 import { ShellPrompt, type Parameters } from "./shell/prompt"
@@ -167,19 +166,21 @@ function expand(text: string, cwd: string, shell: string) {
 function provider(text: string) {
   const match = text.match(/^([A-Za-z]+)::(.*)$/)
   if (match) {
-    if (match[1].toLowerCase() !== "filesystem") return
-    return match[2]
+    const kind = match[1]
+    const rest = match[2]
+    if (kind?.toLowerCase() !== "filesystem") return
+    return rest
   }
   const prefix = text.match(/^([A-Za-z]+):(.*)$/)
   if (!prefix) return text
-  if (prefix[1].length === 1) return text
+  if ((prefix[1]?.length ?? 0) === 1) return text
   return
 }
 
 function dynamic(text: string, ps: boolean) {
   if (text.startsWith("(") || text.startsWith("@(")) return true
   if (text.includes("$(") || text.includes("${") || text.includes("`")) return true
-  if (ps) return /\$(?!(env:|HOME|PWD|PSHOME))/i.test(text)
+  if (ps) return /\$(?!env:)/i.test(text)
   return text.includes("$")
 }
 
@@ -239,18 +240,20 @@ function tail(text: string, maxLines: number, maxBytes: number) {
   const out: string[] = []
   let bytes = 0
   for (let i = lines.length - 1; i >= 0 && out.length < maxLines; i--) {
-    const size = Buffer.byteLength(lines[i], "utf-8") + (out.length > 0 ? 1 : 0)
+    const line = lines[i]
+    if (line === undefined) break
+    const size = Buffer.byteLength(line, "utf-8") + (out.length > 0 ? 1 : 0)
     if (bytes + size > maxBytes) {
       if (out.length === 0) {
-        const buf = Buffer.from(lines[i], "utf-8")
+        const buf = Buffer.from(line, "utf-8")
         let start = buf.length - maxBytes
         if (start < 0) start = 0
-        while (start < buf.length && (buf[start] & 0xc0) === 0x80) start++
+        while (start < buf.length && ((buf[start] ?? 0) & 0xc0) === 0x80) start++
         out.unshift(buf.subarray(start).toString("utf-8"))
       }
       break
     }
-    out.unshift(lines[i])
+    out.unshift(line)
     bytes += size
   }
   return {
@@ -288,25 +291,20 @@ const ask = Effect.fn("ShellTool.ask")(function* (ctx: Tool.Context, scan: Scan)
   })
 })
 
-function cmd(shell: string, command: string, cwd: string, env: NodeJS.ProcessEnv, mode = "workspace-write") {
-  const policy: Sandbox.SandboxPolicy = {
-    mode: mode as Sandbox.SandboxMode,
-    workspaceRoot: cwd,
+function cmd(shell: string, command: string, cwd: string, env: NodeJS.ProcessEnv) {
+  if (process.platform === "win32" && Shell.ps(shell)) {
+    return ChildProcess.make(shell, ["-NoLogo", "-NoProfile", "-NonInteractive", "-Command", command], {
+      cwd,
+      env,
+      stdin: "ignore",
+      detached: false,
+    })
   }
 
-  const isCmd = path.basename(shell).toLowerCase().startsWith("cmd")
-  const defaultArgs =
-    process.platform === "win32" && Shell.ps(shell)
-      ? ["-NoLogo", "-NoProfile", "-NonInteractive", "-Command", command]
-      : isCmd
-        ? ["/c", command]
-        : ["-c", command]
-
-  const confined = Sandbox.confineSync(shell, defaultArgs, policy, env)
-
-  return ChildProcess.make(confined.command, confined.args, {
+  return ChildProcess.make(command, [], {
+    shell,
     cwd,
-    env: confined.env,
+    env,
     stdin: "ignore",
     detached: process.platform !== "win32",
   })
@@ -369,16 +367,11 @@ export const ShellTool = Tool.define(
 
     const argPath = Effect.fn("ShellTool.argPath")(function* (arg: string, cwd: string, ps: boolean, shell: string) {
       const text = ps ? expand(arg, cwd, shell) : home(unquote(arg))
-      if (!text) return { dynamic: false as const, path: undefined }
-      if (dynamic(text, ps)) {
-        return { dynamic: true as const, path: undefined }
-      }
-      const file = prefix(text)
-      if (!file) return { dynamic: false as const, path: undefined }
+      const file = text && prefix(text)
+      if (!file || dynamic(file, ps)) return
       const next = ps ? provider(file) : file
-      if (!next) return { dynamic: false as const, path: undefined }
-      const resolved = yield* resolvePath(next, cwd, shell)
-      return { dynamic: false as const, path: resolved }
+      if (!next) return
+      return yield* resolvePath(next, cwd, shell)
     })
 
     const collect = Effect.fn("ShellTool.collect")(function* (
@@ -400,17 +393,9 @@ export const ShellTool = Tool.define(
         const tokens = command.map((item) => item.text)
         const cmd = ps || shellKind === "cmd" ? tokens[0]?.toLowerCase() : tokens[0]
 
-        let hasDynamicArg = false
         if (cmd && (FILES.has(cmd) || (shellKind === "cmd" && CMD_FILES.has(cmd)))) {
           for (const arg of pathArgs(command, ps, shellKind === "cmd")) {
-            const res = yield* argPath(arg, cwd, ps, shell)
-            if (res?.dynamic) {
-              hasDynamicArg = true
-              scan.patterns.add(source(node))
-              scan.dirs.add(cwd)
-              continue
-            }
-            const resolved = res?.path
+            const resolved = yield* argPath(arg, cwd, ps, shell)
             log.info("resolved path", { arg, resolved })
             if (!resolved || containsPath(resolved, instance)) continue
             const dir = (yield* fs.isDir(resolved)) ? resolved : path.dirname(resolved)
@@ -420,9 +405,7 @@ export const ShellTool = Tool.define(
 
         if (tokens.length && (!cmd || !CWD.has(cmd))) {
           scan.patterns.add(source(node))
-          if (!hasDynamicArg) {
-            scan.always.add(BashArity.prefix(tokens).join(" ") + " *")
-          }
+          scan.always.add(BashArity.prefix(tokens).join(" ") + " *")
         }
       }
 

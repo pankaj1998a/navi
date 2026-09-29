@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "questions": {
+      "description": "Questions to ask",
+      "type": "array",
+      "items": {
+        "ref": "QuestionPrompt",
+        "type": "object",
+        "properties": {
+          "question": {
+            "description": "Complete question",
+            "type": "string"
+          },
+          "header": {
+            "description": "Very short label (max 30 chars)",
+            "type": "string"
+          },
+          "options": {
+            "description": "Available choices",
+            "type": "array",
+            "items": {
+              "ref": "QuestionOption",
+              "type": "object",
+              "properties": {
+                "label": {
+                  "description": "Display text (1-5 words, concise)",
+                  "type": "string"
+                },
+                "description": {
+                  "description": "Explanation of choice",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "label",
+                "description"
+              ]
+            }
+          },
+          "multiple": {
+            "description": "Allow selecting multiple choices",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "question",
+          "header",
+          "options"
+        ]
+      }
+    }
+  },
+  "required": [
+    "questions"
+  ]
+}

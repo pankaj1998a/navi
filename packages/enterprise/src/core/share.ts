@@ -80,6 +80,21 @@ export namespace Share {
     await Storage.write<Snapshot>(["share_snapshot", shareID], { data })
   }
 
+  // Concurrency-capped mapper (Effect.forEach concurrency 10 equivalent for plain async code).
+  async function mapLimit<T, R>(items: T[], limit: number, f: (item: T) => Promise<R>): Promise<R[]> {
+    const out: R[] = []
+    let next = 0
+    await Promise.all(
+      Array.from({ length: Math.min(limit, items.length) }, async () => {
+        while (next < items.length) {
+          const i = next++
+          out[i] = await f(items[i])
+        }
+      }),
+    )
+    return out
+  }
+
   async function legacy(shareID: string) {
     const compaction: Compaction = (await Storage.read<Compaction>(["share_compaction", shareID])) ?? {
       data: [],
@@ -96,7 +111,7 @@ export namespace Share {
 
     const next = merge(
       compaction.data,
-      await Promise.all(list.map(async (event) => await Storage.read<Data[]>(event))).then((x) =>
+      await mapLimit(list, 10, async (event) => await Storage.read<Data[]>(event)).then((x) =>
         x.flatMap((item) => item ?? []),
       ),
     )

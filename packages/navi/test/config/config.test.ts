@@ -18,6 +18,7 @@ import { tmpdir } from "../fixture/fixture"
 import { InstanceRuntime } from "@/project/instance-runtime"
 import { CrossSpawnSpawner } from "@navi-ai/core/cross-spawn-spawner"
 import { testEffect } from "../lib/effect"
+import { waitFor } from "../lib/wait"
 
 /** Infra layer that provides FileSystem, Path, ChildProcessSpawner for test fixtures */
 const infra = CrossSpawnSpawner.defaultLayer.pipe(
@@ -300,7 +301,7 @@ test("loads lsp boolean config", async () => {
 test("loads project config from Git Bash and MSYS2 paths on Windows", async () => {
   // Git Bash and MSYS2 both use /<drive>/... paths on Windows.
   await check((dir) => {
-    const drive = dir[0].toLowerCase()
+    const drive = (dir[0] ?? "").toLowerCase()
     const rest = dir.slice(2).replaceAll("\\", "/")
     return `/${drive}${rest}`
   })
@@ -308,7 +309,7 @@ test("loads project config from Git Bash and MSYS2 paths on Windows", async () =
 
 test("loads project config from Cygwin paths on Windows", async () => {
   await check((dir) => {
-    const drive = dir[0].toLowerCase()
+    const drive = (dir[0] ?? "").toLowerCase()
     const rest = dir.slice(2).replaceAll("\\", "/")
     return `/cygdrive/${drive}${rest}`
   })
@@ -558,7 +559,7 @@ test("handles file inclusion with replacement tokens", async () => {
   })
 })
 
-test("validates config schema and safely handles invalid fields", async () => {
+test("validates config schema and throws on invalid fields", async () => {
   await using tmp = await tmpdir({
     init: async (dir) => {
       await writeConfig(dir, {
@@ -570,13 +571,13 @@ test("validates config schema and safely handles invalid fields", async () => {
   await provideTestInstance({
     directory: tmp.path,
     fn: async () => {
-      const config = await load()
-      expect(config).toBeDefined()
+      // Strict schema should throw an error for invalid fields
+      await expect(load()).rejects.toThrow()
     },
   })
 })
 
-test("handles invalid JSON gracefully without crashing instance", async () => {
+test("throws error for invalid JSON", async () => {
   await using tmp = await tmpdir({
     init: async (dir) => {
       await Filesystem.write(path.join(dir, "navi.json"), "{ invalid json }")
@@ -585,8 +586,7 @@ test("handles invalid JSON gracefully without crashing instance", async () => {
   await provideTestInstance({
     directory: tmp.path,
     fn: async () => {
-      const config = await load()
-      expect(config).toBeDefined()
+      await expect(load()).rejects.toThrow()
     },
   })
 })
@@ -1025,8 +1025,13 @@ test("installs dependencies in writable NAVI_CONFIG_DIR", async () => {
       },
     })
 
-    // TODO: this is a hack to wait for backgruounded gitignore
-    await new Promise((resolve) => setTimeout(resolve, 1000))
+    // Poll for the backgrounded gitignore write instead of a fixed sleep.
+    await waitFor(
+      async () => {
+        expect(await Filesystem.exists(path.join(tmp.extra, ".gitignore"))).toBe(true)
+      },
+      { timeout: 5000 },
+    )
 
     expect(await Filesystem.exists(path.join(tmp.extra, ".gitignore"))).toBe(true)
     expect(await Filesystem.readText(path.join(tmp.extra, ".gitignore"))).toContain("package-lock.json")

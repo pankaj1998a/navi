@@ -270,8 +270,10 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
             }),
           )
           const updated = store.message[event.properties.info.sessionID]
+          if (!updated) break
           if (updated.length > 100) {
             const oldest = updated[0]
+            if (!oldest) break
             batch(() => {
               setStore(
                 "message",
@@ -292,6 +294,7 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
         }
         case "message.removed": {
           const messages = store.message[event.properties.sessionID]
+          if (!messages) break
           const result = Binary.search(messages, event.properties.messageID, (m) => m.id)
           if (result.found) {
             setStore(
@@ -335,6 +338,7 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
             event.properties.messageID,
             produce((draft) => {
               const part = draft[result.index]
+              if (!part) return
               const field = event.properties.field as keyof typeof part
               const existing = part[field] as string | undefined
               ;(part[field] as string) = (existing ?? "") + event.properties.delta
@@ -345,6 +349,7 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
 
         case "message.part.removed": {
           const parts = store.part[event.properties.messageID]
+          if (!parts) break
           const result = Binary.search(parts, event.properties.partID, (p) => p.id)
           if (result.found)
             setStore(
@@ -404,7 +409,13 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
           // Surface every failed endpoint in one labeled message instead of
           // letting the first rejection drown its siblings as unhandled
           // rejections.
-          const failure = aggregateFailures(blockingRequests.map((r, i) => ({ name: r.name, result: settled[i] })))
+          const failure = aggregateFailures(
+            blockingRequests.map((r, i) => {
+              const result = settled[i]
+              if (!result) throw new Error(`missing result for ${r.name}`)
+              return { name: r.name, result }
+            }),
+          )
           if (failure) throw failure
         })
         .then(async () => {

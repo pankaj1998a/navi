@@ -401,12 +401,11 @@ export function Autocomplete(props: {
     const results: AutocompleteOption[] = [...command.slashes()]
 
     for (const serverCommand of sync.data.command) {
-      const label = serverCommand.source === "mcp" ? ":mcp" : serverCommand.source === "skill" ? ":skill" : ""
-      const aliases = (serverCommand as { aliases?: string[]; hints?: string[] }).aliases ?? (serverCommand as { hints?: string[] }).hints
+      if (serverCommand.source === "skill") continue
+      const label = serverCommand.source === "mcp" ? ":mcp" : ""
       results.push({
         display: "/" + serverCommand.name + label,
-        description: serverCommand.description ?? "",
-        aliases: aliases?.map((a) => (a.startsWith("/") ? a : `/${a}`)),
+        description: serverCommand.description,
         onSelect: () => {
           const newText = "/" + serverCommand.name + " "
           const cursor = props.input().logicalCursor

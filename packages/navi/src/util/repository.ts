@@ -59,12 +59,13 @@ function build(input: { host: string; segments: string[]; remote?: string; proto
   if (!safeHost(input.host) || !segments.length || segments.some((segment) => !safeSegment(segment))) return null
   const pathname = segments.join("/")
   const repo = segments[segments.length - 1]
+  if (!repo) return null
   const host = input.host.toLowerCase()
   return {
     host,
     path: pathname,
     segments,
-    owner: segments.length === 2 ? segments[0] : undefined,
+    owner: segments.length === 2 ? (segments[0] as string) : undefined,
     repo,
     remote: input.remote ?? (host === "github.com" ? githubRemote(pathname) : `https://${host}/${pathname}.git`),
     label: host === "github.com" && segments.length === 2 ? pathname : `${host}/${pathname}`,
@@ -76,12 +77,14 @@ function buildFile(input: { url: URL; remote: string }) {
   const filePath = path.normalize(fileURLToPath(input.url))
   const segments = filePath.split(/[\\/]+/).filter(Boolean)
   if (!segments.length) return null
+  const last = segments[segments.length - 1]
+  if (!last) return null
   return {
     host: "file",
     path: filePath,
     segments: segments.map((segment) => segment.replace(/:$/, "")),
     owner: undefined,
-    repo: trimGitSuffix(segments[segments.length - 1]),
+    repo: trimGitSuffix(last),
     remote: input.remote,
     label: filePath,
     protocol: "file:",
@@ -93,15 +96,26 @@ export function parseRepositoryReference(input: string) {
   if (!cleaned) return null
 
   const githubPrefixed = cleaned.match(/^github:([^/\s]+)\/([^/\s]+)$/)
-  if (githubPrefixed) return build({ host: "github.com", segments: [githubPrefixed[1], githubPrefixed[2]] })
+  if (githubPrefixed) {
+    const owner = githubPrefixed[1]
+    const repo = githubPrefixed[2]
+    if (!owner || !repo) return null
+    return build({ host: "github.com", segments: [owner, repo] })
+  }
 
   if (!cleaned.includes("://")) {
     const scp = cleaned.match(/^(?:[^@/\s]+@)?([^:/\s]+):(.+)$/)
-    if (scp) return build({ host: scp[1], segments: parts(scp[2]), remote: cleaned })
+    if (scp) {
+      const host = scp[1]
+      const rest = scp[2]
+      if (!host || rest === undefined) return null
+      return build({ host, segments: parts(rest), remote: cleaned })
+    }
 
     const direct = parts(cleaned)
-    if (direct.length >= 2 && hostLike(direct[0])) {
-      return build({ host: direct[0], segments: direct.slice(1) })
+    const d0 = direct[0]
+    if (direct.length >= 2 && d0 && hostLike(d0)) {
+      return build({ host: d0, segments: direct.slice(1) })
     }
 
     if (direct.length === 2) {
@@ -120,8 +134,7 @@ export function parseRepositoryReference(input: string) {
       remote: host === "github.com" ? githubRemote(pathname.join("/")) : cleaned,
       protocol: url.protocol,
     })
-  } catch (e) {
-    // Ignore URL parsing failure and fallback/return null
+  } catch {
     return null
   }
 }

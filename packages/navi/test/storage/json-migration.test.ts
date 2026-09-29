@@ -127,10 +127,12 @@ describe("JSON to SQLite migration", () => {
 
     const projects = db.select().from(ProjectTable).all()
     expect(projects.length).toBe(1)
-    expect(projects[0].id).toBe(ProjectID.make("proj_test123abc"))
-    expect(projects[0].worktree).toBe("/test/path")
-    expect(projects[0].name).toBe("Test Project")
-    expect(projects[0].sandboxes).toEqual(["/test/sandbox"])
+    const project = projects[0]
+    if (!project) throw new Error("expected project")
+    expect(project.id).toBe(ProjectID.make("proj_test123abc"))
+    expect(project.worktree).toBe("/test/path")
+    expect(project.name).toBe("Test Project")
+    expect(project.sandboxes).toEqual(["/test/sandbox"])
   })
 
   test("uses filename for project id when JSON has different value", async () => {
@@ -151,7 +153,9 @@ describe("JSON to SQLite migration", () => {
 
     const projects = db.select().from(ProjectTable).all()
     expect(projects.length).toBe(1)
-    expect(projects[0].id).toBe(ProjectID.make("proj_filename")) // Uses filename, not JSON id
+    const project = projects[0]
+    if (!project) throw new Error("expected project")
+    expect(project.id).toBe(ProjectID.make("proj_filename")) // Uses filename, not JSON id
   })
 
   test("migrates project with commands", async () => {
@@ -171,8 +175,10 @@ describe("JSON to SQLite migration", () => {
 
     const projects = db.select().from(ProjectTable).all()
     expect(projects.length).toBe(1)
-    expect(projects[0].id).toBe(ProjectID.make("proj_with_commands"))
-    expect(projects[0].commands).toEqual({ start: "npm run dev" })
+    const projectWithCommands = projects[0]
+    if (!projectWithCommands) throw new Error("expected project")
+    expect(projectWithCommands.id).toBe(ProjectID.make("proj_with_commands"))
+    expect(projectWithCommands.commands).toEqual({ start: "npm run dev" })
   })
 
   test("migrates project without commands field", async () => {
@@ -191,8 +197,10 @@ describe("JSON to SQLite migration", () => {
 
     const projects = db.select().from(ProjectTable).all()
     expect(projects.length).toBe(1)
-    expect(projects[0].id).toBe(ProjectID.make("proj_no_commands"))
-    expect(projects[0].commands).toBeNull()
+    const projectNoCommands = projects[0]
+    if (!projectNoCommands) throw new Error("expected project")
+    expect(projectNoCommands.id).toBe(ProjectID.make("proj_no_commands"))
+    expect(projectNoCommands.commands).toBeNull()
   })
 
   test("migrates session with individual columns", async () => {
@@ -219,13 +227,15 @@ describe("JSON to SQLite migration", () => {
 
     const sessions = db.select().from(SessionTable).all()
     expect(sessions.length).toBe(1)
-    expect(sessions[0].id).toBe(SessionID.make("ses_test456def"))
-    expect(sessions[0].project_id).toBe(ProjectID.make("proj_test123abc"))
-    expect(sessions[0].slug).toBe("test-session")
-    expect(sessions[0].title).toBe("Test Session Title")
-    expect(sessions[0].summary_additions).toBe(10)
-    expect(sessions[0].summary_deletions).toBe(5)
-    expect(sessions[0].share_url).toBe("https://example.com/share")
+    const session = sessions[0]
+    if (!session) throw new Error("expected session")
+    expect(session.id).toBe(SessionID.make("ses_test456def"))
+    expect(session.project_id).toBe(ProjectID.make("proj_test123abc"))
+    expect(session.slug).toBe("test-session")
+    expect(session.title).toBe("Test Session Title")
+    expect(session.summary_additions).toBe(10)
+    expect(session.summary_deletions).toBe(5)
+    expect(session.share_url).toBe("https://example.com/share")
   })
 
   test("migrates messages and parts", async () => {
@@ -252,11 +262,15 @@ describe("JSON to SQLite migration", () => {
 
     const messages = db.select().from(MessageTable).all()
     expect(messages.length).toBe(1)
-    expect(messages[0].id).toBe(MessageID.make("msg_test789ghi"))
+    const message = messages[0]
+    if (!message) throw new Error("expected message")
+    expect(message.id).toBe(MessageID.make("msg_test789ghi"))
 
     const parts = db.select().from(PartTable).all()
     expect(parts.length).toBe(1)
-    expect(parts[0].id).toBe(PartID.make("prt_testabc123"))
+    const part = parts[0]
+    if (!part) throw new Error("expected part")
+    expect(part.id).toBe(PartID.make("prt_testabc123"))
   })
 
   test("migrates legacy parts without ids in body", async () => {
@@ -291,19 +305,23 @@ describe("JSON to SQLite migration", () => {
 
     const messages = db.select().from(MessageTable).all()
     expect(messages.length).toBe(1)
-    expect(messages[0].id).toBe(MessageID.make("msg_test789ghi"))
-    expect(messages[0].session_id).toBe(SessionID.make("ses_test456def"))
-    expect(messages[0].data).not.toHaveProperty("id")
-    expect(messages[0].data).not.toHaveProperty("sessionID")
+    const legacyMessage = messages[0]
+    if (!legacyMessage) throw new Error("expected message")
+    expect(legacyMessage.id).toBe(MessageID.make("msg_test789ghi"))
+    expect(legacyMessage.session_id).toBe(SessionID.make("ses_test456def"))
+    expect(legacyMessage.data).not.toHaveProperty("id")
+    expect(legacyMessage.data).not.toHaveProperty("sessionID")
 
     const parts = db.select().from(PartTable).all()
     expect(parts.length).toBe(1)
-    expect(parts[0].id).toBe(PartID.make("prt_testabc123"))
-    expect(parts[0].message_id).toBe(MessageID.make("msg_test789ghi"))
-    expect(parts[0].session_id).toBe(SessionID.make("ses_test456def"))
-    expect(parts[0].data).not.toHaveProperty("id")
-    expect(parts[0].data).not.toHaveProperty("messageID")
-    expect(parts[0].data).not.toHaveProperty("sessionID")
+    const legacyPart = parts[0]
+    if (!legacyPart) throw new Error("expected part")
+    expect(legacyPart.id).toBe(PartID.make("prt_testabc123"))
+    expect(legacyPart.message_id).toBe(MessageID.make("msg_test789ghi"))
+    expect(legacyPart.session_id).toBe(SessionID.make("ses_test456def"))
+    expect(legacyPart.data).not.toHaveProperty("id")
+    expect(legacyPart.data).not.toHaveProperty("messageID")
+    expect(legacyPart.data).not.toHaveProperty("sessionID")
   })
 
   test("uses filename for message id when JSON has different value", async () => {
@@ -331,8 +349,10 @@ describe("JSON to SQLite migration", () => {
 
     const messages = db.select().from(MessageTable).all()
     expect(messages.length).toBe(1)
-    expect(messages[0].id).toBe(MessageID.make("msg_from_filename")) // Uses filename, not JSON id
-    expect(messages[0].session_id).toBe(SessionID.make("ses_test456def"))
+    const filenameMessage = messages[0]
+    if (!filenameMessage) throw new Error("expected message")
+    expect(filenameMessage.id).toBe(MessageID.make("msg_from_filename")) // Uses filename, not JSON id
+    expect(filenameMessage.session_id).toBe(SessionID.make("ses_test456def"))
   })
 
   test("uses paths for part id and messageID when JSON has different values", async () => {
@@ -368,8 +388,10 @@ describe("JSON to SQLite migration", () => {
 
     const parts = db.select().from(PartTable).all()
     expect(parts.length).toBe(1)
-    expect(parts[0].id).toBe(PartID.make("prt_from_filename")) // Uses filename, not JSON id
-    expect(parts[0].message_id).toBe(MessageID.make("msg_realmsgid")) // Uses parent dir, not JSON messageID
+    const filenamePart = parts[0]
+    if (!filenamePart) throw new Error("expected part")
+    expect(filenamePart.id).toBe(PartID.make("prt_from_filename")) // Uses filename, not JSON id
+    expect(filenamePart.message_id).toBe(MessageID.make("msg_realmsgid")) // Uses parent dir, not JSON messageID
   })
 
   test("skips orphaned sessions (no parent project)", async () => {
@@ -420,8 +442,10 @@ describe("JSON to SQLite migration", () => {
 
     const sessions = db.select().from(SessionTable).all()
     expect(sessions.length).toBe(1)
-    expect(sessions[0].id).toBe(SessionID.make("ses_migrated"))
-    expect(sessions[0].project_id).toBe(ProjectID.make(gitBasedProjectID)) // Uses directory, not stale JSON
+    const migratedSession = sessions[0]
+    if (!migratedSession) throw new Error("expected session")
+    expect(migratedSession.id).toBe(SessionID.make("ses_migrated"))
+    expect(migratedSession.project_id).toBe(ProjectID.make(gitBasedProjectID)) // Uses directory, not stale JSON
   })
 
   test("uses filename for session id when JSON has different value", async () => {
@@ -451,8 +475,10 @@ describe("JSON to SQLite migration", () => {
 
     const sessions = db.select().from(SessionTable).all()
     expect(sessions.length).toBe(1)
-    expect(sessions[0].id).toBe(SessionID.make("ses_from_filename")) // Uses filename, not JSON id
-    expect(sessions[0].project_id).toBe(ProjectID.make("proj_test123abc"))
+    const filenameSession = sessions[0]
+    if (!filenameSession) throw new Error("expected session")
+    expect(filenameSession.id).toBe(SessionID.make("ses_from_filename")) // Uses filename, not JSON id
+    expect(filenameSession.project_id).toBe(ProjectID.make("proj_test123abc"))
   })
 
   test("is idempotent (running twice doesn't duplicate)", async () => {
@@ -504,12 +530,16 @@ describe("JSON to SQLite migration", () => {
 
     const todos = db.select().from(TodoTable).orderBy(TodoTable.position).all()
     expect(todos.length).toBe(2)
-    expect(todos[0].content).toBe("First todo")
-    expect(todos[0].status).toBe("pending")
-    expect(todos[0].priority).toBe("high")
-    expect(todos[0].position).toBe(0)
-    expect(todos[1].content).toBe("Second todo")
-    expect(todos[1].position).toBe(1)
+    const firstTodo = todos[0]
+    if (!firstTodo) throw new Error("expected todo")
+    expect(firstTodo.content).toBe("First todo")
+    expect(firstTodo.status).toBe("pending")
+    expect(firstTodo.priority).toBe("high")
+    expect(firstTodo.position).toBe(0)
+    const secondTodo = todos[1]
+    if (!secondTodo) throw new Error("expected todo")
+    expect(secondTodo.content).toBe("Second todo")
+    expect(secondTodo.position).toBe(1)
   })
 
   test("todos are ordered by position", async () => {
@@ -535,12 +565,18 @@ describe("JSON to SQLite migration", () => {
     const todos = db.select().from(TodoTable).orderBy(TodoTable.position).all()
 
     expect(todos.length).toBe(3)
-    expect(todos[0].content).toBe("Third")
-    expect(todos[0].position).toBe(0)
-    expect(todos[1].content).toBe("First")
-    expect(todos[1].position).toBe(1)
-    expect(todos[2].content).toBe("Second")
-    expect(todos[2].position).toBe(2)
+    const thirdTodo = todos[0]
+    if (!thirdTodo) throw new Error("expected todo")
+    expect(thirdTodo.content).toBe("Third")
+    expect(thirdTodo.position).toBe(0)
+    const firstOrderedTodo = todos[1]
+    if (!firstOrderedTodo) throw new Error("expected todo")
+    expect(firstOrderedTodo.content).toBe("First")
+    expect(firstOrderedTodo.position).toBe(1)
+    const secondOrderedTodo = todos[2]
+    if (!secondOrderedTodo) throw new Error("expected todo")
+    expect(secondOrderedTodo.content).toBe("Second")
+    expect(secondOrderedTodo.position).toBe(2)
   })
 
   test("migrates permissions", async () => {
@@ -565,8 +601,10 @@ describe("JSON to SQLite migration", () => {
 
     const permissions = db.select().from(PermissionTable).all()
     expect(permissions.length).toBe(1)
-    expect(permissions[0].project_id).toBe("proj_test123abc")
-    expect(permissions[0].data).toEqual(permissionData)
+    const permission = permissions[0]
+    if (!permission) throw new Error("expected permission")
+    expect(permission.project_id).toBe("proj_test123abc")
+    expect(permission.data).toEqual(permissionData)
   })
 
   test("migrates session shares", async () => {
@@ -594,10 +632,12 @@ describe("JSON to SQLite migration", () => {
 
     const shares = db.select().from(SessionShareTable).all()
     expect(shares.length).toBe(1)
-    expect(shares[0].session_id).toBe("ses_test456def")
-    expect(shares[0].id).toBe("share_123")
-    expect(shares[0].secret).toBe("supersecretkey")
-    expect(shares[0].url).toBe("https://share.example.com/ses_test456def")
+    const share = shares[0]
+    if (!share) throw new Error("expected share")
+    expect(share.session_id).toBe("ses_test456def")
+    expect(share.id).toBe("share_123")
+    expect(share.secret).toBe("supersecretkey")
+    expect(share.url).toBe("https://share.example.com/ses_test456def")
   })
 
   test("returns empty stats when storage directory does not exist", async () => {
@@ -631,7 +671,9 @@ describe("JSON to SQLite migration", () => {
 
     const projects = db.select().from(ProjectTable).all()
     expect(projects.length).toBe(1)
-    expect(projects[0].id).toBe(ProjectID.make("proj_test123abc"))
+    const brokenProject = projects[0]
+    if (!brokenProject) throw new Error("expected project")
+    expect(brokenProject.id).toBe(ProjectID.make("proj_test123abc"))
   })
 
   test("skips invalid todo entries while preserving source positions", async () => {
@@ -657,10 +699,14 @@ describe("JSON to SQLite migration", () => {
 
     const todos = db.select().from(TodoTable).orderBy(TodoTable.position).all()
     expect(todos.length).toBe(2)
-    expect(todos[0].content).toBe("keep-0")
-    expect(todos[0].position).toBe(0)
-    expect(todos[1].content).toBe("keep-2")
-    expect(todos[1].position).toBe(2)
+    const keepTodo = todos[0]
+    if (!keepTodo) throw new Error("expected todo")
+    expect(keepTodo.content).toBe("keep-0")
+    expect(keepTodo.position).toBe(0)
+    const keepTodo2 = todos[1]
+    if (!keepTodo2) throw new Error("expected todo")
+    expect(keepTodo2.content).toBe("keep-2")
+    expect(keepTodo2.position).toBe(2)
   })
 
   test("skips orphaned todos, permissions, and shares", async () => {

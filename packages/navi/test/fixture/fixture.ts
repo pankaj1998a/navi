@@ -58,9 +58,9 @@ function clean(dir: string) {
   return fs.rm(dir, {
     recursive: true,
     force: true,
-    maxRetries: 10,
+    maxRetries: 5,
     retryDelay: 100,
-  }).catch(() => undefined)
+  })
 }
 
 async function stop(dir: string) {
@@ -79,9 +79,10 @@ export async function tmpdir<T>(options?: TmpDirOptions<T>) {
   await fs.mkdir(dirpath, { recursive: true })
   if (options?.git) {
     await $`git init`.cwd(dirpath).quiet()
-    const configPath = path.join(dirpath, ".git", "config")
-    const additionalConfig = "\n[core]\n\tfsmonitor = false\n[commit]\n\tgpgsign = false\n[user]\n\temail = test@navi.test\n\tname = Test\n"
-    await fs.appendFile(configPath, additionalConfig, "utf-8")
+    await $`git config core.fsmonitor false`.cwd(dirpath).quiet()
+    await $`git config commit.gpgsign false`.cwd(dirpath).quiet()
+    await $`git config user.email "test@navi.test"`.cwd(dirpath).quiet()
+    await $`git config user.name "Test"`.cwd(dirpath).quiet()
     await $`git commit --allow-empty -m "root commit ${dirpath}"`.cwd(dirpath).quiet()
   }
   if (options?.config) {
@@ -130,9 +131,10 @@ export function tmpdirScoped(options?: { git?: boolean; config?: Partial<Config.
 
     if (options?.git) {
       yield* git("init")
-      const configPath = path.join(dir, ".git", "config")
-      const additionalConfig = "\n[core]\n\tfsmonitor = false\n[commit]\n\tgpgsign = false\n[user]\n\temail = test@navi.test\n\tname = Test\n"
-      yield* Effect.promise(() => fs.appendFile(configPath, additionalConfig, "utf-8"))
+      yield* git("config", "core.fsmonitor", "false")
+      yield* git("config", "commit.gpgsign", "false")
+      yield* git("config", "user.email", "test@navi.test")
+      yield* git("config", "user.name", "Test")
       yield* git("commit", "--allow-empty", "-m", "root commit")
     }
 

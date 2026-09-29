@@ -14,13 +14,22 @@ import type { Agent } from "./agent"
  * 3. Default `todowrite` and `task` denies if the subagent's own ruleset
  *    doesn't already permit them.
  */
+export const MAX_SUBAGENT_DEPTH = 3
+
 export function deriveSubagentSessionPermission(input: {
   parentSessionPermission: Permission.Ruleset
   parentAgent: Agent.Info | undefined
   subagent: Agent.Info
+  depth?: number
+  maxDepth?: number
 }): Permission.Ruleset {
-  const canTask = input.subagent.permission.some((rule) => rule.permission === "task")
-  const canTodo = input.subagent.permission.some((rule) => rule.permission === "todowrite")
+  const maxDepth = input.maxDepth ?? MAX_SUBAGENT_DEPTH
+  const depth = input.depth ?? 1
+  const exceededDepth = depth >= maxDepth
+  const canTask =
+    !exceededDepth &&
+    input.subagent.permission.some((rule) => rule.permission === "task" && rule.action !== "deny")
+  const canTodo = input.subagent.permission.some((rule) => rule.permission === "todowrite" && rule.action !== "deny")
   const parentAgentDenies = input.parentAgent?.permission.filter((rule) => rule.action === "deny") ?? []
   return [
     ...parentAgentDenies,

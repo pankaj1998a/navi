@@ -200,7 +200,7 @@ export const ApplyPatchTool = Tool.define(
       // Check permissions if needed
       const relativePaths = fileChanges.map((c) => path.relative(instance.worktree, c.filePath).replaceAll("\\", "/"))
       const primaryFilePath = fileChanges[0]?.filePath
-      yield* askEditUnlessMemory(ctx, primaryFilePath, {
+      yield* askEditUnlessMemory(ctx, primaryFilePath ?? "", {
         patterns: relativePaths,
         diff: totalDiff,
         files,

@@ -56,6 +56,7 @@ const parsePathToken = (value: string) => {
 const fileFromDiffPath = (value: string | undefined) => {
   if (!value || value === "/dev/null") return
   const file = parsePathToken(value)
+  if (!file) return
   if (file.startsWith("a/") || file.startsWith("b/")) return file.slice(2)
   return file
 }

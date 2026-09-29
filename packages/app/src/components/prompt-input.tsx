@@ -1,6 +1,6 @@
 import { useFilteredList } from "@navi-ai/ui/hooks"
 import { useSpring } from "@navi-ai/ui/motion-spring"
-import { batch, createEffect, on, Component, Show, onCleanup, createMemo, createSignal, createResource } from "solid-js"
+import { createEffect, on, Component, Show, onCleanup, createMemo, createSignal, createResource } from "solid-js"
 import { createStore } from "solid-js/store"
 import { useLocal } from "@/context/local"
 import { selectionFromLines, type SelectedLineRange, useFile } from "@/context/file"
@@ -444,10 +444,8 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
   const pick = () => fileInputRef?.click()
 
   const setMode = (mode: "normal" | "shell") => {
-    batch(() => {
-      setStore("mode", mode)
-      setStore("popover", null)
-    })
+    setStore("mode", mode)
+    setStore("popover", null)
     requestAnimationFrame(() => editorRef?.focus())
   }
 
@@ -485,10 +483,8 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
 
   const resetHistoryNavigation = (force = false) => {
     if (!force && (store.historyIndex < 0 || store.applyingHistory)) return
-    batch(() => {
-      setStore("historyIndex", -1)
-      setStore("savedPrompt", null)
-    })
+    setStore("historyIndex", -1)
+    setStore("savedPrompt", null)
   }
 
   const clearEditor = () => {
@@ -1021,12 +1017,10 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
           })
         }
 
-        batch(() => {
-          setStore("mode", "normal")
-          setStore("popover", null)
-          setStore("historyIndex", -1)
-          setStore("savedPrompt", null)
-        })
+        setStore("mode", "normal")
+        setStore("popover", null)
+        setStore("historyIndex", -1)
+        setStore("savedPrompt", null)
         prompt.set(edit.prompt, promptLength(edit.prompt))
         requestAnimationFrame(() => {
           editorRef.focus()
@@ -1049,10 +1043,8 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
       savedPrompt: store.savedPrompt,
     })
     if (!result.handled) return false
-    batch(() => {
-      setStore("historyIndex", result.historyIndex)
-      setStore("savedPrompt", result.savedPrompt)
-    })
+    setStore("historyIndex", result.historyIndex)
+    setStore("savedPrompt", result.savedPrompt)
     applyHistoryPrompt(result.entry, result.cursor)
     return true
   }
@@ -1129,10 +1121,8 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
     if (event.key === "!" && store.mode === "normal") {
       const cursorPosition = getCursorPosition(editorRef)
       if (cursorPosition === 0) {
-        batch(() => {
-          setStore("mode", "shell")
-          setStore("popover", null)
-        })
+        setStore("mode", "shell")
+        setStore("popover", null)
         event.preventDefault()
         return
       }

@@ -82,9 +82,11 @@ Use this skill.
           const file = path.resolve(skill, "scripts", "demo.txt")
 
           expect(requests.length).toBe(1)
-          expect(requests[0].permission).toBe("skill")
-          expect(requests[0].patterns).toContain("tool-skill")
-          expect(requests[0].always).toContain("tool-skill")
+          const req = requests[0]
+          if (!req) throw new Error("Permission request not recorded")
+          expect(req.permission).toBe("skill")
+          expect(req.patterns).toContain("tool-skill")
+          expect(req.always).toContain("tool-skill")
           expect(result.metadata.dir).toBe(skill)
           expect(result.output).toContain(`<skill_content name="tool-skill">`)
           expect(result.output).toContain(`Base directory for this skill: ${pathToFileURL(skill).href}`)

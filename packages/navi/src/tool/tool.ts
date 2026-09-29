@@ -4,8 +4,6 @@ import type { Permission } from "../permission"
 import type { SessionID, MessageID } from "../session/schema"
 import * as Truncate from "./truncate"
 import { Agent } from "@/agent/agent"
-import { applyToolGuard } from "./guard"
-import { scrubSecrets } from "@/util/secret-scrubber"
 
 interface Metadata {
   [key: string]: any
@@ -109,17 +107,7 @@ function wrap<Parameters extends Schema.Decoder<unknown>, Result extends Metadat
                   ),
             ),
           )
-          const rawResult = yield* execute(decoded as Schema.Schema.Type<Parameters>, ctx)
-          const guardedOutput = applyToolGuard({
-            toolId: id,
-            sessionID: ctx.sessionID,
-            agent: ctx.agent,
-            args: decoded,
-            output: rawResult.output,
-          })
-          const scrubbedOutput = scrubSecrets(guardedOutput).text
-          const fencedOutput = `<untrusted-tool-output tool="${id}">\n${scrubbedOutput}\n</untrusted-tool-output>`
-          const result = { ...rawResult, output: fencedOutput }
+          const result = yield* execute(decoded as Schema.Schema.Type<Parameters>, ctx)
           if (result.metadata.truncated !== undefined) {
             return result
           }

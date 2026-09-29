@@ -14,7 +14,7 @@ import { RGBA } from "@opentui/core"
 import { Filesystem } from "@/util/filesystem"
 
 export function parseModel(model: string) {
-  const [providerID, ...rest] = model.split("/")
+  const [providerID = "", ...rest] = model.split("/")
   return {
     providerID: providerID,
     modelID: rest.join("/"),
@@ -81,6 +81,7 @@ export const { use: useLocal, provider: LocalProvider } = createSimpleContext({
             if (next < 0) next = agents().length - 1
             if (next >= agents().length) next = 0
             const value = agents()[next]
+            if (!value) return
             setAgentStore("current", value.name)
           })
         },
@@ -147,10 +148,12 @@ export const { use: useLocal, provider: LocalProvider } = createSimpleContext({
       }
 
       Filesystem.readJson(filePath)
-        .then((x: any) => {
-          if (Array.isArray(x.recent)) setModelStore("recent", x.recent)
-          if (Array.isArray(x.favorite)) setModelStore("favorite", x.favorite)
-          if (typeof x.variant === "object" && x.variant !== null) setModelStore("variant", x.variant)
+        .then((x: unknown) => {
+          if (typeof x !== "object" || x === null) return
+          const record = x as { recent?: unknown; favorite?: unknown; variant?: unknown }
+          if (Array.isArray(record.recent)) setModelStore("recent", record.recent)
+          if (Array.isArray(record.favorite)) setModelStore("favorite", record.favorite)
+          if (typeof record.variant === "object" && record.variant !== null) setModelStore("variant", record.variant)
         })
         .catch(() => { })
         .finally(() => {
@@ -209,32 +212,6 @@ export const { use: useLocal, provider: LocalProvider } = createSimpleContext({
         )
       })
 
-      let lastFallbackToast: string | undefined
-      createEffect(() => {
-        const fallback = fallbackModel()
-        if (!fallback) return
-        let requested: { providerID: string; modelID: string } | undefined
-        let requestedRaw: string | undefined
-        if (args.model) {
-          requested = parseModel(args.model)
-          requestedRaw = args.model
-        } else if (sync.data.config.model) {
-          requested = parseModel(sync.data.config.model)
-          requestedRaw = sync.data.config.model
-        }
-        if (!requested || !requestedRaw) return
-        if (requested.providerID === fallback.providerID && requested.modelID === fallback.modelID) return
-        if (isModelValid(requested)) return
-        const key = `${requestedRaw}->${fallback.providerID}/${fallback.modelID}`
-        if (lastFallbackToast === key) return
-        lastFallbackToast = key
-        toast.show({
-          variant: "info",
-          message: `Switched to ${fallback.providerID}/${fallback.modelID} (your choice ${requestedRaw} unavailable)`,
-          duration: 4000,
-        })
-      })
-
       return {
         current: currentModel,
         get ready() {
@@ -289,13 +266,13 @@ export const { use: useLocal, provider: LocalProvider } = createSimpleContext({
             return
           }
           const current = currentModel()
-          let index = -1
-          if (current) {
-            index = favorites.findIndex((x) => x.providerID === current.providerID && x.modelID === current.modelID)
-          }
-          if (index === -1) {
-            index = direction === 1 ? 0 : favorites.length - 1
-          } else {
+          const initial = current
+            ? favorites.findIndex((x) => x.providerID === current.providerID && x.modelID === current.modelID)
+            : -1
+          let index = initial
+          const wasMissing = initial === -1
+          if (wasMissing) index = direction === 1 ? 0 : favorites.length - 1
+          if (!wasMissing) {
             index += direction
             if (index < 0) index = favorites.length - 1
             if (index >= favorites.length) index = 0
@@ -422,10 +399,10 @@ export const { use: useLocal, provider: LocalProvider } = createSimpleContext({
         if (status?.status === "connected") {
           // Disable: disconnect the MCP
           await sdk.client.mcp.disconnect({ name })
-        } else {
-          // Enable/Retry: connect the MCP (handles disabled, failed, and other states)
-          await sdk.client.mcp.connect({ name })
+          return
         }
+        // Enable/Retry: connect the MCP (handles disabled, failed, and other states)
+        await sdk.client.mcp.connect({ name })
       },
     }
 

@@ -1096,7 +1096,7 @@ function normalizePath(input?: string) {
 function filetype(input?: string) {
   if (!input) return "none"
   const language = LANGUAGE_EXTENSIONS[path.extname(input)]
-  if (["typescriptreact", "javascriptreact", "javascript"].includes(language)) return "typescript"
+  if (language && ["typescriptreact", "javascriptreact", "javascript"].includes(language)) return "typescript"
   return language
 }
 

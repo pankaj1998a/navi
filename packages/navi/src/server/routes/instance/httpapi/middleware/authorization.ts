@@ -51,9 +51,12 @@ function decodeCredential(input: string) {
         onSuccess: (header) => {
           const parts = header.split(":")
           if (parts.length !== 2) return emptyCredential()
+          const username = parts[0]
+          const password = parts[1]
+          if (!username || !password) return emptyCredential()
           return {
-            username: parts[0],
-            password: Redacted.make(parts[1]),
+            username,
+            password: Redacted.make(password),
           }
         },
       }),
@@ -68,7 +71,11 @@ function credentialFromURL(url: URL, request: HttpServerRequest.HttpServerReques
   const token = url.searchParams.get(AUTH_TOKEN_QUERY)
   if (token) return decodeCredential(token)
   const match = /^Basic\s+(.+)$/i.exec(request.headers.authorization ?? "")
-  if (match) return decodeCredential(match[1])
+  if (match) {
+    const raw = match[1]
+    if (!raw) return Effect.succeed(emptyCredential())
+    return decodeCredential(raw)
+  }
   return Effect.succeed(emptyCredential())
 }
 

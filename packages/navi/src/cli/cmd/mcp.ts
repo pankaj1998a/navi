@@ -203,7 +203,7 @@ export const McpAuthCommand = effectCmd({
     if (!serverName) {
       // Build options with auth status
       const options = servers.map(([name, cfg]) => {
-        const authStatus = auth[name]
+        const authStatus = auth[name] ?? "not_authenticated"
         const icon = getAuthStatusIcon(authStatus)
         const statusText = getAuthStatusText(authStatus)
         const url = cfg.url
@@ -326,7 +326,7 @@ export const McpAuthListCommand = effectCmd({
     }
 
     for (const [name, serverConfig] of servers) {
-      const authStatus = auth[name]
+      const authStatus = auth[name] ?? "not_authenticated"
       const icon = getAuthStatusIcon(authStatus)
       const statusText = getAuthStatusText(authStatus)
       const url = serverConfig.url
@@ -366,8 +366,8 @@ export const McpLogoutCommand = effectCmd({
           message: "Select MCP server to logout",
           options: serverNames.map((name) => {
             const entry = credentials[name]
-            const hasTokens = !!entry.tokens
-            const hasClient = !!entry.clientInfo
+            const hasTokens = !!entry?.tokens
+            const hasClient = !!entry?.clientInfo
             let hint = ""
             if (hasTokens && hasClient) hint = "tokens + client"
             else if (hasTokens) hint = "tokens"
@@ -445,7 +445,7 @@ export const McpAddCommand = effectCmd({
       const project = ctx.project
 
       // Resolve config paths eagerly for hints
-      const [projectConfigPath, globalConfigPath] = await Promise.all([
+      const [projectConfigPath = "", globalConfigPath = ""] = await Promise.all([
         resolveConfigPath(ctx.worktree),
         resolveConfigPath(Global.Path.config, true),
       ])
@@ -469,6 +469,7 @@ export const McpAddCommand = effectCmd({
           ],
         })
         if (prompts.isCancel(scopeResult)) throw new UI.CancelledError()
+        if (typeof scopeResult !== "string") throw new UI.CancelledError()
         configPath = scopeResult
       }
 

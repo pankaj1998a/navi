@@ -11,16 +11,31 @@ export const HEADER = "x-navi-sync"
 export type State = Record<string, number>
 const log = Log.create({ service: "fence" })
 
+// Bound unbounded loads: cap ids per query and chunk large inArray lists (SQLite ~999 vars).
+const FENCE_MAX_IDS = 2000
+const FENCE_CHUNK = 500
+
 export function load(ids?: string[]) {
+  if (ids && ids.length > FENCE_MAX_IDS) {
+    log.warn("fence load truncated", { ids: ids.length, max: FENCE_MAX_IDS })
+    ids = ids.slice(0, FENCE_MAX_IDS)
+  }
   const rows = Database.use((db) => {
     if (!ids?.length) {
-      return db.select().from(EventSequenceTable).all()
+      return db.select().from(EventSequenceTable).limit(FENCE_MAX_IDS).all()
     }
 
-    return db.select().from(EventSequenceTable).where(inArray(EventSequenceTable.aggregate_id, ids)).all()
+    const out: (typeof EventSequenceTable.$inferSelect)[] = []
+    for (let i = 0; i < ids.length; i += FENCE_CHUNK) {
+      const part = ids.slice(i, i + FENCE_CHUNK)
+      out.push(
+        ...db.select().from(EventSequenceTable).where(inArray(EventSequenceTable.aggregate_id, part)).all(),
+      )
+    }
+    return out
   })
 
-  return Object.fromEntries(rows.map((row: any) => [row.aggregate_id, row.seq])) as State
+  return Object.fromEntries(rows.map((row) => [row.aggregate_id, row.seq])) as State
 }
 
 export function diff(prev: State, next: State) {

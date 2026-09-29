@@ -573,7 +573,6 @@ export const Assistant = Schema.Struct({
   structured: Schema.optional(Schema.Any),
   variant: Schema.optional(Schema.String),
   finish: Schema.optional(Schema.String),
-  retries: Schema.optional(NonNegativeInt),
 })
   .annotate({ identifier: "AssistantMessage" })
   .pipe(withStatics((s) => ({ zod: zod(s) })))
@@ -1058,7 +1057,9 @@ export function* stream(sessionID: SessionID) {
     const next = page({ sessionID, limit: size, before })
     if (next.items.length === 0) break
     for (let i = next.items.length - 1; i >= 0; i--) {
-      yield next.items[i]
+      const item = next.items[i]
+      if (!item) continue
+      yield item
     }
     if (!next.more || !next.cursor) break
     before = next.cursor
@@ -1066,18 +1067,27 @@ export function* stream(sessionID: SessionID) {
 }
 
 export function parts(message_id: MessageID) {
+  return partsForMessages([message_id]).get(message_id) ?? []
+}
+
+// Batched variant: single inArray + orderBy query for N message IDs (avoids N+1 in list paths).
+export function partsForMessages(messageIDs: MessageID[]): Map<MessageID, Part[]> {
+  const grouped = new Map<MessageID, Part[]>()
+  if (messageIDs.length === 0) return grouped
+  for (const id of messageIDs) grouped.set(id, [])
   const rows = Database.use((db) =>
-    db.select().from(PartTable).where(eq(PartTable.message_id, message_id)).orderBy(PartTable.id).all(),
+    db.select().from(PartTable).where(inArray(PartTable.message_id, messageIDs)).orderBy(PartTable.id).all(),
   )
-  return rows.map(
-    (row: any) =>
-      ({
-        ...row.data,
-        id: row.id,
-        sessionID: row.session_id,
-        messageID: row.message_id,
-      }) as Part,
-  )
+  for (const row of rows) {
+    const part = {
+      ...row.data,
+      id: row.id,
+      sessionID: row.session_id,
+      messageID: row.message_id,
+    } as Part
+    grouped.get(row.message_id)?.push(part)
+  }
+  return grouped
 }
 
 export function get(input: { sessionID: SessionID; messageID: MessageID }): WithParts {
@@ -1242,8 +1252,6 @@ export function fromError(
         { cause: e },
       ).toObject()
     }
-    case BudgetExceededError.isInstance(e):
-      return e.toObject()
     case e instanceof Error:
       return new NamedError.Unknown({ message: errorMessage(e) }, { cause: e }).toObject()
     default:
@@ -1270,9 +1278,7 @@ export function fromError(
             },
           ).toObject()
         }
-      } catch (err) {
-        // Fall back to NamedError.Unknown if stream error parsing fails
-      }
+      } catch {}
       return new NamedError.Unknown({ message: JSON.stringify(e) }, { cause: e }).toObject()
   }
 }

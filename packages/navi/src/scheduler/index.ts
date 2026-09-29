@@ -1,3 +1,4 @@
+import { Effect, Fiber, Schedule } from "effect"
 import { Instance } from "../project/instance"
 import { Log } from "@navi-ai/core/util/log"
 import { registerDisposer } from "../effect/instance-registry"
@@ -12,16 +13,15 @@ export namespace Scheduler {
     scope?: "instance" | "global"
   }
 
-  type Timer = ReturnType<typeof setInterval>
   type Entry = {
     tasks: Map<string, Task>
-    timers: Map<string, Timer>
+    fibers: Map<string, Fiber.Fiber<void>>
   }
 
   const create = (): Entry => {
     const tasks = new Map<string, Task>()
-    const timers = new Map<string, Timer>()
-    return { tasks, timers }
+    const fibers = new Map<string, Fiber.Fiber<void>>()
+    return { tasks, fibers }
   }
 
   const shared = create()
@@ -30,11 +30,11 @@ export namespace Scheduler {
   registerDisposer(async (directory) => {
     const entry = instances.get(directory)
     if (entry) {
-      for (const timer of entry.timers.values()) {
-        clearInterval(timer)
+      for (const fiber of entry.fibers.values()) {
+        await Effect.runPromise(Fiber.interrupt(fiber).pipe(Effect.asVoid))
       }
       entry.tasks.clear()
-      entry.timers.clear()
+      entry.fibers.clear()
       instances.delete(directory)
     }
   })
@@ -52,17 +52,19 @@ export namespace Scheduler {
   export function register(task: Task) {
     const scope = task.scope ?? "instance"
     const entry = scope === "global" ? shared : state()
-    const current = entry.timers.get(task.id)
+    const current = entry.fibers.get(task.id)
     if (current && scope === "global") return
-    if (current) clearInterval(current)
+    if (current) void Effect.runPromise(Fiber.interrupt(current).pipe(Effect.asVoid))
 
     entry.tasks.set(task.id, task)
-    void run(task)
-    const timer = setInterval(() => {
-      void run(task)
-    }, task.interval)
-    timer.unref()
-    entry.timers.set(task.id, timer)
+    // Effect.repeat + Schedule.fixed replaces the raw setInterval loop:
+    // jittered fixed schedule, errors logged not propagated, scoped via Fiber (interrupted on dispose).
+    const program = Effect.promise(() => run(task)).pipe(
+      Effect.catch((error) => Effect.sync(() => log.error("run failed", { id: task.id, error }))),
+      Effect.repeat(Schedule.fixed(task.interval).pipe(Schedule.jittered)),
+      Effect.asVoid,
+    )
+    entry.fibers.set(task.id, Effect.runFork(program))
   }
 
   async function run(task: Task) {

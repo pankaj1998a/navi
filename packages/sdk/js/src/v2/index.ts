@@ -6,11 +6,9 @@ export interface Model extends Omit<GenModel, "capabilities" | "limit" | "cost">
   family?: string
   release_date?: string
   capabilities: GenModel["capabilities"] & {
-    interleaved?:
-      | boolean
-      | {
-          field: "reasoning_content" | "reasoning_details"
-        }
+    interleaved?: boolean | {
+      field: "reasoning_content" | "reasoning_details"
+    }
   }
   limit: GenModel["limit"] & {
     input?: number
@@ -29,6 +27,8 @@ export interface Provider extends Omit<GenProvider, "models"> {
     [key: string]: Model
   }
 }
+
+
 
 import { createNaviClient } from "./client.js"
 import { createNaviServer } from "./server.js"

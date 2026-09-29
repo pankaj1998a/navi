@@ -177,8 +177,8 @@ describe("ShareNext", () => {
           expect(row?.secret).toBe("sec_123")
 
           expect(seen).toHaveLength(1)
-          expect(seen[0].method).toBe("POST")
-          expect(seen[0].url).toBe("https://legacy-share.example.com/api/share")
+          expect(seen[0]?.method).toBe("POST")
+          expect(seen[0]?.url).toBe("https://legacy-share.example.com/api/share")
         }),
       { config: { enterprise: { url: "https://legacy-share.example.com" } } },
     ),
@@ -297,9 +297,9 @@ describe("ShareNext", () => {
           yield* Effect.sleep(1_250)
 
           expect(seen).toHaveLength(1)
-          expect(seen[0].url).toBe("https://legacy-share.example.com/api/share/shr_abc/sync")
+          expect(seen[0]?.url).toBe("https://legacy-share.example.com/api/share/shr_abc/sync")
 
-          const body = JSON.parse(seen[0].body) as {
+          const body = JSON.parse(seen[0]?.body ?? "") as {
             secret: string
             data: Array<{
               type: string
@@ -314,8 +314,8 @@ describe("ShareNext", () => {
           }
           expect(body.secret).toBe("sec_123")
           expect(body.data).toHaveLength(1)
-          expect(body.data[0].type).toBe("session_diff")
-          expect(body.data[0].data).toEqual([
+          expect(body.data[0]?.type).toBe("session_diff")
+          expect(body.data[0]?.data).toEqual([
             {
               file: "b.ts",
               patch:

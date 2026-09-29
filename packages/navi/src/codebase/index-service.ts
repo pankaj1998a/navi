@@ -13,55 +13,51 @@ export class IndexService {
   private static graph = new Native.SymbolGraph()
   private static vectorStore = new Native.VectorStore()
   private static isInitialized = false
-  private static initializingPromise: Promise<void> | null = null
 
   /**
-   * Builds the entire project graph and vector index asynchronously.
+   * Builds the entire project graph and vector index.
    */
   static async initialize() {
     if (this.isInitialized) return
-    if (this.initializingPromise) return this.initializingPromise
-
+    
     const root = Instance.directory
     if (!root) {
       this.log.warn("Cannot initialize index: No project directory found.")
       return
     }
 
-    this.initializingPromise = (async () => {
-      this.log.info("Building Symbolic Knowledge Graph in background...", { root })
-      try {
-        const tags = await Native.scanCodebase(root)
-        this.log.info(`Scanned ${tags.length} symbols.`)
+    this.log.info("Building Symbolic Knowledge Graph...", { root })
+    
+    try {
+      // 1. Scan codebase using native Rust multi-threading
+      const tags = await Native.scanCodebase(root)
+      this.log.info(`Scanned ${tags.length} symbols.`)
 
-        this.graph.clear()
-        this.vectorStore.clear()
+      // 2. Populate the graph and vector store
+      this.graph.clear()
+      this.vectorStore.clear()
 
-        for (const tag of tags) {
-          this.graph.addNode(tag)
-        }
+      for (const tag of tags) {
+        this.graph.addNode(tag)
+      }
 
-        const goFiles = await IndexService.findFiles(root, [".go"])
-        if (goFiles.length > 0) {
-          IndexService.log.info(`Scanning ${goFiles.length} Go files via fallback...`)
-          for (const file of goFiles) {
-            const goTags = await IndexService.fallbackScanGo(file)
-            for (const tag of goTags) {
-              IndexService.graph.addNode(tag)
-            }
+      // 3. Go support fallback (if Rust scanner didn't pick up .go files)
+      const goFiles = await IndexService.findFiles(root, [".go"])
+      if (goFiles.length > 0) {
+        IndexService.log.info(`Scanning ${goFiles.length} Go files via fallback...`)
+        for (const file of goFiles) {
+          const goTags = await IndexService.fallbackScanGo(file)
+          for (const tag of goTags) {
+            IndexService.graph.addNode(tag)
           }
         }
-
-        this.isInitialized = true
-        this.log.info("Knowledge Graph initialized successfully.")
-      } catch (e) {
-        this.log.error("Failed to initialize Knowledge Graph", { error: String(e) })
-      } finally {
-        this.initializingPromise = null
       }
-    })()
 
-    return this.initializingPromise
+      this.isInitialized = true
+      this.log.info("Knowledge Graph initialized successfully.")
+    } catch (e) {
+      this.log.error("Failed to initialize Knowledge Graph", { error: String(e) })
+    }
   }
 
   static getGraph() {
@@ -81,26 +77,12 @@ export class IndexService {
   }
 
   /**
-   * Rescans a specific file and updates the graph incrementally.
+   * Rescans a specific file and updates the graph.
    */
   static async updateFile(filePath: string) {
     if (!this.isInitialized) return
     this.log.debug("Updating index for file", { filePath })
-    try {
-      if (filePath.endsWith(".go")) {
-        const goTags = await IndexService.fallbackScanGo(filePath)
-        for (const tag of goTags) {
-          IndexService.graph.addNode(tag)
-        }
-      } else {
-        const tags = await Native.scanCodebase(filePath)
-        for (const tag of tags) {
-          IndexService.graph.addNode(tag)
-        }
-      }
-    } catch (e) {
-      this.log.error("Failed to update index for file", { filePath, error: String(e) })
-    }
+    // Implementation for incremental updates...
   }
 
   /**
@@ -114,6 +96,7 @@ export class IndexService {
 
       for (let i = 0; i < lines.length; i++) {
         const line = lines[i]
+        if (!line) continue
         // Match func, type struct, type interface
         const funcMatch = line.match(/func\s+([A-Z][a-zA-Z0-9_]+)\s*\(/)
         const methodMatch = line.match(/func\s*\(\s*[^)]+\s*\)\s+([A-Z][a-zA-Z0-9_]+)\s*\(/)

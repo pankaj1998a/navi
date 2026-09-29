@@ -66,7 +66,7 @@ describe("Sandbox", () => {
       expect(roConfined.args[0]).toBe("-p")
       expect(roConfined.args[1]).toContain("(deny file-write*)")
       expect(roConfined.args[1]).not.toContain("/Users/alice/repo")
-      expect(roConfined.args).toEqual(["-p", roConfined.args[1], "cat", "file.txt"])
+      expect(roConfined.args).toEqual(["-p", roConfined.args[1] ?? "", "cat", "file.txt"])
       expect(roConfined.backend).toBe("seatbelt")
       expect(roConfined.enforcement).toBe("full")
 

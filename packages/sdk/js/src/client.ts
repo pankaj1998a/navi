@@ -35,13 +35,13 @@ const DEFAULT_HTTP_TIMEOUT_MS = 600_000
 
 export function createNaviClient(config?: Config & { directory?: string }) {
   if (!config?.fetch) {
-    const customFetch: any = (req: any) => {
+    const customFetch = (req: unknown) => {
       // Bun: Request.timeout is idle timeout in ms. Browsers ignore this property.
       // Previously set to `false` (no timeout), which could hang forever on stalled connections.
       if (req && typeof req === "object") {
         ;(req as { timeout?: number }).timeout = DEFAULT_HTTP_TIMEOUT_MS
       }
-      return fetch(req)
+      return fetch(req as Request)
     }
     config = {
       ...config,

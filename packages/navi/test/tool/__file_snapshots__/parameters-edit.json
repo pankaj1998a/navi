@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "filePath": {
+      "description": "The absolute path to the file to modify",
+      "type": "string"
+    },
+    "oldString": {
+      "description": "The text to replace",
+      "type": "string"
+    },
+    "newString": {
+      "description": "The text to replace it with (must be different from oldString)",
+      "type": "string"
+    },
+    "replaceAll": {
+      "description": "Replace all occurrences of oldString (default false)",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "filePath",
+    "oldString",
+    "newString"
+  ]
+}

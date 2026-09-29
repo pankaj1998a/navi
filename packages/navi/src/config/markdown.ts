@@ -19,6 +19,7 @@ export function shell(template: string) {
 export function fallbackSanitization(content: string): string {
   const match = content.match(/^---\r?\n([\s\S]*?)\r?\n---/)
   if (!match) return content
+  if (match[1] === undefined) return content
 
   const frontmatter = match[1]
   const lines = frontmatter.split(/\r?\n/)
@@ -40,6 +41,10 @@ export function fallbackSanitization(content: string): string {
     // match key: value pattern
     const kvMatch = line.match(/^([a-zA-Z_][a-zA-Z0-9_]*)\s*:\s*(.*)$/)
     if (!kvMatch) {
+      result.push(line)
+      continue
+    }
+    if (kvMatch[1] === undefined || kvMatch[2] === undefined) {
       result.push(line)
       continue
     }

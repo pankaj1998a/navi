@@ -194,7 +194,7 @@ export class OpenAIResponsesLanguageModel implements LanguageModelV3 {
     }
 
     const openaiOptions = await parseProviderOptions({
-      provider: "openai",
+      provider: this.config.providerOptionsKey ?? "openai",
       providerOptions,
       schema: openaiResponsesProviderOptionsSchema,
     })
@@ -727,11 +727,11 @@ export class OpenAIResponsesLanguageModel implements LanguageModelV3 {
       openai: { responseId: response.id },
     }
 
-    if (logprobs.length > 0) {
+    if (logprobs.length > 0 && providerMetadata.openai) {
       providerMetadata.openai.logprobs = logprobs
     }
 
-    if (typeof response.service_tier === "string") {
+    if (typeof response.service_tier === "string" && providerMetadata.openai) {
       providerMetadata.openai.serviceTier = response.service_tier
     }
 
@@ -1310,11 +1310,11 @@ export class OpenAIResponsesLanguageModel implements LanguageModelV3 {
               },
             }
 
-            if (logprobs.length > 0) {
+            if (logprobs.length > 0 && providerMetadata.openai) {
               providerMetadata.openai.logprobs = logprobs
             }
 
-            if (serviceTier !== undefined) {
+            if (serviceTier !== undefined && providerMetadata.openai) {
               providerMetadata.openai.serviceTier = serviceTier
             }
 

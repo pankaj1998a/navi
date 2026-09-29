@@ -7,6 +7,7 @@ import { CrossSpawnSpawner } from "@navi-ai/core/cross-spawn-spawner"
 import { Worktree } from "../../src/worktree"
 import { provideTmpdirInstance } from "../fixture/fixture"
 import { testEffect } from "../lib/effect"
+import { uniqueName } from "../lib/names"
 
 const it = testEffect(Layer.mergeAll(Worktree.defaultLayer, CrossSpawnSpawner.defaultLayer))
 const wintest = process.platform === "win32" ? it.live : it.live.skip
@@ -17,7 +18,7 @@ describe("Worktree.remove", () => {
       (root) =>
         Effect.gen(function* () {
           const svc = yield* Worktree.Service
-          const name = `remove-regression-${Date.now().toString(36)}`
+          const name = uniqueName("remove-regression")
           const branch = `navi/${name}`
           const dir = path.join(root, "..", name)
 
@@ -89,7 +90,7 @@ describe("Worktree.remove", () => {
       (root) =>
         Effect.gen(function* () {
           const svc = yield* Worktree.Service
-          const name = `remove-fsmonitor-${Date.now().toString(36)}`
+          const name = uniqueName("remove-fsmonitor")
           const branch = `navi/${name}`
           const dir = path.join(root, "..", name)
 

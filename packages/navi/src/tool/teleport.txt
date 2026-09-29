@@ -1,0 +1,11 @@
+Teleport session migration tool — mirrors Claude `src/utils/teleport.tsx`, `src/utils/teleport/api.ts`, `src/utils/teleport/environments.ts`, `src/utils/teleport/gitBundle.ts` and `src/bridge`.
+
+Provides advanced session persistence and migration between machines. The full Claude flow validates the session, fetches logs via OAuth, fetches the remote branch/git bundle, and checks out the branch locally.
+
+Supported actions:
+- "teleport": migrate a remote session (by sessionId) into the current workspace (validates, fetches bundle, checks out branch)
+- "status": report teleport capability, auth state, and last migration result
+- "list": list recent remote sessions available for teleport
+- "resume": resume a previously teleported session
+
+Teleport requires OAuth (getClaudeAIOAuthTokens / checkAndRefreshOAuthTokenIfNeeded) and GitHub app installation in the full implementation. This is a stub — it validates parameters, enforces permission checks, and returns placeholder migration outputs without network or git side effects. Replace with real `fetchSession`, `createAndUploadGitBundle`, and `getSessionLogsViaOAuth` when enabling.

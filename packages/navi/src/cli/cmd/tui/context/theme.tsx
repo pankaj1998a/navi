@@ -428,7 +428,7 @@ export const { use: useTheme, provider: ThemeProvider } = createSimpleContext({
         }
       }
 
-      return resolveTheme(store.themes.navi, store.mode)
+      return resolveTheme(store.themes.navi!, store.mode)
     })
 
     createEffect(() => {
@@ -484,6 +484,26 @@ export const { use: useTheme, provider: ThemeProvider } = createSimpleContext({
   },
 })
 
+// Memoized custom-theme scan (30s TTL): theme listing reloads share one Glob.scan
+// per dir, and one bad theme file must not fail the whole load.
+const themeScanCache = new Map<string, { at: number; files: Promise<string[]> }>()
+const THEME_SCAN_TTL_MS = 30_000
+function cachedThemeScan(dir: string): Promise<string[]> {
+  const key = dir
+  const now = Date.now()
+  const hit = themeScanCache.get(key)
+  if (hit && now - hit.at < THEME_SCAN_TTL_MS) return hit.files
+  const p = Glob.scan("themes/*.json", { cwd: dir, absolute: true, dot: true, symlink: true })
+  themeScanCache.set(key, { at: now, files: p })
+  p.catch(() => themeScanCache.delete(key))
+  return p
+}
+
+export function invalidateThemeScan(dir?: string) {
+  if (!dir) themeScanCache.clear()
+  else themeScanCache.delete(dir)
+}
+
 async function getCustomThemes() {
   const directories = [
     Global.Path.config,
@@ -496,17 +516,17 @@ async function getCustomThemes() {
   ]
 
   const result: Record<string, ThemeJson> = {}
-  for (const dir of directories) {
-    for (const item of await Glob.scan("themes/*.json", {
-      cwd: dir,
-      absolute: true,
-      dot: true,
-      symlink: true,
-    })) {
-      const name = path.basename(item, ".json")
+  const listed = await Promise.allSettled(directories.map((dir) => cachedThemeScan(dir)))
+  const items = listed.flatMap((r) => (r.status === "fulfilled" ? r.value : []))
+  const loaded = await Promise.allSettled(
+    items.map(async (item) => {
       const theme = await Filesystem.readJson(item)
-      if (isTheme(theme)) result[name] = theme
-    }
+      return { name: path.basename(item, ".json"), theme }
+    }),
+  )
+  for (const entry of loaded) {
+    if (entry.status !== "fulfilled") continue
+    if (isTheme(entry.value.theme)) result[entry.value.name] = entry.value.theme
   }
   return result
 }
@@ -551,7 +571,7 @@ export function generateSystem(colors: TerminalColors, mode: "dark" | "light"): 
   const diffAlpha = isDark ? 0.22 : 0.14
   const diffAddedBg = tint(bg, ansiColors.green, diffAlpha)
   const diffRemovedBg = tint(bg, ansiColors.red, diffAlpha)
-  const diffContextBg = grays[2]
+  const diffContextBg = grays[2]!
   const diffAddedLineNumberBg = tint(diffContextBg, ansiColors.green, diffAlpha)
   const diffRemovedLineNumberBg = tint(diffContextBg, ansiColors.red, diffAlpha)
   const diffLineNumber = textMuted
@@ -576,20 +596,20 @@ export function generateSystem(colors: TerminalColors, mode: "dark" | "light"): 
 
       // Background colors - use transparent to respect terminal transparency
       background: transparent,
-      backgroundPanel: grays[2],
-      backgroundElement: grays[3],
-      backgroundMenu: grays[3],
+      backgroundPanel: grays[2]!,
+      backgroundElement: grays[3]!,
+      backgroundMenu: grays[3]!,
 
       // Border colors
-      borderSubtle: grays[6],
-      border: grays[7],
-      borderActive: grays[8],
+      borderSubtle: grays[6]!,
+      border: grays[7]!,
+      borderActive: grays[8]!,
 
       // Diff colors
       diffAdded: ansiColors.green,
       diffRemoved: ansiColors.red,
-      diffContext: grays[7],
-      diffHunkHeader: grays[7],
+      diffContext: grays[7]!,
+      diffHunkHeader: grays[7]!,
       diffHighlightAdded: ansiColors.greenBright,
       diffHighlightRemoved: ansiColors.redBright,
       diffAddedBg,
@@ -608,7 +628,7 @@ export function generateSystem(colors: TerminalColors, mode: "dark" | "light"): 
       markdownBlockQuote: ansiColors.yellow,
       markdownEmph: ansiColors.yellow,
       markdownStrong: fg,
-      markdownHorizontalRule: grays[7],
+      markdownHorizontalRule: grays[7]!,
       markdownListItem: ansiColors.blue,
       markdownListEnumeration: ansiColors.cyan,
       markdownImage: ansiColors.blue,

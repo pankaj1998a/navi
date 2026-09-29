@@ -13,8 +13,10 @@ test("addTheme writes into module theme store", () => {
 
 test("addTheme keeps first theme for duplicate names", () => {
   const name = `plugin-theme-keep-${Date.now()}`
-  const one = structuredClone(DEFAULT_THEMES.navi)
-  const two = structuredClone(DEFAULT_THEMES.navi)
+  const base = DEFAULT_THEMES.navi
+  if (!base) throw new Error("missing navi theme")
+  const one = structuredClone(base)
+  const two = structuredClone(base)
   one.theme.primary = "#101010"
   two.theme.primary = "#fefefe"
 
@@ -39,7 +41,9 @@ test("hasTheme checks theme presence", () => {
 })
 
 test("resolveTheme rejects circular color refs", () => {
-  const item = structuredClone(DEFAULT_THEMES.navi)
+  const base = DEFAULT_THEMES.navi
+  if (!base) throw new Error("missing navi theme")
+  const item = structuredClone(base)
   item.defs = {
     ...item.defs,
     one: "two",

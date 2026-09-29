@@ -1290,11 +1290,6 @@ export type Config = {
     primary_tools?: Array<string>
     continue_loop_on_deny?: boolean
     mcp_timeout?: number
-    background_subagents?: boolean
-    evaluation?: {
-      enabled?: boolean
-      directory?: string
-    }
   }
   checkpoint?: {
     memory_reconcile_on_search?: boolean
@@ -3563,79 +3558,7 @@ export type ConfigProvidersResponses = {
         [key: string]: unknown
       }
       models: {
-        [key: string]: {
-          id: string
-          providerID: string
-          api: {
-            id: string
-            url: string
-            npm: string
-          }
-          name: string
-          family?: string
-          capabilities: {
-            temperature: boolean
-            reasoning: boolean
-            attachment: boolean
-            toolcall: boolean
-            input: {
-              text: boolean
-              audio: boolean
-              image: boolean
-              video: boolean
-              pdf: boolean
-            }
-            output: {
-              text: boolean
-              audio: boolean
-              image: boolean
-              video: boolean
-              pdf: boolean
-            }
-            interleaved?:
-              | boolean
-              | {
-                  field: "reasoning_content" | "reasoning_details"
-                }
-          }
-          cost: {
-            input: number | "NaN" | "Infinity" | "-Infinity" | "Infinity" | "-Infinity" | "NaN"
-            output: number | "NaN" | "Infinity" | "-Infinity" | "Infinity" | "-Infinity" | "NaN"
-            reasoning?: number | "NaN" | "Infinity" | "-Infinity" | "Infinity" | "-Infinity" | "NaN"
-            cache: {
-              read: number | "NaN" | "Infinity" | "-Infinity" | "Infinity" | "-Infinity" | "NaN"
-              write: number | "NaN" | "Infinity" | "-Infinity" | "Infinity" | "-Infinity" | "NaN"
-            }
-            experimentalOver200K?: {
-              input: number | "NaN" | "Infinity" | "-Infinity" | "Infinity" | "-Infinity" | "NaN"
-              output: number | "NaN" | "Infinity" | "-Infinity" | "Infinity" | "-Infinity" | "NaN"
-              reasoning?: number | "NaN" | "Infinity" | "-Infinity" | "Infinity" | "-Infinity" | "NaN"
-              cache: {
-                read: number | "NaN" | "Infinity" | "-Infinity" | "Infinity" | "-Infinity" | "NaN"
-                write: number | "NaN" | "Infinity" | "-Infinity" | "Infinity" | "-Infinity" | "NaN"
-              }
-            }
-          }
-          limit: {
-            context: number | "NaN" | "Infinity" | "-Infinity" | "Infinity" | "-Infinity" | "NaN"
-            input?: number | "NaN" | "Infinity" | "-Infinity" | "Infinity" | "-Infinity" | "NaN"
-            output: number | "NaN" | "Infinity" | "-Infinity" | "Infinity" | "-Infinity" | "NaN"
-          }
-          status: "alpha" | "beta" | "deprecated" | "active"
-          options: {
-            [key: string]: unknown
-          }
-          headers: {
-            [key: string]: string
-          }
-          release_date?: string
-          variants?: {
-            [key: string]: {
-              [key: string]: unknown
-            }
-          }
-          isFree?: boolean
-        }
+        [key: string]: unknown
       }
     }>
     default: {
@@ -5051,79 +4974,7 @@ export type ProviderListResponses = {
         [key: string]: unknown
       }
       models: {
-        [key: string]: {
-          id: string
-          providerID: string
-          api: {
-            id: string
-            url: string
-            npm: string
-          }
-          name: string
-          family?: string
-          capabilities: {
-            temperature: boolean
-            reasoning: boolean
-            attachment: boolean
-            toolcall: boolean
-            input: {
-              text: boolean
-              audio: boolean
-              image: boolean
-              video: boolean
-              pdf: boolean
-            }
-            output: {
-              text: boolean
-              audio: boolean
-              image: boolean
-              video: boolean
-              pdf: boolean
-            }
-            interleaved?:
-              | boolean
-              | {
-                  field: "reasoning_content" | "reasoning_details"
-                }
-          }
-          cost: {
-            input: number | "NaN" | "Infinity" | "-Infinity" | "Infinity" | "-Infinity" | "NaN"
-            output: number | "NaN" | "Infinity" | "-Infinity" | "Infinity" | "-Infinity" | "NaN"
-            reasoning?: number | "NaN" | "Infinity" | "-Infinity" | "Infinity" | "-Infinity" | "NaN"
-            cache: {
-              read: number | "NaN" | "Infinity" | "-Infinity" | "Infinity" | "-Infinity" | "NaN"
-              write: number | "NaN" | "Infinity" | "-Infinity" | "Infinity" | "-Infinity" | "NaN"
-            }
-            experimentalOver200K?: {
-              input: number | "NaN" | "Infinity" | "-Infinity" | "Infinity" | "-Infinity" | "NaN"
-              output: number | "NaN" | "Infinity" | "-Infinity" | "Infinity" | "-Infinity" | "NaN"
-              reasoning?: number | "NaN" | "Infinity" | "-Infinity" | "Infinity" | "-Infinity" | "NaN"
-              cache: {
-                read: number | "NaN" | "Infinity" | "-Infinity" | "Infinity" | "-Infinity" | "NaN"
-                write: number | "NaN" | "Infinity" | "-Infinity" | "Infinity" | "-Infinity" | "NaN"
-              }
-            }
-          }
-          limit: {
-            context: number | "NaN" | "Infinity" | "-Infinity" | "Infinity" | "-Infinity" | "NaN"
-            input?: number | "NaN" | "Infinity" | "-Infinity" | "Infinity" | "-Infinity" | "NaN"
-            output: number | "NaN" | "Infinity" | "-Infinity" | "Infinity" | "-Infinity" | "NaN"
-          }
-          status: "alpha" | "beta" | "deprecated" | "active"
-          options: {
-            [key: string]: unknown
-          }
-          headers: {
-            [key: string]: string
-          }
-          release_date?: string
-          variants?: {
-            [key: string]: {
-              [key: string]: unknown
-            }
-          }
-          isFree?: boolean
-        }
+        [key: string]: unknown
       }
     }>
     default: {

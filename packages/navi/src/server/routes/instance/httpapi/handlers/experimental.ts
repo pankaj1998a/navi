@@ -133,10 +133,11 @@ export const experimentalHandlers = HttpApiBuilder.group(InstanceHttpApi, "exper
         }),
       )
       const list = sessions.length > limit ? sessions.slice(0, limit) : sessions
+      const last = list.at(-1)
       return HttpServerResponse.jsonUnsafe(list, {
         headers:
-          sessions.length > limit && list.length > 0
-            ? { "x-next-cursor": String(list[list.length - 1].time.updated) }
+          sessions.length > limit && last
+            ? { "x-next-cursor": String(last.time.updated) }
             : undefined,
       })
     })

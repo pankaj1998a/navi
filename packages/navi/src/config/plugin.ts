@@ -16,6 +16,26 @@ export const Spec = Schema.Union([Schema.String, Schema.mutable(Schema.Tuple([Sc
 )
 export type Spec = Schema.Schema.Type<typeof Spec>
 
+// Memoized Glob.scan per dir with short TTL (see agent.ts): plugin discovery
+// shares the listing within a config reload, but new files are still picked up.
+const scanCache = new Map<string, { at: number; files: Promise<string[]> }>()
+const SCAN_TTL_MS = 30_000
+function cachedScan(dir: string, pattern: string): Promise<string[]> {
+  const key = `${dir}\n${pattern}`
+  const now = Date.now()
+  const hit = scanCache.get(key)
+  if (hit && now - hit.at < SCAN_TTL_MS) return hit.files
+  const p = Glob.scan(pattern, { cwd: dir, absolute: true, dot: true, symlink: true })
+  scanCache.set(key, { at: now, files: p })
+  p.catch(() => scanCache.delete(key))
+  return p
+}
+
+export function invalidatePluginScan(dir?: string) {
+  if (!dir) scanCache.clear()
+  else for (const key of [...scanCache.keys()]) if (key.startsWith(`${dir}\n`)) scanCache.delete(key)
+}
+
 export type Scope = "global" | "local"
 
 // Origin keeps the original config provenance attached to a spec.
@@ -30,12 +50,7 @@ export type Origin = {
 export async function load(dir: string) {
   const plugins: Spec[] = []
 
-  for (const item of await Glob.scan("{plugin,plugins}/*.{ts,js}", {
-    cwd: dir,
-    absolute: true,
-    dot: true,
-    symlink: true,
-  })) {
+  for (const item of await cachedScan(dir, "{plugin,plugins}/*.{ts,js}")) {
     plugins.push(pathToFileURL(item).href)
   }
   return plugins

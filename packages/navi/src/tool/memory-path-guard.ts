@@ -23,6 +23,7 @@ function isCheckpointWriterAllowed(parts: string[]): boolean {
   if (parts[0] === "projects") {
     if (parts.length !== 3) return false
     const file = parts[2]
+    if (!file) return false
     if (!file.endsWith(".md")) return false
     const lower = file.toLowerCase()
     return lower === "memory.md" || lower.startsWith("memory-")
@@ -32,11 +33,15 @@ function isCheckpointWriterAllowed(parts: string[]): boolean {
     const rest = parts.slice(2)
     if (rest.length === 1) {
       const file = rest[0]
+      if (!file) return false
       if (!file.endsWith(".md")) return false
       return file === "checkpoint.md" || file === "notes.md" || file.startsWith("checkpoint-")
     }
     if (rest.length === 3 && rest[0] === "tasks") {
-      return TASK_ID_RE.test(rest[1]) && rest[2].endsWith(".md")
+      const taskId = rest[1]
+      const doc = rest[2]
+      if (!taskId || !doc) return false
+      return TASK_ID_RE.test(taskId) && doc.endsWith(".md")
     }
     return false
   }
@@ -146,7 +151,7 @@ export function assertMemoryWriteAllowed(input: {
       parts[2] === "tasks" &&
       parts[3] === input.taskId &&
       parts.length >= 5 &&
-      parts[parts.length - 1].endsWith(".md")
+      (parts[parts.length - 1] ?? "").endsWith(".md")
     ) {
       return
     }

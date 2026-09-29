@@ -56,11 +56,18 @@ export const layer: Layer.Layer<Service> = Layer.effect(
       })
 
     const current = (db: DbClient) => {
-      const state = db.select().from(AccountStateTable).where(eq(AccountStateTable.id, ACCOUNT_STATE_ID)).get()
-      if (!state?.active_account_id) return
-      const account = db.select().from(AccountTable).where(eq(AccountTable.id, state.active_account_id)).get()
-      if (!account) return
-      return { ...account, active_org_id: state.active_org_id ?? null }
+      // Single LEFT JOIN instead of two sequential selects (was N+1 on every active() call).
+      const row = db
+        .select({
+          account: AccountTable,
+          active_org_id: AccountStateTable.active_org_id,
+        })
+        .from(AccountStateTable)
+        .leftJoin(AccountTable, eq(AccountTable.id, AccountStateTable.active_account_id))
+        .where(eq(AccountStateTable.id, ACCOUNT_STATE_ID))
+        .get()
+      if (!row?.account) return undefined
+      return { ...row.account, active_org_id: row.active_org_id ?? null }
     }
 
     const state = (db: DbClient, accountID: AccountID, orgID: Option.Option<OrgID>) => {

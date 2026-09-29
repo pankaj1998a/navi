@@ -219,7 +219,7 @@ describe("util.effect-zod", () => {
       expect(schema.parse(4)).toBe(4)
       const result = schema.safeParse(3)
       expect(result.success).toBe(false)
-      expect(result.error!.issues[0].message).toBe("expected an even number")
+      expect(result.error!.issues[0]?.message).toBe("expected an even number")
     })
 
     test("filter returning false triggers refinement with fallback message", () => {
@@ -229,7 +229,7 @@ describe("util.effect-zod", () => {
       expect(schema.parse("hi")).toBe("hi")
       const result = schema.safeParse("")
       expect(result.success).toBe(false)
-      expect(result.error!.issues[0].message).toMatch(/./)
+      expect(result.error!.issues[0]?.message).toMatch(/./)
     })
 
     test("filter returning undefined passes validation", () => {
@@ -245,7 +245,7 @@ describe("util.effect-zod", () => {
 
       const result = schema.safeParse(-1)
       expect(result.success).toBe(false)
-      expect(result.error!.issues[0].message).toBe("must be positive")
+      expect(result.error!.issues[0]?.message).toBe("must be positive")
     })
 
     test("cross-field check on a record flags missing key", () => {
@@ -260,7 +260,7 @@ describe("util.effect-zod", () => {
 
       const result = schema.safeParse({ other: { enabled: true } })
       expect(result.success).toBe(false)
-      expect(result.error!.issues[0].message).toBe("missing 'required' key")
+      expect(result.error!.issues[0]?.message).toBe("missing 'required' key")
     })
   })
 
@@ -657,7 +657,7 @@ describe("util.effect-zod", () => {
       expect(schema.safeParse(1.5).success).toBe(false)
       const seven = schema.safeParse(7)
       expect(seven.success).toBe(false)
-      expect(seven.error!.issues[0].message).toBe("no sevens allowed")
+      expect(seven.error!.issues[0]?.message).toBe("no sevens allowed")
     })
 
     test("inside a struct field, well-known refinements propagate through", () => {

@@ -88,9 +88,9 @@ describe("plugin.auth-override", () => {
 
     const copilot = methods[ProviderID.make("github-copilot")]
     expect(copilot).toBeDefined()
-    expect(copilot.length).toBe(1)
-    expect(copilot[0].label).toBe("Test Override Auth")
-    expect(plainMethods[ProviderID.make("github-copilot")][0].label).not.toBe("Test Override Auth")
+    expect(copilot?.length).toBe(1)
+    expect(copilot?.[0]?.label).toBe("Test Override Auth")
+    expect(plainMethods[ProviderID.make("github-copilot")]?.[0]?.label).not.toBe("Test Override Auth")
   }, 30000)
 })
 

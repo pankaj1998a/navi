@@ -87,10 +87,6 @@ const cli = yargs(args)
     describe: "run without external plugins",
     type: "boolean",
   })
-  .option("debug", {
-    describe: "enable debug logging",
-    type: "boolean",
-  })
   .middleware(async (opts) => {
     if (opts.pure) {
       process.env.NAVI_PURE = "1"
@@ -101,14 +97,6 @@ const cli = yargs(args)
       dev: Installation.isLocal(),
       level: (() => {
         if (opts.logLevel) return opts.logLevel as Log.Level
-        const debugEnv =
-          process.env.NAV_DEBUG?.toLowerCase() === "true" ||
-          process.env.NAV_DEBUG === "1" ||
-          process.env.NAVI_DEBUG?.toLowerCase() === "true" ||
-          process.env.NAVI_DEBUG === "1" ||
-          process.argv.includes("--debug") ||
-          (opts as Record<string, unknown>).debug === true
-        if (debugEnv) return "DEBUG"
         if (Installation.isLocal()) return "DEBUG"
         return "INFO"
       })(),
@@ -251,9 +239,24 @@ try {
   }
   process.exitCode = 1
 } finally {
-  // Some subprocesses don't react properly to SIGTERM and similar signals.
-  // Most notably, some docker-container-based MCP servers don't handle such signals unless
-  // run using `docker run --init`.
-  // Explicitly exit to avoid any hanging subprocesses.
-  process.exit()
+  process.exitCode ??= 0
+  try {
+    const { AppRuntime } = await import("@/effect/app-runtime")
+    await AppRuntime.dispose()
+  } catch {}
+  // Grace: allow scopes/finalizers to flush and the event loop to drain naturally.
+  // Force-exit after 5s only if handles (e.g. docker-based MCP servers that ignore
+  // SIGTERM without `docker run --init`) are still open.
+  const procFields = process as unknown as Record<string, unknown>
+  const getHandles = procFields._getActiveHandles
+  const handles = typeof getHandles === "function" ? (getHandles as () => unknown[]).call(process) : []
+  if (handles.length > 0) {
+    const timer = setTimeout(() => {
+      const fields = process as unknown as Record<string, unknown>
+      const next = fields._getActiveHandles
+      const open = typeof next === "function" ? (next as () => unknown[]).call(process) : []
+      if (open.length > 0) process.exit(process.exitCode ?? 0)
+    }, 5000)
+    timer.unref?.()
+  }
 }

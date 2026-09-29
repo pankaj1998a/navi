@@ -1,6 +1,10 @@
+// TODO: extract LSP server handlers from this file (2126 lines) into
+// lsp/handlers/*.ts (initialize/diagnostics/completion behind a registry).
+// Split is deferred: handler registration + session state are load-bearing.
 import type { ChildProcessWithoutNullStreams } from "child_process"
 import path from "path"
 import os from "os"
+import { createHash } from "crypto"
 import { Global } from "@navi-ai/core/global"
 import * as Log from "@navi-ai/core/util/log"
 import { text } from "node:stream/consumers"
@@ -16,6 +20,60 @@ import { spawn } from "./launch"
 import { Npm } from "@navi-ai/core/npm"
 
 const log = Log.create({ service: "lsp.server" })
+
+const LSP_FETCH_TIMEOUT_MS = 30_000
+
+function githubHeaders(): Record<string, string> {
+  const headers: Record<string, string> = {
+    Accept: "application/vnd.github+json",
+    "User-Agent": "navi-lsp",
+  }
+  const token = process.env.GITHUB_TOKEN
+  if (token) headers.Authorization = `Bearer ${token}`
+  return headers
+}
+
+async function githubFetch(url: string): Promise<Response> {
+  return fetch(url, { headers: githubHeaders(), signal: AbortSignal.timeout(LSP_FETCH_TIMEOUT_MS) })
+}
+
+async function downloadFetch(url: string): Promise<Response> {
+  const headers: Record<string, string> = { "User-Agent": "navi-lsp" }
+  const token = process.env.GITHUB_TOKEN
+  if (token && (url.includes("github.com") || url.includes("githubusercontent.com") || url.includes("api.github.com"))) {
+    headers.Authorization = `Bearer ${token}`
+  }
+  return fetch(url, { headers, signal: AbortSignal.timeout(LSP_FETCH_TIMEOUT_MS) })
+}
+
+export function assertPinnedVersion(id: string, version: string): void {
+  const key = `NAVI_LSP_VERSION_${id.toUpperCase().replace(/[^A-Z0-9]/g, "_")}`
+  const pinned = process.env[key]
+  if (!pinned) return
+  if (pinned !== version) {
+    log.error("LSP version pin mismatch", { id, version, pinned })
+    throw new Error(`LSP version pin mismatch for ${id}: got ${version}, want ${pinned}`)
+  }
+}
+
+export function verifyPinnedSha256(id: string, data: Buffer): void {
+  const key = `NAVI_LSP_SHA256_${id.toUpperCase().replace(/[^A-Z0-9]/g, "_")}`
+  const expected = process.env[key]
+  if (!expected) {
+    log.warn("no pinned sha256 for LSP download, skipping verification", { id })
+    return
+  }
+  const actual = createHash("sha256").update(data).digest("hex")
+  if (actual !== expected.toLowerCase()) {
+    log.error("LSP sha256 mismatch", { id })
+    throw new Error(`LSP sha256 mismatch for ${id}`)
+  }
+}
+
+async function saveDownload(id: string, dest: string, body: ReadableStream<Uint8Array>): Promise<void> {
+  await Filesystem.writeStream(dest, body)
+  verifyPinnedSha256(id, await fs.readFile(dest))
+}
 const pathExists = async (p: string) =>
   fs
     .stat(p)
@@ -162,11 +220,11 @@ export const ESLint: Info = {
     if (!(await Filesystem.exists(serverPath))) {
       if (Flag.NAVI_DISABLE_LSP_DOWNLOAD) return
       log.info("downloading and building VS Code ESLint server")
-      const response = await fetch("https://github.com/microsoft/vscode-eslint/archive/refs/heads/main.zip")
+      const response = await downloadFetch("https://github.com/microsoft/vscode-eslint/archive/refs/heads/main.zip")
       if (!response.ok) return
 
       const zipPath = path.join(Global.Path.bin, "vscode-eslint.zip")
-      if (response.body) await Filesystem.writeStream(zipPath, response.body)
+      if (response.body) await saveDownload("vscode-eslint", zipPath, response.body)
 
       const ok = await Archive.extractZip(zipPath, Global.Path.bin)
         .then(() => true)
@@ -550,10 +608,10 @@ export const ElixirLS: Info = {
         if (Flag.NAVI_DISABLE_LSP_DOWNLOAD) return
         log.info("downloading elixir-ls from GitHub releases")
 
-        const response = await fetch("https://github.com/elixir-lsp/elixir-ls/archive/refs/heads/master.zip")
+        const response = await downloadFetch("https://github.com/elixir-lsp/elixir-ls/archive/refs/heads/master.zip")
         if (!response.ok) return
         const zipPath = path.join(Global.Path.bin, "elixir-ls.zip")
-        if (response.body) await Filesystem.writeStream(zipPath, response.body)
+        if (response.body) await saveDownload("elixir-ls", zipPath, response.body)
 
         const ok = await Archive.extractZip(zipPath, Global.Path.bin)
           .then(() => true)
@@ -605,7 +663,7 @@ export const Zls: Info = {
       if (Flag.NAVI_DISABLE_LSP_DOWNLOAD) return
       log.info("downloading zls from GitHub releases")
 
-      const releaseResponse = await fetch("https://api.github.com/repos/zigtools/zls/releases/latest")
+      const releaseResponse = await githubFetch("https://api.github.com/repos/zigtools/zls/releases/latest")
       if (!releaseResponse.ok) {
         log.error("Failed to fetch zls release info")
         return
@@ -655,14 +713,14 @@ export const Zls: Info = {
       }
 
       const downloadUrl = asset.browser_download_url
-      const downloadResponse = await fetch(downloadUrl)
+      const downloadResponse = await downloadFetch(downloadUrl)
       if (!downloadResponse.ok) {
         log.error("Failed to download zls")
         return
       }
 
       const tempPath = path.join(Global.Path.bin, assetName)
-      if (downloadResponse.body) await Filesystem.writeStream(tempPath, downloadResponse.body)
+      if (downloadResponse.body) await saveDownload("zls", tempPath, downloadResponse.body)
 
       if (ext === "zip") {
         const ok = await Archive.extractZip(tempPath, Global.Path.bin)
@@ -1004,7 +1062,7 @@ export const Clangd: Info = {
     if (Flag.NAVI_DISABLE_LSP_DOWNLOAD) return
     log.info("downloading clangd from GitHub releases")
 
-    const releaseResponse = await fetch("https://api.github.com/repos/clangd/clangd/releases/latest")
+    const releaseResponse = await githubFetch("https://api.github.com/repos/clangd/clangd/releases/latest")
     if (!releaseResponse.ok) {
       log.error("Failed to fetch clangd release info")
       return
@@ -1050,7 +1108,7 @@ export const Clangd: Info = {
     }
 
     const name = asset.name
-    const downloadResponse = await fetch(asset.browser_download_url)
+    const downloadResponse = await downloadFetch(asset.browser_download_url)
     if (!downloadResponse.ok) {
       log.error("Failed to download clangd")
       return
@@ -1062,6 +1120,8 @@ export const Clangd: Info = {
       log.error("Failed to write clangd archive")
       return
     }
+    assertPinnedVersion("clangd", tag)
+    verifyPinnedSha256("clangd", Buffer.from(buf))
     await Filesystem.write(archive, Buffer.from(buf))
 
     const zip = name.endsWith(".zip")
@@ -1208,7 +1268,7 @@ export const JDTLS: Info = {
     }
     const javaMajorVersion = await run(["java", "-version"]).then((result) => {
       const m = /"(\d+)\.\d+\.\d+"/.exec(result.stderr.toString())
-      return !m ? undefined : parseInt(m[1])
+      return !m ? undefined : parseInt(m[1] ?? "")
     })
     if (javaMajorVersion == null || javaMajorVersion < 21) {
       log.error("JDTLS requires at least Java 21.")
@@ -1226,7 +1286,7 @@ export const JDTLS: Info = {
       const archiveName = "release.tar.gz"
 
       log.info("Downloading JDTLS archive", { url: releaseURL, dest: distPath })
-      const download = await fetch(releaseURL)
+      const download = await downloadFetch(releaseURL)
       if (!download.ok || !download.body) {
         log.error("Failed to download JDTLS", { status: download.status, statusText: download.statusText })
         return
@@ -1319,7 +1379,7 @@ export const KotlinLS: Info = {
       if (Flag.NAVI_DISABLE_LSP_DOWNLOAD) return
       log.info("Downloading Kotlin Language Server from GitHub.")
 
-      const releaseResponse = await fetch("https://api.github.com/repos/Kotlin/kotlin-lsp/releases/latest")
+      const releaseResponse = await githubFetch("https://api.github.com/repos/Kotlin/kotlin-lsp/releases/latest")
       if (!releaseResponse.ok) {
         log.error("Failed to fetch kotlin-lsp release info")
         return
@@ -1332,6 +1392,7 @@ export const KotlinLS: Info = {
         log.error("Could not determine Kotlin LSP version from release")
         return
       }
+      assertPinnedVersion("kotlin-lsp", version)
 
       const platform = process.platform
       const arch = process.arch
@@ -1359,7 +1420,7 @@ export const KotlinLS: Info = {
 
       await fs.mkdir(distPath, { recursive: true })
       const archivePath = path.join(distPath, "kotlin-ls.zip")
-      const download = await fetch(releaseURL)
+      const download = await downloadFetch(releaseURL)
       if (!download.ok || !download.body) {
         log.error("Failed to download Kotlin Language Server", {
           status: download.status,
@@ -1367,7 +1428,7 @@ export const KotlinLS: Info = {
         })
         return
       }
-      await Filesystem.writeStream(archivePath, download.body)
+      await saveDownload("kotlin-lsp", archivePath, download.body)
       const ok = await Archive.extractZip(archivePath, distPath)
         .then(() => true)
         .catch((error) => {
@@ -1438,13 +1499,14 @@ export const LuaLS: Info = {
       if (Flag.NAVI_DISABLE_LSP_DOWNLOAD) return
       log.info("downloading lua-language-server from GitHub releases")
 
-      const releaseResponse = await fetch("https://api.github.com/repos/LuaLS/lua-language-server/releases/latest")
+      const releaseResponse = await githubFetch("https://api.github.com/repos/LuaLS/lua-language-server/releases/latest")
       if (!releaseResponse.ok) {
         log.error("Failed to fetch lua-language-server release info")
         return
       }
 
       const release = await releaseResponse.json()
+      if (release.tag_name) assertPinnedVersion("lua-language-server", String(release.tag_name))
 
       const platform = process.platform
       const arch = process.arch
@@ -1486,14 +1548,14 @@ export const LuaLS: Info = {
       }
 
       const downloadUrl = asset.browser_download_url
-      const downloadResponse = await fetch(downloadUrl)
+      const downloadResponse = await downloadFetch(downloadUrl)
       if (!downloadResponse.ok) {
         log.error("Failed to download lua-language-server")
         return
       }
 
       const tempPath = path.join(Global.Path.bin, assetName)
-      if (downloadResponse.body) await Filesystem.writeStream(tempPath, downloadResponse.body)
+      if (downloadResponse.body) await saveDownload("lua-language-server", tempPath, downloadResponse.body)
 
       // Unlike zls which is a single self-contained binary,
       // lua-language-server needs supporting files (meta/, locale/, etc.)
@@ -1681,7 +1743,7 @@ export const TerraformLS: Info = {
       if (Flag.NAVI_DISABLE_LSP_DOWNLOAD) return
       log.info("downloading terraform-ls from HashiCorp releases")
 
-      const releaseResponse = await fetch("https://api.releases.hashicorp.com/v1/releases/terraform-ls/latest")
+      const releaseResponse = await downloadFetch("https://api.releases.hashicorp.com/v1/releases/terraform-ls/latest")
       if (!releaseResponse.ok) {
         log.error("Failed to fetch terraform-ls release info")
         return
@@ -1705,14 +1767,15 @@ export const TerraformLS: Info = {
         return
       }
 
-      const downloadResponse = await fetch(build.url)
+      const downloadResponse = await downloadFetch(build.url)
       if (!downloadResponse.ok) {
         log.error("Failed to download terraform-ls")
         return
       }
 
+      if (release.version) assertPinnedVersion("terraform-ls", release.version)
       const tempPath = path.join(Global.Path.bin, "terraform-ls.zip")
-      if (downloadResponse.body) await Filesystem.writeStream(tempPath, downloadResponse.body)
+      if (downloadResponse.body) await saveDownload("terraform-ls", tempPath, downloadResponse.body)
 
       const ok = await Archive.extractZip(tempPath, Global.Path.bin)
         .then(() => true)
@@ -1762,7 +1825,7 @@ export const TexLab: Info = {
       if (Flag.NAVI_DISABLE_LSP_DOWNLOAD) return
       log.info("downloading texlab from GitHub releases")
 
-      const response = await fetch("https://api.github.com/repos/latex-lsp/texlab/releases/latest")
+      const response = await githubFetch("https://api.github.com/repos/latex-lsp/texlab/releases/latest")
       if (!response.ok) {
         log.error("Failed to fetch texlab release info")
         return
@@ -1793,14 +1856,15 @@ export const TexLab: Info = {
         return
       }
 
-      const downloadResponse = await fetch(asset.browser_download_url)
+      const downloadResponse = await downloadFetch(asset.browser_download_url)
       if (!downloadResponse.ok) {
         log.error("Failed to download texlab")
         return
       }
 
+      assertPinnedVersion("texlab", version)
       const tempPath = path.join(Global.Path.bin, assetName)
-      if (downloadResponse.body) await Filesystem.writeStream(tempPath, downloadResponse.body)
+      if (downloadResponse.body) await saveDownload("texlab", tempPath, downloadResponse.body)
 
       if (ext === "zip") {
         const ok = await Archive.extractZip(tempPath, Global.Path.bin)
@@ -1946,7 +2010,7 @@ export const Tinymist: Info = {
       if (Flag.NAVI_DISABLE_LSP_DOWNLOAD) return
       log.info("downloading tinymist from GitHub releases")
 
-      const response = await fetch("https://api.github.com/repos/Myriad-Dreamin/tinymist/releases/latest")
+      const response = await githubFetch("https://api.github.com/repos/Myriad-Dreamin/tinymist/releases/latest")
       if (!response.ok) {
         log.error("Failed to fetch tinymist release info")
         return
@@ -1984,14 +2048,15 @@ export const Tinymist: Info = {
         return
       }
 
-      const downloadResponse = await fetch(asset.browser_download_url)
+      const downloadResponse = await downloadFetch(asset.browser_download_url)
       if (!downloadResponse.ok) {
         log.error("Failed to download tinymist")
         return
       }
 
+      if (release.tag_name) assertPinnedVersion("tinymist", release.tag_name)
       const tempPath = path.join(Global.Path.bin, assetName)
-      if (downloadResponse.body) await Filesystem.writeStream(tempPath, downloadResponse.body)
+      if (downloadResponse.body) await saveDownload("tinymist", tempPath, downloadResponse.body)
 
       if (ext === "zip") {
         const ok = await Archive.extractZip(tempPath, Global.Path.bin)

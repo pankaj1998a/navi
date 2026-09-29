@@ -76,6 +76,14 @@ function fromRow(row: typeof WorkspaceTable.$inferSelect): Info {
 const db = <T>(fn: (d: Parameters<typeof Database.use>[0] extends (trx: infer D) => any ? D : never) => T) =>
   Effect.sync(() => Database.use(fn))
 
+// SQLite caps bound variables (~999); chunk large inArray lists to 500.
+const IN_ARRAY_CHUNK = 500
+const chunk = <T>(items: T[], size: number): T[][] => {
+  const out: T[][] = []
+  for (let i = 0; i < items.length; i += size) out.push(items.slice(i, i + size))
+  return out
+}
+
 const log = Log.create({ service: "workspace-sync" })
 
 export const CreateInput = Schema.Struct({
@@ -334,13 +342,15 @@ export const layer = Layer.effect(
           .from(SessionTable)
           .where(eq(SessionTable.workspace_id, space.id))
           .all()
-          .map((row: any) => row.id),
+          .map((row) => row.id),
       )
       const state = sessionIDs.length
         ? Object.fromEntries(
             (yield* db((db) =>
-              db.select().from(EventSequenceTable).where(inArray(EventSequenceTable.aggregate_id, sessionIDs)).all(),
-            )).map((row: any) => [row.aggregate_id, row.seq]),
+              chunk(sessionIDs, IN_ARRAY_CHUNK).flatMap((ids) =>
+                db.select().from(EventSequenceTable).where(inArray(EventSequenceTable.aggregate_id, ids)).all(),
+              ),
+            )).map((row) => [row.aggregate_id, row.seq]),
           )
         : {}
 
@@ -474,9 +484,17 @@ export const layer = Layer.effect(
           setStatus(space.id, "disconnected")
         }
 
-        // Back off reconnect attempts up to 2 minutes while the workspace
-        // stays unavailable.
-        yield* Effect.sleep(`${Math.min(120_000, 1_000 * 2 ** attempt)} millis`)
+        // Back off reconnect attempts up to 2 minutes (cap 120s) with jitter;
+        // give up the tight loop after 50 attempts and wait for an explicit restart.
+        if (attempt >= 50) {
+          log.warn("workspace sync retry budget exhausted, parking loop", { workspace: space.name })
+          yield* Effect.sleep("120 seconds")
+          attempt = 0
+          continue
+        }
+        const base = Math.min(120_000, 1_000 * 2 ** attempt)
+        const jitter = Math.floor(Math.random() * 1_000)
+        yield* Effect.sleep(`${Math.min(120_000, base + jitter)} millis`)
         attempt += 1
       }
     })
@@ -846,12 +864,12 @@ export const layer = Layer.effect(
           .where(eq(WorkspaceTable.project_id, project.id))
           .all()
           .map(fromRow)
-          .sort((a: any, b: any) => a.id.localeCompare(b.id)),
+          .sort((a, b) => a.id.localeCompare(b.id)),
       )
     })
 
     const syncList = Effect.fn("Workspace.syncList")(function* (project: Project.Info) {
-      const names = new Set((yield* list(project)).map((workspace: any) => workspace.name))
+      const names = new Set((yield* list(project)).map((workspace) => workspace.name))
       const discovered = yield* Effect.forEach(
         registeredAdapters(project.id),
         ([type, adapter]) =>
@@ -921,10 +939,10 @@ export const layer = Layer.effect(
           .where(eq(SessionTable.workspace_id, id))
           .all(),
       )
-      const sessionIDs = new Set(sessions.map((sessionInfo: any) => sessionInfo.id))
+      const sessionIDs = new Set(sessions.map((sessionInfo) => sessionInfo.id))
       yield* Effect.forEach(
-        sessions.filter((sessionInfo: any) => !sessionInfo.parentID || !sessionIDs.has(sessionInfo.parentID)),
-        (sessionInfo: any) =>
+        sessions.filter((sessionInfo) => !sessionInfo.parentID || !sessionIDs.has(sessionInfo.parentID)),
+        (sessionInfo) =>
           session.remove(sessionInfo.id).pipe(Effect.catchIf(NotFoundError.isInstance, () => Effect.void)),
         { discard: true },
       )
@@ -1060,19 +1078,21 @@ function synced(state: Record<string, number>) {
 
   const done = Object.fromEntries(
     Database.use((db) =>
-      db
-        .select({
-          id: EventSequenceTable.aggregate_id,
-          seq: EventSequenceTable.seq,
-        })
-        .from(EventSequenceTable)
-        .where(inArray(EventSequenceTable.aggregate_id, ids))
-        .all(),
-    ).map((row: any) => [row.id, row.seq]),
+      chunk(ids, IN_ARRAY_CHUNK).flatMap((part) =>
+        db
+          .select({
+            id: EventSequenceTable.aggregate_id,
+            seq: EventSequenceTable.seq,
+          })
+          .from(EventSequenceTable)
+          .where(inArray(EventSequenceTable.aggregate_id, part))
+          .all(),
+      ),
+    ).map((row) => [row.id, row.seq]),
   ) as Record<string, number>
 
   return ids.every((id) => {
-    return (done[id] ?? -1) >= state[id]
+    return (done[id] ?? -1) >= (state[id] ?? -1)
   })
 }
 

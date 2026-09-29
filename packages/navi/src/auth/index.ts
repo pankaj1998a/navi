@@ -4,6 +4,7 @@ import { zod } from "@navi-ai/core/effect-zod"
 import { NonNegativeInt } from "@navi-ai/core/schema"
 import { Global } from "@navi-ai/core/global"
 import { AppFileSystem } from "@navi-ai/core/filesystem"
+import * as Log from "@navi-ai/core/util/log"
 
 export const OAUTH_DUMMY_KEY = "navi-oauth-dummy-key"
 
@@ -59,9 +60,10 @@ export const layer = Layer.effect(
     const all = Effect.fn("Auth.all")(function* () {
       if (process.env.NAVI_AUTH_CONTENT) {
         try {
-          return JSON.parse(process.env.NAVI_AUTH_CONTENT)
-        } catch (err) {
-          // Ignore invalid JSON in NAVI_AUTH_CONTENT and fall back to reading from filesystem
+          return JSON.parse(process.env.NAVI_AUTH_CONTENT) as Record<string, Info>
+        } catch (cause) {
+          Log.Default.error("invalid NAVI_AUTH_CONTENT JSON", { error: String(cause) })
+          yield* new AuthError({ message: "Invalid NAVI_AUTH_CONTENT JSON", cause })
         }
       }
 

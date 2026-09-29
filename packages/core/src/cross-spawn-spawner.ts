@@ -449,10 +449,13 @@ export const make = Effect.gen(function* () {
         }
         case "PipedCommand": {
           const flat = flatten(command)
-          const [head, ...tail] = flat.commands
+          const head = flat.commands[0]
+          if (!head) return yield* Effect.die(new Error("PipedCommand requires at least one command"))
+          const tail = flat.commands.slice(1)
           let handle = spawnCommand(head)
           for (let i = 0; i < tail.length; i++) {
             const next = tail[i]
+            if (!next) continue
             const opts = flat.opts[i] ?? {}
             const sin = stdin(next.options)
             const stream = Stream.unwrap(Effect.map(handle, (x) => source(x, opts.from)))

@@ -234,7 +234,11 @@ describe("MessageV2.page", () => {
 
         const result = MessageV2.page({ sessionID: session.id, limit: 1 })
         expect(result.items).toHaveLength(1)
-        expect(result.items[0].info.id).toBe(ids[ids.length - 1])
+        const firstItem = result.items[0]
+        if (!firstItem) throw new Error("expected message")
+        const lastID = ids[ids.length - 1]
+        if (!lastID) throw new Error("expected id")
+        expect(firstItem.info.id).toBe(lastID)
         expect(result.more).toBe(true)
 
         await svc.remove(session.id)
@@ -248,6 +252,7 @@ describe("MessageV2.page", () => {
       fn: async () => {
         const session = await svc.create({})
         const [id] = await fill(session.id, 1)
+        if (!id) throw new Error("expected message id")
 
         await svc.updatePart({
           id: PartID.ascending(),
@@ -259,7 +264,9 @@ describe("MessageV2.page", () => {
 
         const result = MessageV2.page({ sessionID: session.id, limit: 10 })
         expect(result.items).toHaveLength(1)
-        expect(result.items[0].parts).toHaveLength(2)
+        const hydratedItem = result.items[0]
+        if (!hydratedItem) throw new Error("expected message")
+        expect(hydratedItem.parts).toHaveLength(2)
 
         await svc.remove(session.id)
       },
@@ -353,7 +360,7 @@ describe("MessageV2.stream", () => {
         const session = await svc.create({})
         const ids = await fill(session.id, 5)
 
-        const items = Array.from(MessageV2.stream(session.id))
+        const items = Array.from(MessageV2.stream(session.id) as Iterable<MessageV2.WithParts>)
         expect(items.map((item) => item.info.id)).toEqual(ids.slice().reverse())
 
         await svc.remove(session.id)
@@ -367,7 +374,7 @@ describe("MessageV2.stream", () => {
       fn: async () => {
         const session = await svc.create({})
 
-        const items = Array.from(MessageV2.stream(session.id))
+        const items = Array.from(MessageV2.stream(session.id) as Iterable<MessageV2.WithParts>)
         expect(items).toHaveLength(0)
 
         await svc.remove(session.id)
@@ -382,9 +389,13 @@ describe("MessageV2.stream", () => {
         const session = await svc.create({})
         const ids = await fill(session.id, 1)
 
-        const items = Array.from(MessageV2.stream(session.id))
+        const items = Array.from(MessageV2.stream(session.id) as Iterable<MessageV2.WithParts>)
         expect(items).toHaveLength(1)
-        expect(items[0].info.id).toBe(ids[0])
+        const singleItem = items[0]
+        if (!singleItem) throw new Error("expected message")
+        const singleID = ids[0]
+        if (!singleID) throw new Error("expected id")
+        expect(singleItem.info.id).toBe(singleID)
 
         await svc.remove(session.id)
       },
@@ -398,10 +409,12 @@ describe("MessageV2.stream", () => {
         const session = await svc.create({})
         await fill(session.id, 3)
 
-        const items = Array.from(MessageV2.stream(session.id))
+        const items = Array.from(MessageV2.stream(session.id) as Iterable<MessageV2.WithParts>)
         for (const item of items) {
           expect(item.parts).toHaveLength(1)
-          expect(item.parts[0].type).toBe("text")
+          const part = item.parts[0]
+          if (!part) throw new Error("expected part")
+          expect(part.type).toBe("text")
         }
 
         await svc.remove(session.id)
@@ -416,10 +429,18 @@ describe("MessageV2.stream", () => {
         const session = await svc.create({})
         const ids = await fill(session.id, 60)
 
-        const items = Array.from(MessageV2.stream(session.id))
+        const items = Array.from(MessageV2.stream(session.id) as Iterable<MessageV2.WithParts>)
         expect(items).toHaveLength(60)
-        expect(items[0].info.id).toBe(ids[ids.length - 1])
-        expect(items[59].info.id).toBe(ids[0])
+        const newestItem = items[0]
+        if (!newestItem) throw new Error("expected message")
+        const newestID = ids[ids.length - 1]
+        if (!newestID) throw new Error("expected id")
+        expect(newestItem.info.id).toBe(newestID)
+        const oldestItem = items[59]
+        if (!oldestItem) throw new Error("expected message")
+        const oldestID = ids[0]
+        if (!oldestID) throw new Error("expected id")
+        expect(oldestItem.info.id).toBe(oldestID)
 
         await svc.remove(session.id)
       },
@@ -453,11 +474,14 @@ describe("MessageV2.parts", () => {
       fn: async () => {
         const session = await svc.create({})
         const [id] = await fill(session.id, 1)
+        if (!id) throw new Error("expected message id")
 
         const result = MessageV2.parts(id)
         expect(result).toHaveLength(1)
-        expect(result[0].type).toBe("text")
-        expect((result[0] as MessageV2.TextPart).text).toBe("m0")
+        const part = result[0]
+        if (!part) throw new Error("expected part")
+        expect(part.type).toBe("text")
+        expect((part as MessageV2.TextPart).text).toBe("m0")
 
         await svc.remove(session.id)
       },
@@ -485,6 +509,7 @@ describe("MessageV2.parts", () => {
       fn: async () => {
         const session = await svc.create({})
         const [id] = await fill(session.id, 1)
+        if (!id) throw new Error("expected message id")
 
         await svc.updatePart({
           id: PartID.ascending(),
@@ -503,9 +528,15 @@ describe("MessageV2.parts", () => {
 
         const result = MessageV2.parts(id)
         expect(result).toHaveLength(3)
-        expect((result[0] as MessageV2.TextPart).text).toBe("m0")
-        expect((result[1] as MessageV2.TextPart).text).toBe("second")
-        expect((result[2] as MessageV2.TextPart).text).toBe("third")
+        const firstPart = result[0]
+        if (!firstPart) throw new Error("expected part")
+        expect((firstPart as MessageV2.TextPart).text).toBe("m0")
+        const secondPart = result[1]
+        if (!secondPart) throw new Error("expected part")
+        expect((secondPart as MessageV2.TextPart).text).toBe("second")
+        const thirdPart = result[2]
+        if (!thirdPart) throw new Error("expected part")
+        expect((thirdPart as MessageV2.TextPart).text).toBe("third")
 
         await svc.remove(session.id)
       },
@@ -529,10 +560,13 @@ describe("MessageV2.parts", () => {
       fn: async () => {
         const session = await svc.create({})
         const [id] = await fill(session.id, 1)
+        if (!id) throw new Error("expected message id")
 
         const result = MessageV2.parts(id)
-        expect(result[0].sessionID).toBe(session.id)
-        expect(result[0].messageID).toBe(id)
+        const partIDs = result[0]
+        if (!partIDs) throw new Error("expected part")
+        expect(partIDs.sessionID).toBe(session.id)
+        expect(partIDs.messageID).toBe(id)
 
         await svc.remove(session.id)
       },
@@ -547,13 +581,16 @@ describe("MessageV2.get", () => {
       fn: async () => {
         const session = await svc.create({})
         const [id] = await fill(session.id, 1)
+        if (!id) throw new Error("expected message id")
 
         const result = MessageV2.get({ sessionID: session.id, messageID: id })
         expect(result.info.id).toBe(id)
         expect(result.info.sessionID).toBe(session.id)
         expect(result.info.role).toBe("user")
         expect(result.parts).toHaveLength(1)
-        expect((result.parts[0] as MessageV2.TextPart).text).toBe("m0")
+        const hydratedPart = result.parts[0]
+        if (!hydratedPart) throw new Error("expected part")
+        expect((hydratedPart as MessageV2.TextPart).text).toBe("m0")
 
         await svc.remove(session.id)
       },
@@ -582,6 +619,7 @@ describe("MessageV2.get", () => {
         const a = await svc.create({})
         const b = await svc.create({})
         const [id] = await fill(a.id, 1)
+        if (!id) throw new Error("expected message id")
 
         expect(() => MessageV2.get({ sessionID: b.id, messageID: id })).toThrow("NotFoundError")
         const result = MessageV2.get({ sessionID: a.id, messageID: id })
@@ -599,6 +637,7 @@ describe("MessageV2.get", () => {
       fn: async () => {
         const session = await svc.create({})
         const [id] = await fill(session.id, 1)
+        if (!id) throw new Error("expected message id")
 
         await svc.updatePart({
           id: PartID.ascending(),
@@ -635,7 +674,9 @@ describe("MessageV2.get", () => {
         const result = MessageV2.get({ sessionID: session.id, messageID: aid })
         expect(result.info.role).toBe("assistant")
         expect(result.parts).toHaveLength(1)
-        expect((result.parts[0] as MessageV2.TextPart).text).toBe("response")
+        const responsePart = result.parts[0]
+        if (!responsePart) throw new Error("expected part")
+        expect((responsePart as MessageV2.TextPart).text).toBe("response")
 
         await svc.remove(session.id)
       },
@@ -667,7 +708,7 @@ describe("MessageV2.filterCompacted", () => {
         const session = await svc.create({})
         const ids = await fill(session.id, 5)
 
-        const result = MessageV2.filterCompacted(MessageV2.stream(session.id))
+        const result = MessageV2.filterCompacted(MessageV2.stream(session.id) as Iterable<MessageV2.WithParts>)
         expect(result).toHaveLength(5)
         // reversed from newest-first to chronological
         expect(result.map((item) => item.info.id)).toEqual(ids)
@@ -706,9 +747,11 @@ describe("MessageV2.filterCompacted", () => {
           text: "new response",
         })
 
-        const result = MessageV2.filterCompacted(MessageV2.stream(session.id))
+        const result = MessageV2.filterCompacted(MessageV2.stream(session.id) as Iterable<MessageV2.WithParts>)
         // Includes compaction boundary: u1, a1, u2, a2
-        expect(result[0].info.id).toBe(u1)
+        const firstResult = result[0]
+        if (!firstResult) throw new Error("expected message")
+        expect(firstResult.info.id).toBe(u1)
         expect(result.length).toBe(4)
 
         await svc.remove(session.id)
@@ -731,7 +774,7 @@ describe("MessageV2.filterCompacted", () => {
         await addCompactionPart(session.id, u1)
         await addUser(session.id, "world")
 
-        const result = MessageV2.filterCompacted(MessageV2.stream(session.id))
+        const result = MessageV2.filterCompacted(MessageV2.stream(session.id) as Iterable<MessageV2.WithParts>)
         expect(result).toHaveLength(2)
 
         await svc.remove(session.id)
@@ -755,7 +798,7 @@ describe("MessageV2.filterCompacted", () => {
         await addAssistant(session.id, u1, { summary: true, finish: "end_turn", error })
         await addUser(session.id, "retry")
 
-        const result = MessageV2.filterCompacted(MessageV2.stream(session.id))
+        const result = MessageV2.filterCompacted(MessageV2.stream(session.id) as Iterable<MessageV2.WithParts>)
         // Error assistant doesn't add to completed, so compaction boundary never triggers
         expect(result).toHaveLength(3)
 
@@ -777,7 +820,7 @@ describe("MessageV2.filterCompacted", () => {
         await addAssistant(session.id, u1, { summary: true })
         await addUser(session.id, "next")
 
-        const result = MessageV2.filterCompacted(MessageV2.stream(session.id))
+        const result = MessageV2.filterCompacted(MessageV2.stream(session.id) as Iterable<MessageV2.WithParts>)
         expect(result).toHaveLength(3)
 
         await svc.remove(session.id)
@@ -832,7 +875,7 @@ describe("MessageV2.filterCompacted", () => {
           text: "third reply",
         })
 
-        const result = MessageV2.filterCompacted(MessageV2.stream(session.id))
+        const result = MessageV2.filterCompacted(MessageV2.stream(session.id) as Iterable<MessageV2.WithParts>)
 
         expect(result.map((item) => item.info.id)).toEqual([c1, s1, u2, a2, u3, a3])
 
@@ -888,11 +931,13 @@ describe("MessageV2.filterCompacted", () => {
           text: "third reply",
         })
 
-        const parentFiltered = MessageV2.filterCompacted(MessageV2.stream(session.id))
+        const parentFiltered = MessageV2.filterCompacted(MessageV2.stream(session.id) as Iterable<MessageV2.WithParts>)
         expect(parentFiltered.map((item) => item.info.id)).toEqual([c1, s1, u2, a2, u3, a3])
 
         const forked = await svc.fork({ sessionID: session.id })
-        const childFiltered = MessageV2.filterCompacted(MessageV2.stream(forked.id))
+        const childFiltered = MessageV2.filterCompacted(
+          MessageV2.stream(forked.id) as Iterable<MessageV2.WithParts>,
+        )
         expect(childFiltered).toHaveLength(parentFiltered.length)
 
         const tailPart = childFiltered.flatMap((m) => m.parts).find((p) => p.type === "compaction")
@@ -962,7 +1007,7 @@ describe("MessageV2.filterCompacted", () => {
           text: "third reply",
         })
 
-        const result = MessageV2.filterCompacted(MessageV2.stream(session.id))
+        const result = MessageV2.filterCompacted(MessageV2.stream(session.id) as Iterable<MessageV2.WithParts>)
 
         expect(result.map((item) => item.info.id)).toEqual([c1, s1, a3, u3, a4])
 
@@ -1039,7 +1084,7 @@ describe("MessageV2.filterCompacted", () => {
           text: "fourth reply",
         })
 
-        const result = MessageV2.filterCompacted(MessageV2.stream(session.id))
+        const result = MessageV2.filterCompacted(MessageV2.stream(session.id) as Iterable<MessageV2.WithParts>)
 
         expect(result.map((item) => item.info.id)).toEqual([c2, s2, u3, a3, u4, a4])
 
@@ -1066,7 +1111,9 @@ describe("MessageV2.filterCompacted", () => {
     ]
     const result = MessageV2.filterCompacted(items)
     expect(result).toHaveLength(1)
-    expect(result[0].info.id).toBe(id)
+    const arrayResult = result[0]
+    if (!arrayResult) throw new Error("expected message")
+    expect(arrayResult.info.id).toBe(id)
   })
 })
 
@@ -1118,6 +1165,7 @@ describe("MessageV2 consistency", () => {
       fn: async () => {
         const session = await svc.create({})
         const [id] = await fill(session.id, 1)
+        if (!id) throw new Error("expected message id")
 
         const got = MessageV2.get({ sessionID: session.id, messageID: id })
         const standalone = MessageV2.parts(id)
@@ -1135,14 +1183,16 @@ describe("MessageV2 consistency", () => {
         const session = await svc.create({})
         await fill(session.id, 7)
 
-        const streamed = Array.from(MessageV2.stream(session.id))
+        const streamed = Array.from(MessageV2.stream(session.id) as Iterable<MessageV2.WithParts>)
 
         const paged = [] as MessageV2.WithParts[]
         let cursor: string | undefined
         while (true) {
           const result = MessageV2.page({ sessionID: session.id, limit: 3, before: cursor })
           for (let i = result.items.length - 1; i >= 0; i--) {
-            paged.push(result.items[i])
+            const pagedItem = result.items[i]
+            if (!pagedItem) throw new Error("expected message")
+            paged.push(pagedItem)
           }
           if (!result.more || !result.cursor) break
           cursor = result.cursor
@@ -1162,8 +1212,8 @@ describe("MessageV2 consistency", () => {
         const session = await svc.create({})
         await fill(session.id, 4)
 
-        const filtered = MessageV2.filterCompacted(MessageV2.stream(session.id))
-        const all = Array.from(MessageV2.stream(session.id)).reverse()
+        const filtered = MessageV2.filterCompacted(MessageV2.stream(session.id) as Iterable<MessageV2.WithParts>)
+        const all = Array.from(MessageV2.stream(session.id) as Iterable<MessageV2.WithParts>).reverse()
 
         expect(filtered.map((m) => m.info.id)).toEqual(all.map((m) => m.info.id))
 

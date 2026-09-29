@@ -21,6 +21,7 @@ import { CloudflareAIGatewayAuthPlugin, CloudflareWorkersAuthPlugin } from "./cl
 import { AzureAuthPlugin } from "./azure"
 import { KilocodeAuthPlugin } from "../provider/kilocode"
 import { StandardHooksPlugin } from "./standard-hooks"
+import { OfficialPluginsPlugin } from "./official"
 import { Effect, Layer, Context, Stream } from "effect"
 import { EffectBridge } from "@/effect/bridge"
 import { InstanceState } from "@/effect/instance-state"
@@ -68,6 +69,7 @@ const INTERNAL_PLUGINS: PluginInstance[] = [
   AzureAuthPlugin,
   KilocodeAuthPlugin,
   StandardHooksPlugin,
+  ...(Flag.NAVI_DISABLE_DEFAULT_PLUGINS ? [] : [OfficialPluginsPlugin]),
 ]
 
 function isServerPlugin(value: unknown): value is PluginInstance {
@@ -289,4 +291,5 @@ export const layer = Layer.effect(
 
 export const defaultLayer = layer.pipe(Layer.provide(Bus.layer), Layer.provide(Config.defaultLayer))
 
+export * as Official from "./official"
 export * as Plugin from "."

@@ -77,7 +77,9 @@ const loadState = Effect.fn("TuiConfig.loadState")(function* (ctx: { directory: 
       const plugins = config.plugin
       if (!plugins) return config
       for (let i = 0; i < plugins.length; i++) {
-        plugins[i] = yield* Effect.promise(() => ConfigPlugin.resolvePluginSpec(plugins[i], configFilepath))
+        const spec = plugins[i]
+        if (!spec) continue
+        plugins[i] = yield* Effect.promise(() => ConfigPlugin.resolvePluginSpec(spec, configFilepath))
       }
       return config
     })
@@ -177,7 +179,7 @@ const loadState = Effect.fn("TuiConfig.loadState")(function* (ctx: { directory: 
     }
   }
 
-  const keybinds = { ...acc.result.keybinds }
+  const keybinds = { ...(acc.result.keybinds ?? {}) }
   if (process.platform === "win32") {
     // Native Windows terminals do not support POSIX suspend, so prefer prompt undo.
     keybinds.terminal_suspend = "none"

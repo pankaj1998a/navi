@@ -5,6 +5,7 @@ import { Database } from "@/storage/db"
 import { SessionTable } from "../../session/session.sql"
 import { Project } from "@/project/project"
 import { InstanceRef } from "@/effect/instance-ref"
+import { and, gte, eq } from "drizzle-orm"
 
 interface SessionStats {
   totalSessions: number
@@ -79,9 +80,34 @@ export const StatsCommand = effectCmd({
   }),
 })
 
-const getAllSessions = Effect.sync(() =>
-  Database.use((db) => db.select().from(SessionTable).all()).map((row: any) => Session.fromRow(row)),
-)
+const STATS_PAGE_SIZE = 500
+const STATS_MAX_SESSIONS = 5000
+
+// Filters pushed to SQLite (where + limit/offset pagination) instead of loading all rows.
+const pageSessions = Effect.fn("Cli.stats.pageSessions")(function* (
+  cutoffTime: number,
+  projectID: Project.Info["id"] | undefined,
+  limit: number,
+  offset: number,
+) {
+  return yield* Effect.sync(() =>
+    Database.use((db) => {
+      const filters = [
+        ...(cutoffTime > 0 ? [gte(SessionTable.time_updated, cutoffTime)] : []),
+        ...(projectID ? [eq(SessionTable.project_id, projectID)] : []),
+      ]
+      const where = filters.length ? and(...filters) : undefined
+      const base = db.select().from(SessionTable)
+      const rows = (
+        where ? base.where(where) : base
+      )
+        .limit(limit)
+        .offset(offset)
+        .all()
+      return rows.map((row) => Session.fromRow(row))
+    }),
+  )
+})
 
 const aggregateSessionStats = Effect.fn("Cli.stats.aggregate")(function* (
   days?: number,
@@ -89,7 +115,6 @@ const aggregateSessionStats = Effect.fn("Cli.stats.aggregate")(function* (
   currentProject?: Project.Info,
 ) {
   const svc = yield* Session.Service
-  const sessions = yield* getAllSessions
   const MS_IN_DAY = 24 * 60 * 60 * 1000
 
   const cutoffTime = (() => {
@@ -108,15 +133,23 @@ const aggregateSessionStats = Effect.fn("Cli.stats.aggregate")(function* (
     return days
   })()
 
-  let filteredSessions = cutoffTime > 0 ? sessions.filter((session: any) => session.time.updated >= cutoffTime) : sessions
-
+  // Resolve project filter to a single projectID so SQLite does the filtering.
+  let projectID: Project.Info["id"] | undefined
   if (projectFilter !== undefined) {
     if (projectFilter === "") {
       if (!currentProject) throw new Error("currentProject required when projectFilter is empty string")
-      filteredSessions = filteredSessions.filter((session: any) => session.projectID === currentProject.id)
+      projectID = currentProject.id
     } else {
-      filteredSessions = filteredSessions.filter((session: any) => session.projectID === projectFilter)
+      projectID = projectFilter as Project.Info["id"]
     }
+  }
+
+  // Paginate in SQLite (page size 500, hard cap 5000) instead of select-all + in-memory filter.
+  const filteredSessions: Session.Info[] = []
+  for (let offset = 0; offset < STATS_MAX_SESSIONS; offset += STATS_PAGE_SIZE) {
+    const page = yield* pageSessions(cutoffTime, projectID, STATS_PAGE_SIZE, offset)
+    filteredSessions.push(...page)
+    if (page.length < STATS_PAGE_SIZE) break
   }
 
   const stats: SessionStats = {
@@ -160,7 +193,7 @@ const aggregateSessionStats = Effect.fn("Cli.stats.aggregate")(function* (
 
   const results = yield* Effect.forEach(
     filteredSessions,
-    (session: any) =>
+    (session) =>
       Effect.gen(function* () {
         const messages = yield* svc.messages({ sessionID: session.id })
 
@@ -287,8 +320,8 @@ const aggregateSessionStats = Effect.fn("Cli.stats.aggregate")(function* (
     sessionTotalTokens.length === 0
       ? 0
       : sessionTotalTokens.length % 2 === 0
-        ? (sessionTotalTokens[mid - 1] + sessionTotalTokens[mid]) / 2
-        : sessionTotalTokens[mid]
+        ? ((sessionTotalTokens[mid - 1] ?? 0) + (sessionTotalTokens[mid] ?? 0)) / 2
+        : (sessionTotalTokens[mid] ?? 0)
 
   return stats
 })

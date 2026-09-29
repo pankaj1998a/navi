@@ -107,7 +107,9 @@ async function resolveLoadedPlugins<T extends { plugin?: ConfigPlugin.Spec[] }>(
   for (let i = 0; i < config.plugin.length; i++) {
     // Normalize path-like plugin specs while we still know which config file declared them.
     // This prevents `./plugin.ts` from being reinterpreted relative to some later merge location.
-    config.plugin[i] = await ConfigPlugin.resolvePluginSpec(config.plugin[i], filepath)
+    const spec = config.plugin[i]
+    if (!spec) continue
+    config.plugin[i] = await ConfigPlugin.resolvePluginSpec(spec, filepath)
   }
   return config
 }
@@ -299,12 +301,6 @@ export const Info = Schema.Struct({
       mcp_timeout: Schema.optional(PositiveInt).annotate({
         description: "Timeout in milliseconds for model context protocol (MCP) requests",
       }),
-      background_subagents: Schema.optional(Schema.Boolean).annotate({
-        description: "Enable background subagents",
-      }),
-      toolConcurrency: Schema.optional(PositiveInt).annotate({
-        description: "Maximum concurrent tool executions (default: 8)",
-      }),
       evaluation: Schema.optional(
         Schema.Struct({
           enabled: Schema.optional(Schema.Boolean),
@@ -389,14 +385,22 @@ export interface Interface {
 
 export class Service extends Context.Service<Service, Interface>()("@navi/Config") {}
 
+let cachedGlobalConfigFile: { dir: string; file: string } | undefined
 function globalConfigFile() {
-  const candidates = ["navi.jsonc", "navi.json", "config.json"].map((file) =>
-    path.join(Global.Path.config, file),
-  )
+  // Memoized per config dir: candidate scan is startup-only and sync by necessity
+  // (called outside Effect). Keyed by dir so tests that swap Global.Path.config stay isolated.
+  const base = Global.Path.config
+  if (cachedGlobalConfigFile?.dir === base) return cachedGlobalConfigFile.file
+  const candidates = ["navi.jsonc", "navi.json", "config.json"].map((file) => path.join(base, file))
   for (const file of candidates) {
-    if (existsSync(file)) return file
+    if (existsSync(file)) {
+      cachedGlobalConfigFile = { dir: base, file }
+      return file
+    }
   }
-  return candidates[0]
+  const fallback = candidates[0] ?? path.join(base, "navi.json")
+  cachedGlobalConfigFile = { dir: base, file: fallback }
+  return fallback
 }
 
 function patchJsonc(input: string, patch: unknown, path: string[] = []): string {
@@ -443,15 +447,7 @@ export const layer = Layer.effect(
     const env = yield* Env.Service
     const npmSvc = yield* Npm.Service
 
-    const readConfigFile = (filepath: string) =>
-      fs.readFileStringSafe(filepath).pipe(
-        Effect.catchCause((cause) =>
-          Effect.sync(() => {
-            log.warn("failed to read config file", { path: filepath, cause: String(cause) })
-            return ""
-          }),
-        ),
-      )
+    const readConfigFile = (filepath: string) => fs.readFileStringSafe(filepath).pipe(Effect.orDie)
 
     const loadConfig = Effect.fnUntraced(function* (
       text: string,
@@ -480,17 +476,7 @@ export const layer = Layer.effect(
       log.info("loading", { path: filepath })
       const text = yield* readConfigFile(filepath)
       if (!text) return {} as Info
-      return yield* loadConfig(text, { path: filepath }).pipe(
-        Effect.catchCause((cause) =>
-          Effect.sync(() => {
-            log.error("failed to load config file, skipping corrupt or unreadable file", {
-              path: filepath,
-              cause: String(cause),
-            })
-            return {} as Info
-          }),
-        ),
-      )
+      return yield* loadConfig(text, { path: filepath })
     })
 
     const loadGlobal = Effect.fnUntraced(function* () {
@@ -500,7 +486,7 @@ export const layer = Layer.effect(
       result = mergeConfig(result, yield* loadFile(path.join(Global.Path.config, "navi.jsonc")))
 
       const legacy = path.join(Global.Path.config, "config")
-      if (existsSync(legacy)) {
+      if (yield* fs.existsSafe(legacy)) {
         yield* Effect.promise(() =>
           import(pathToFileURL(legacy).href, { with: { type: "toml" } })
             .then(async (mod) => {
@@ -596,14 +582,19 @@ export const layer = Layer.effect(
             const url = key.replace(/\/+$/, "")
             process.env[value.key] = value.token
             log.debug("fetching remote config", { url: `${url}/.well-known/navi` })
-            const response = yield* Effect.promise(() => fetch(`${url}/.well-known/navi`))
+            const response = yield* Effect.promise(() =>
+              fetch(`${url}/.well-known/navi`, { signal: AbortSignal.timeout(10000) }),
+            )
             if (!response.ok) {
               throw new Error(`failed to fetch remote config from ${url}: ${response.status}`)
             }
-            const wellknown = (yield* Effect.promise(() => response.json())) as {
-              config?: Record<string, unknown>
-              remote_config?: unknown
-            }
+            const wellknownJson = (yield* Effect.promise(() => response.json())) as unknown
+            const wellknown = isRecord(wellknownJson)
+              ? (wellknownJson as {
+                  config?: Record<string, unknown>
+                  remote_config?: unknown
+                })
+              : {}
             const remote = yield* Effect.promise(() =>
               substituteWellKnownRemoteConfig({
                 value: wellknown.remote_config,
@@ -614,7 +605,10 @@ export const layer = Layer.effect(
             const fetchedConfig = remote
               ? ((yield* Effect.promise(async () => {
                   log.debug("fetching remote config", { url: remote.url })
-                  const response = await fetch(remote.url, { headers: remote.headers })
+                  const response = await fetch(remote.url, {
+                    headers: remote.headers,
+                    signal: AbortSignal.timeout(10000),
+                  })
                   if (!response.ok)
                     throw new Error(`failed to fetch remote config from ${remote.url}: ${response.status}`)
                   const data = await response.json()
@@ -642,14 +636,7 @@ export const layer = Layer.effect(
         }
 
         if (!Flag.NAVI_DISABLE_PROJECT_CONFIG) {
-          for (const file of yield* ConfigPaths.files("navi", ctx.directory, ctx.worktree).pipe(
-            Effect.catchCause((cause) =>
-              Effect.sync(() => {
-                log.warn("failed to resolve project config paths", { cause: String(cause) })
-                return []
-              }),
-            ),
-          )) {
+          for (const file of yield* ConfigPaths.files("navi", ctx.directory, ctx.worktree).pipe(Effect.orDie)) {
             yield* merge(file, yield* loadFile(file), "local")
           }
         }
@@ -762,7 +749,7 @@ export const layer = Layer.effect(
         }
 
         const managedDir = ConfigManaged.managedConfigDir()
-        if (existsSync(managedDir)) {
+        if (yield* fs.existsSafe(managedDir)) {
           for (const file of ["navi.json", "navi.jsonc"]) {
             const source = path.join(managedDir, file)
             yield* merge(source, yield* loadFile(source), "global")
@@ -836,25 +823,7 @@ export const layer = Layer.effect(
 
     const state = yield* InstanceState.make<State>(
       Effect.fn("Config.state")(function* (ctx) {
-        return yield* loadInstanceState(ctx).pipe(
-          Effect.catchCause((cause) =>
-            Effect.sync(() => {
-              log.error("failed to load instance state config, using empty config fallback", {
-                cause: String(cause),
-              })
-              return {
-                config: {},
-                directories: [],
-                deps: [],
-                consoleState: {
-                  consoleManagedProviders: [],
-                  activeOrgName: undefined,
-                  switchableOrgCount: 0,
-                },
-              }
-            }),
-          ),
-        )
+        return yield* loadInstanceState(ctx).pipe(Effect.orDie)
       }),
     )
 
@@ -876,22 +845,13 @@ export const layer = Layer.effect(
       )
     })
 
-    const atomicWrite = (targetFile: string, content: string) =>
-      Effect.gen(function* () {
-        const tmpFile = `${targetFile}.tmp.${Math.random().toString(36).slice(2)}`
-        yield* fs.writeFileString(tmpFile, content)
-        yield* fs.rename(tmpFile, targetFile)
-      }).pipe(
-        Effect.catchCause((cause) =>
-          Effect.die(`Failed to write config file atomically: ${targetFile} (${cause})`),
-        ),
-      )
-
     const update = Effect.fn("Config.update")(function* (config: Info) {
       const dir = yield* InstanceState.directory
       const file = path.join(dir, "config.json")
       const existing = yield* loadFile(file)
-      yield* atomicWrite(file, JSON.stringify(mergeDeep(writable(existing), writable(config)), null, 2))
+      yield* fs
+        .writeFileString(file, JSON.stringify(mergeDeep(writable(existing), writable(config)), null, 2))
+        .pipe(Effect.orDie)
     })
 
     const invalidate = Effect.fn("Config.invalidate")(function* () {
@@ -910,13 +870,13 @@ export const layer = Layer.effect(
         const merged = mergeDeep(writable(existing), patch)
         const serialized = JSON.stringify(merged, null, 2)
         changed = serialized !== before
-        if (changed) yield* atomicWrite(file, serialized)
+        if (changed) yield* fs.writeFileString(file, serialized).pipe(Effect.orDie)
         next = merged
       } else {
         const updated = patchJsonc(before, patch)
         next = ConfigParse.effectSchema(Info, ConfigParse.jsonc(updated, file), file)
         changed = updated !== before
-        if (changed) yield* atomicWrite(file, updated)
+        if (changed) yield* fs.writeFileString(file, updated).pipe(Effect.orDie)
       }
 
       if (changed) yield* invalidate()

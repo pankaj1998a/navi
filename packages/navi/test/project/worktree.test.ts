@@ -10,6 +10,7 @@ import { InstanceRuntime } from "../../src/project/instance-runtime"
 import { Worktree } from "../../src/worktree"
 import { disposeAllInstances, provideInstance, provideTmpdirInstance } from "../fixture/fixture"
 import { testEffect } from "../lib/effect"
+import { uniqueName } from "../lib/names"
 
 const it = testEffect(Layer.mergeAll(Worktree.defaultLayer, CrossSpawnSpawner.defaultLayer))
 const wintest = process.platform !== "win32" ? it.live : it.live.skip
@@ -208,7 +209,7 @@ describe("Worktree", () => {
             const svc = yield* Worktree.Service
             const parent = path.join(path.dirname(dir), `${path.basename(dir)}-parent`)
             const target = path.join(parent, path.basename(dir))
-            const branch = `same-basename-list-${Date.now()}`
+            const branch = uniqueName("same-basename-list")
 
             yield* Effect.promise(() => fs.mkdir(parent, { recursive: true }))
             yield* Effect.promise(() => $`git worktree add -b ${branch} ${target}`.cwd(dir).quiet())

@@ -229,7 +229,8 @@ export function createPromptHistory(items?: RunPrompt[]): PromptHistoryState {
   const list = (items ?? []).filter((item) => item.text.trim().length > 0).map(promptCopy)
   const next: RunPrompt[] = []
   for (const item of list) {
-    if (next.length > 0 && promptSame(next[next.length - 1], item)) {
+    const prev = next[next.length - 1]
+    if (prev && promptSame(prev, item)) {
       continue
     }
 
@@ -249,7 +250,8 @@ export function pushPromptHistory(state: PromptHistoryState, prompt: RunPrompt):
   }
 
   const next = promptCopy(prompt)
-  if (state.items[state.items.length - 1] && promptSame(state.items[state.items.length - 1], next)) {
+  const last = state.items[state.items.length - 1]
+  if (last && promptSame(last, next)) {
     return {
       ...state,
       index: null,
@@ -285,13 +287,15 @@ export function movePromptHistory(state: PromptHistoryState, dir: -1 | 1, text: 
     }
 
     const idx = state.items.length - 1
+    const current = state.items[idx]
+    if (!current) return { state, apply: false }
     return {
       state: {
         ...state,
         index: idx,
         draft: text,
       },
-      text: state.items[idx].text,
+      text: current.text,
       cursor: 0,
       apply: true,
     }
@@ -314,13 +318,16 @@ export function movePromptHistory(state: PromptHistoryState, dir: -1 | 1, text: 
     }
   }
 
+  const current = state.items[idx]
+  if (!current) return { state, apply: false }
+
   return {
     state: {
       ...state,
       index: idx,
     },
-    text: state.items[idx].text,
-    cursor: dir === -1 ? 0 : state.items[idx].text.length,
+    text: current.text,
+    cursor: dir === -1 ? 0 : current.text.length,
     apply: true,
   }
 }

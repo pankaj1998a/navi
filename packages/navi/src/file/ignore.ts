@@ -29,10 +29,6 @@ const FOLDERS = new Set([
   "mypy_cache",
   ".history",
   ".gradle",
-  ".artifacts",
-  ".gemini",
-  ".bundle",
-  ".yarn",
 ])
 
 const FILES = [
@@ -71,7 +67,7 @@ export function match(
 
   const parts = filepath.split(/[/\\]/)
   for (let i = 0; i < parts.length; i++) {
-    if (FOLDERS.has(parts[i])) return true
+    if (FOLDERS.has(parts[i] ?? "")) return true
   }
 
   const extra = opts?.extra || []

@@ -160,8 +160,10 @@ test("BrowserOpenFailed event is published when open() throws", async () => {
 
       // Verify the BrowserOpenFailed event was published
       expect(events.length).toBe(1)
-      expect(events[0].mcpName).toBe("test-oauth-server")
-      expect(events[0].url).toContain("https://")
+      const event = events[0]
+      if (!event) throw new Error("expected BrowserOpenFailed event")
+      expect(event.mcpName).toBe("test-oauth-server")
+      expect(event.url).toContain("https://")
     },
   })
 })

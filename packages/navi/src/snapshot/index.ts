@@ -681,8 +681,8 @@ export const layer: Layer.Layer<
                   const [adds, dels, file] = line.split("\t")
                   if (!file) return []
                   const binary = adds === "-" && dels === "-"
-                  const additions = binary ? 0 : parseInt(adds)
-                  const deletions = binary ? 0 : parseInt(dels)
+                  const additions = binary ? 0 : parseInt(adds ?? "0")
+                  const deletions = binary ? 0 : parseInt(dels ?? "0")
                   return [
                     {
                       file,
@@ -715,7 +715,7 @@ export const layer: Layer.Layer<
                   const [before, after] = row.binary ? ["", ""] : text ? [hit.before, hit.after] : yield* show(row)
                   result.push({
                     file: row.file,
-                    patch: row.binary ? "" : patch(row.file, before, after),
+                    patch: row.binary ? "" : patch(row.file, before ?? "", after ?? ""),
                     additions: row.additions,
                     deletions: row.deletions,
                     status: row.status,

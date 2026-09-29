@@ -11,6 +11,7 @@ node_modules
 playground
 tmp
 dist
+out
 ts-dist
 .turbo
 **/.serena
@@ -36,3 +37,19 @@ tsconfig.tsbuildinfo
 .artifacts/
 **/.artifacts/
 scratch/
+
+# Build outputs (desktop + cli bundles)
+desktop/dist/
+navi/dist/
+packages/*/dist/
+desktop/out/
+packages/*/out/
+*.exe
+*.asar
+
+# Scratch and test stubs
+.agents/
+test-openapi.json
+test-server.ts
+test-worker.ts
+

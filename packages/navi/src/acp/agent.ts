@@ -1094,8 +1094,10 @@ export class Agent implements ACPAgent {
 
     const currentModeId = await (async () => {
       if (!availableModes.length) return undefined
+      const first = availableModes[0]
+      if (first === undefined) return undefined
       const defaultAgentName = await AppRuntime.runPromise(AgentModule.Service.use((svc) => svc.defaultAgent()))
-      const resolvedModeId = availableModes.find((mode) => mode.name === defaultAgentName)?.id ?? availableModes[0].id
+      const resolvedModeId = availableModes.find((mode) => mode.name === defaultAgentName)?.id ?? first.id
       this.sessionManager.setMode(sessionId, resolvedModeId)
       return resolvedModeId
     })()
@@ -1896,6 +1898,7 @@ function parseModelSelection(
   const segments = parsed.modelID.split("/")
   if (segments.length > 1) {
     const candidateVariant = segments[segments.length - 1]
+    if (candidateVariant === undefined) return { model: parsed, variant: undefined }
     const baseModelId = segments.slice(0, -1).join("/")
     const baseModelInfo = provider.models[baseModelId]
     if (baseModelInfo?.variants && candidateVariant in baseModelInfo.variants) {
@@ -1938,7 +1941,7 @@ function buildConfigOptions(input: {
           ? input.currentVariant
           : input.availableVariants.includes(DEFAULT_VARIANT_VALUE)
             ? DEFAULT_VARIANT_VALUE
-            : input.availableVariants[0],
+            : (input.availableVariants[0] ?? DEFAULT_VARIANT_VALUE),
       options: input.availableVariants.map((variant) => ({ value: variant, name: formatVariantName(variant) })),
     })
   }

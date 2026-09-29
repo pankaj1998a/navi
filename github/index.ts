@@ -9,6 +9,7 @@ import type { IssueCommentEvent, PullRequestReviewCommentEvent } from "@octokit/
 import { createOpencodeClient } from "@navi-ai/sdk"
 import { spawn } from "node:child_process"
 import { setTimeout as sleep } from "node:timers/promises"
+import { runPostReviewComments } from "./post-review-comments"
 
 type GitHubAuthor = {
   login: string
@@ -144,7 +145,7 @@ try {
 
   // Setup navi session
   const repoData = await fetchRepo()
-  session = await client.session.create<true>().then((r) => r.data)
+  session = await client.session.create<true>().then((r: any) => r.data)
   await subscribeSessionEvents()
   shareId = await (async () => {
     if (useEnvShare() === false) return
@@ -163,6 +164,55 @@ try {
   // 3. Fork PR
   if (isPullRequest()) {
     const prData = await fetchPR()
+    const context = useContext()
+
+    const handlePrReviewOrComment = async (response: string) => {
+      const findings = parseReviewFindings(response)
+      const isReview =
+        isReviewRequest(userPrompt, context.eventName) ||
+        findings.length > 0 ||
+        process.env["CHECKPOINT_RANGE"] === "true" ||
+        process.env["FULL_REVIEW"] === "true"
+
+      if (isReview) {
+        const headSha = process.env["HEAD_SHA"] || prData.headRefOid
+        try {
+          await runPostReviewComments({
+            github: octoRest,
+            context,
+            commitSha: headSha,
+            prNumber: useIssueId(),
+            result: {
+              comments: findings,
+              summary: response,
+              message: findings.length === 0 ? response : undefined,
+              manifest: {
+                terminal_state: "complete",
+                input: { resolved_head: headSha },
+              },
+            },
+            stickySummary: process.env["STICKY_SUMMARY"] !== "false",
+            incremental: process.env["INCREMENTAL"] === "true",
+            incrementalOverlapThreshold: process.env["INCREMENTAL_OVERLAP_THRESHOLD"]
+              ? parseFloat(process.env["INCREMENTAL_OVERLAP_THRESHOLD"])
+              : 0.6,
+            resolveOutdated: process.env["RESOLVE_OUTDATED"] || "false",
+            reviewCommentBatchSize: process.env["REVIEW_COMMENT_BATCH_SIZE"]
+              ? parseInt(process.env["REVIEW_COMMENT_BATCH_SIZE"], 10)
+              : 50,
+            routeSeverityBelow: process.env["ROUTE_SEVERITY_BELOW"] || "",
+            routeCategories: process.env["ROUTE_CATEGORIES"] || "",
+          })
+          return
+        } catch (err: any) {
+          console.error("Failed to post structured review comments, falling back to standard comment:", err)
+        }
+      }
+
+      const hasShared = prData.comments.nodes.some((c: any) => c.body.includes(`${useShareUrl()}/s/${shareId}`))
+      await updateComment(`${response}${footer({ image: !hasShared })}`)
+    }
+
     // Local PR
     if (prData.headRepository.nameWithOwner === prData.baseRepository.nameWithOwner) {
       await checkoutLocalBranch(prData)
@@ -171,9 +221,11 @@ try {
       if (await branchIsDirty()) {
         const summary = await summarize(response)
         await pushToLocalBranch(summary)
+        const hasShared = prData.comments.nodes.some((c: any) => c.body.includes(`${useShareUrl()}/s/${shareId}`))
+        await updateComment(`${response}${footer({ image: !hasShared })}`)
+      } else {
+        await handlePrReviewOrComment(response)
       }
-      const hasShared = prData.comments.nodes.some((c) => c.body.includes(`${useShareUrl()}/s/${shareId}`))
-      await updateComment(`${response}${footer({ image: !hasShared })}`)
     }
     // Fork PR
     else {
@@ -183,9 +235,11 @@ try {
       if (await branchIsDirty()) {
         const summary = await summarize(response)
         await pushToForkBranch(summary, prData)
+        const hasShared = prData.comments.nodes.some((c: any) => c.body.includes(`${useShareUrl()}/s/${shareId}`))
+        await updateComment(`${response}${footer({ image: !hasShared })}`)
+      } else {
+        await handlePrReviewOrComment(response)
       }
-      const hasShared = prData.comments.nodes.some((c) => c.body.includes(`${useShareUrl()}/s/${shareId}`))
-      await updateComment(`${response}${footer({ image: !hasShared })}`)
     }
   }
   // Issue
@@ -573,6 +627,10 @@ async function subscribeSessionEvents() {
   })()
 }
 
+function isScheduleEvent() {
+  return useContext().eventName === "schedule"
+}
+
 async function summarize(response: string) {
   try {
     return await chat(`Summarize the following in less than 40 characters:\n\n${response}`)
@@ -591,7 +649,7 @@ async function resolveAgent(): Promise<string | undefined> {
 
   // Validate the agent exists and is a primary agent
   const agents = await client.agent.list<true>()
-  const agent = agents.data?.find((a) => a.name === envAgent)
+  const agent = agents.data?.find((a: any) => a.name === envAgent)
 
   if (!agent) {
     console.warn(`agent "${envAgent}" not found. Falling back to default agent`)
@@ -1050,3 +1108,84 @@ async function revokeAppToken() {
     },
   })
 }
+
+function isReviewRequest(prompt: string, eventName?: string): boolean {
+  if (eventName === "pull_request" || eventName === "pull_request_review_comment") return true
+  const lower = (prompt || "").toLowerCase()
+  return (
+    lower.includes("/review") ||
+    lower.includes("/ocr-review") ||
+    lower.includes("/navi review") ||
+    lower.includes("/oc review") ||
+    lower.startsWith("review ") ||
+    lower.includes("code review") ||
+    lower.includes("review this") ||
+    lower.includes("review the") ||
+    lower.includes("review pr")
+  )
+}
+
+function parseReviewFindings(text: string) {
+  const findings: any[] = []
+  if (!text) return findings
+
+  const codeBlockRegex = /```(?:json)?\s*([\s\S]*?)\s*```/gi
+  let match: RegExpExecArray | null
+  while ((match = codeBlockRegex.exec(text)) !== null) {
+    const raw = (match[1] || "").trim()
+    if (!raw.startsWith("{") && !raw.startsWith("[")) continue
+    try {
+      const parsed = JSON.parse(raw)
+      const list = Array.isArray(parsed) ? parsed : Array.isArray(parsed?.comments) ? parsed.comments : []
+      for (const item of list) {
+        if (item && typeof item === "object" && item.path) {
+          const startLine = Number(item.start_line || item.line || item.startLine || 1)
+          const endLine = Number(item.end_line || item.line || item.endLine || startLine)
+          findings.push({
+            path: String(item.path).trim(),
+            start_line: startLine,
+            end_line: endLine,
+            severity: item.severity ? String(item.severity).toLowerCase() : undefined,
+            category: item.category ? String(item.category).toLowerCase() : undefined,
+            message: item.message || item.content || item.description || "",
+            suggestion_code: item.suggestion_code || item.suggestion,
+            existing_code: item.existing_code,
+          })
+        }
+      }
+      if (findings.length > 0) return findings
+    } catch {
+      // Continue searching
+    }
+  }
+
+  const mdPattern = /(?:###|\*\*)\s*(?:\[(.*?)\])?\s*(?:File:\s*)?`?([a-zA-Z0-9_./\\-]+)`?:(\d+)(?:-(\d+))?/gi
+  while ((match = mdPattern.exec(text)) !== null) {
+    const tag = match[1] || ""
+    const file = match[2] || ""
+    const startLine = parseInt(match[3] || "1", 10)
+    const endLine = match[4] ? parseInt(match[4], 10) : startLine
+    let severity: any = undefined
+    let category: any = undefined
+    if (tag) {
+      const parts = tag.split(/[·,\s]+/).map((s) => s.trim().toLowerCase())
+      for (const p of parts) {
+        if (["critical", "high", "medium", "low"].includes(p)) severity = p
+        if (["bug", "security", "performance", "maintainability", "test", "style", "documentation", "other"].includes(p)) category = p
+      }
+    }
+    const nextIdx = text.indexOf("###", match.index + match[0].length)
+    const block = text.slice(match.index + match[0].length, nextIdx !== -1 ? nextIdx : undefined).trim()
+    findings.push({
+      path: file,
+      start_line: startLine,
+      end_line: endLine,
+      severity,
+      category,
+      message: block,
+    })
+  }
+
+  return findings
+}
+

@@ -40,18 +40,17 @@ import { SystemPrompt } from "../../src/session/system"
 import { Shell } from "../../src/shell/shell"
 import { Snapshot } from "../../src/snapshot"
 import { ToolRegistry } from "@/tool/registry"
-import { BackgroundJob } from "@/background-job"
 import { Memory } from "@/memory"
 import { History } from "@/history"
 import { Truncate } from "@/tool/truncate"
 import * as Log from "@navi-ai/core/util/log"
 import { CrossSpawnSpawner } from "@navi-ai/core/cross-spawn-spawner"
-import { ChildProcessSpawner } from "effect/unstable/process"
 import * as Database from "../../src/storage/db"
 import { Ripgrep } from "../../src/file/ripgrep"
 import { Format } from "../../src/format"
 import { Reference } from "../../src/reference/reference"
 import { provideTmpdirInstance, provideTmpdirServer } from "../fixture/fixture"
+import { waitForValue } from "../lib/wait"
 import { testEffect } from "../lib/effect"
 import { reply, TestLLMServer } from "../lib/llm-server"
 
@@ -90,8 +89,12 @@ function withSh<A, E, R>(fx: () => Effect.Effect<A, E, R>) {
     () => fx(),
     (prev) =>
       Effect.sync(() => {
-        if (prev === undefined) delete process.env.SHELL
-        else process.env.SHELL = prev
+        if (prev === undefined) {
+          delete process.env.SHELL
+          Shell.preferred.reset()
+          return
+        }
+        process.env.SHELL = prev
         Shell.preferred.reset()
       }),
   )
@@ -160,6 +163,7 @@ const lsp = Layer.succeed(
 )
 
 const status = SessionStatus.layer.pipe(Layer.provideMerge(Bus.layer))
+const run = SessionRunState.layer.pipe(Layer.provide(status))
 const infra = Layer.mergeAll(NodeFileSystem.layer, CrossSpawnSpawner.defaultLayer)
 function makeHttp() {
   const deps = Layer.mergeAll(
@@ -181,7 +185,6 @@ function makeHttp() {
   const question = Question.layer.pipe(Layer.provideMerge(deps))
   const todo = Todo.layer.pipe(Layer.provideMerge(deps))
   const registry = ToolRegistry.layer.pipe(
-    Layer.provide(BackgroundJob.layer),
     Layer.provide(Skill.defaultLayer),
     Layer.provide(FetchHttpClient.layer),
     Layer.provide(CrossSpawnSpawner.defaultLayer),
@@ -195,18 +198,13 @@ function makeHttp() {
     Layer.provideMerge(question),
     Layer.provideMerge(deps),
   )
-  const trunc = Truncate.defaultLayer.pipe(Layer.provideMerge(deps))
+  const trunc = Truncate.layer.pipe(Layer.provideMerge(deps))
   const proc = SessionProcessor.layer.pipe(
     Layer.provide(summary),
     Layer.provide(Image.defaultLayer),
     Layer.provideMerge(deps),
   )
   const compact = SessionCompaction.layer.pipe(Layer.provideMerge(proc), Layer.provideMerge(deps))
-  const run = SessionRunState.layer.pipe(
-    Layer.provide(status),
-    Layer.provide(BackgroundJob.layer),
-    Layer.provideMerge(deps),
-  )
   return Layer.mergeAll(
     TestLLMServer.layer,
     SessionPrompt.layer.pipe(
@@ -225,8 +223,7 @@ function makeHttp() {
   ).pipe(Layer.provide(summary))
 }
 
-const httpLayer: Layer.Layer<any, any, never> = makeHttp()
-const it = testEffect(httpLayer)
+const it = testEffect(makeHttp())
 const unix = process.platform !== "win32" ? it.live : it.live.skip
 
 // Config that registers a custom "test" provider with a "test-model" model
@@ -674,17 +671,18 @@ it.live(
 
         const fiber = yield* prompt.loop({ sessionID: chat.id }).pipe(Effect.forkChild)
 
-        const tool = yield* Effect.promise(async () => {
-          const end = Date.now() + 5_000
-          while (Date.now() < end) {
-            const msgs = await Effect.runPromise(MessageV2.filterCompactedEffect(chat.id))
-            const taskMsg = msgs.find((item) => item.info.role === "assistant" && item.info.agent === "general")
-            const tool = taskMsg?.parts.find((part): part is MessageV2.ToolPart => part.type === "tool")
-            if (tool?.state.status === "running" && tool.state.metadata?.sessionId) return tool
-            await new Promise((done) => setTimeout(done, 20))
-          }
-          throw new Error("timed out waiting for running subtask metadata")
-        })
+        const tool = yield* Effect.promise(() =>
+          waitForValue(
+            async () => {
+              const msgs = await Effect.runPromise(MessageV2.filterCompactedEffect(chat.id))
+              const taskMsg = msgs.find((item) => item.info.role === "assistant" && item.info.agent === "general")
+              const tool = taskMsg?.parts.find((part): part is MessageV2.ToolPart => part.type === "tool")
+              if (tool?.state.status === "running" && tool.state.metadata?.sessionId) return tool
+              return undefined
+            },
+            { timeout: 5_000, message: "timed out waiting for running subtask metadata" },
+          ),
+        )
 
         if (tool.state.status !== "running") return
         expect(typeof tool.state.metadata?.sessionId).toBe("string")
@@ -720,19 +718,20 @@ it.live(
 
         const fiber = yield* prompt.loop({ sessionID: chat.id }).pipe(Effect.forkChild)
 
-        const tool = yield* Effect.promise(async () => {
-          const end = Date.now() + 5_000
-          while (Date.now() < end) {
-            const msgs = await Effect.runPromise(MessageV2.filterCompactedEffect(chat.id))
-            const assistant = msgs.findLast((item) => item.info.role === "assistant" && item.info.agent === "build")
-            const tool = assistant?.parts.find(
-              (part): part is MessageV2.ToolPart => part.type === "tool" && part.tool === "task",
-            )
-            if (tool?.state.status === "running" && tool.state.metadata?.sessionId) return tool
-            await new Promise((done) => setTimeout(done, 20))
-          }
-          throw new Error("timed out waiting for running task metadata")
-        })
+        const tool = yield* Effect.promise(() =>
+          waitForValue(
+            async () => {
+              const msgs = await Effect.runPromise(MessageV2.filterCompactedEffect(chat.id))
+              const assistant = msgs.findLast((item) => item.info.role === "assistant" && item.info.agent === "build")
+              const tool = assistant?.parts.find(
+                (part): part is MessageV2.ToolPart => part.type === "tool" && part.tool === "task",
+              )
+              if (tool?.state.status === "running" && tool.state.metadata?.sessionId) return tool
+              return undefined
+            },
+            { timeout: 5_000, message: "timed out waiting for running task metadata" },
+          ),
+        )
 
         if (tool.state.status !== "running") return
         expect(typeof tool.state.metadata?.sessionId).toBe("string")
@@ -770,66 +769,66 @@ it.live(
       }),
       { git: true, config: providerCfg },
     ),
-    10_000,
-  )
+  3_000,
+)
 
-  // Cancel semantics
+// Cancel semantics
 
-  it.live(
-    "cancel interrupts loop and resolves with an assistant message",
-    () =>
-      provideTmpdirServer(
-        Effect.fnUntraced(function* ({ llm }) {
-          const prompt = yield* SessionPrompt.Service
-          const sessions = yield* Session.Service
-          const chat = yield* sessions.create({ title: "Pinned" })
-          yield* seed(chat.id)
+it.live(
+  "cancel interrupts loop and resolves with an assistant message",
+  () =>
+    provideTmpdirServer(
+      Effect.fnUntraced(function* ({ llm }) {
+        const prompt = yield* SessionPrompt.Service
+        const sessions = yield* Session.Service
+        const chat = yield* sessions.create({ title: "Pinned" })
+        yield* seed(chat.id)
 
-          yield* llm.hang
+        yield* llm.hang
 
-          yield* user(chat.id, "more")
+        yield* user(chat.id, "more")
 
-          const fiber = yield* prompt.loop({ sessionID: chat.id }).pipe(Effect.forkChild)
-          yield* llm.wait(1)
-          yield* prompt.cancel(chat.id)
-          const exit = yield* Fiber.await(fiber)
-          expect(Exit.isSuccess(exit)).toBe(true)
-          if (Exit.isSuccess(exit)) {
-            expect(exit.value.info.role).toBe("assistant")
+        const fiber = yield* prompt.loop({ sessionID: chat.id }).pipe(Effect.forkChild)
+        yield* llm.wait(1)
+        yield* prompt.cancel(chat.id)
+        const exit = yield* Fiber.await(fiber)
+        expect(Exit.isSuccess(exit)).toBe(true)
+        if (Exit.isSuccess(exit)) {
+          expect(exit.value.info.role).toBe("assistant")
+        }
+      }),
+      { git: true, config: providerCfg },
+    ),
+  3_000,
+)
+
+it.live(
+  "cancel records MessageAbortedError on interrupted process",
+  () =>
+    provideTmpdirServer(
+      Effect.fnUntraced(function* ({ llm }) {
+        const prompt = yield* SessionPrompt.Service
+        const sessions = yield* Session.Service
+        const chat = yield* sessions.create({ title: "Pinned" })
+        yield* llm.hang
+        yield* user(chat.id, "hello")
+
+        const fiber = yield* prompt.loop({ sessionID: chat.id }).pipe(Effect.forkChild)
+        yield* llm.wait(1)
+        yield* prompt.cancel(chat.id)
+        const exit = yield* Fiber.await(fiber)
+        expect(Exit.isSuccess(exit)).toBe(true)
+        if (Exit.isSuccess(exit)) {
+          const info = exit.value.info
+          if (info.role === "assistant") {
+            expect(info.error?.name).toBe("MessageAbortedError")
           }
-        }),
-        { git: true, config: providerCfg },
-      ),
-    10_000,
-  )
-
-  it.live(
-    "cancel records MessageAbortedError on interrupted process",
-    () =>
-      provideTmpdirServer(
-        Effect.fnUntraced(function* ({ llm }) {
-          const prompt = yield* SessionPrompt.Service
-          const sessions = yield* Session.Service
-          const chat = yield* sessions.create({ title: "Pinned" })
-          yield* llm.hang
-          yield* user(chat.id, "hello")
-
-          const fiber = yield* prompt.loop({ sessionID: chat.id }).pipe(Effect.forkChild)
-          yield* llm.wait(1)
-          yield* prompt.cancel(chat.id)
-          const exit = yield* Fiber.await(fiber)
-          expect(Exit.isSuccess(exit)).toBe(true)
-          if (Exit.isSuccess(exit)) {
-            const info = exit.value.info
-            if (info.role === "assistant") {
-              expect(info.error?.name).toBe("MessageAbortedError")
-            }
-          }
-        }),
-        { git: true, config: providerCfg },
-      ),
-    10_000,
-  )
+        }
+      }),
+      { git: true, config: providerCfg },
+    ),
+  3_000,
+)
 
 it.live(
   "cancel finalizes subtask tool state",
@@ -1025,15 +1024,16 @@ it.live(
           })
           .pipe(Effect.forkChild)
 
-        yield* Effect.promise(async () => {
-          const end = Date.now() + 5000
-          while (Date.now() < end) {
-            const msgs = await Effect.runPromise(sessions.messages({ sessionID: chat.id }))
-            if (msgs.some((msg) => msg.info.role === "user" && msg.info.id === id)) return
-            await new Promise((done) => setTimeout(done, 20))
-          }
-          throw new Error("timed out waiting for second prompt to save")
-        })
+        yield* Effect.promise(() =>
+          waitForValue(
+            async () => {
+              const msgs = await Effect.runPromise(sessions.messages({ sessionID: chat.id }))
+              if (msgs.some((msg) => msg.info.role === "user" && msg.info.id === id)) return true as const
+              return undefined
+            },
+            { timeout: 5000, message: "timed out waiting for second prompt to save" },
+          ),
+        )
 
         gate.resolve()
 
@@ -1295,17 +1295,18 @@ unix(
               .shell({ sessionID: chat.id, agent: "build", command: "printf first && sleep 0.2 && printf second" })
               .pipe(Effect.forkChild)
 
-            yield* Effect.promise(async () => {
-              const start = Date.now()
-              while (Date.now() - start < 5000) {
-                const msgs = await MessageV2.filterCompacted(MessageV2.stream(chat.id))
-                const taskMsg = msgs.find((item) => item.info.role === "assistant")
-                const tool = taskMsg ? toolPart(taskMsg.parts) : undefined
-                if (tool?.state.status === "running" && tool.state.metadata?.output.includes("first")) return
-                await new Promise((done) => setTimeout(done, 20))
-              }
-              throw new Error("timed out waiting for running shell metadata")
-            })
+            yield* Effect.promise(() =>
+              waitForValue(
+                async () => {
+                  const msgs = await Effect.runPromise(MessageV2.filterCompactedEffect(chat.id))
+                  const taskMsg = msgs.find((item) => item.info.role === "assistant")
+                  const tool = taskMsg ? toolPart(taskMsg.parts) : undefined
+                  if (tool?.state.status === "running" && tool.state.metadata?.output.includes("first")) return true as const
+                  return undefined
+                },
+                { timeout: 5000, message: "timed out waiting for running shell metadata" },
+              ),
+            )
 
             const exit = yield* Fiber.await(fiber)
             expect(Exit.isSuccess(exit)).toBe(true)
@@ -1619,16 +1620,21 @@ unix(
 // Abort signal propagation tests for inline tool execution
 
 /** Override a tool's execute to hang until aborted. Returns ready/aborted defers and a finalizer. */
-function hangUntilAborted(tool: { execute: (...args: any[]) => any }) {
+function hangUntilAborted(tool: { execute: unknown }) {
   const ready = defer<void>()
   const aborted = defer<void>()
   const original = tool.execute
-  tool.execute = (_args: any, ctx: any) => {
+  const mutable = tool as { execute: (args: unknown, ctx: { abort: AbortSignal }) => unknown }
+  mutable.execute = (_args: unknown, ctx: { abort: AbortSignal }) => {
     ready.resolve()
     ctx.abort.addEventListener("abort", () => aborted.resolve(), { once: true })
     return Effect.callback<never>(() => {})
   }
-  const restore = Effect.addFinalizer(() => Effect.sync(() => void (tool.execute = original)))
+  const restore = Effect.addFinalizer(() =>
+    Effect.sync(
+      () => void (mutable.execute = original as (args: unknown, ctx: { abort: AbortSignal }) => unknown),
+    ),
+  )
   return { ready, aborted, restore }
 }
 
@@ -1816,10 +1822,12 @@ it.live("handles filenames with # character", () =>
         const fileParts = parts.filter((part) => part.type === "file")
 
         expect(fileParts.length).toBe(1)
-        expect(fileParts[0].filename).toBe("file#name.txt")
-        expect(fileParts[0].url).toContain("%23")
+        const first = fileParts[0]
+        if (!first) return
+        expect(first.filename).toBe("file#name.txt")
+        expect(first.url).toContain("%23")
 
-        const decodedPath = fileURLToPath(fileParts[0].url)
+        const decodedPath = fileURLToPath(first.url)
         expect(decodedPath).toBe(path.join(dir, "file#name.txt"))
 
         const message = yield* prompt.prompt({

@@ -46,6 +46,8 @@ export function parsePath(absPath: string): MemoryLocator | null {
   const m = absPath.match(/\/memory\/(global|projects|sessions)(?:\/([^/]+))?\/(.+)\.md$/)
   if (!m) return null
   const [, scope, idMaybe, keyRaw] = m
+  if (!scope) return null
+  if (!keyRaw) return null
   const scope_id = scope === "global" ? "" : (idMaybe ?? "")
   const key = keyRaw
   return { scope: scope as Scope, scope_id, type: detectType(key), key }
@@ -60,6 +62,8 @@ export function parseCcPath(absPath: string): MemoryLocator | null {
   const m = absPath.match(CC_PATH_RE)
   if (!m) return null
   const [, slug, keyRaw] = m
+  if (!slug) return null
+  if (!keyRaw) return null
   return {
     scope: "cc",
     scope_id: slug,
@@ -87,9 +91,11 @@ export function parseCcFrontmatterType(body: string): CcType | null {
   const fm = body.match(FRONTMATTER_RE)
   if (!fm) return null
   const inner = fm[1]
+  if (!inner) return null
   const t = inner.match(METADATA_TYPE_RE)
   if (!t) return null
   const value = t[1]
+  if (!value) return null
   return (CC_TYPES as readonly string[]).includes(value) ? (value as CcType) : null
 }
 

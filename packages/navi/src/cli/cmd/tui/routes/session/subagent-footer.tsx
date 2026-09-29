@@ -19,7 +19,7 @@ export function SubagentFooter() {
     const s = session()
     if (!s) return { label: "Subagent", index: 0, total: 0 }
     const agentMatch = s.title.match(/@(\w+) subagent/)
-    const label = agentMatch ? Locale.titlecase(agentMatch[1]) : "Subagent"
+    const label = agentMatch ? Locale.titlecase(agentMatch[1] ?? "") : "Subagent"
 
     if (!s.parentID) return { label, index: 0, total: 0 }
 

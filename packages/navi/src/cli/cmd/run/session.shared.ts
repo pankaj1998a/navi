@@ -37,9 +37,7 @@ function fileName(url: string, filename?: string) {
     if (name) {
       return decodeURIComponent(name)
     }
-  } catch (e) {
-    // Ignore URL parsing errors and return the original URL as a fallback
-  }
+  } catch {}
 
   return url
 }
@@ -170,7 +168,8 @@ export function sessionHistory(session: RunSession, limit = LIMIT): RunPrompt[] 
       continue
     }
 
-    if (out[out.length - 1] && promptSame(out[out.length - 1], turn.prompt)) {
+    const prev = out[out.length - 1]
+    if (prev && promptSame(prev, turn.prompt)) {
       continue
     }
 
@@ -187,6 +186,7 @@ export function sessionVariant(session: RunSession, model: RunInput["model"]): s
 
   for (let idx = session.turns.length - 1; idx >= 0; idx -= 1) {
     const turn = session.turns[idx]
+    if (!turn) continue
     if (turn.provider !== model.providerID || turn.model !== model.modelID) {
       continue
     }

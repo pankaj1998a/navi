@@ -209,8 +209,16 @@ export function deriveRetryCount(
 ): number {
   const target = messages.find((m) => m.info.id === messageID)
   if (!target) return 0
-  if (target.info.role === "assistant" && typeof target.info.retries === "number") {
-    return target.info.retries
+  const info: unknown = target.info
+  if (
+    typeof info === "object" &&
+    info !== null &&
+    "role" in info &&
+    info.role === "assistant" &&
+    "retries" in info &&
+    typeof info.retries === "number"
+  ) {
+    return info.retries
   }
   return 0
 }

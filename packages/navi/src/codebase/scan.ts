@@ -4,6 +4,21 @@ import { fileURLToPath } from "url"
 import fs from "fs"
 import path from "path"
 
+// Hoisted: query files are static — read once, not per language init.
+// TODO: move to Bun.file + async init if this ever runs on hot path.
+const queryDir = path.join(path.dirname(fileURLToPath(import.meta.url)), "query")
+const queryTextCache = new Map<string, string>()
+function queryText(name: string): string {
+  const hit = queryTextCache.get(name)
+  if (hit !== undefined) return hit
+  const text = fs.readFileSync(path.join(queryDir, name), "utf8")
+  queryTextCache.set(name, text)
+  return text
+}
+
+// Cap single-file parse size to avoid blocking on huge generated files.
+export const MAX_SCAN_BYTES = 512 * 1024
+
 const resolveWasm = (asset: string) => {
   if (asset.startsWith("file://")) return fileURLToPath(asset)
   if (asset.startsWith("/") || /^[a-z]:/i.test(asset)) return asset
@@ -41,8 +56,7 @@ export namespace Scan {
       const P = await ParserInit()
       const p = new P()
       p.setLanguage(lang)
-      const queryText = fs.readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), "query", "typescript.scm"), "utf8")
-      const query = new Query(lang, queryText)
+      const query = new Query(lang, queryText("typescript.scm"))
       return { parser: p, query }
     }),
     tsx: lazy(async () => {
@@ -53,8 +67,7 @@ export namespace Scan {
       const P = await ParserInit()
       const p = new P()
       p.setLanguage(lang)
-      const queryText = fs.readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), "query", "typescript.scm"), "utf8")
-      const query = new Query(lang, queryText)
+      const query = new Query(lang, queryText("typescript.scm"))
       return { parser: p, query }
     }),
     python: lazy(async () => {
@@ -65,8 +78,7 @@ export namespace Scan {
       const P = await ParserInit()
       const p = new P()
       p.setLanguage(lang)
-      const queryText = fs.readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), "query", "python.scm"), "utf8")
-      const query = new Query(lang, queryText)
+      const query = new Query(lang, queryText("python.scm"))
       return { parser: p, query }
     }),
   }
@@ -77,7 +89,10 @@ export namespace Scan {
     if (!loader) return []
 
     const { parser, query } = await loader()
-    const content = fs.readFileSync(filePath, "utf8")
+    // Async read + size cap: skip huge files instead of blocking the loop.
+    const stat = await fs.promises.stat(filePath).catch(() => undefined)
+    if (!stat || stat.size > MAX_SCAN_BYTES) return []
+    const content = await fs.promises.readFile(filePath, "utf8")
     const tree = parser.parse(content)
     const captures = query.captures(tree.rootNode)
 

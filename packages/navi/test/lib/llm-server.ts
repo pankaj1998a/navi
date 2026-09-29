@@ -657,6 +657,7 @@ export class TestLLMServer extends Context.Service<TestLLMServer, TestLLMServer.
         const index = list.findIndex((entry) => !entry.match || entry.match(hit))
         if (index === -1) return
         const first = list[index]
+        if (!first) return
         list = [...list.slice(0, index), ...list.slice(index + 1)]
         return first.item
       }

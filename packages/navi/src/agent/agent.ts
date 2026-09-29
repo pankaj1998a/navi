@@ -11,13 +11,17 @@ import PROMPT_GENERATE from "./generate.txt"
 import PROMPT_COMPACTION from "./prompt/compaction.txt"
 import PROMPT_EXPLORE from "./prompt/explore.txt"
 import PROMPT_SCOUT from "./prompt/scout.txt"
-import PROMPT_REVIEWER from "./prompt/reviewer.txt"
-import PROMPT_TDD from "./prompt/tdd.txt"
-import PROMPT_BRIDGE from "./prompt/bridge.txt"
 import PROMPT_SUMMARY from "./prompt/summary.txt"
 import PROMPT_TITLE from "./prompt/title.txt"
+import PROMPT_ARCHITECT from "./prompt/architect.txt"
+import PROMPT_TDD from "./prompt/tdd.txt"
+import PROMPT_REVIEWER from "./prompt/reviewer.txt"
+import PROMPT_RESEARCHER from "./prompt/researcher.txt"
+import PROMPT_BRIDGE from "./prompt/bridge.txt"
+import PROMPT_DEBUGGER from "./prompt/debugger.txt"
+import PROMPT_SECURITY from "./prompt/security.txt"
+import PROMPT_OPTIMIZER from "./prompt/optimizer.txt"
 import { Permission } from "@/permission"
-import { getImportedAgents } from "./imported"
 import { mergeDeep, pipe, sortBy, values } from "remeda"
 import { Global } from "@navi-ai/core/global"
 import { Flag } from "@navi-ai/core/flag/flag"
@@ -75,6 +79,90 @@ type State = Omit<Interface, "generate">
 
 export class Service extends Context.Service<Service, Interface>()("@navi/Agent") {}
 
+import PROMPT_ACADEMIC_ANTHROPOLOGIST from "./prompts/academic-anthropologist.md"
+import PROMPT_ACADEMIC_GEOGRAPHER from "./prompts/academic-geographer.md"
+import PROMPT_ACADEMIC_HISTORIAN from "./prompts/academic-historian.md"
+import PROMPT_ACADEMIC_NARRATOLOGIST from "./prompts/academic-narratologist.md"
+import PROMPT_ACADEMIC_PSYCHOLOGIST from "./prompts/academic-psychologist.md"
+
+const EXTRACTED_PROMPTS = {
+  "academic-anthropologist": PROMPT_ACADEMIC_ANTHROPOLOGIST,
+  "academic-geographer": PROMPT_ACADEMIC_GEOGRAPHER,
+  "academic-historian": PROMPT_ACADEMIC_HISTORIAN,
+  "academic-narratologist": PROMPT_ACADEMIC_NARRATOLOGIST,
+  "academic-psychologist": PROMPT_ACADEMIC_PSYCHOLOGIST,
+} as const
+
+const EXTRACTED_AGENTS = [
+  "academic-anthropologist",
+  "academic-geographer",
+  "academic-historian",
+  "academic-narratologist",
+  "academic-psychologist",
+] as const
+
+type ExtractedAgent = (typeof EXTRACTED_AGENTS)[number]
+
+const EXTRACTED_AGENT_META: Record<
+  ExtractedAgent,
+  { name: string; description: string; mode: "subagent"; native: false; color: string }
+> = {
+  "academic-anthropologist": {
+    name: "academic-anthropologist",
+    description: "",
+    mode: "subagent",
+    native: false,
+    color: "gray",
+  },
+  "academic-geographer": {
+    name: "academic-geographer",
+    description: "",
+    mode: "subagent",
+    native: false,
+    color: "gray",
+  },
+  "academic-historian": {
+    name: "academic-historian",
+    description: "",
+    mode: "subagent",
+    native: false,
+    color: "gray",
+  },
+  "academic-narratologist": {
+    name: "academic-narratologist",
+    description: "",
+    mode: "subagent",
+    native: false,
+    color: "gray",
+  },
+  "academic-psychologist": {
+    name: "academic-psychologist",
+    description: "",
+    mode: "subagent",
+    native: false,
+    color: "gray",
+  },
+}
+
+const loadImportedAgents = Effect.fnUntraced(function* (
+  defaults: Permission.Ruleset,
+  user: Permission.Ruleset,
+) {
+  const { getImportedAgents } = yield* Effect.promise(() => import("./imported"))
+  const imported = getImportedAgents(defaults, user)
+  const permission = Permission.merge(defaults, user)
+  const extracted = EXTRACTED_AGENTS.reduce<Record<string, Info>>((acc, key) => {
+    acc[key] = {
+      ...EXTRACTED_AGENT_META[key],
+      options: {},
+      prompt: EXTRACTED_PROMPTS[key],
+      permission,
+    }
+    return acc
+  }, {})
+  return { ...imported, ...extracted }
+})
+
 export const layer = Layer.effect(
   Service,
   Effect.gen(function* () {
@@ -110,6 +198,7 @@ export const layer = Layer.effect(
           plan_exit: "deny",
           repo_clone: "deny",
           repo_overview: "deny",
+          browser: "ask",
           // mirrors github.com/github/gitignore Node.gitignore pattern for .env files
           read: {
             "*": "allow",
@@ -206,63 +295,6 @@ export const layer = Layer.effect(
             mode: "subagent",
             native: true,
           },
-          reviewer: {
-            name: "reviewer",
-            permission: Permission.merge(
-              defaults,
-              Permission.fromConfig({
-                "*": "deny",
-                grep: "allow",
-                glob: "allow",
-                read: "allow",
-                bash: "allow",
-                question: "allow",
-                external_directory: readonlyExternalDirectory,
-              }),
-              user,
-            ),
-            description: `Elite code review and security auditing agent. Use this agent to inspect git diffs, audit security vulnerabilities (OWASP, credential leaks, SSRF, injection), check performance and resource leaks, and verify adherence to strict project conventions before merging or committing code.`,
-            prompt: PROMPT_REVIEWER,
-            options: {},
-            mode: "subagent",
-            native: true,
-          },
-          tdd: {
-            name: "tdd",
-            permission: Permission.merge(
-              defaults,
-              Permission.fromConfig({
-                "*": "allow",
-              }),
-              user,
-            ),
-            description: `Test-Driven Development (TDD) engineer. Use this agent to write failing reproduction unit tests first, execute targeted test runners, implement minimal code to pass tests, and refactor with empirical safety.`,
-            prompt: PROMPT_TDD,
-            options: {},
-            mode: "subagent",
-            native: true,
-          },
-          bridge: {
-            name: "bridge",
-            permission: Permission.merge(
-              defaults,
-              Permission.fromConfig({
-                "*": "deny",
-                browser: "allow",
-                read: "allow",
-                webfetch: "allow",
-                websearch: "allow",
-                question: "allow",
-                external_directory: readonlyExternalDirectory,
-              }),
-              user,
-            ),
-            description: `Frontier AI Web Bridge subagent. Use this subagent to consult frontier AI web models (Kimi, DeepSeek, Claude, ChatGPT, Perplexity) via browser automation in an isolated sandbox. Enforces 1-site-at-a-time consultations, verified page closure, and shields main agent context from DOM bloat.`,
-            prompt: PROMPT_BRIDGE,
-            options: {},
-            mode: "subagent",
-            native: true,
-          },
           ...(Flag.NAVI_EXPERIMENTAL_SCOUT
             ? {
                 scout: {
@@ -351,20 +383,91 @@ export const layer = Layer.effect(
           },
           architect: {
             name: "architect",
-            description: "Specialized agent for structured waterfall forge of complex systems",
+            description: "Specialized architect agent for system design, structural planning, and technical roadmap forge. Use this agent when you need high-level synthesis, complex architecture design, or decomposing major features.",
             permission: Permission.merge(
               defaults,
               Permission.fromConfig({
                 question: "allow",
                 plan_enter: "allow",
                 plan_exit: "allow",
+                arch_map: "allow",
               }),
               user,
             ),
+            prompt: PROMPT_ARCHITECT,
             options: {},
-            mode: "primary",
+            mode: "all",
             native: true,
             color: "orange",
+          },
+          tdd: {
+            name: "tdd",
+            description: "Test-Driven Development specialist agent. Implements robust, verified software through disciplined Red-Green-Refactor cycles using automated tests before finalizing edits.",
+            permission: Permission.merge(
+              defaults,
+              Permission.fromConfig({
+                question: "allow",
+                test_runner: "allow",
+              }),
+              user,
+            ),
+            prompt: PROMPT_TDD,
+            options: {},
+            mode: "subagent",
+            native: true,
+            color: "blue",
+          },
+          reviewer: {
+            name: "reviewer",
+            description: "Elite code quality, security auditor, and architectural integrity specialist. Use this agent to audit git diffs, inspect security vulnerabilities, check edge cases, and verify project conventions before committing.",
+            permission: Permission.merge(
+              defaults,
+              Permission.fromConfig({
+                question: "allow",
+                edit: "deny",
+                write: "deny",
+              }),
+              user,
+            ),
+            prompt: PROMPT_REVIEWER,
+            options: {},
+            mode: "subagent",
+            native: true,
+            color: "green",
+          },
+          researcher: {
+            name: "researcher",
+            description: "Deep research orchestrator for evidence-backed investigations, external documentation analysis, and structured codebase lookup.",
+            permission: Permission.merge(
+              defaults,
+              Permission.fromConfig({
+                question: "allow",
+                arch_map: "allow",
+              }),
+              user,
+            ),
+            prompt: PROMPT_RESEARCHER,
+            options: {},
+            mode: "subagent",
+            native: true,
+            color: "cyan",
+          },
+          bridge: {
+            name: "bridge",
+            description: "Frontier AI Web Consultant subagent. Uses automated browser interaction in an isolated sandbox to consult Frontier AI models (Kimi, DeepSeek-R1, Claude, ChatGPT) at zero token bill, returning only distilled code and findings.",
+            permission: Permission.merge(
+              defaults,
+              Permission.fromConfig({
+                question: "allow",
+                browser: "allow",
+              }),
+              user,
+            ),
+            prompt: PROMPT_BRIDGE,
+            options: {},
+            mode: "subagent",
+            native: true,
+            color: "purple",
           },
           "github-reviewer": {
             name: "github-reviewer",
@@ -411,9 +514,66 @@ export const layer = Layer.effect(
             native: true,
             color: "purple",
           },
+          debugger: {
+            name: "debugger",
+            description: "Specialized root-cause analysis and bug diagnosis agent. Investigates error logs, isolates reproduction test cases, and traces execution paths before fixing.",
+            permission: Permission.merge(
+              defaults,
+              Permission.fromConfig({
+                question: "allow",
+                test_runner: "allow",
+              }),
+              user,
+            ),
+            prompt: PROMPT_DEBUGGER,
+            options: {},
+            mode: "subagent",
+            native: true,
+            color: "magenta",
+          },
+          security: {
+            name: "security",
+            description: "Specialized application security and vulnerability auditor. Inspects code, dependencies, and APIs for OWASP Top 10 vulnerabilities, injection flaws, and secret leaks.",
+            permission: Permission.merge(
+              defaults,
+              Permission.fromConfig({
+                question: "allow",
+                edit: "deny",
+                write: "deny",
+              }),
+              user,
+            ),
+            prompt: PROMPT_SECURITY,
+            options: {},
+            mode: "subagent",
+            native: true,
+            color: "red",
+          },
+          optimizer: {
+            name: "optimizer",
+            description: "Performance profiling, runtime optimization, and code simplification agent. Optimizes time/memory complexity, removes dead code, and reduces complexity without breaking behavior.",
+            permission: Permission.merge(
+              defaults,
+              Permission.fromConfig({
+                question: "allow",
+                test_runner: "allow",
+              }),
+              user,
+            ),
+            prompt: PROMPT_OPTIMIZER,
+            options: {},
+            mode: "subagent",
+            native: true,
+            color: "blue",
+          },
         }
 
-        Object.assign(agents, getImportedAgents(defaults, user))
+        Object.assign(agents, yield* loadImportedAgents(defaults, user))
+
+        if (!Flag.NAVI_DISABLE_DEFAULT_PLUGINS) {
+          const { getOfficialAgents } = yield* Effect.promise(() => import("@/plugin/official"))
+          Object.assign(agents, getOfficialAgents(defaults, user))
+        }
 
         for (const [key, value] of Object.entries(cfg.agent ?? {})) {
           if (value.disable) {
@@ -488,12 +648,14 @@ export const layer = Layer.effect(
           })
           for (const resolved of resolvedReferences) {
             if (agents[resolved.name]) continue
+            const scout = agents["scout"]
+            if (!scout) continue
             const localPath = resolved.kind === "invalid" ? undefined : resolved.path
             agents[resolved.name] = {
               name: resolved.name,
               description: referenceDescription(resolved),
               permission: Permission.merge(
-                agents.scout.permission,
+                scout.permission,
                 Permission.fromConfig({
                   repo_clone: "deny",
                   ...(localPath
@@ -517,6 +679,7 @@ export const layer = Layer.effect(
         // Ensure Truncate.GLOB is allowed unless explicitly configured
         for (const name in agents) {
           const agent = agents[name]
+          if (!agent) continue
           const explicit = agent.permission.some((r) => {
             if (r.permission !== "external_directory") return false
             if (r.action !== "deny") return false
@@ -524,26 +687,33 @@ export const layer = Layer.effect(
           })
           if (explicit) continue
 
-          agents[name].permission = Permission.merge(
-            agents[name].permission,
+          agent.permission = Permission.merge(
+            agent.permission,
             Permission.fromConfig({ external_directory: { [Truncate.GLOB]: "allow" } }),
           )
         }
 
         const get = Effect.fnUntraced(function* (agent: string) {
-          if (agents[agent]) return agents[agent]
+          const direct = agents[agent]
+          if (direct) return direct
           const lowerAgent = agent.toLowerCase()
           const matchedByKey = Object.keys(agents).find((key) => key.toLowerCase() === lowerAgent)
-          if (matchedByKey) return agents[matchedByKey]
+          if (matchedByKey) {
+            const found = agents[matchedByKey]
+            if (found) return found
+          }
           const matchedByName = Object.values(agents).find((a) => a.name.toLowerCase() === lowerAgent)
           if (matchedByName) return matchedByName
           const normalize = (str: string) => str.toLowerCase().replace(/[^a-z0-9]/g, "")
           const normalizedAgent = normalize(agent)
           const matchedByNormalizedKey = Object.keys(agents).find((key) => normalize(key) === normalizedAgent)
-          if (matchedByNormalizedKey) return agents[matchedByNormalizedKey]
+          if (matchedByNormalizedKey) {
+            const found = agents[matchedByNormalizedKey]
+            if (found) return found
+          }
           const matchedByNormalizedName = Object.values(agents).find((a) => normalize(a.name) === normalizedAgent)
           if (matchedByNormalizedName) return matchedByNormalizedName
-          return undefined as any
+          return undefined as unknown as Info
         })
 
         const list = Effect.fnUntraced(function* () {

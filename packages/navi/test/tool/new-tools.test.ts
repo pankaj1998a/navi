@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { describe, expect, it } from "bun:test"
 import { CronScheduler } from "@/scheduler/runner"
 import { parseCronExpression, cronToHuman, isValidCron } from "@/scheduler/cron"

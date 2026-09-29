@@ -205,17 +205,18 @@ function route(list: Array<{ x: number; y: number }>) {
   let dir = { x: 1, y: 0 }
 
   while (cur) {
+    const c = cur
     path.push(cur)
     left.delete(key(cur.x, cur.y))
     if (!left.size) return path
 
-    const next = NEAR.map(([dx, dy]) => left.get(key(cur.x + dx, cur.y + dy)))
+    const next = NEAR.map(([dx, dy]) => left.get(key(c.x + dx, c.y + dy)))
       .filter((item): item is { x: number; y: number } => !!item)
       .sort((a, b) => {
-        const ax = a.x - cur.x
-        const ay = a.y - cur.y
-        const bx = b.x - cur.x
-        const by = b.y - cur.y
+        const ax = a.x - c.x
+        const ay = a.y - c.y
+        const bx = b.x - c.x
+        const by = b.y - c.y
         const adot = ax * dir.x + ay * dir.y
         const bdot = bx * dir.x + by * dir.y
         if (adot !== bdot) return bdot - adot
@@ -224,8 +225,8 @@ function route(list: Array<{ x: number; y: number }>) {
 
     if (!next) {
       cur = [...left.values()].sort((a, b) => {
-        const da = (a.x - cur.x) ** 2 + (a.y - cur.y) ** 2
-        const db = (b.x - cur.x) ** 2 + (b.y - cur.y) ** 2
+        const da = (a.x - c.x) ** 2 + (a.y - c.y) ** 2
+        const db = (b.x - c.x) ** 2 + (b.y - c.y) ** 2
         return da - db
       })[0]
       dir = { x: 1, y: 0 }
@@ -562,10 +563,17 @@ export function Logo(props: { shape?: LogoShape; ink?: RGBA; idle?: boolean } = 
   const [glow, setGlow] = createSignal<Glow>()
   const [now, setNow] = createSignal(0)
   let box: BoxRenderable | undefined
+  let raf: number | undefined
   let timer: ReturnType<typeof setInterval> | undefined
   let hum = false
+  const reducedMotion =
+    typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches
 
   const stop = () => {
+    if (raf !== undefined && typeof cancelAnimationFrame === "function") {
+      cancelAnimationFrame(raf)
+      raf = undefined
+    }
     if (!timer) return
     clearInterval(timer)
     timer = undefined
@@ -599,7 +607,22 @@ export function Logo(props: { shape?: LogoShape; ink?: RGBA; idle?: boolean } = 
   }
 
   const start = () => {
-    if (timer) return
+    if (raf !== undefined || timer) return
+    // Prefer rAF over the fixed 16ms interval; fall back to interval where rAF is unavailable.
+    // Reduced-motion: render a single static frame instead of animating.
+    if (reducedMotion) {
+      tick()
+      return
+    }
+    if (typeof requestAnimationFrame === "function") {
+      const loop = () => {
+        tick()
+        if (raf === undefined) return
+        raf = requestAnimationFrame(loop)
+      }
+      raf = requestAnimationFrame(loop)
+      return
+    }
     timer = setInterval(tick, 16)
   }
 
@@ -872,7 +895,7 @@ export function Logo(props: { shape?: LogoShape; ink?: RGBA; idle?: boolean } = 
             </box>
             <box flexDirection="row">
               {renderLine(
-                ctx.shape.right[index()],
+                ctx.shape.right[index()] ?? "",
                 index(),
                 props.ink ?? theme.text,
                 true,

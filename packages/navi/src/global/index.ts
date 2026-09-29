@@ -3,6 +3,9 @@ import { xdgData, xdgCache, xdgConfig, xdgState } from "xdg-basedir"
 import path from "path"
 import os from "os"
 import { Filesystem } from "../util/filesystem"
+import * as Log from "@navi-ai/core/util/log"
+
+const log = Log.create({ service: "global" })
 
 const app = "Navi"
 
@@ -102,7 +105,7 @@ export namespace Global {
           ),
         )
       } catch (e) {
-        console.warn("Failed to clear Navi cache directory", e)
+        log.warn("Failed to clear Navi cache directory", { error: String(e) })
       }
       await Filesystem.write(path.join(Global.Path.cache, "version"), CACHE_VERSION)
     }

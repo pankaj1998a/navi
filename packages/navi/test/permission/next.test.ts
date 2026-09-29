@@ -980,11 +980,15 @@ it.live("permission requests stay isolated by directory", () =>
 
     expect(onePending).toHaveLength(1)
     expect(twoPending).toHaveLength(1)
-    expect(onePending[0].id).toBe(PermissionID.make("per_dir_a"))
-    expect(twoPending[0].id).toBe(PermissionID.make("per_dir_b"))
+    const firstOne = onePending[0]
+    if (!firstOne) throw new Error("expected one pending request")
+    const firstTwo = twoPending[0]
+    if (!firstTwo) throw new Error("expected two pending request")
+    expect(firstOne.id).toBe(PermissionID.make("per_dir_a"))
+    expect(firstTwo.id).toBe(PermissionID.make("per_dir_b"))
 
-    yield* reply({ requestID: onePending[0].id, reply: "reject" }).pipe(runOne)
-    yield* reply({ requestID: twoPending[0].id, reply: "reject" }).pipe(runTwo)
+    yield* reply({ requestID: firstOne.id, reply: "reject" }).pipe(runOne)
+    yield* reply({ requestID: firstTwo.id, reply: "reject" }).pipe(runTwo)
 
     yield* Fiber.await(a)
     yield* Fiber.await(b)

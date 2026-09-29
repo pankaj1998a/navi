@@ -761,7 +761,7 @@ function taskResult(output: string): string | undefined {
 
   const match = output.match(/<task_result>\s*([\s\S]*?)\s*<\/task_result>/)
   if (match) {
-    return match[1].trim() || undefined
+    return match[1]?.trim() || undefined
   }
 
   const next = output
@@ -1452,6 +1452,7 @@ export function toolFiletype(input?: string): string | undefined {
 
   const ext = path.extname(input)
   const lang = LANGUAGE_EXTENSIONS[ext]
+  if (!lang) return undefined
   if (["typescriptreact", "javascriptreact", "javascript"].includes(lang)) {
     return "typescript"
   }

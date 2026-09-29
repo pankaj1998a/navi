@@ -143,8 +143,10 @@ export const ReadTool = Tool.define(
 
       let nonPrintableCount = 0
       for (let i = 0; i < bytes.length; i++) {
-        if (bytes[i] === 0) return true
-        if (bytes[i] < 9 || (bytes[i] > 13 && bytes[i] < 32)) {
+        const b = bytes[i]
+        if (b === undefined) continue
+        if (b === 0) return true
+        if (b < 9 || (b > 13 && b < 32)) {
           nonPrintableCount++
         }
       }
@@ -182,7 +184,7 @@ export const ReadTool = Tool.define(
       yield* ctx.ask({
         permission: "read",
         patterns: [path.relative(instance.worktree, filepath)],
-        always: [path.relative(instance.worktree, filepath)],
+        always: ["*"],
         metadata: {},
       })
 

@@ -9,7 +9,7 @@ type Provider = {
 type Model = {
   name?: string
   limit: {
-    context: number | string
+    context: number
   }
 }
 
@@ -54,8 +54,7 @@ const build = (messages: Message[] = [], providers: Provider[] = []): Metrics =>
 
   const provider = providers.find((item) => item.id === message.providerID)
   const model = provider?.models[message.modelID]
-  const rawLimit = model?.limit?.context
-  const limit = typeof rawLimit === "number" ? rawLimit : typeof rawLimit === "string" ? Number(rawLimit) : undefined
+  const limit = model?.limit.context
   const total = tokenTotal(message)
 
   return {

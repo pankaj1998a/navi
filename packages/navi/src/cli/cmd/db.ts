@@ -34,7 +34,7 @@ const QueryCommand = cmd({
         if (args.format === "json") {
           console.log(JSON.stringify(result, null, 2))
         } else if (result.length > 0) {
-          const keys = Object.keys(result[0])
+          const keys = Object.keys(result[0] ?? {})
           console.log(keys.join("\t"))
           for (const row of result) {
             console.log(keys.map((k) => row[k]).join("\t"))

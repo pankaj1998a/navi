@@ -158,6 +158,7 @@ export function permissionShift(state: PermissionBodyState, dir: -1 | 1): Permis
 
   const idx = Math.max(0, list.indexOf(state.selected))
   const selected = list[(idx + dir + list.length) % list.length]
+  if (!selected) return state
   return {
     ...state,
     selected,

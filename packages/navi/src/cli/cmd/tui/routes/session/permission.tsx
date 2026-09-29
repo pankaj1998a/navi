@@ -25,6 +25,7 @@ function filetype(input?: string) {
   if (!input) return "none"
   const ext = path.extname(input)
   const language = LANGUAGE_EXTENSIONS[ext]
+  if (!language) return "none"
   if (["typescriptreact", "javascriptreact", "javascript"].includes(language)) return "typescript"
   return language
 }
@@ -573,8 +574,11 @@ function Prompt<const T extends Record<string, string>>(props: {
         desc: "Previous permission option",
         group: "Permission",
         cmd: () => {
-          const idx = keys.indexOf(store.selected)
+          const selected = store.selected
+          if (!selected) return
+          const idx = keys.indexOf(selected)
           const next = keys[(idx - 1 + keys.length) % keys.length]
+          if (!next) return
           setStore("selected", next)
         },
       },
@@ -583,8 +587,11 @@ function Prompt<const T extends Record<string, string>>(props: {
         desc: "Previous permission option",
         group: "Permission",
         cmd: () => {
-          const idx = keys.indexOf(store.selected)
+          const selected = store.selected
+          if (!selected) return
+          const idx = keys.indexOf(selected)
           const next = keys[(idx - 1 + keys.length) % keys.length]
+          if (!next) return
           setStore("selected", next)
         },
       },
@@ -593,8 +600,11 @@ function Prompt<const T extends Record<string, string>>(props: {
         desc: "Next permission option",
         group: "Permission",
         cmd: () => {
-          const idx = keys.indexOf(store.selected)
+          const selected = store.selected
+          if (!selected) return
+          const idx = keys.indexOf(selected)
           const next = keys[(idx + 1) % keys.length]
+          if (!next) return
           setStore("selected", next)
         },
       },
@@ -603,8 +613,11 @@ function Prompt<const T extends Record<string, string>>(props: {
         desc: "Next permission option",
         group: "Permission",
         cmd: () => {
-          const idx = keys.indexOf(store.selected)
+          const selected = store.selected
+          if (!selected) return
+          const idx = keys.indexOf(selected)
           const next = keys[(idx + 1) % keys.length]
+          if (!next) return
           setStore("selected", next)
         },
       },
@@ -612,7 +625,11 @@ function Prompt<const T extends Record<string, string>>(props: {
         key: "return",
         desc: "Select permission option",
         group: "Permission",
-        cmd: () => props.onSelect(store.selected),
+        cmd: () => {
+          const selected = store.selected
+          if (!selected) return
+          props.onSelect(selected)
+        },
       },
       ...(props.escapeKey
         ? [

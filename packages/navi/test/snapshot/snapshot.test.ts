@@ -1106,6 +1106,7 @@ test("diffFull with new file additions", async () => {
       expect(diffs.length).toBe(1)
 
       const newFileDiff = diffs[0]
+      if (!newFileDiff) throw new Error("expected diff")
       expect(newFileDiff.file).toBe("new.txt")
       expect(newFileDiff.patch).toContain("+new content")
       expect(newFileDiff.additions).toBe(1)
@@ -1220,6 +1221,7 @@ test("diffFull with file modifications", async () => {
       expect(diffs.length).toBe(1)
 
       const modifiedFileDiff = diffs[0]
+      if (!modifiedFileDiff) throw new Error("expected diff")
       expect(modifiedFileDiff.file).toBe("b.txt")
       expect(modifiedFileDiff.patch).toContain(`-${tmp.extra.bContent}`)
       expect(modifiedFileDiff.patch).toContain("+modified content")
@@ -1246,6 +1248,7 @@ test("diffFull with file deletions", async () => {
       expect(diffs.length).toBe(1)
 
       const removedFileDiff = diffs[0]
+      if (!removedFileDiff) throw new Error("expected diff")
       expect(removedFileDiff.file).toBe("a.txt")
       expect(removedFileDiff.patch).toContain(`-${tmp.extra.aContent}`)
       expect(removedFileDiff.additions).toBe(0)
@@ -1271,6 +1274,7 @@ test("diffFull with multiple line additions", async () => {
       expect(diffs.length).toBe(1)
 
       const multiDiff = diffs[0]
+      if (!multiDiff) throw new Error("expected diff")
       expect(multiDiff.file).toBe("multi.txt")
       expect(multiDiff.patch).toContain("+line1")
       expect(multiDiff.patch).toContain("+line3")
@@ -1388,6 +1392,7 @@ test("diffFull with binary file changes", async () => {
       expect(diffs.length).toBe(1)
 
       const binaryDiff = diffs[0]
+      if (!binaryDiff) throw new Error("expected diff")
       expect(binaryDiff.file).toBe("binary.bin")
       expect(binaryDiff.patch).toBe("")
     },
@@ -1412,6 +1417,7 @@ test("diffFull with whitespace changes", async () => {
       expect(diffs.length).toBe(1)
 
       const whitespaceDiff = diffs[0]
+      if (!whitespaceDiff) throw new Error("expected diff")
       expect(whitespaceDiff.file).toBe("whitespace.txt")
       expect(whitespaceDiff.additions).toBeGreaterThan(0)
     },

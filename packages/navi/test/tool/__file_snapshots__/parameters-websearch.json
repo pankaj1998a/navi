@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "query": {
+      "description": "Websearch query",
+      "type": "string"
+    },
+    "numResults": {
+      "description": "Number of search results to return (default: 8)",
+      "type": "number"
+    },
+    "livecrawl": {
+      "description": "Live crawl mode - 'fallback': use live crawling as backup if cached content unavailable, 'preferred': prioritize live crawling (default: 'fallback')",
+      "type": "string",
+      "enum": [
+        "fallback",
+        "preferred"
+      ]
+    },
+    "type": {
+      "description": "Search type - 'auto': balanced search (default), 'fast': quick results, 'deep': comprehensive search",
+      "type": "string",
+      "enum": [
+        "auto",
+        "fast",
+        "deep"
+      ]
+    },
+    "contextMaxCharacters": {
+      "description": "Maximum characters for context string optimized for LLMs (default: 10000)",
+      "type": "number"
+    }
+  },
+  "required": [
+    "query"
+  ]
+}

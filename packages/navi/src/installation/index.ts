@@ -100,7 +100,9 @@ export const layer: Layer.Layer<Service, never, HttpClient.HttpClient | ChildPro
 
       const text = Effect.fnUntraced(
         function* (cmd: string[], opts?: { cwd?: string; env?: Record<string, string> }) {
-          const proc = ChildProcess.make(cmd[0], cmd.slice(1), {
+          const binary = cmd[0]
+          if (!binary) return ""
+          const proc = ChildProcess.make(binary, cmd.slice(1), {
             cwd: opts?.cwd,
             env: opts?.env,
             extendEnv: true,
@@ -116,7 +118,9 @@ export const layer: Layer.Layer<Service, never, HttpClient.HttpClient | ChildPro
 
       const run = Effect.fnUntraced(
         function* (cmd: string[], opts?: { cwd?: string; env?: Record<string, string> }) {
-          const proc = ChildProcess.make(cmd[0], cmd.slice(1), {
+          const binary = cmd[0]
+          if (!binary) return { code: ChildProcessSpawner.ExitCode(1), stdout: "", stderr: "" }
+          const proc = ChildProcess.make(binary, cmd.slice(1), {
             cwd: opts?.cwd,
             env: opts?.env,
             extendEnv: true,
@@ -212,7 +216,9 @@ export const layer: Layer.Layer<Service, never, HttpClient.HttpClient | ChildPro
             if (formula.includes("/")) {
               const infoJson = yield* text(["brew", "info", "--json=v2", formula])
               const info = yield* Schema.decodeUnknownEffect(Schema.fromJsonString(BrewInfoV2))(infoJson)
-              return info.formulae[0].versions.stable
+              const first = info.formulae[0]
+              if (!first) return yield* Effect.die(new Error("brew info returned no formulae"))
+              return first.versions.stable
             }
             const response = yield* httpOk.execute(
               HttpClientRequest.get("https://formulae.brew.sh/api/formula/navi.json").pipe(
@@ -240,7 +246,9 @@ export const layer: Layer.Layer<Service, never, HttpClient.HttpClient | ChildPro
               ).pipe(HttpClientRequest.setHeaders({ Accept: "application/json;odata=verbose" })),
             )
             const data = yield* HttpClientResponse.schemaBodyJson(ChocoPackage)(response)
-            return data.d.results[0].Version
+            const entry = data.d.results[0]
+            if (!entry) return yield* Effect.die(new Error("choco query returned no results"))
+            return entry.Version
           }
 
           if (detectedMethod === "scoop") {

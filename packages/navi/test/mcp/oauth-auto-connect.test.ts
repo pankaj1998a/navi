@@ -152,7 +152,7 @@ test("first connect to OAuth server shows needs_auth instead of failed", async (
       // ("No OAuth state saved for MCP server: test-oauth") which was
       // not caught as UnauthorizedError, causing status to be "failed".
       expect(serverStatus["test-oauth"]).toBeDefined()
-      expect(serverStatus["test-oauth"].status).toBe("needs_auth")
+      expect(serverStatus["test-oauth"]?.status).toBe("needs_auth")
     },
   })
 })

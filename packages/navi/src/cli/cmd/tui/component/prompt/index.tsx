@@ -149,7 +149,7 @@ export function Prompt(props: PromptProps) {
   const tuiConfig = useTuiConfig()
   const dialog = useDialog()
   const toast = useToast()
-  const status = createMemo(() => sync.data.session_status?.[props.sessionID ?? ""] ?? { type: "idle" })
+  const status = createMemo(() => sync.data.session_status?.[props.sessionID ?? ""] ?? { type: "idle" as const })
   const history = usePromptHistory()
   const stash = usePromptStash()
   const command = useCommandPalette()
@@ -1109,8 +1109,8 @@ export function Prompt(props: PromptProps) {
     } else if (
       inputText.startsWith("/") &&
       iife(() => {
-        const firstLine = inputText.split("\n")[0]
-        const command = firstLine.split(" ")[0].slice(1)
+        const firstLine = inputText.split("\n")[0] ?? ""
+        const command = firstLine.split(" ")[0]?.slice(1) ?? ""
         return sync.data.command.some((x) => x.name === command)
       })
     ) {
@@ -1123,7 +1123,7 @@ export function Prompt(props: PromptProps) {
 
       void sdk.client.session.command({
         sessionID,
-        command: command.slice(1),
+        command: command?.slice(1) ?? "",
         arguments: args,
         agent: agent.name,
         model: `${selectedModel.providerID}/${selectedModel.modelID}`,
@@ -1155,9 +1155,7 @@ export function Prompt(props: PromptProps) {
             ...nonTextParts.map(assign),
           ],
         })
-        .catch((err) => {
-          // Ignore errors as they are handled in the session flow or reported elsewhere
-        })
+        .catch(() => {})
       if (editorParts.length > 0) editor.markSelectionSent()
     }
     history.append({
@@ -1229,9 +1227,7 @@ export function Prompt(props: PromptProps) {
       if (raw.startsWith("file://")) {
         try {
           return fileURLToPath(raw)
-        } catch (e) {
-          // Ignore invalid file URL parsing errors and fall through
-        }
+        } catch {}
       }
       if (process.platform === "win32") return raw
       return raw.replace(/\\(.)/g, "$1")
@@ -1242,9 +1238,7 @@ export function Prompt(props: PromptProps) {
         const mime = await Filesystem.mimeType(filepath)
         const filename = path.basename(filepath)
         if (mime === "image/svg+xml") {
-          const content = await Filesystem.readText(filepath).catch((err) => {
-            // Ignore file read error and return undefined
-          })
+          const content = await Filesystem.readText(filepath).catch(() => {})
           if (content) {
             pasteText(content, `[SVG: ${filename ?? "image"}]`)
             return
@@ -1253,9 +1247,7 @@ export function Prompt(props: PromptProps) {
         if (mime.startsWith("image/") || mime === "application/pdf") {
           const content = await Filesystem.readArrayBuffer(filepath)
             .then((buffer) => Buffer.from(buffer).toString("base64"))
-            .catch((err) => {
-              // Ignore attachment read error and return undefined
-            })
+            .catch(() => {})
           if (content) {
             await pasteAttachment({
               filename,
@@ -1266,9 +1258,7 @@ export function Prompt(props: PromptProps) {
             return
           }
         }
-      } catch (err) {
-        // Ignore errors if the pasted text is not a valid local file path
-      }
+      } catch {}
     }
 
     const lineCount = (pastedContent.match(/\n/g)?.length ?? 0) + 1
@@ -1353,9 +1343,7 @@ export function Prompt(props: PromptProps) {
     setStore("extmarkToPartIndex", new Map())
   }
 
-  const isPlan = createMemo(() => local.agent.current()?.name === "plan")
   const highlight = createMemo(() => {
-    if (isPlan()) return theme.warning
     if (leader()) return theme.border
     if (store.mode === "shell") return theme.primary
     const agent = local.agent.current()
@@ -1376,11 +1364,10 @@ export function Prompt(props: PromptProps) {
     () => !!local.agent.current() && store.mode === "normal" && showVariant(),
     animationsEnabled,
   )
-  const borderHighlight = createMemo(() => tint(theme.border, highlight(), agentMetaAlpha()))
+  const borderHighlight = createMemo(() => tint(theme.border, highlight() ?? theme.border, agentMetaAlpha()))
 
   const placeholderText = createMemo(() => {
     if (props.showPlaceholder === false) return undefined
-    if (isPlan()) return "Ask to plan… (read-only)"
     if (store.mode === "shell") {
       if (!shell().length) return undefined
       const example = shell()[store.placeholder % shell().length]
@@ -1569,7 +1556,7 @@ export function Prompt(props: PromptProps) {
                 <Show when={local.agent.current()} fallback={<box height={1} />}>
                   {(agent) => (
                     <>
-                      <text fg={fadeColor(highlight(), agentMetaAlpha())}>
+                      <text fg={fadeColor(highlight() ?? theme.border, agentMetaAlpha())}>
                         {store.mode === "shell" ? "Shell" : Locale.titlecase(agent().name)}
                       </text>
                       <Show when={store.mode === "normal"}>

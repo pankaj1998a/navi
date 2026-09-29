@@ -20,8 +20,7 @@ export function errorFormat(error: unknown): string {
         return names.length === 0 ? `${prefix} (no message)` : `${prefix} { ${names.join(", ")} }`
       }
       return json
-    } catch (e) {
-      // Fallback for unserializable error objects
+    } catch {
       return "Unexpected error (unserializable)"
     }
   }

@@ -10,4 +10,3 @@ export async function provide<R>(input: { directory: string; fn: () => R }): Pro
 }
 
 export * as WithInstance from "./with-instance"
-

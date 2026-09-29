@@ -143,13 +143,15 @@ describe("experimental HttpApi", () => {
 
     const body = (await page.json()) as Session.GlobalInfo[]
     expect(body.map((session) => session.id)).toEqual([second.id])
-    expect(body[0].project?.id).toBe(second.projectID)
+    const entry = body[0]
+    if (!entry) throw new Error("expected session page entry")
+    expect(entry.project?.id).toBe(second.projectID)
 
     const next = await app().request(
       `${ExperimentalPaths.session}?${new URLSearchParams({
         directory: tmp.path,
         limit: "10",
-        cursor: body[0].time.updated.toString(),
+        cursor: entry.time.updated.toString(),
       })}`,
       { headers },
     )

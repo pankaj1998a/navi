@@ -61,7 +61,6 @@ import { AgentAttachment, FileAttachment, Source } from "@/v2/session-prompt"
 import * as DateTime from "effect/DateTime"
 import { eq } from "@/storage/db"
 import * as Database from "@/storage/db"
-import { scrubSecrets } from "@/util/secret-scrubber"
 import { SessionTable } from "./session.sql"
 
 // @ts-ignore
@@ -137,8 +136,8 @@ export const layer = Layer.effect(
     })
 
     const resolvePromptParts = Effect.fn("SessionPrompt.resolvePromptParts")(function* (template: string) {
-      const ctx = yield* InstanceState.context.pipe(Effect.catchCause(() => Effect.succeed(undefined)))
-      if (!ctx) return [{ type: "text" as const, text: template }]
+      const ctx = yield* InstanceState.context
+      if (!ctx) return yield* Effect.die("InstanceState.context unavailable")
       const parts: Types.DeepMutable<PromptInput["parts"]> = [{ type: "text", text: template }]
       const files = ConfigMarkdown.files(template)
       const seen = new Set<string>()
@@ -146,41 +145,12 @@ export const layer = Layer.effect(
         files,
         Effect.fnUntraced(function* (match) {
           const name = match[1]
+          if (!name) return
           if (seen.has(name)) return
           seen.add(name)
-          const isHome = name.startsWith("~/")
-          const filepath = isHome
+          const filepath = name.startsWith("~/")
             ? path.join(os.homedir(), name.slice(2))
             : path.resolve(ctx.worktree, name)
-
-          if (isHome) {
-            const isSensitive = [
-              /\.ssh[/\\]/i,
-              /\.aws[/\\]/i,
-              /\.gnupg[/\\]/i,
-              /\.config[/\\]gh/i,
-              /keys(\.txt)?/i,
-              /\.pem$/i,
-              /\.key$/i,
-              /\.env/i,
-              /id_rsa/i,
-              /id_ed25519/i,
-              /credentials/i,
-              /\.netrc/i,
-            ].some((pattern) => pattern.test(filepath))
-            if (isSensitive) {
-              log.warn("blocking sensitive home directory file reference", { name, filepath })
-              return
-            }
-          }
-
-          if (!isHome) {
-            const rel = path.relative(ctx.worktree, filepath)
-            if (rel.startsWith("..") || path.isAbsolute(rel)) {
-              log.warn("@file reference escapes worktree, skipping", { name, filepath })
-              return
-            }
-          }
 
           const info = yield* fsys.stat(filepath).pipe(Effect.option)
           if (Option.isNone(info)) {
@@ -552,9 +522,7 @@ NOTE: At any point in time through this workflow you should feel free to ask the
                 }
               }
 
-              const joined = scrubSecrets(textParts.join("\n\n")).text
-              const fenced = `<untrusted-tool-output tool="${key}">\n${joined}\n</untrusted-tool-output>`
-              const truncated = yield* truncate.output(fenced, {}, input.agent)
+              const truncated = yield* truncate.output(textParts.join("\n\n"), {}, input.agent)
               const metadata = {
                 ...result.metadata,
                 truncated: truncated.truncated,
@@ -594,9 +562,8 @@ NOTE: At any point in time through this workflow you should feel free to ask the
       msgs: MessageV2.WithParts[]
     }) {
       const { task, model, lastUser, sessionID, session, msgs } = input
-      const ctx = yield* InstanceState.context.pipe(
-        Effect.catchCause(() => Effect.die("Instance context unavailable")),
-      )
+      const ctx = yield* InstanceState.context
+      if (!ctx) return yield* Effect.die("InstanceState.context unavailable")
       const promptOps = yield* ops()
       const { task: taskTool } = yield* registry.named()
       const taskModel = task.model ? yield* getModel(task.model.providerID, task.model.modelID, sessionID) : model
@@ -785,9 +752,8 @@ NOTE: At any point in time through this workflow you should feel free to ask the
         Effect.gen(function* () {
           const markReady = ready ? ready.open.pipe(Effect.asVoid) : Effect.void
           const { msg, part, cwd } = yield* Effect.gen(function* () {
-            const ctx = yield* InstanceState.context.pipe(
-              Effect.catchCause(() => Effect.die("Instance context unavailable")),
-            )
+            const ctx = yield* InstanceState.context
+            if (!ctx) return yield* Effect.die("InstanceState.context unavailable")
             const session = yield* sessions.get(input.sessionID).pipe(Effect.orDie)
             if (session.revert) {
               yield* revert.cleanup(session)
@@ -1143,7 +1109,7 @@ NOTE: At any point in time through this workflow you should feel free to ask the
                 let limit: number | undefined
                 const range = { start: url.searchParams.get("start"), end: url.searchParams.get("end") }
                 if (range.start != null) {
-                  const filePathURI = part.url.split("?")[0]
+                  const filePathURI = part.url.split("?")[0] ?? ""
                   let start = parseInt(range.start)
                   let end = range.end ? parseInt(range.end) : undefined
                   if (start === end) {
@@ -1300,14 +1266,6 @@ NOTE: At any point in time through this workflow you should feel free to ask the
           ]
         }
 
-        if (part.type === "text" && part.text) {
-          const scrubbed = scrubSecrets(part.text)
-          if (scrubbed.scrubbedCount > 0) {
-            log.info("scrubbed secrets from prompt text", { count: scrubbed.scrubbedCount })
-          }
-          return [{ ...part, text: scrubbed.text, messageID: info.id, sessionID: input.sessionID }]
-        }
-
         return [{ ...part, messageID: info.id, sessionID: input.sessionID }]
       })
 
@@ -1449,15 +1407,15 @@ NOTE: At any point in time through this workflow you should feel free to ask the
       const match = yield* sessions.findMessage(sessionID, (m) => m.info.role !== "user")
       if (Option.isSome(match)) return match.value
       const msgs = yield* sessions.messages({ sessionID, limit: 1 })
-      if (msgs.length > 0) return msgs[0]
+      const first = msgs[0]
+      if (first) return first
       throw new Error("Impossible")
     })
 
     const runLoop: (sessionID: SessionID) => Effect.Effect<MessageV2.WithParts> = Effect.fn("SessionPrompt.run")(
       function* (sessionID: SessionID) {
-        const ctx = yield* InstanceState.context.pipe(
-          Effect.catchCause(() => Effect.die("Instance context unavailable")),
-        )
+        const ctx = yield* InstanceState.context
+        if (!ctx) return yield* Effect.die("InstanceState.context unavailable")
         const slog = elog.with({ sessionID })
         let structured: unknown
         let step = 0
@@ -1475,6 +1433,7 @@ NOTE: At any point in time through this workflow you should feel free to ask the
           let tasks: (MessageV2.CompactionPart | MessageV2.SubtaskPart)[] = []
           for (let i = msgs.length - 1; i >= 0; i--) {
             const msg = msgs[i]
+            if (!msg) continue
             if (!lastUser && msg.info.role === "user") lastUser = msg.info
             if (!lastAssistant && msg.info.role === "assistant") lastAssistant = msg.info
             if (!lastFinished && msg.info.role === "assistant" && msg.info.finish) lastFinished = msg.info
@@ -1575,6 +1534,7 @@ NOTE: At any point in time through this workflow you should feel free to ask the
             assistantMessage: msg,
             sessionID,
             model,
+            parentSessionID: session.parentID,
           })
 
           const outcome: "break" | "continue" = yield* Effect.gen(function* () {
@@ -1600,7 +1560,7 @@ NOTE: At any point in time through this workflow you should feel free to ask the
               })
             }
 
-            if (step === 1)
+            if (step === 1 && !session.parentID)
               yield* summary.summarize({ sessionID, messageID: lastUser.id }).pipe(Effect.ignore, Effect.forkIn(scope))
 
             if (step > 1 && lastFinished) {
@@ -1726,7 +1686,7 @@ NOTE: At any point in time through this workflow you should feel free to ask the
         const argIndex = position - 1
         if (argIndex >= args.length) return ""
         if (position === last) return args.slice(argIndex).join(" ")
-        return args[argIndex]
+        return args[argIndex] ?? ""
       })
       const usesArgumentsPlaceholder = templateCommand.includes("$ARGUMENTS")
       let template = withArgs.replaceAll("$ARGUMENTS", input.arguments)
@@ -1739,35 +1699,19 @@ NOTE: At any point in time through this workflow you should feel free to ask the
       if (shellMatches.length > 0) {
         const cfg = yield* config.get()
         const sh = Shell.preferred(cfg.shell)
-        const agentObj = yield* agents.get(agentName)
-        const sessionObj = yield* sessions.get(input.sessionID).pipe(Effect.orDie)
-        const results: string[] = []
-
-        for (const [, cmdStr] of shellMatches) {
-          const permitted = yield* permission
-            .ask({
-              sessionID: input.sessionID,
-              permission: "bash",
-              patterns: [cmdStr],
-              always: [cmdStr],
-              metadata: { description: `Execute template command: ${cmdStr}` },
-              ruleset: Permission.merge(agentObj?.permission ?? [], sessionObj.permission ?? []),
-            })
-            .pipe(
-              Effect.map(() => true),
-              Effect.catch(() => Effect.succeed(false)),
-            )
-
-          if (permitted) {
-            const res = yield* Effect.promise(() => Process.text([cmdStr], { shell: sh, nothrow: true }))
-            results.push(res.text)
-          } else {
-            results.push("[Command execution denied]")
-          }
-        }
-
+        // Capped concurrency (4) + per-command timeout so one slow `!cmd` can't stall the prompt.
+        const results = yield* Effect.forEach(
+          shellMatches,
+          ([, cmd]) =>
+            Effect.promise(() => Process.text([cmd ?? ""], { shell: sh, nothrow: true })).pipe(
+              Effect.map((r) => r.text),
+              Effect.timeout("15 seconds"),
+              Effect.catch(() => Effect.succeed("")),
+            ),
+          { concurrency: 4 },
+        )
         let index = 0
-        template = template.replace(bashRegex, () => results[index++])
+        template = template.replace(bashRegex, () => results[index++] ?? "")
       }
       template = template.trim()
 

@@ -256,6 +256,7 @@ describe("Storage", () => {
         const projects = yield* svc.list(["project"])
         expect(projects).toHaveLength(1)
         const project = projects[0]![1]
+        if (project === undefined) throw new Error("expected project")
 
         expect(yield* svc.list(["session", project])).toEqual([["session", project, "ses_legacy"]])
         expect(yield* svc.read<{ id: string; title: string }>(["session", project, "ses_legacy"])).toEqual({

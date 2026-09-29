@@ -106,10 +106,11 @@ const add = Effect.fnUntraced(function* (state: State, match: string, bus: Bus.I
   const parsed = z.object({ name: z.string(), description: z.string().optional() }).safeParse(md.data)
   if (!parsed.success) return
 
-  if (state.skills[parsed.data.name]) {
+  const existing = state.skills[parsed.data.name]
+  if (existing) {
     log.warn("duplicate skill name", {
       name: parsed.data.name,
-      existing: state.skills[parsed.data.name].location,
+      existing: existing.location,
       duplicate: match,
     })
   }
@@ -250,6 +251,12 @@ export const layer = Layer.effect(
             content: CUSTOMIZE_NAVI_SKILL_BODY,
           }
         }
+        if (!Flag.NAVI_DISABLE_DEFAULT_PLUGINS) {
+          const { getOfficialSkills } = yield* Effect.promise(() => import("@/plugin/official"))
+          for (const item of getOfficialSkills()) {
+            s.skills[item.name] = item
+          }
+        }
         yield* loadSkills(s, yield* InstanceState.get(discovered), bus)
         return s
       }),
@@ -289,25 +296,29 @@ export const defaultLayer = layer.pipe(
 )
 
 export function fmt(list: Info[], opts: { verbose: boolean }) {
-  if (list.length === 0) return "No skills are currently available."
-  const sorted = list.toSorted((a, b) => a.name.localeCompare(b.name))
+  const described = list.filter((skill) => skill.description !== undefined)
+  if (described.length === 0) return "No skills are currently available."
   if (opts.verbose) {
     return [
       "<available_skills>",
-      ...sorted.flatMap((skill) => [
-        "  <skill>",
-        `    <name>${skill.name}</name>`,
-        `    <description>${skill.description ?? ""}</description>`,
-        `    <location>${pathToFileURL(skill.location).href}</location>`,
-        "  </skill>",
-      ]),
+      ...described
+        .toSorted((a, b) => a.name.localeCompare(b.name))
+        .flatMap((skill) => [
+          "  <skill>",
+          `    <name>${skill.name}</name>`,
+          `    <description>${skill.description}</description>`,
+          `    <location>${pathToFileURL(skill.location).href}</location>`,
+          "  </skill>",
+        ]),
       "</available_skills>",
     ].join("\n")
   }
 
   return [
     "## Available Skills",
-    ...sorted.map((skill) => `- **${skill.name}**: ${skill.description ?? ""}`),
+    ...described
+      .toSorted((a, b) => a.name.localeCompare(b.name))
+      .map((skill) => `- **${skill.name}**: ${skill.description}`),
   ].join("\n")
 }
 

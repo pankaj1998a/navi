@@ -376,8 +376,8 @@ describe("revert + compact workflow", () => {
 
           const msgs = yield* session.messages({ sessionID: sid })
           expect(msgs.length).toBe(1)
-          expect(msgs[0].parts.length).toBe(1)
-          expect(msgs[0].parts[0].id).toBe(p1.id)
+          expect(msgs[0]?.parts.length).toBe(1)
+          expect(msgs[0]?.parts[0]?.id).toBe(p1.id)
 
           const cleared = yield* session.get(sid)
           expect(cleared.revert).toBeUndefined()

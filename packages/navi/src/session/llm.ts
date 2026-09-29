@@ -114,7 +114,7 @@ const live: Layer.Layer<
           .join("\n"),
       )
 
-      const header = system[0]
+      const header = system[0] ?? ""
       yield* plugin.trigger(
         "experimental.chat.system.transform",
         { sessionID: input.sessionID, model: input.model },
@@ -371,13 +371,19 @@ const live: Layer.Layer<
         maxOutputTokens: params.maxOutputTokens,
         abortSignal: input.abort,
         headers: {
-          ...(input.model.providerID.startsWith("navi")
+          ...(input.model.providerID.startsWith("navi") ||
+          input.model.providerID.startsWith("opencode") ||
+          input.model.api.url?.includes("opencode.ai")
             ? {
                 "x-navi-project": naviProjectID,
                 "x-navi-session": input.sessionID,
                 "x-navi-request": input.user.id,
                 "x-navi-client": Flag.NAVI_CLIENT,
-                "User-Agent": `navi/${InstallationVersion}`,
+                "x-opencode-project": naviProjectID,
+                "x-opencode-session": input.sessionID,
+                "x-opencode-request": input.user.id,
+                "x-opencode-client": Flag.NAVI_CLIENT,
+                "User-Agent": `opencode/${InstallationVersion}`,
               }
             : {
                 "x-session-affinity": input.sessionID,

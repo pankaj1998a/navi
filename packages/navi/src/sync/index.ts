@@ -108,12 +108,14 @@ export const layer = Layer.effect(Service)(
     })
 
     const replayAll: Interface["replayAll"] = Effect.fn("SyncEvent.replayAll")(function* (events, options) {
-      const source = events[0]?.aggregateID
+      const firstEvent = events[0]
+      if (!firstEvent) return undefined
+      const source = firstEvent.aggregateID
       if (!source) return undefined
       if (events.some((item) => item.aggregateID !== source)) {
         throw new Error("Replay events must belong to the same session")
       }
-      const start = events[0].seq
+      const start = firstEvent.seq
       for (const [i, item] of events.entries()) {
         const seq = start + i
         if (item.seq !== seq) {

@@ -27,7 +27,6 @@
     "lang-map": "0.4.0",
     "luxon": "catalog:",
     "marked": "catalog:",
-    "dompurify": "catalog:",
     "marked-shiki": "catalog:",
     "rehype-autolink-headings": "7.1.0",
     "remeda": "catalog:",
@@ -38,7 +37,6 @@
   },
   "devDependencies": {
     "navi": "workspace:*",
-    "@navi-ai/sdk": "workspace:*",
     "@types/node": "catalog:",
     "@astrojs/check": "0.9.6",
     "typescript": "catalog:"

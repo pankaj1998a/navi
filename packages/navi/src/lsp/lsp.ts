@@ -15,7 +15,6 @@ import { InstanceState } from "@/effect/instance-state"
 import { containsPath } from "@/project/instance-context"
 import { NonNegativeInt, withStatics } from "@navi-ai/core/schema"
 import { zod, ZodOverride } from "@navi-ai/core/effect-zod"
-import { Hash } from "@navi-ai/core/util/hash"
 
 const log = Log.create({ service: "lsp" })
 
@@ -131,7 +130,6 @@ interface State {
   servers: Record<string, LSPServer.Info>
   broken: Set<string>
   spawning: Map<string, Promise<LSPClient.Info | undefined>>
-  fileHashes: Map<string, string>
 }
 
 export interface Interface {
@@ -168,6 +166,8 @@ export const layer = Layer.effect(
           log.info("all LSPs are disabled")
         } else {
           for (const server of Object.values(LSPServer)) {
+            if (typeof server !== "object" || server === null) continue
+            if (!("id" in server)) continue
             servers[server.id] = server
           }
 
@@ -181,13 +181,15 @@ export const layer = Layer.effect(
                 delete servers[name]
                 continue
               }
+              const bin = item.command[0]
+              if (!bin) continue
               servers[name] = {
                 ...existing,
                 id: name,
                 root: existing?.root ?? (async (_file, ctx) => ctx.directory),
                 extensions: item.extensions ?? existing?.extensions ?? [],
                 spawn: async (root) => ({
-                  process: lspspawn(item.command[0], item.command.slice(1), {
+                  process: lspspawn(bin, item.command.slice(1), {
                     cwd: root,
                     env: { ...process.env, ...item.env },
                   }),
@@ -209,7 +211,6 @@ export const layer = Layer.effect(
           servers,
           broken: new Set(),
           spawning: new Map(),
-          fileHashes: new Map(),
         }
 
         yield* Effect.addFinalizer(() =>
@@ -332,7 +333,7 @@ export const layer = Layer.effect(
       for (const client of s.clients) {
         result.push({
           id: client.serverID,
-          name: s.servers[client.serverID].id,
+          name: s.servers[client.serverID]?.id ?? client.serverID,
           root: path.relative(ctx.directory, client.root),
           status: "connected",
         })
@@ -359,22 +360,6 @@ export const layer = Layer.effect(
     const touchFile = Effect.fn("LSP.touchFile")(function* (input: string, diagnostics?: "document" | "full") {
       log.info("touching file", { file: input })
       const clients = yield* getClients(input)
-      // Hash short-circuit: skip didChange if file content unchanged
-      const s = yield* InstanceState.get(state)
-      const hashResult = yield* Effect.promise(() =>
-        Bun.file(input)
-          .text()
-          .then((text) => Hash.fast(text))
-          .catch(() => undefined as string | undefined),
-      ).pipe(Effect.orElseSucceed(() => undefined as string | undefined))
-      if (hashResult !== undefined) {
-        const prev = s.fileHashes.get(input)
-        if (prev !== undefined && prev === hashResult) {
-          log.info("skipping touchFile - hash unchanged", { file: input })
-          return
-        }
-        s.fileHashes.set(input, hashResult)
-      }
       yield* Effect.promise(() =>
         Promise.all(
           clients.map(async (client) => {

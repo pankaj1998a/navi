@@ -502,8 +502,8 @@ describe("tool.read truncation", () => {
 
       const result = yield* exec(dir, { filePath: path.join(dir, "image.bin") })
       expect(result.output).toBe("Image read successfully")
-      expect(result.attachments?.[0].mime).toBe("image/jpeg")
-      expect(result.attachments?.[0].url.startsWith("data:image/jpeg;base64,")).toBe(true)
+      expect(result.attachments?.[0]?.mime).toBe("image/jpeg")
+      expect(result.attachments?.[0]?.url?.startsWith("data:image/jpeg;base64,")).toBe(true)
     }),
   )
 
@@ -513,7 +513,7 @@ describe("tool.read truncation", () => {
       expect(result.metadata.truncated).toBe(false)
       expect(result.attachments).toBeDefined()
       expect(result.attachments?.length).toBe(1)
-      expect(result.attachments?.[0].type).toBe("file")
+      expect(result.attachments?.[0]?.type).toBe("file")
       expect(result.attachments?.[0]).not.toHaveProperty("id")
       expect(result.attachments?.[0]).not.toHaveProperty("sessionID")
       expect(result.attachments?.[0]).not.toHaveProperty("messageID")

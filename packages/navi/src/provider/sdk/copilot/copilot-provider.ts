@@ -77,6 +77,7 @@ export function createOpenaiCompatible(options: OpenaiCompatibleProviderSettings
   const createResponsesModel = (modelId: OpenaiCompatibleModelId) => {
     return new OpenAIResponsesLanguageModel(modelId, {
       provider: `${options.name ?? "openai-compatible"}.responses`,
+      providerOptionsKey: "copilot",
       headers: getHeaders,
       url: ({ path }) => `${baseURL}${path}`,
       fetch: options.fetch,

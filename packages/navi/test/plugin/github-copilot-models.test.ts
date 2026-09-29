@@ -113,8 +113,8 @@ test("preserves temperature support from existing provider models", async () => 
     },
   )
 
-  expect(models["gpt-4o"].capabilities.temperature).toBe(true)
-  expect(models["brand-new"].capabilities.temperature).toBe(true)
+  expect(models["gpt-4o"]?.capabilities.temperature).toBe(true)
+  expect(models["brand-new"]?.capabilities.temperature).toBe(true)
 })
 
 test("clears existing variants so refreshed models calculate provider-specific variants", async () => {
@@ -211,8 +211,8 @@ test("clears existing variants so refreshed models calculate provider-specific v
     },
   )
 
-  expect(models["claude-opus-4.7"].api.npm).toBe("@ai-sdk/anthropic")
-  expect(models["claude-opus-4.7"].variants).toBeUndefined()
+  expect(models["claude-opus-4.7"]?.api.npm).toBe("@ai-sdk/anthropic")
+  expect(models["claude-opus-4.7"]?.variants).toBeUndefined()
 })
 
 test("remaps fallback oauth model urls to the enterprise host", async () => {
@@ -256,6 +256,6 @@ test("remaps fallback oauth model urls to the enterprise host", async () => {
     },
   )
 
-  expect(models.claude.api.url).toBe("https://copilot-api.ghe.example.com")
-  expect(models.claude.api.npm).toBe("@ai-sdk/github-copilot")
+  expect(models.claude?.api.url).toBe("https://copilot-api.ghe.example.com")
+  expect(models.claude?.api.npm).toBe("@ai-sdk/github-copilot")
 })

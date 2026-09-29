@@ -30,6 +30,7 @@ for (const filepath of new Bun.Glob("*/package.json").scanSync({ cwd: "./dist" }
 }
 console.log("binaries", binaries)
 const version = Object.values(binaries)[0]
+if (version === undefined) throw new Error("No binaries found")
 
 await $`mkdir -p ./dist/${pkg.name}`
 await $`cp -r ./bin ./dist/${pkg.name}/bin`
@@ -56,7 +57,9 @@ await Bun.file(`./dist/${pkg.name}/package.json`).write(
 )
 
 const tasks = Object.entries(binaries).map(async ([name]) => {
-  await publish(`./dist/${name}`, name, binaries[name])
+  const v = binaries[name]
+  if (v === undefined) return
+  await publish(`./dist/${name}`, name, v)
 })
 await Promise.all(tasks)
 await publish(`./dist/${pkg.name}`, `${pkg.name}-ai`, version)
@@ -108,6 +111,7 @@ if (!Script.preview) {
   ].join("\n")
 
   for (const [pkg, pkgbuild] of [["navi-bin", binaryPkgbuild]]) {
+    if (pkgbuild === undefined) continue
     for (let i = 0; i < 30; i++) {
       try {
         await $`rm -rf ./dist/aur-${pkg}`

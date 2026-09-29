@@ -125,15 +125,15 @@ describe("tool.apply_patch freeform", () => {
 
         // Verify permission metadata includes files array for UI rendering
         const permissionCall = calls[0]
-        expect(permissionCall.metadata.files).toHaveLength(3)
-        expect(permissionCall.metadata.files.map((f) => f.type).sort()).toEqual(["add", "delete", "update"])
+        expect(permissionCall?.metadata.files).toHaveLength(3)
+        expect(permissionCall?.metadata.files.map((f) => f.type).sort()).toEqual(["add", "delete", "update"])
 
-        const addFile = permissionCall.metadata.files.find((f) => f.type === "add")
+        const addFile = permissionCall?.metadata.files.find((f) => f.type === "add")
         expect(addFile).toBeDefined()
         expect(addFile!.relativePath).toBe("nested/new.txt")
         expect(addFile!.patch).toContain("+created")
 
-        const updateFile = permissionCall.metadata.files.find((f) => f.type === "update")
+        const updateFile = permissionCall?.metadata.files.find((f) => f.type === "update")
         expect(updateFile).toBeDefined()
         expect(updateFile!.patch).toContain("-line2")
         expect(updateFile!.patch).toContain("+changed")
@@ -164,14 +164,14 @@ describe("tool.apply_patch freeform", () => {
 
         expect(calls.length).toBe(1)
         const permissionCall = calls[0]
-        expect(permissionCall.metadata.files).toHaveLength(1)
+        expect(permissionCall?.metadata.files).toHaveLength(1)
 
-        const moveFile = permissionCall.metadata.files[0]
-        expect(moveFile.type).toBe("move")
-        expect(moveFile.relativePath).toBe("renamed/dir/name.txt")
-        expect(moveFile.movePath).toBe(path.join(fixture.path, "renamed/dir/name.txt"))
-        expect(moveFile.patch).toContain("-old content")
-        expect(moveFile.patch).toContain("+new content")
+        const moveFile = permissionCall?.metadata.files[0]
+        expect(moveFile?.type).toBe("move")
+        expect(moveFile?.relativePath).toBe("renamed/dir/name.txt")
+        expect(moveFile?.movePath).toBe(path.join(fixture.path, "renamed/dir/name.txt"))
+        expect(moveFile?.patch).toContain("-old content")
+        expect(moveFile?.patch).toContain("+new content")
       },
     })
   })
@@ -213,7 +213,7 @@ describe("tool.apply_patch freeform", () => {
         await execute({ patchText }, ctx)
 
         expect(calls.length).toBe(1)
-        const shown = calls[0].metadata.files[0]?.patch ?? ""
+        const shown = calls[0]?.metadata.files[0]?.patch ?? ""
         expect(shown).not.toContain(bom)
         expect(shown).not.toContain("-using System;")
         expect(shown).not.toContain("+using System;")

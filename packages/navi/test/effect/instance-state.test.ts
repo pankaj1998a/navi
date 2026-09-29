@@ -6,6 +6,7 @@ import { InstanceState } from "@/effect/instance-state"
 import { Instance } from "../../src/project/instance"
 import { disposeAllInstances, provideInstance, reloadTestInstance, tmpdirScoped } from "../fixture/fixture"
 import { testEffect } from "../lib/effect"
+import { deterministicDelayMs } from "../lib/names"
 
 const it = testEffect(CrossSpawnSpawner.defaultLayer)
 
@@ -182,6 +183,9 @@ it.live("InstanceState preserves directory across async boundaries", () =>
         { concurrency: "unbounded" },
       )
 
+      if (!a) throw new Error("expected result a")
+      if (!b) throw new Error("expected result b")
+      if (!c) throw new Error("expected result c")
       expect(a).toEqual({ directory: one, worktree: one, project: a.project })
       expect(b).toEqual({ directory: two, worktree: two, project: b.project })
       expect(c).toEqual({ directory: three, worktree: three, project: c.project })
@@ -212,7 +216,7 @@ it.live("InstanceState survives high-contention concurrent access", () =>
           return Test.of({
             get: Effect.fn("Test.get")(function* () {
               for (let i = 0; i < 10; i++) {
-                yield* Effect.promise(() => Bun.sleep(Math.random() * 3))
+                yield* Effect.promise(() => Bun.sleep(deterministicDelayMs(i)))
                 yield* Effect.yieldNow
                 yield* Effect.promise(() => Promise.resolve())
               }
@@ -274,6 +278,7 @@ it.live("InstanceState correct after interleaved init and dispose", () =>
         ],
         { concurrency: "unbounded" },
       )
+      if (!b) throw new Error("expected result b")
       expect(b).toBe(two)
 
       const c = yield* Test.use((svc) => svc.get()).pipe(provideInstance(one))
@@ -313,6 +318,8 @@ it.live("InstanceState dedupes concurrent lookups", () =>
     )
 
     const [a, b] = yield* Effect.all([access(state, dir), access(state, dir)], { concurrency: "unbounded" })
+    if (!a) throw new Error("expected result a")
+    if (!b) throw new Error("expected result b")
     expect(a).toBe(b)
     expect(n).toBe(1)
   }),

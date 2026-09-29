@@ -49,6 +49,8 @@ export const SessionTable = sqliteTable(
   },
   (table) => [
     index("session_project_idx").on(table.project_id),
+    // Perf: covers listByProject (filter project_id, ORDER BY time_updated) in session.ts.
+    index("session_project_time_updated_idx").on(table.project_id, table.time_updated),
     index("session_workspace_idx").on(table.workspace_id),
     index("session_parent_idx").on(table.parent_id),
   ],
@@ -81,6 +83,8 @@ export const PartTable = sqliteTable(
     data: text({ mode: "json" }).notNull().$type<PartData>(),
   },
   (table) => [
+    // Perf: (message_id, id) covers single-column message_id lookups via
+    // leftmost prefix (message-v2.ts, history/service.ts) — no separate message_id_idx needed.
     index("part_message_id_id_idx").on(table.message_id, table.id),
     index("part_session_idx").on(table.session_id),
   ],

@@ -115,7 +115,8 @@ export namespace BackgroundJob {
     const nextMap = new Map(jobs)
     const toRemoveCount = finished.length - maxFinished
     for (let i = 0; i < toRemoveCount; i++) {
-      nextMap.delete(finished[i][0])
+      const entry = finished[i]
+      if (entry) nextMap.delete(entry[0])
     }
     return nextMap
   }
@@ -206,7 +207,7 @@ export namespace BackgroundJob {
     const start: Interface["start"] = Effect.fn("BackgroundJob.start")(function* (input) {
       return yield* Effect.uninterruptibleMask((restore) =>
         Effect.gen(function* () {
-          const id = input.id ?? Identifier.ascending("job")
+          const id = input.id ?? Identifier.ascending("session" as any)
           const started_at = yield* Clock.currentTimeMillis
           const done = yield* Deferred.make<Info>()
           const promoted = yield* Deferred.make<Info>()

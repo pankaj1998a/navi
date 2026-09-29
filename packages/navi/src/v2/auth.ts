@@ -4,6 +4,7 @@ import { Identifier } from "@navi-ai/core/util/identifier"
 import { NonNegativeInt, withStatics } from "@navi-ai/core/schema"
 import { Global } from "@navi-ai/core/global"
 import { AppFileSystem } from "@navi-ai/core/filesystem"
+import * as Log from "@navi-ai/core/util/log"
 
 export const OAUTH_DUMMY_KEY = "navi-oauth-dummy-key"
 
@@ -110,9 +111,10 @@ export const layer = Layer.effect(
     const load: () => Effect.Effect<Writable, AuthError> = Effect.fnUntraced(function* () {
       if (process.env.NAVI_AUTH_CONTENT) {
         try {
-          return JSON.parse(process.env.NAVI_AUTH_CONTENT)
-        } catch (e) {
-          // Ignore invalid JSON in NAVI_AUTH_CONTENT and fall back to reading from filesystem
+          return JSON.parse(process.env.NAVI_AUTH_CONTENT) as Writable
+        } catch (cause) {
+          Log.Default.error("invalid NAVI_AUTH_CONTENT JSON", { error: String(cause) })
+          yield* new AuthFileWriteError({ operation: "migrate", cause })
         }
       }
 
@@ -147,9 +149,9 @@ export const layer = Layer.effect(
 
       active: Effect.fn("AuthV2.active")(function* (serviceID) {
         const data = yield* SynchronizedRef.get(state)
-        return (
-          data.accounts[data.active[serviceID]] ?? Object.values(data.accounts).find((a) => a.serviceID === serviceID)
-        )
+        const activeID = data.active[serviceID]
+        if (activeID === undefined) return Object.values(data.accounts).find((a) => a.serviceID === serviceID)
+        return data.accounts[activeID] ?? Object.values(data.accounts).find((a) => a.serviceID === serviceID)
       }),
 
       forService: Effect.fn("AuthV2.list")(function* (serviceID) {

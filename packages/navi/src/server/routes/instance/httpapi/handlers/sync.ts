@@ -39,7 +39,9 @@ export const syncHandlers = HttpApiBuilder.group(InstanceHttpApi, "sync", (handl
         type: event.type,
         data: { ...event.data },
       }))
-      const source = events[0].aggregateID
+      const firstEvent = events[0]
+      if (!firstEvent) throw new Error("Replay requires at least one event")
+      const source = firstEvent.aggregateID
       log.info("sync replay requested", {
         sessionID: source,
         events: events.length,

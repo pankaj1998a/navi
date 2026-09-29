@@ -205,7 +205,9 @@ describe("assistant messages", () => {
       },
     ])
 
-    expect(result[0].content).toBe("First part. Second part.")
+    const first = result[0]
+    if (!first) throw new Error("expected first message")
+    expect(first.content).toBe("First part. Second part.")
   })
 })
 
@@ -510,6 +512,7 @@ describe("full conversation", () => {
     expect(result).toHaveLength(4)
 
     const systemMsg = result[0]
+    if (!systemMsg) throw new Error("expected system message")
     expect(systemMsg.role).toBe("system")
 
     // Assistant message should have reasoning fields

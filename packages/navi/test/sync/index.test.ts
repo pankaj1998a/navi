@@ -70,8 +70,10 @@ describe("SyncEvent", () => {
           yield* SyncEvent.use.run(Created, { id: "evt_1", name: "first" })
           const rows = Database.use((db) => db.select().from(EventTable).all())
           expect(rows).toHaveLength(1)
-          expect(rows[0].type).toBe("item.created.1")
-          expect(rows[0].aggregate_id).toBe("evt_1")
+          const row = rows[0]
+          if (!row) throw new Error("expected event row")
+          expect(row.type).toBe("item.created.1")
+          expect(row.aggregate_id).toBe("evt_1")
         }),
       ),
     )
@@ -85,7 +87,11 @@ describe("SyncEvent", () => {
           yield* SyncEvent.use.run(Created, { id: "evt_1", name: "second" })
           const rows = Database.use((db) => db.select().from(EventTable).all())
           expect(rows).toHaveLength(2)
-          expect(rows[1].seq).toBe(rows[0].seq + 1)
+          const first = rows[0]
+          if (!first) throw new Error("expected first event row")
+          const second = rows[1]
+          if (!second) throw new Error("expected second event row")
+          expect(second.seq).toBe(first.seq + 1)
         }),
       ),
     )
@@ -98,7 +104,9 @@ describe("SyncEvent", () => {
           yield* SyncEvent.use.run(Sent, { item_id: "evt_1", to: "james" })
           const rows = Database.use((db) => db.select().from(EventTable).all())
           expect(rows).toHaveLength(1)
-          expect(rows[0].aggregate_id).toBe("evt_1")
+          const row = rows[0]
+          if (!row) throw new Error("expected event row")
+          expect(row.aggregate_id).toBe("evt_1")
         }),
       ),
     )
@@ -124,7 +132,9 @@ describe("SyncEvent", () => {
             yield* SyncEvent.use.run(Created, { id: "evt_1", name: "test" })
             yield* Effect.promise(() => received)
             expect(events).toHaveLength(1)
-            expect(events[0]).toMatchObject({
+            const event = events[0]
+            if (!event) throw new Error("expected event")
+            expect(event).toMatchObject({
               type: "item.created",
               properties: {
                 id: "evt_1",
@@ -154,7 +164,9 @@ describe("SyncEvent", () => {
           })
           const rows = Database.use((db) => db.select().from(EventTable).all())
           expect(rows).toHaveLength(1)
-          expect(rows[0].aggregate_id).toBe(id)
+          const row = rows[0]
+          if (!row) throw new Error("expected event row")
+          expect(row.aggregate_id).toBe(id)
         }),
       ),
     )
@@ -318,7 +330,9 @@ describe("SyncEvent", () => {
               .get(),
           )
           expect(events).toHaveLength(1)
-          expect(events[0].id).toBe("evt_1")
+          const first = events[0]
+          if (!first) throw new Error("expected event")
+          expect(first.id).toBe("evt_1")
           expect(sequence).toEqual({ seq: 0, ownerID: "owner-1" })
         }),
       ),

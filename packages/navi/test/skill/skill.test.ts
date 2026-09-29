@@ -237,9 +237,11 @@ description: A skill in the .claude/skills directory.
             const skill = yield* Skill.Service
             const list = yield* skill.all()
             expect(list.length).toBe(1)
-            expect(list[0].name).toBe("global-test-skill")
-            expect(list[0].description).toBe("A global skill from ~/.claude/skills for testing.")
-            expect(list[0].location).toContain(path.join(".claude", "skills", "global-test-skill", "SKILL.md"))
+            const first = list[0]
+            if (!first) throw new Error("missing global-test-skill")
+            expect(first.name).toBe("global-test-skill")
+            expect(first.description).toBe("A global skill from ~/.claude/skills for testing.")
+            expect(first.location).toContain(path.join(".claude", "skills", "global-test-skill", "SKILL.md"))
           }).pipe(provideInstance(tmp.path))
         }),
       )
@@ -316,9 +318,11 @@ This skill is loaded from the global home directory.
             const skill = yield* Skill.Service
             const list = yield* skill.all()
             expect(list.length).toBe(1)
-            expect(list[0].name).toBe("global-agent-skill")
-            expect(list[0].description).toBe("A global skill from ~/.agents/skills for testing.")
-            expect(list[0].location).toContain(path.join(".agents", "skills", "global-agent-skill", "SKILL.md"))
+            const first = list[0]
+            if (!first) throw new Error("missing global-agent-skill")
+            expect(first.name).toBe("global-agent-skill")
+            expect(first.description).toBe("A global skill from ~/.agents/skills for testing.")
+            expect(first.location).toContain(path.join(".agents", "skills", "global-agent-skill", "SKILL.md"))
           }).pipe(provideInstance(tmp.path))
         }),
       )

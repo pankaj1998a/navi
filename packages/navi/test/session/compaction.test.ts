@@ -642,9 +642,13 @@ describe("session.compaction.create", () => {
 
         const msgs = yield* ssn.messages({ sessionID: info.id })
         expect(msgs).toHaveLength(1)
-        expect(msgs[0].info.role).toBe("user")
-        expect(msgs[0].parts).toHaveLength(1)
-        expect(msgs[0].parts[0]).toMatchObject({
+        const first = msgs[0]
+        if (!first) throw new Error("expected message")
+        expect(first.info.role).toBe("user")
+        expect(first.parts).toHaveLength(1)
+        const part = first.parts[0]
+        if (!part) throw new Error("expected part")
+        expect(part).toMatchObject({
           type: "compaction",
           auto: true,
           overflow: true,
@@ -1238,7 +1242,9 @@ describe("session.compaction.process", () => {
           expect(captured).toContain("zzzz")
           expect(captured).not.toContain("keep tail")
 
-          const filtered = MessageV2.filterCompacted(MessageV2.stream(session.id))
+          const filtered = MessageV2.filterCompacted(
+            MessageV2.stream(session.id) as Iterable<MessageV2.WithParts>,
+          )
           expect(filtered.map((msg) => msg.info.id).slice(0, 3)).toEqual([parent!, expect.any(String), keep.id])
           expect(filtered[1]?.info.role).toBe("assistant")
           expect(filtered[1]?.info.role === "assistant" ? filtered[1].info.summary : false).toBe(true)
@@ -1710,7 +1716,7 @@ describe("session.compaction.process", () => {
             auto: false,
           })
 
-          msgs = MessageV2.filterCompacted(MessageV2.stream(session.id))
+          msgs = MessageV2.filterCompacted(MessageV2.stream(session.id) as Iterable<MessageV2.WithParts>)
           parent = msgs.at(-1)?.info.id
           expect(parent).toBeTruthy()
           await rt.runPromise(
@@ -1779,7 +1785,7 @@ describe("session.compaction.process", () => {
             auto: false,
           })
 
-          msgs = MessageV2.filterCompacted(MessageV2.stream(session.id))
+          msgs = MessageV2.filterCompacted(MessageV2.stream(session.id) as Iterable<MessageV2.WithParts>)
           parent = msgs.at(-1)?.info.id
           expect(parent).toBeTruthy()
           await rt.runPromise(
@@ -1793,7 +1799,9 @@ describe("session.compaction.process", () => {
             ),
           )
 
-          const filtered = MessageV2.filterCompacted(MessageV2.stream(session.id))
+          const filtered = MessageV2.filterCompacted(
+            MessageV2.stream(session.id) as Iterable<MessageV2.WithParts>,
+          )
           const ids = filtered.map((msg) => msg.info.id)
 
           expect(ids).not.toContain(u1.id)
@@ -1885,12 +1893,12 @@ describe("session.compaction.process", () => {
 describe("util.token.estimate", () => {
   test("estimates tokens from text (4 chars per token)", () => {
     const text = "x".repeat(4000)
-    expect(Token.estimate(text)).toBe(1082)
+    expect(Token.estimate(text)).toBe(1000)
   })
 
   test("estimates tokens from larger text", () => {
     const text = "y".repeat(20_000)
-    expect(Token.estimate(text)).toBe(5406)
+    expect(Token.estimate(text)).toBe(5000)
   })
 
   test("returns 0 for empty string", () => {

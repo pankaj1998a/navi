@@ -29,7 +29,6 @@ import { Reference } from "@/reference/reference"
 import { Memory } from "@/memory"
 import { History } from "@/history"
 import { SessionStatus } from "@/session/status"
-import { BackgroundJob } from "@/background-job"
 
 const node = CrossSpawnSpawner.defaultLayer
 const originalExperimentalScout = Flag.NAVI_EXPERIMENTAL_SCOUT
@@ -38,7 +37,6 @@ const configLayer = TestConfig.layer({
 })
 
 const registryLayer = ToolRegistry.layer.pipe(
-  Layer.provide(BackgroundJob.layer),
   Layer.provide(configLayer),
   Layer.provide(
     Layer.mergeAll(

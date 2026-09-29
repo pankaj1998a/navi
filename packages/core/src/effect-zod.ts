@@ -264,9 +264,11 @@ function body(ast: SchemaAST.AST): z.ZodTypeAny {
 function opt(ast: SchemaAST.AST): z.ZodTypeAny {
   if (ast._tag !== "Union") return fail(ast)
   const items = ast.types.filter((item) => item._tag !== "Undefined")
+  const first = items[0]
+  if (!first) return z.undefined()
   const inner =
     items.length === 1
-      ? walk(items[0])
+      ? walk(first)
       : items.length > 1
         ? z.union(items.map(walk) as [z.ZodTypeAny, z.ZodTypeAny, ...Array<z.ZodTypeAny>])
         : z.undefined()
@@ -311,7 +313,11 @@ function union(ast: SchemaAST.Union): z.ZodTypeAny {
   }
 
   const items = ast.types.map(walk)
-  if (items.length === 1) return items[0]
+  const single = items[0]
+  if (items.length === 1) {
+    if (!single) return fail(ast)
+    return single
+  }
   if (items.length < 2) return fail(ast)
 
   const discriminator = ast.annotations?.discriminator
@@ -326,6 +332,7 @@ function object(ast: SchemaAST.Objects): z.ZodTypeAny {
   // Pure record: { [k: string]: V }
   if (ast.propertySignatures.length === 0 && ast.indexSignatures.length === 1) {
     const sig = ast.indexSignatures[0]
+    if (!sig) return fail(ast)
     if (sig.parameter._tag !== "String") return fail(ast)
     return z.record(z.string(), walk(sig.type))
   }
@@ -340,6 +347,7 @@ function object(ast: SchemaAST.Objects): z.ZodTypeAny {
   // symbol/number keys fall through to fail.
   if (ast.indexSignatures.length !== 1) return fail(ast)
   const sig = ast.indexSignatures[0]
+  if (!sig) return fail(ast)
   if (sig.parameter._tag !== "String") return fail(ast)
   return z
     .object(Object.fromEntries(ast.propertySignatures.map((p) => [String(p.name), walk(p.type)])))
@@ -350,7 +358,9 @@ function array(ast: SchemaAST.Arrays): z.ZodTypeAny {
   // Pure variadic arrays: { elements: [], rest: [item] }
   if (ast.elements.length === 0) {
     if (ast.rest.length !== 1) return fail(ast)
-    return z.array(walk(ast.rest[0]))
+    const rest = ast.rest[0]
+    if (!rest) return fail(ast)
+    return z.array(walk(rest))
   }
   // Fixed-length tuples: { elements: [a, b, ...], rest: [] }
   // Tuples with a variadic tail (...rest) are not yet supported.
@@ -361,7 +371,9 @@ function array(ast: SchemaAST.Arrays): z.ZodTypeAny {
 
 function decl(ast: SchemaAST.Declaration): z.ZodTypeAny {
   if (ast.typeParameters.length !== 1) return fail(ast)
-  return walk(ast.typeParameters[0])
+  const param = ast.typeParameters[0]
+  if (!param) return fail(ast)
+  return walk(param)
 }
 
 function fail(ast: SchemaAST.AST): never {

@@ -1,4 +1,5 @@
 import { afterEach, describe, test, expect } from "bun:test"
+import { $ } from "bun"
 import { Effect } from "effect"
 import path from "path"
 import fs from "fs/promises"
@@ -408,18 +409,12 @@ describe("file/index Filesystem patterns", () => {
   })
 
   describe("status()", () => {
-    // Synchronous git helper to avoid dangling process handles on Windows
-    const git = (args: string[], cwd: string) => {
-      const result = Bun.spawnSync(["git", ...args], { cwd, stdio: ["ignore", "ignore", "ignore"] })
-      if (!result.success) throw new Error(`git ${args.join(" ")} failed (exit ${result.exitCode})`)
-    }
-
     test("detects modified file", async () => {
       await using tmp = await tmpdir({ git: true })
       const filepath = path.join(tmp.path, "file.txt")
       await fs.writeFile(filepath, "original\n", "utf-8")
-      git(["add", "."], tmp.path)
-      git(["commit", "-m", "add file"], tmp.path)
+      await $`git add .`.cwd(tmp.path).quiet()
+      await $`git commit -m "add file"`.cwd(tmp.path).quiet()
       await fs.writeFile(filepath, "modified\nextra line\n", "utf-8")
 
       await WithInstance.provide({
@@ -456,8 +451,8 @@ describe("file/index Filesystem patterns", () => {
       await using tmp = await tmpdir({ git: true })
       const filepath = path.join(tmp.path, "gone.txt")
       await fs.writeFile(filepath, "content\n", "utf-8")
-      git(["add", "."], tmp.path)
-      git(["commit", "-m", "add file"], tmp.path)
+      await $`git add .`.cwd(tmp.path).quiet()
+      await $`git commit -m "add file"`.cwd(tmp.path).quiet()
       await fs.rm(filepath)
 
       await WithInstance.provide({
@@ -475,8 +470,8 @@ describe("file/index Filesystem patterns", () => {
       await using tmp = await tmpdir({ git: true })
       await fs.writeFile(path.join(tmp.path, "keep.txt"), "keep\n", "utf-8")
       await fs.writeFile(path.join(tmp.path, "remove.txt"), "remove\n", "utf-8")
-      git(["add", "."], tmp.path)
-      git(["commit", "-m", "initial"], tmp.path)
+      await $`git add .`.cwd(tmp.path).quiet()
+      await $`git commit -m "initial"`.cwd(tmp.path).quiet()
 
       // Modify one, delete one, add one
       await fs.writeFile(path.join(tmp.path, "keep.txt"), "changed\n", "utf-8")
@@ -525,8 +520,8 @@ describe("file/index Filesystem patterns", () => {
       const binaryData = Buffer.alloc(256)
       for (let i = 0; i < 256; i++) binaryData[i] = i
       await fs.writeFile(filepath, binaryData)
-      git(["add", "."], tmp.path)
-      git(["commit", "-m", "add binary"], tmp.path)
+      await $`git add .`.cwd(tmp.path).quiet()
+      await $`git commit -m "add binary"`.cwd(tmp.path).quiet()
       // Modify the binary
       const modified = Buffer.alloc(512)
       for (let i = 0; i < 512; i++) modified[i] = i % 256
@@ -648,7 +643,7 @@ describe("file/index Filesystem patterns", () => {
           expect(nodes.length).toBe(2)
           expect(nodes.map((n) => n.name).sort()).toEqual(["a.txt", "b.txt"])
           // Paths should be relative to project root (normalize for Windows)
-          expect(nodes[0].path.replaceAll("\\", "/").startsWith("sub/")).toBe(true)
+          expect(nodes[0]?.path.replaceAll("\\", "/").startsWith("sub/")).toBe(true)
         },
       })
     })
@@ -837,18 +832,12 @@ describe("file/index Filesystem patterns", () => {
   })
 
   describe("read() - diff/patch", () => {
-    // Synchronous git helper to avoid dangling process handles on Windows
-    const git = (args: string[], cwd: string) => {
-      const result = Bun.spawnSync(["git", ...args], { cwd, stdio: ["ignore", "ignore", "ignore"] })
-      if (!result.success) throw new Error(`git ${args.join(" ")} failed (exit ${result.exitCode})`)
-    }
-
     test("returns diff and patch for modified tracked file", async () => {
       await using tmp = await tmpdir({ git: true })
       const filepath = path.join(tmp.path, "file.txt")
       await fs.writeFile(filepath, "original content\n", "utf-8")
-      git(["add", "."], tmp.path)
-      git(["commit", "-m", "add file"], tmp.path)
+      await $`git add .`.cwd(tmp.path).quiet()
+      await $`git commit -m "add file"`.cwd(tmp.path).quiet()
       await fs.writeFile(filepath, "modified content\n", "utf-8")
 
       await WithInstance.provide({
@@ -870,10 +859,10 @@ describe("file/index Filesystem patterns", () => {
       await using tmp = await tmpdir({ git: true })
       const filepath = path.join(tmp.path, "staged.txt")
       await fs.writeFile(filepath, "before\n", "utf-8")
-      git(["add", "."], tmp.path)
-      git(["commit", "-m", "add file"], tmp.path)
+      await $`git add .`.cwd(tmp.path).quiet()
+      await $`git commit -m "add file"`.cwd(tmp.path).quiet()
       await fs.writeFile(filepath, "after\n", "utf-8")
-      git(["add", "."], tmp.path)
+      await $`git add .`.cwd(tmp.path).quiet()
 
       await WithInstance.provide({
         directory: tmp.path,
@@ -883,14 +872,14 @@ describe("file/index Filesystem patterns", () => {
           expect(result.patch).toBeDefined()
         },
       })
-    }, 15000)
+    })
 
     test("returns no diff for unmodified file", async () => {
       await using tmp = await tmpdir({ git: true })
       const filepath = path.join(tmp.path, "clean.txt")
       await fs.writeFile(filepath, "unchanged\n", "utf-8")
-      git(["add", "."], tmp.path)
-      git(["commit", "-m", "add file"], tmp.path)
+      await $`git add .`.cwd(tmp.path).quiet()
+      await $`git commit -m "add file"`.cwd(tmp.path).quiet()
 
       await WithInstance.provide({
         directory: tmp.path,
@@ -933,7 +922,7 @@ describe("file/index Filesystem patterns", () => {
           expect(results2).not.toContain("a.ts")
         },
       })
-    }, 15000)
+    })
 
     test("disposal gives fresh state on next access", async () => {
       await using tmp = await tmpdir({ git: true })
@@ -963,6 +952,6 @@ describe("file/index Filesystem patterns", () => {
           expect(stale).not.toContain("before.ts")
         },
       })
-    }, 15000)
+    })
   })
 })

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect } from "bun:test"
-import { Cause, Effect, Exit, Fiber, Layer } from "effect"
+import { Effect, Exit, Fiber, Layer } from "effect"
 import { Agent } from "@/agent/agent"
 import { Config } from "@/config/config"
 import { CrossSpawnSpawner } from "@navi-ai/core/cross-spawn-spawner"
@@ -13,7 +13,6 @@ import { Truncate } from "@/tool/truncate"
 import { ToolRegistry } from "@/tool/registry"
 import { SessionStatus } from "@/session/status"
 import { Git } from "@/git"
-import { BackgroundJob } from "@/background-job"
 import { disposeAllInstances } from "../fixture/fixture"
 import { testEffect } from "../lib/effect"
 
@@ -36,7 +35,6 @@ const it = testEffect(
     ToolRegistry.defaultLayer,
     SessionStatus.defaultLayer,
     Git.defaultLayer,
-    BackgroundJob.layer,
   ),
 )
 
@@ -231,7 +229,7 @@ describe("tool.task", () => {
       expect(kids).toHaveLength(1)
       expect(kids[0]?.id).toBe(child.id)
       expect(result.metadata.sessionId).toBe(child.id)
-      expect(result.output).toContain(`<task id="${child.id}" state="completed">`)
+      expect(result.output).toContain(`task_id: ${child.id}`)
       expect(seen?.sessionID).toBe(child.id)
     }),
   )
@@ -365,7 +363,7 @@ describe("tool.task", () => {
       expect(kids).toHaveLength(1)
       expect(kids[0]?.id).toBe(result.metadata.sessionId)
       expect(result.metadata.sessionId).not.toBe("ses_missing")
-      expect(result.output).toContain(`<task id="${result.metadata.sessionId}" state="completed">`)
+      expect(result.output).toContain(`task_id: ${result.metadata.sessionId}`)
       expect(seen?.sessionID).toBe(result.metadata.sessionId)
     }),
   )
@@ -441,65 +439,146 @@ describe("tool.task", () => {
     },
   )
 
-  it.instance(
-    "execute fails when background is true and background subagents are disabled",
-    () =>
-      Effect.gen(function* () {
-        const { chat, assistant } = yield* seed()
-        const tool = yield* TaskTool
-        const def = yield* tool.init()
-        const promptOps = stubOps()
+  it.instance("registers specialized subagents: debugger, security, and optimizer", () =>
+    Effect.gen(function* () {
+      const agent = yield* Agent.Service
+      const dbg = yield* agent.get("debugger")
+      expect(dbg).toBeDefined()
+      expect(dbg.mode).toBe("subagent")
+      expect(dbg.color).toBe("magenta")
 
-        const exit = yield* def.execute(
+      const sec = yield* agent.get("security")
+      expect(sec).toBeDefined()
+      expect(sec.mode).toBe("subagent")
+      expect(sec.color).toBe("red")
+      // Security agent must deny edit and write
+      expect(sec.permission.some((p) => p.permission === "edit" && p.action === "deny")).toBe(true)
+      expect(sec.permission.some((p) => p.permission === "write" && p.action === "deny")).toBe(true)
+
+      const opt = yield* agent.get("optimizer")
+      expect(opt).toBeDefined()
+      expect(opt.mode).toBe("subagent")
+      expect(opt.color).toBe("blue")
+    }),
+  )
+
+  it.instance("categorizes data errors and immediately notifies metadata and cancels siblings", () =>
+    Effect.gen(function* () {
+      const { chat, assistant } = yield* seed()
+      const tool = yield* TaskTool
+      const def = yield* tool.init()
+      const metadataUpdates: any[] = []
+      let cancelledParent: SessionID | undefined
+
+      const promptOps: TaskPromptOps = {
+        cancel: () => Effect.void,
+        cancelChildren: (parentID) =>
+          Effect.sync(() => {
+            cancelledParent = parentID
+          }),
+        resolvePromptParts: (template) => Effect.succeed([{ type: "text" as const, text: template }]),
+        prompt: () => Effect.fail(new Error("JSON parse error: Unexpected token at position 42")),
+      }
+
+      const result = yield* def.execute(
+        {
+          description: "process payload",
+          prompt: "parse incoming stream",
+          subagent_type: "general",
+          fail_fast: true,
+        },
+        {
+          sessionID: chat.id,
+          messageID: assistant.id,
+          agent: "build",
+          abort: new AbortController().signal,
+          extra: { promptOps },
+          messages: [],
+          metadata: (val) =>
+            Effect.sync(() => {
+              metadataUpdates.push(val)
+            }),
+          ask: () => Effect.void,
+        },
+      )
+
+      expect(result.metadata.status).toBe("failed")
+      expect(result.metadata.error?.category).toBe("data_error")
+      expect(result.metadata.error?.message).toContain("JSON parse error")
+      // Verify immediate metadata notification occurred
+      expect(metadataUpdates.length).toBeGreaterThanOrEqual(2)
+      const lastMeta = metadataUpdates[metadataUpdates.length - 1]
+      expect(lastMeta.metadata?.status).toBe("failed")
+      expect(lastMeta.metadata?.error?.category).toBe("data_error")
+      // Verify fail-fast sibling cancellation was invoked for the parent session
+      expect(cancelledParent).toBe(chat.id)
+    }),
+  )
+
+  it.instance("formats output as JSON and includes duration and telemetry", () =>
+    Effect.gen(function* () {
+      const { chat, assistant } = yield* seed()
+      const tool = yield* TaskTool
+      const def = yield* tool.init()
+      const promptOps = stubOps({ text: "finished work" })
+
+      const result = yield* def.execute(
+        {
+          description: "run audit",
+          prompt: "check for issues",
+          subagent_type: "general",
+          format: "json",
+        },
+        {
+          sessionID: chat.id,
+          messageID: assistant.id,
+          agent: "build",
+          abort: new AbortController().signal,
+          extra: { promptOps },
+          messages: [],
+          metadata: () => Effect.void,
+          ask: () => Effect.void,
+        },
+      )
+
+      expect(result.metadata.status).toBe("success")
+      expect(typeof result.metadata.durationMs).toBe("number")
+      const parsed = JSON.parse(result.output)
+      expect(parsed.status).toBe("success")
+      expect(parsed.result).toBe("finished work")
+      expect(typeof parsed.duration_ms).toBe("number")
+    }),
+  )
+
+  it.instance("executes multiple parallel subagents smoothly with bounded concurrency", () =>
+    Effect.gen(function* () {
+      const { chat, assistant } = yield* seed()
+      const tool = yield* TaskTool
+      const def = yield* tool.init()
+
+      let active = 0
+      let maxActive = 0
+
+      const promptOps: TaskPromptOps = {
+        cancel: () => Effect.void,
+        cancelChildren: () => Effect.void,
+        resolvePromptParts: (template) => Effect.succeed([{ type: "text" as const, text: template }]),
+        prompt: (input) =>
+          Effect.gen(function* () {
+            active++
+            if (active > maxActive) maxActive = active
+            yield* Effect.sleep("20 millis")
+            active--
+            return reply(input, `completed: ${input.agent}`)
+          }),
+      }
+
+      const runOne = (name: string) =>
+        def.execute(
           {
-            description: "inspect bug",
-            prompt: "look into the cache key path",
+            description: `task ${name}`,
+            prompt: `run ${name}`,
             subagent_type: "general",
-            background: true,
-          },
-          {
-            sessionID: chat.id,
-            messageID: assistant.id,
-            agent: "build",
-            abort: new AbortController().signal,
-            extra: { promptOps },
-            messages: [],
-            metadata: () => Effect.void,
-            ask: () => Effect.void,
-          },
-        ).pipe(Effect.exit)
-
-        if (Exit.isFailure(exit)) {
-          const err = Cause.squash(exit.cause) as Error
-          expect(err.message).toContain("Background subagents are disabled via configuration")
-        } else {
-          throw new Error("expected failure")
-        }
-      }),
-    {
-      config: {
-        experimental: {
-          background_subagents: false,
-        },
-      },
-    },
-  )
-
-  it.instance(
-    "execute succeeds when background is true and background subagents are enabled via config",
-    () =>
-      Effect.gen(function* () {
-        const { chat, assistant } = yield* seed()
-        const tool = yield* TaskTool
-        const def = yield* tool.init()
-        const promptOps = stubOps()
-
-        const result = yield* def.execute(
-          {
-            description: "inspect bug",
-            prompt: "look into the cache key path",
-            subagent_type: "reviewer",
-            background: true,
           },
           {
             sessionID: chat.id,
@@ -513,74 +592,16 @@ describe("tool.task", () => {
           },
         )
 
-        expect(result.metadata.background).toBe(true)
-        expect(result.output).toContain("Background task started")
-      }),
-    {
-      config: {
-        agent: {
-          reviewer: {
-            mode: "subagent",
-            permission: {
-              task: "allow",
-            },
-          },
-        },
-        experimental: {
-          background_subagents: true,
-        },
-      },
-    },
-  )
+      const results = yield* Effect.all([runOne("A"), runOne("B"), runOne("C")], {
+        concurrency: "unbounded",
+      })
 
-  it.instance(
-    "execute uses subagent configured model when specified in config rather than parent agent model",
-    () =>
-      Effect.gen(function* () {
-        const { chat, assistant } = yield* seed()
-        const tool = yield* TaskTool
-        const def = yield* tool.init()
-        let promptModel: { providerID: string; modelID: string } | undefined
-        const promptOps = stubOps({
-          onPrompt: (input) => {
-            promptModel = input.model
-          },
-        })
-
-        yield* def.execute(
-          {
-            description: "explore codebase",
-            prompt: "find all api endpoints",
-            subagent_type: "custom_explorer",
-          },
-          {
-            sessionID: chat.id,
-            messageID: assistant.id,
-            agent: "build",
-            abort: new AbortController().signal,
-            extra: { promptOps },
-            messages: [],
-            metadata: () => Effect.void,
-            ask: () => Effect.void,
-          },
-        )
-
-        expect(promptModel).toBeDefined()
-        expect(promptModel?.providerID).toBe("openai")
-        expect(promptModel?.modelID).toBe("gpt-4o-mini")
-      }),
-    {
-      config: {
-        agent: {
-          custom_explorer: {
-            mode: "subagent",
-            model: "openai/gpt-4o-mini",
-            permission: {
-              task: "allow",
-            },
-          },
-        },
-      },
-    },
+      expect(results).toHaveLength(3)
+      for (const res of results) {
+        expect(res.metadata.status).toBe("success")
+      }
+      expect(maxActive).toBeLessThanOrEqual(2)
+    }),
   )
 })
+

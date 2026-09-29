@@ -1,0 +1,120 @@
+# Navi PR Auto-Review Workflow
+#
+# Automatically reviews pull requests on open/synchronize/reopen,
+# and supports on-demand re-reviews via comment commands (/navi review, /oc review).
+#
+# Features:
+# - Inline review comments posted directly on changed lines
+# - Sticky summary comment updated in place with breakdown table
+# - Incremental deduplication (avoids re-commenting on already commented code)
+# - Cross-push checkpointing (only reviews new commits across pushes)
+# - Automatic resolution of outdated bot review threads
+# - Severity and category routing to summary
+
+name: Navi PR Review
+
+concurrency:
+  group: >-
+    ${{
+      (
+        github.event_name == 'pull_request_target'
+        || (
+          github.event_name == 'issue_comment'
+          && github.event.issue.pull_request
+          && github.event.comment.user.type != 'Bot'
+          && (
+            github.event.comment.author_association == 'MEMBER'
+            || github.event.comment.author_association == 'OWNER'
+            || github.event.comment.author_association == 'COLLABORATOR'
+          )
+          && (
+            startsWith(github.event.comment.body, '/navi review')
+            || startsWith(github.event.comment.body, '/oc review')
+            || startsWith(github.event.comment.body, '/review')
+          )
+        )
+      )
+      && format('navi-review-{0}', github.event.pull_request.number || github.event.issue.number)
+      || format('noop-{0}', github.run_id)
+    }}
+  cancel-in-progress: true
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened]
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+  id-token: write
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    if: |
+      github.event_name == 'pull_request_target'
+      || (
+        github.event_name == 'issue_comment'
+        && github.event.issue.pull_request
+        && github.event.comment.user.type != 'Bot'
+        && (
+          github.event.comment.author_association == 'MEMBER'
+          || github.event.comment.author_association == 'OWNER'
+          || github.event.comment.author_association == 'COLLABORATOR'
+        )
+        && (
+          startsWith(github.event.comment.body, '/navi review')
+          || startsWith(github.event.comment.body, '/oc review')
+          || startsWith(github.event.comment.body, '/review')
+        )
+      )
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Get PR context for comments
+        id: pr_context
+        if: github.event_name == 'issue_comment'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number,
+            });
+            core.setOutput('base_ref', pr.data.base.ref);
+            core.setOutput('head_sha', pr.data.head.sha);
+
+      - name: Run Navi Code Review
+        uses: anomalyco/navi/github@latest
+        id: navi_review
+        with:
+          model: anthropic/claude-3-5-sonnet-20241022
+          sticky_summary: "true"
+          incremental: "true"
+          incremental_overlap_threshold: "0.6"
+          checkpoint_range: "true"
+          resolve_outdated: "true"
+          route_severity_below: "low"
+          route_categories: "style,documentation"
+          base_ref: ${{ steps.pr_context.outputs.base_ref }}
+          head_sha: ${{ steps.pr_context.outputs.head_sha }}
+
+      - name: Review Summary
+        if: always() && steps.navi_review.outputs.comments_total != ''
+        run: |
+          echo "### Navi Code Review Summary" >> $GITHUB_STEP_SUMMARY
+          echo "- **Total Findings:** ${{ steps.navi_review.outputs.comments_total }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Inline Comments:** ${{ steps.navi_review.outputs.comments_inline }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Skipped (Deduplicated):** ${{ steps.navi_review.outputs.comments_skipped }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Routed to Summary:** ${{ steps.navi_review.outputs.comments_routed }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Threads Resolved:** ${{ steps.navi_review.outputs.comments_resolved }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Summary Comment:** [View Comment](${{ steps.navi_review.outputs.summary_comment_url }})" >> $GITHUB_STEP_SUMMARY

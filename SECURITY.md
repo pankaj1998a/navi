@@ -45,3 +45,24 @@ The team will send a response indicating the next steps in handling your report.
 ## Escalation
 
 If you do not receive an acknowledgement of your report within 6 business days, you may send an email to security@anoma.ly
+
+---
+
+## Supply chain / LSP downloads
+
+LSP auto-downloads in `packages/navi/src/lsp/server.ts` follow these rules:
+
+- `githubFetch` / `downloadFetch` send `Authorization: Bearer $GITHUB_TOKEN` when set
+  (avoids rate-limit failures) and abort after 30s (`AbortSignal.timeout(30_000)`).
+- Pin versions with `NAVI_LSP_VERSION_<ID>` (e.g. `NAVI_LSP_VERSION_CLANGD=19.1.2`).
+  Mismatches throw `LSP version pin mismatch`.
+- Pin hashes with `NAVI_LSP_SHA256_<ID>` (lowercase hex). Mismatches throw
+  `LSP sha256 mismatch`. When unset, the download logs
+  `WARN no pinned sha256 for LSP download, skipping verification` and continues —
+  set the pin in CI/release environments to make verification enforced.
+- Disable network installs with `NAVI_DISABLE_LSP_DOWNLOAD=1`.
+- `<ID>` is the upper-snake form of the LSP id (`clangd`, `zls`,
+  `lua-language-server`, `kotlin-lsp`, `vscode-eslint`, `elixir-ls`).
+
+Dependency hygiene: Renovate/Dependabot config lives in `.github/dependabot.yml`.
+Run `bun audit` (or `bun pm audit`) before release; `bun.lock` is the source of truth.

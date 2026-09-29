@@ -257,6 +257,7 @@ async function getShellConfigFile(): Promise<string | null> {
   }
 
   const candidates = configFiles[shell] || configFiles.bash
+  if (!candidates) return null
 
   for (const file of candidates) {
     const exists = await fs
@@ -306,7 +307,7 @@ async function cleanShellConfig(file: string) {
     filtered.push(line)
   }
 
-  while (filtered.length > 0 && filtered[filtered.length - 1].trim() === "") {
+  while (filtered.length > 0 && filtered[filtered.length - 1]?.trim() === "") {
     filtered.pop()
   }
 

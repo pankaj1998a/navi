@@ -23,10 +23,10 @@ export function DialogStatus() {
         const parts = path.split("/")
         const filename = parts.pop() || path
         if (!filename.includes(".")) return { name: filename }
-        const basename = filename.split(".")[0]
+        const basename = filename.split(".")[0] ?? filename
         if (basename === "index") {
           const dirname = parts.pop()
-          const name = dirname || basename
+          const name = dirname ?? basename
           return { name }
         }
         return { name: basename }
@@ -37,7 +37,7 @@ export function DialogStatus() {
       const version = value.substring(index + 1)
       return { name, version }
     })
-    return result.toSorted((a, b) => a.name.localeCompare(b.name))
+    return result.toSorted((a, b) => (a.name ?? "").localeCompare(b.name ?? ""))
   })
 
   return (

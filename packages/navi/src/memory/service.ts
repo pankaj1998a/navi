@@ -128,7 +128,9 @@ export const layer: Layer.Layer<Service, never, Config.Service> = Layer.effect(
       if (mapped.length === 0) return []
       // Rows are ORDER BY score (best first), so mapped[0] is the top hit.
       // Always keep it; drop trailing rows below `floorRatio` of its score.
-      const topScore = mapped[0].score
+      const top = mapped[0]
+      if (!top) return []
+      const topScore = top.score
       const cutoff = floorRatio > 0 ? topScore * floorRatio : -Infinity
       return mapped.filter((r, i) => i === 0 || r.score >= cutoff).slice(0, limit)
     })

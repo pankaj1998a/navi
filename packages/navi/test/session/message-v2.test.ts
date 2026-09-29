@@ -476,8 +476,12 @@ describe("session.message-v2.toModelMessage", () => {
 
     const result = ProviderTransform.message(await MessageV2.toModelMessages(input, anthropicModel), anthropicModel, {})
     expect(result).toHaveLength(3)
-    expect(result[2].role).toBe("tool")
-    expect(result[2].content[0]).toMatchObject({
+    const toolMsg = result[2]
+    if (!toolMsg) throw new Error("expected tool message")
+    expect(toolMsg.role).toBe("tool")
+    const toolContent = toolMsg.content[0]
+    if (!toolContent) throw new Error("expected tool content")
+    expect(toolContent).toMatchObject({
       type: "tool-result",
       toolCallId: "call-anthropic-1",
       toolName: "read",
@@ -1285,8 +1289,16 @@ describe("session.message-v2.toModelMessage", () => {
 
     // step-start splits into two assistant messages; SDK's groupIntoBlocks merges them later
     expect(result).toHaveLength(2)
-    expect((result[0].content as any[]).find((p) => p.type === "text").text).toBe(" ")
-    expect((result[1].content as any[]).find((p) => p.type === "text").text).toBe("the answer")
+    const first = result[0]
+    if (!first) throw new Error("expected first message")
+    const second = result[1]
+    if (!second) throw new Error("expected second message")
+    const firstText = (first.content as any[]).find((p) => p.type === "text")
+    if (!firstText) throw new Error("expected first text part")
+    expect(firstText.text).toBe(" ")
+    const secondText = (second.content as any[]).find((p) => p.type === "text")
+    if (!secondText) throw new Error("expected second text part")
+    expect(secondText.text).toBe("the answer")
   })
 
   test("leaves empty text alone when reasoning signature is under 'bedrock' namespace", async () => {
@@ -1312,7 +1324,9 @@ describe("session.message-v2.toModelMessage", () => {
     const result = await MessageV2.toModelMessages(input, model)
 
     expect(result).toHaveLength(1)
-    const texts = (result[0].content as any[]).filter((p) => p.type === "text")
+    const first = result[0]
+    if (!first) throw new Error("expected message")
+    const texts = (first.content as any[]).filter((p) => p.type === "text")
     expect(texts.map((t) => t.text)).toStrictEqual(["", "answer"])
   })
 
@@ -1334,7 +1348,9 @@ describe("session.message-v2.toModelMessage", () => {
     const result = await MessageV2.toModelMessages(input, model)
 
     expect(result).toHaveLength(1)
-    const texts = (result[0].content as any[]).filter((p) => p.type === "text")
+    const unsigned = result[0]
+    if (!unsigned) throw new Error("expected message")
+    const texts = (unsigned.content as any[]).filter((p) => p.type === "text")
     expect(texts.map((t) => t.text)).toStrictEqual(["", "answer"])
   })
 
@@ -1353,7 +1369,9 @@ describe("session.message-v2.toModelMessage", () => {
     const result = await MessageV2.toModelMessages(input, model)
 
     expect(result).toHaveLength(1)
-    const texts = (result[0].content as any[]).filter((p) => p.type === "text")
+    const first = result[0]
+    if (!first) throw new Error("expected message")
+    const texts = (first.content as any[]).filter((p) => p.type === "text")
     expect(texts.map((t) => t.text)).toStrictEqual(["", "hello"])
   })
 })

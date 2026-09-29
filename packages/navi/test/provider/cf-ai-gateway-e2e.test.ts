@@ -115,7 +115,7 @@ describe("cf-ai-gateway end-to-end (regression: #24432)", () => {
     const variants = ProviderTransform.variants(cfModel("openai/gpt-5.4"))
     expect(variants.xhigh).toEqual({ reasoningEffort: "xhigh" })
 
-    const opts = ProviderTransform.providerOptions(cfModel("openai/gpt-5.4"), variants.xhigh)
+    const opts = ProviderTransform.providerOptions(cfModel("openai/gpt-5.4"), variants.xhigh ?? {})
     const upstream = await callThroughGateway("openai/gpt-5.4", opts)
     expect(upstream?.reasoning_effort).toBe("xhigh")
   })

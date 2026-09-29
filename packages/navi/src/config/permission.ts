@@ -41,6 +41,10 @@ const InputObject = Schema.StructWithRest(
     lsp: Schema.optional(Rule),
     doom_loop: Schema.optional(Action),
     skill: Schema.optional(Rule),
+    test_runner: Schema.optional(Rule),
+    browser: Schema.optional(Rule),
+    arch_map: Schema.optional(Rule),
+    checkpoint: Schema.optional(Rule),
   }),
   [Schema.Record(Schema.String, Rule)],
 )

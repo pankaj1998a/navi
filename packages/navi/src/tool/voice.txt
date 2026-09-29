@@ -1,0 +1,11 @@
+Voice Mode STT/TTS stub — mirrors Claude `src/services/voice.ts`, `voiceKeyterms.ts`, `voiceStreamSTT.ts` and `src/voice/voiceModeEnabled.ts`.
+
+Provides hands-free Speech-to-Text (STT) and Text-to-Speech (TTS) for Navi sessions. Backed by native audio capture (cpal) on macOS/Linux/Windows with fallback to SoX `rec` / ALSA `arecord` in the full implementation.
+
+Supported actions:
+- "status": report whether voice mode is enabled and which audio backend is available
+- "transcribe": stub-transcribe an audio file or inline base64 audio to text (returns placeholder transcript)
+- "speak": stub-synthesize text to speech (returns placeholder audio URL / base64)
+- "enable" / "disable": toggle voice mode for the session
+
+This is a stub implementation — it does not access the microphone or call a cloud STT/TTS provider. It validates inputs, reports capability, and returns deterministic placeholder outputs so `tsc` passes and the tool can be registered without side effects. Replace with real `audio-capture-napi` + provider integration when enabling.

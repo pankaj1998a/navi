@@ -164,13 +164,16 @@ export const layer: Layer.Layer<Service, never, Auth.Service | Plugin.Service> =
       input: { providerID: ProviderID } & AuthorizeInput,
     ) {
       const { hooks, pending } = yield* InstanceState.get(state)
-      const method = hooks[input.providerID].methods[input.method]
+      const provider = hooks[input.providerID]
+      const method = provider?.methods[input.method]
+      if (!method) return
       if (method.type !== "oauth") return
 
       if (method.prompts && input.inputs) {
         for (const prompt of method.prompts) {
-          if (prompt.type === "text" && prompt.validate && input.inputs[prompt.key] !== undefined) {
-            const error = prompt.validate(input.inputs[prompt.key])
+          const v = input.inputs[prompt.key]
+          if (prompt.type === "text" && prompt.validate && v !== undefined) {
+            const error = prompt.validate(v)
             if (error) return yield* Effect.fail(new ValidationFailed({ field: prompt.key, message: error }))
           }
         }

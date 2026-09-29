@@ -43,6 +43,7 @@ function loadCheckpoints(worktree: string): CheckpointEntry[] {
   const file = getIndexFile(worktree)
   if (fs.existsSync(file)) {
     try {
+      // TODO: async-ify via FileSystem.readFileStringSafe in execute path (callers are Effect.gen).
       return JSON.parse(fs.readFileSync(file, "utf-8")) as CheckpointEntry[]
     } catch {
       return []
@@ -53,7 +54,10 @@ function loadCheckpoints(worktree: string): CheckpointEntry[] {
 
 function saveCheckpoints(worktree: string, list: CheckpointEntry[]): void {
   const file = getIndexFile(worktree)
-  fs.writeFileSync(file, JSON.stringify(list, null, 2), "utf-8")
+  // Atomic tmp+rename to avoid corrupt index on crash.
+  const tmp = `${file}.${process.pid}.tmp`
+  fs.writeFileSync(tmp, JSON.stringify(list, null, 2), "utf-8")
+  fs.renameSync(tmp, file)
 }
 
 export const CheckpointTool = Tool.define(
@@ -99,7 +103,10 @@ export const CheckpointTool = Tool.define(
                 }
               })
 
-              fs.writeFileSync(patchPath, diffResult, "utf-8")
+              // Atomic patch write: tmp+rename so restore never reads a partial patch.
+              const patchTmp = `${patchPath}.${process.pid}.tmp`
+              fs.writeFileSync(patchTmp, diffResult, "utf-8")
+              fs.renameSync(patchTmp, patchPath)
 
               const list = loadCheckpoints(instance.directory)
               const entry: CheckpointEntry = {

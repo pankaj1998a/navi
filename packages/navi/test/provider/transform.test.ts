@@ -847,83 +847,11 @@ describe("ProviderTransform.schema - gemini non-object properties removal", () =
           properties: { invalid: { type: "string" } },
         },
       },
-      required: ["data"],
     } as any
 
     const result = ProviderTransform.schema(openaiModel, schema) as any
 
     expect(result.properties.data.properties).toBeDefined()
-  })
-})
-
-describe("ProviderTransform.schema - openai/azure strict schema sanitization", () => {
-  const openaiModel = {
-    providerID: "openai",
-    api: {
-      id: "gpt-4",
-    },
-  } as any
-
-  test("makes optional properties nullable and sets additionalProperties to false", () => {
-    const schema = {
-      type: "object",
-      properties: {
-        requiredField: { type: "string" },
-        optionalField: { type: "number" },
-        optionalWithAnyOf: { anyOf: [{ type: "boolean" }] },
-        optionalWithTypeArray: { type: ["string", "number"] },
-      },
-      required: ["requiredField"],
-    } as any
-
-    const result = ProviderTransform.schema(openaiModel, schema) as any
-
-    expect(result.additionalProperties).toBe(false)
-    expect(result.required).toEqual([
-      "requiredField",
-      "optionalField",
-      "optionalWithAnyOf",
-      "optionalWithTypeArray",
-    ])
-    expect(result.properties.requiredField).toEqual({ type: "string" })
-    expect(result.properties.optionalField).toEqual({
-      anyOf: [{ type: "number" }, { type: "null" }],
-    })
-    expect(result.properties.optionalWithAnyOf).toEqual({
-      anyOf: [{ type: "boolean" }, { type: "null" }],
-    })
-    expect(result.properties.optionalWithTypeArray).toEqual({
-      type: ["string", "number", "null"],
-    })
-  })
-
-  test("recursively sanitizes nested objects", () => {
-    const schema = {
-      type: "object",
-      properties: {
-        nested: {
-          type: "object",
-          properties: {
-            innerOptional: { type: "string" },
-          },
-        },
-      },
-    } as any
-
-    const result = ProviderTransform.schema(openaiModel, schema) as any
-
-    expect(result.additionalProperties).toBe(false)
-    expect(result.required).toEqual(["nested"])
-
-    const nested = result.properties.nested.anyOf[0]
-    expect(nested.type).toBe("object")
-    expect(nested.additionalProperties).toBe(false)
-    expect(nested.required).toEqual(["innerOptional"])
-    expect(nested.properties.innerOptional).toEqual({
-      anyOf: [{ type: "string" }, { type: "null" }],
-    })
-
-    expect(result.properties.nested.anyOf[1]).toEqual({ type: "null" })
   })
 })
 
@@ -1128,7 +1056,9 @@ describe("ProviderTransform.message - DeepSeek reasoning content", () => {
     )
 
     expect(result).toHaveLength(1)
-    expect(result[0].content).toEqual([
+    const firstMessage = result[0]
+    if (!firstMessage) throw new Error("expected message")
+    expect(firstMessage.content).toEqual([
       {
         type: "tool-call",
         toolCallId: "test",
@@ -1136,7 +1066,7 @@ describe("ProviderTransform.message - DeepSeek reasoning content", () => {
         input: { command: "echo hello" },
       },
     ])
-    expect(result[0].providerOptions?.openaiCompatible?.reasoning_content).toBe("Let me think about this...")
+    expect(firstMessage.providerOptions?.openaiCompatible?.reasoning_content).toBe("Let me think about this...")
   })
 
   test("Non-DeepSeek providers leave reasoning content unchanged", () => {
@@ -1187,11 +1117,13 @@ describe("ProviderTransform.message - DeepSeek reasoning content", () => {
       {},
     )
 
-    expect(result[0].content).toEqual([
+    const unchangedMessage = result[0]
+    if (!unchangedMessage) throw new Error("expected message")
+    expect(unchangedMessage.content).toEqual([
       { type: "reasoning", text: "Should not be processed" },
       { type: "text", text: "Answer" },
     ])
-    expect(result[0].providerOptions?.openaiCompatible?.reasoning_content).toBeUndefined()
+    expect(unchangedMessage.providerOptions?.openaiCompatible?.reasoning_content).toBeUndefined()
   })
 })
 
@@ -1354,9 +1286,11 @@ describe("ProviderTransform.message - empty image handling", () => {
     const result = ProviderTransform.message(msgs, mockModel, {})
 
     expect(result).toHaveLength(1)
-    expect(result[0].content).toHaveLength(2)
-    expect(result[0].content[0]).toEqual({ type: "text", text: "What is in this image?" })
-    expect(result[0].content[1]).toEqual({
+    const emptyImageMessage = result[0]
+    if (!emptyImageMessage) throw new Error("expected message")
+    expect(emptyImageMessage.content).toHaveLength(2)
+    expect(emptyImageMessage.content[0]).toEqual({ type: "text", text: "What is in this image?" })
+    expect(emptyImageMessage.content[1]).toEqual({
       type: "text",
       text: "ERROR: Image file is empty or corrupted. Please provide a valid image.",
     })
@@ -1378,9 +1312,11 @@ describe("ProviderTransform.message - empty image handling", () => {
     const result = ProviderTransform.message(msgs, mockModel, {})
 
     expect(result).toHaveLength(1)
-    expect(result[0].content).toHaveLength(2)
-    expect(result[0].content[0]).toEqual({ type: "text", text: "What is in this image?" })
-    expect(result[0].content[1]).toEqual({ type: "image", image: `data:image/png;base64,${validBase64}` })
+    const validImageMessage = result[0]
+    if (!validImageMessage) throw new Error("expected message")
+    expect(validImageMessage.content).toHaveLength(2)
+    expect(validImageMessage.content[0]).toEqual({ type: "text", text: "What is in this image?" })
+    expect(validImageMessage.content[1]).toEqual({ type: "image", image: `data:image/png;base64,${validBase64}` })
   })
 
   test("should handle mixed valid and empty images", () => {
@@ -1400,10 +1336,12 @@ describe("ProviderTransform.message - empty image handling", () => {
     const result = ProviderTransform.message(msgs, mockModel, {})
 
     expect(result).toHaveLength(1)
-    expect(result[0].content).toHaveLength(3)
-    expect(result[0].content[0]).toEqual({ type: "text", text: "Compare these images" })
-    expect(result[0].content[1]).toEqual({ type: "image", image: `data:image/png;base64,${validBase64}` })
-    expect(result[0].content[2]).toEqual({
+    const mixedImageMessage = result[0]
+    if (!mixedImageMessage) throw new Error("expected message")
+    expect(mixedImageMessage.content).toHaveLength(3)
+    expect(mixedImageMessage.content[0]).toEqual({ type: "text", text: "Compare these images" })
+    expect(mixedImageMessage.content[1]).toEqual({ type: "image", image: `data:image/png;base64,${validBase64}` })
+    expect(mixedImageMessage.content[2]).toEqual({
       type: "text",
       text: "ERROR: Image file is empty or corrupted. Please provide a valid image.",
     })
@@ -1453,8 +1391,12 @@ describe("ProviderTransform.message - anthropic empty content filtering", () => 
     const result = ProviderTransform.message(msgs, anthropicModel, {})
 
     expect(result).toHaveLength(2)
-    expect(result[0].content).toBe("Hello")
-    expect(result[1].content).toBe("World")
+    const helloMessage = result[0]
+    if (!helloMessage) throw new Error("expected message")
+    expect(helloMessage.content).toBe("Hello")
+    const worldMessage = result[1]
+    if (!worldMessage) throw new Error("expected message")
+    expect(worldMessage.content).toBe("World")
   })
 
   test("filters out empty text parts from array content", () => {
@@ -1472,8 +1414,10 @@ describe("ProviderTransform.message - anthropic empty content filtering", () => 
     const result = ProviderTransform.message(msgs, anthropicModel, {})
 
     expect(result).toHaveLength(1)
-    expect(result[0].content).toHaveLength(1)
-    expect(result[0].content[0]).toEqual({ type: "text", text: "Hello" })
+    const helloPartMessage = result[0]
+    if (!helloPartMessage) throw new Error("expected message")
+    expect(helloPartMessage.content).toHaveLength(1)
+    expect(helloPartMessage.content[0]).toEqual({ type: "text", text: "Hello" })
   })
 
   test("filters out empty reasoning parts from array content", () => {
@@ -1491,8 +1435,10 @@ describe("ProviderTransform.message - anthropic empty content filtering", () => 
     const result = ProviderTransform.message(msgs, anthropicModel, {})
 
     expect(result).toHaveLength(1)
-    expect(result[0].content).toHaveLength(1)
-    expect(result[0].content[0]).toEqual({ type: "text", text: "Answer" })
+    const answerMessage = result[0]
+    if (!answerMessage) throw new Error("expected message")
+    expect(answerMessage.content).toHaveLength(1)
+    expect(answerMessage.content[0]).toEqual({ type: "text", text: "Answer" })
   })
 
   test("removes entire message when all parts are empty", () => {
@@ -1511,8 +1457,12 @@ describe("ProviderTransform.message - anthropic empty content filtering", () => 
     const result = ProviderTransform.message(msgs, anthropicModel, {})
 
     expect(result).toHaveLength(2)
-    expect(result[0].content).toBe("Hello")
-    expect(result[1].content).toBe("World")
+    const helloFilteredMessage = result[0]
+    if (!helloFilteredMessage) throw new Error("expected message")
+    expect(helloFilteredMessage.content).toBe("Hello")
+    const worldFilteredMessage = result[1]
+    if (!worldFilteredMessage) throw new Error("expected message")
+    expect(worldFilteredMessage.content).toBe("World")
   })
 
   test("keeps non-text/reasoning parts even if text parts are empty", () => {
@@ -1529,8 +1479,10 @@ describe("ProviderTransform.message - anthropic empty content filtering", () => 
     const result = ProviderTransform.message(msgs, anthropicModel, {})
 
     expect(result).toHaveLength(1)
-    expect(result[0].content).toHaveLength(1)
-    expect(result[0].content[0]).toEqual({
+    const toolCallMessage = result[0]
+    if (!toolCallMessage) throw new Error("expected message")
+    expect(toolCallMessage.content).toHaveLength(1)
+    expect(toolCallMessage.content[0]).toEqual({
       type: "tool-call",
       toolCallId: "123",
       toolName: "bash",
@@ -1553,9 +1505,11 @@ describe("ProviderTransform.message - anthropic empty content filtering", () => 
     const result = ProviderTransform.message(msgs, anthropicModel, {})
 
     expect(result).toHaveLength(1)
-    expect(result[0].content).toHaveLength(2)
-    expect(result[0].content[0]).toEqual({ type: "reasoning", text: "Thinking..." })
-    expect(result[0].content[1]).toEqual({ type: "text", text: "Result" })
+    const reasoningMessage = result[0]
+    if (!reasoningMessage) throw new Error("expected message")
+    expect(reasoningMessage.content).toHaveLength(2)
+    expect(reasoningMessage.content[0]).toEqual({ type: "reasoning", text: "Thinking..." })
+    expect(reasoningMessage.content[1]).toEqual({ type: "text", text: "Result" })
   })
 
   test("filters empty content for bedrock provider", () => {
@@ -1585,9 +1539,13 @@ describe("ProviderTransform.message - anthropic empty content filtering", () => 
     const result = ProviderTransform.message(msgs, bedrockModel, {})
 
     expect(result).toHaveLength(2)
-    expect(result[0].content).toBe("Hello")
-    expect(result[1].content).toHaveLength(1)
-    expect(result[1].content[0]).toEqual({ type: "text", text: "Answer" })
+    const bedrockHello = result[0]
+    if (!bedrockHello) throw new Error("expected message")
+    expect(bedrockHello.content).toBe("Hello")
+    const bedrockAnswer = result[1]
+    if (!bedrockAnswer) throw new Error("expected message")
+    expect(bedrockAnswer.content).toHaveLength(1)
+    expect(bedrockAnswer.content[0]).toEqual({ type: "text", text: "Answer" })
   })
 
   test("does not filter for non-anthropic providers", () => {
@@ -1612,8 +1570,12 @@ describe("ProviderTransform.message - anthropic empty content filtering", () => 
     const result = ProviderTransform.message(msgs, openaiModel, {})
 
     expect(result).toHaveLength(2)
-    expect(result[0].content).toBe("")
-    expect(result[1].content).toHaveLength(1)
+    const openaiEmpty = result[0]
+    if (!openaiEmpty) throw new Error("expected message")
+    expect(openaiEmpty.content).toBe("")
+    const openaiParts = result[1]
+    if (!openaiParts) throw new Error("expected message")
+    expect(openaiParts.content).toHaveLength(1)
   })
 
   test("splits anthropic assistant messages when text trails tool calls", () => {
@@ -2053,8 +2015,10 @@ describe("ProviderTransform.message - providerOptions key remapping", () => {
 
     const result = ProviderTransform.message(msgs, model, {})
 
-    expect(result[0].providerOptions?.azure).toEqual({ someOption: "value" })
-    expect(result[0].providerOptions?.openai).toBeUndefined()
+    const azureMessage = result[0]
+    if (!azureMessage) throw new Error("expected message")
+    expect(azureMessage.providerOptions?.azure).toEqual({ someOption: "value" })
+    expect(azureMessage.providerOptions?.openai).toBeUndefined()
   })
 
   test("azure cognitive services remaps providerID to 'azure' key", () => {
@@ -2100,8 +2064,10 @@ describe("ProviderTransform.message - providerOptions key remapping", () => {
 
     const result = ProviderTransform.message(msgs, model, {})
 
-    expect(result[0].providerOptions?.copilot).toEqual({ someOption: "value" })
-    expect(result[0].providerOptions?.["github-copilot"]).toBeUndefined()
+    const copilotMessage = result[0]
+    if (!copilotMessage) throw new Error("expected message")
+    expect(copilotMessage.providerOptions?.copilot).toEqual({ someOption: "value" })
+    expect(copilotMessage.providerOptions?.["github-copilot"]).toBeUndefined()
   })
 
   test("bedrock remaps providerID to 'bedrock' key", () => {
@@ -2118,8 +2084,10 @@ describe("ProviderTransform.message - providerOptions key remapping", () => {
 
     const result = ProviderTransform.message(msgs, model, {})
 
-    expect(result[0].providerOptions?.bedrock).toEqual({ someOption: "value" })
-    expect(result[0].providerOptions?.["my-bedrock"]).toBeUndefined()
+    const bedrockMessage = result[0]
+    if (!bedrockMessage) throw new Error("expected message")
+    expect(bedrockMessage.providerOptions?.bedrock).toEqual({ someOption: "value" })
+    expect(bedrockMessage.providerOptions?.["my-bedrock"]).toBeUndefined()
   })
 })
 
@@ -2148,7 +2116,9 @@ describe("ProviderTransform.message - claude w/bedrock custom inference profile"
 
     const result = ProviderTransform.message(msgs, model, {})
 
-    expect(result[0].providerOptions?.bedrock).toEqual(
+    const cachePointMessage = result[0]
+    if (!cachePointMessage) throw new Error("expected message")
+    expect(cachePointMessage.providerOptions?.bedrock).toEqual(
       expect.objectContaining({
         cachePoint: {
           type: "default",

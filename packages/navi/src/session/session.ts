@@ -131,7 +131,7 @@ function getForkedTitle(title: string): string {
   const match = title.match(/^(.+) \(fork #(\d+)\)$/)
   if (match) {
     const base = match[1]
-    const num = parseInt(match[2], 10)
+    const num = parseInt(match[2] ?? "0", 10)
     return `${base} (fork #${num + 1})`
   }
   return `${title} (fork #1)`
@@ -498,9 +498,8 @@ export const layer: Layer.Layer<Service, never, Bus.Service | Storage.Service | 
       path?: string
       permission?: Permission.Ruleset
     }) {
-      const ctx = yield* InstanceState.context.pipe(
-        Effect.catchCause(() => Effect.die("Instance context unavailable")),
-      )
+      const ctx = yield* InstanceState.context
+      if (!ctx) return yield* Effect.die("InstanceState.context unavailable")
       const result: Info = {
         id: SessionID.descending(input.id),
         slug: Slug.create(),
@@ -542,7 +541,7 @@ export const layer: Layer.Layer<Service, never, Bus.Service | Storage.Service | 
     })
 
     const list = Effect.fn("Session.list")(function* (input?: ListInput) {
-      const ctx = yield* InstanceState.context.pipe(Effect.catchCause(() => Effect.succeed(undefined)))
+      const ctx = yield* InstanceState.context
       if (!ctx) return []
       return Array.from(listByProject({ projectID: ctx.project.id, ...input }))
     })
@@ -592,7 +591,7 @@ export const layer: Layer.Layer<Service, never, Bus.Service | Storage.Service | 
       Effect.gen(function* () {
         yield* sync.run(MessageV2.Event.PartUpdated, {
           sessionID: part.sessionID,
-          part: { ...part },
+          part: structuredClone(part),
           time: Date.now(),
         })
         return part
@@ -629,9 +628,8 @@ export const layer: Layer.Layer<Service, never, Bus.Service | Storage.Service | 
       permission?: Permission.Ruleset
       workspaceID?: WorkspaceID
     }) {
-      const ctx = yield* InstanceState.context.pipe(
-        Effect.catchCause(() => Effect.die("Instance context unavailable")),
-      )
+      const ctx = yield* InstanceState.context
+      if (!ctx) return yield* Effect.die("InstanceState.context unavailable")
       const workspace = yield* InstanceState.workspaceID
       return yield* createNext({
         parentID: input?.parentID,
@@ -646,9 +644,8 @@ export const layer: Layer.Layer<Service, never, Bus.Service | Storage.Service | 
     })
 
     const fork = Effect.fn("Session.fork")(function* (input: { sessionID: SessionID; messageID?: MessageID }) {
-      const ctx = yield* InstanceState.context.pipe(
-        Effect.catchCause(() => Effect.die("Instance context unavailable")),
-      )
+      const ctx = yield* InstanceState.context
+      if (!ctx) return yield* Effect.die("InstanceState.context unavailable")
       const original = yield* get(input.sessionID)
       const title = getForkedTitle(original.title)
       const session = yield* createNext({
@@ -739,7 +736,9 @@ export const layer: Layer.Layer<Service, never, Bus.Service | Storage.Service | 
       if (input.limit) {
         return MessageV2.page({ sessionID: input.sessionID, limit: input.limit }).items
       }
-      return Array.from(MessageV2.stream(input.sessionID)).reverse()
+      return Array.from(MessageV2.stream(input.sessionID))
+        .filter((m): m is MessageV2.WithParts => !!m)
+        .reverse()
     })
 
     const removeMessage = Effect.fn("Session.removeMessage")(function* (input: {
@@ -782,6 +781,7 @@ export const layer: Layer.Layer<Service, never, Bus.Service | Storage.Service | 
       predicate: (msg: MessageV2.WithParts) => boolean,
     ) {
       for (const item of MessageV2.stream(sessionID)) {
+        if (!item) continue
         if (predicate(item)) return Option.some(item)
       }
       return Option.none<MessageV2.WithParts>()
@@ -914,7 +914,7 @@ export function* listGlobal(input?: {
     return query.orderBy(desc(SessionTable.time_updated), desc(SessionTable.id)).limit(limit).all()
   })
 
-  const ids = [...new Set(rows.map((row: any) => row.project_id))]
+  const ids = [...new Set(rows.map((row) => row.project_id))]
   const projects = new Map<string, ProjectInfo>()
 
   if (ids.length > 0) {
@@ -922,7 +922,7 @@ export function* listGlobal(input?: {
       db
         .select({ id: ProjectTable.id, name: ProjectTable.name, worktree: ProjectTable.worktree })
         .from(ProjectTable)
-        .where(inArray(ProjectTable.id as any, ids as any))
+        .where(inArray(ProjectTable.id, ids))
         .all(),
     )
     for (const item of items) {

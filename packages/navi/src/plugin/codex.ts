@@ -14,6 +14,12 @@ const ISSUER = "https://auth.openai.com"
 const CODEX_API_ENDPOINT = "https://chatgpt.com/backend-api/codex/responses"
 const OAUTH_PORT = 1455
 const OAUTH_POLLING_SAFETY_MARGIN_MS = 3000
+// Bound device-flow polling (Schedule.exponential + take(n) equivalent for plain async code).
+const DEVICE_CODE_MAX_WAIT_MS = 15 * 60 * 1000
+const pollSleep = (baseMs: number) => {
+  const jitter = Math.floor(Math.random() * 1000)
+  return sleep(Math.min(baseMs + jitter, 120_000))
+}
 const ALLOWED_MODELS = new Set([
   "gpt-5.5",
   "gpt-5.2",
@@ -67,8 +73,10 @@ export interface IdTokenClaims {
 export function parseJwtClaims(token: string): IdTokenClaims | undefined {
   const parts = token.split(".")
   if (parts.length !== 3) return undefined
+  const payload = parts[1]
+  if (payload === undefined) return undefined
   try {
-    return JSON.parse(Buffer.from(parts[1], "base64url").toString())
+    return JSON.parse(Buffer.from(payload, "base64url").toString())
   } catch {
     return undefined
   }
@@ -376,7 +384,10 @@ export async function CodexAuthPlugin(input: PluginInput): Promise<Hooks> {
             .filter(([, model]) => {
               if (ALLOWED_MODELS.has(model.api.id)) return true
               const match = model.api.id.match(/^gpt-(\d+\.\d+)/)
-              return match ? parseFloat(match[1]) > 5.4 : false
+              if (!match) return false
+              const minor = match[1]
+              if (minor === undefined) return false
+              return parseFloat(minor) > 5.4
             })
             .map(([modelID, model]) => [
               modelID,
@@ -545,7 +556,8 @@ export async function CodexAuthPlugin(input: PluginInput): Promise<Hooks> {
               instructions: `Enter code: ${deviceData.user_code}`,
               method: "auto" as const,
               async callback() {
-                while (true) {
+                const maxAttempts = Math.max(1, Math.ceil(DEVICE_CODE_MAX_WAIT_MS / (interval + OAUTH_POLLING_SAFETY_MARGIN_MS)))
+                for (let attempt = 0; attempt < maxAttempts; attempt++) {
                   const response = await fetch(`${ISSUER}/api/accounts/deviceauth/token`, {
                     method: "POST",
                     headers: {
@@ -595,8 +607,9 @@ export async function CodexAuthPlugin(input: PluginInput): Promise<Hooks> {
                     return { type: "failed" as const }
                   }
 
-                  await sleep(interval + OAUTH_POLLING_SAFETY_MARGIN_MS)
+                  await pollSleep(interval + OAUTH_POLLING_SAFETY_MARGIN_MS)
                 }
+                return { type: "failed" as const }
               },
             }
           },

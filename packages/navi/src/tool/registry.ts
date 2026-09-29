@@ -6,7 +6,7 @@ import { EditTool } from "./edit"
 import { GlobTool } from "./glob"
 import { GrepTool } from "./grep"
 import { ReadTool } from "./read"
-import { TaskTool, BACKGROUND_DESCRIPTION } from "./task"
+import { TaskTool } from "./task"
 import { TodoWriteTool } from "./todo"
 import { WebFetchTool } from "./webfetch"
 import { WriteTool } from "./write"
@@ -44,17 +44,13 @@ import { Memory } from "@/memory"
 import { History } from "@/history"
 import { MemoryTool } from "./memory"
 import { HistoryTool } from "./history"
-import { ImageGenerateTool } from "./image-generate"
-import { BrowserTool } from "./browser"
-import { ScheduleTool } from "./schedule"
-import { KnowledgeTool } from "./knowledge"
 import { TestRunnerTool } from "./test-runner"
-import { CheckpointTool } from "./checkpoint"
+import { BrowserTool } from "./browser"
 import { ArchMapTool } from "./arch-map"
+import { CheckpointTool } from "./checkpoint"
 import { Glob } from "@navi-ai/core/util/glob"
 import path from "path"
 import { pathToFileURL } from "url"
-import { BackgroundJob } from "@/background-job"
 import { Service, type Interface, type TaskDef, type ReadDef } from "./registry-service"
 export { Service, type Interface, type TaskDef, type ReadDef } from "./registry-service"
 import { Effect, Layer, Context } from "effect"
@@ -121,7 +117,6 @@ export const layer: Layer.Layer<
   | Memory.Service
   | History.Service
   | SessionStatus.Service
-  | BackgroundJob.Service
 > = Layer.effect(
   Service,
   Effect.gen(function* () {
@@ -161,13 +156,10 @@ export const layer: Layer.Layer<
     const toolsearch = yield* ToolSearchTool
     const memorytool = yield* MemoryTool
     const historytool = yield* HistoryTool
-    const imageGenerate = yield* ImageGenerateTool
+    const testrunner = yield* TestRunnerTool
     const browsertool = yield* BrowserTool
-    const scheduletool = yield* ScheduleTool
-    const knowledgetool = yield* KnowledgeTool
-    const testrunnertool = yield* TestRunnerTool
+    const archmap = yield* ArchMapTool
     const checkpointtool = yield* CheckpointTool
-    const archmaptool = yield* ArchMapTool
 
     const state = yield* InstanceState.make<State>(
       Effect.fn("ToolRegistry.state")(function* (ctx) {
@@ -278,13 +270,10 @@ export const layer: Layer.Layer<
           tool_search: Tool.init(toolsearch),
           memory: Tool.init(memorytool),
           history: Tool.init(historytool),
-          image_generate: Tool.init(imageGenerate),
+          test_runner: Tool.init(testrunner),
           browser: Tool.init(browsertool),
-          schedule: Tool.init(scheduletool),
-          knowledge: Tool.init(knowledgetool),
-          test_runner: Tool.init(testrunnertool),
+          arch_map: Tool.init(archmap),
           checkpoint: Tool.init(checkpointtool),
-          arch_map: Tool.init(archmaptool),
         })
 
         return {
@@ -316,13 +305,10 @@ export const layer: Layer.Layer<
             tool.tool_search,
             tool.memory,
             tool.history,
-            tool.image_generate,
-            tool.browser,
-            tool.schedule,
-            tool.knowledge,
             tool.test_runner,
-            tool.checkpoint,
+            tool.browser,
             tool.arch_map,
+            tool.checkpoint,
             ...(Flag.NAVI_EXPERIMENTAL_LSP_TOOL ? [tool.lsp] : []),
             ...(Flag.NAVI_EXPERIMENTAL_PLAN_MODE && Flag.NAVI_CLIENT === "cli" ? [tool.plan] : []),
           ],
@@ -389,8 +375,6 @@ export const layer: Layer.Layer<
         return true
       })
 
-      const toolCfg = yield* config.get()
-      const toolConcurrency = toolCfg.experimental?.toolConcurrency ?? 8
       return yield* Effect.forEach(
         filtered,
         Effect.fnUntraced(function* (tool: Tool.Def<any, any>) {
@@ -400,17 +384,10 @@ export const layer: Layer.Layer<
             parameters: tool.parameters,
           }
           yield* plugin.trigger("tool.definition", { toolID: tool.id }, output)
-          const cfg = yield* config.get()
-          const showBackground =
-            tool.id === TaskTool.id &&
-            process.env.NAVI_EXPERIMENTAL_BACKGROUND_SUBAGENTS !== "false" &&
-            cfg.experimental?.background_subagents !== false
-
           return {
             id: tool.id,
             description: [
               output.description,
-              showBackground ? BACKGROUND_DESCRIPTION : undefined,
               tool.id === TaskTool.id ? yield* describeTask(input.agent) : undefined,
               tool.id === SkillTool.id ? yield* describeSkill(input.agent) : undefined,
             ]
@@ -421,7 +398,7 @@ export const layer: Layer.Layer<
             formatValidationError: tool.formatValidationError,
           }
         }),
-        { concurrency: toolConcurrency },
+        { concurrency: "unbounded" },
       )
     })
 
@@ -464,7 +441,6 @@ export const defaultLayer = Layer.suspend(() =>
         Truncate.defaultLayer,
         Memory.defaultLayer,
         History.defaultLayer,
-        BackgroundJob.layer,
       ),
     ),
   ),

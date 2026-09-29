@@ -14,6 +14,7 @@ const headers = Flag.OTEL_EXPORTER_OTLP_HEADERS
   ? Flag.OTEL_EXPORTER_OTLP_HEADERS.split(",").reduce(
       (acc, x) => {
         const [key, ...value] = x.split("=")
+        if (key === undefined) return acc
         acc[key] = value.join("=")
         return acc
       },

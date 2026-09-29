@@ -399,8 +399,10 @@ function appendCommits(detail: DetailState, commits: StreamCommit[]) {
       continue
     }
 
-    const next = mergeLiveCommit(detail.frames[index].commit, commit)
-    if (sameCommit(detail.frames[index].commit, next)) {
+    const current = detail.frames[index]
+    if (!current) continue
+    const next = mergeLiveCommit(current.commit, commit)
+    if (sameCommit(current.commit, next)) {
       continue
     }
 

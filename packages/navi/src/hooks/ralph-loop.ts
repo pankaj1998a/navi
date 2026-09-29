@@ -17,7 +17,7 @@
 import type { Hooks, PluginInput } from "@navi-ai/plugin"
 import type { Message } from "../session/message"
 import { Log } from "@navi-ai/core/util/log"
-import { promises as fs } from "node:fs"
+import { existsSync, readFileSync, mkdirSync, unlinkSync, writeFileSync, renameSync } from "node:fs"
 import { join } from "node:path"
 
 const log = Log.create({ service: "ralph-loop" })
@@ -53,14 +53,12 @@ export interface RalphLoopState {
 }
 
 /**
- * Ensure state directory exists and return state file path
+ * Get the path to the Ralph Loop state file
  */
-async function ensureStateDir(directory: string): Promise<string> {
+function getStateFilePath(directory: string): string {
     const stateDir = join(directory, ".navi")
-    try {
-        await fs.mkdir(stateDir, { recursive: true })
-    } catch (e) {
-        // ignore if exists
+    if (!existsSync(stateDir)) {
+        mkdirSync(stateDir, { recursive: true })
     }
     return join(stateDir, "ralph-loop.json")
 }
@@ -68,24 +66,27 @@ async function ensureStateDir(directory: string): Promise<string> {
 /**
  * Read Ralph Loop state from disk
  */
-async function readState(directory: string): Promise<RalphLoopState | null> {
-    const stateDir = join(directory, ".navi")
-    const statePath = join(stateDir, "ralph-loop.json")
+function readState(directory: string): RalphLoopState | null {
+    const statePath = getStateFilePath(directory)
+    if (!existsSync(statePath)) return null
+
     try {
-        const content = await fs.readFile(statePath, "utf-8")
+        const content = readFileSync(statePath, "utf-8")
         return JSON.parse(content) as RalphLoopState
-    } catch (e) {
+    } catch {
         return null
     }
 }
 
 /**
- * Write Ralph Loop state to disk
+ * Write Ralph Loop state to disk (atomic tmp+rename so readers never see partial JSON)
  */
-async function writeState(directory: string, state: RalphLoopState): Promise<boolean> {
+function writeState(directory: string, state: RalphLoopState): boolean {
     try {
-        const statePath = await ensureStateDir(directory)
-        await fs.writeFile(statePath, JSON.stringify(state, null, 2))
+        const statePath = getStateFilePath(directory)
+        const tmp = `${statePath}.${process.pid}.tmp`
+        writeFileSync(tmp, JSON.stringify(state, null, 2))
+        renameSync(tmp, statePath)
         return true
     } catch (err) {
         log.error("Failed to write state", { error: err })
@@ -96,14 +97,14 @@ async function writeState(directory: string, state: RalphLoopState): Promise<boo
 /**
  * Clear Ralph Loop state
  */
-async function clearState(directory: string): Promise<boolean> {
+function clearState(directory: string): boolean {
     try {
-        const statePath = join(directory, ".navi", "ralph-loop.json")
-        await fs.unlink(statePath)
+        const statePath = getStateFilePath(directory)
+        if (existsSync(statePath)) {
+            unlinkSync(statePath)
+        }
         return true
     } catch (err) {
-        const code = (err as any)?.code
-        if (code === "ENOENT") return true
         log.error("Failed to clear state", { error: err })
         return false
     }
@@ -122,9 +123,9 @@ export interface RalphLoopHook {
         sessionID: string,
         prompt: string,
         options?: { maxIterations?: number; completionPromise?: string }
-    ) => Promise<boolean>
-    cancelLoop: (sessionID: string) => Promise<boolean>
-    getState: () => Promise<RalphLoopState | null>
+    ) => boolean
+    cancelLoop: (sessionID: string) => boolean
+    getState: () => RalphLoopState | null
 }
 
 export interface RalphLoopOptions {
@@ -145,11 +146,11 @@ export function createRalphLoopHook(options: RalphLoopOptions & { input: PluginI
     /**
      * Start a new Ralph Loop
      */
-    const startLoop = async (
+    const startLoop = (
         sessionID: string,
         prompt: string,
         loopOptions?: { maxIterations?: number; completionPromise?: string }
-    ): Promise<boolean> => {
+    ): boolean => {
         const state: RalphLoopState = {
             active: true,
             iteration: 1,
@@ -160,7 +161,7 @@ export function createRalphLoopHook(options: RalphLoopOptions & { input: PluginI
             session_id: sessionID,
         }
 
-        const success = await writeState(directory, state)
+        const success = writeState(directory, state)
         if (success) {
             log.info("Ralph Loop started", {
                 sessionID,
@@ -174,13 +175,13 @@ export function createRalphLoopHook(options: RalphLoopOptions & { input: PluginI
     /**
      * Cancel an active Ralph Loop
      */
-    const cancelLoop = async (sessionID: string): Promise<boolean> => {
-        const state = await readState(directory)
+    const cancelLoop = (sessionID: string): boolean => {
+        const state = readState(directory)
         if (!state || state.session_id !== sessionID) {
             return false
         }
 
-        const success = await clearState(directory)
+        const success = clearState(directory)
         if (success) {
             log.info("Ralph Loop cancelled", { sessionID, iteration: state.iteration })
         }
@@ -190,7 +191,7 @@ export function createRalphLoopHook(options: RalphLoopOptions & { input: PluginI
     /**
      * Get current Ralph Loop state
      */
-    const getState = async (): Promise<RalphLoopState | null> => {
+    const getState = (): RalphLoopState | null => {
         return readState(directory)
     }
 
@@ -220,7 +221,7 @@ export function createRalphLoopHook(options: RalphLoopOptions & { input: PluginI
                 return
             }
 
-            const state = await readState(directory)
+            const state = readState(directory)
             if (!state || !state.active) {
                 return
             }
@@ -237,7 +238,7 @@ export function createRalphLoopHook(options: RalphLoopOptions & { input: PluginI
                     iteration: state.iteration,
                     max: state.max_iterations,
                 })
-                await clearState(directory)
+                clearState(directory)
                 return
             }
 
@@ -264,7 +265,7 @@ export function createRalphLoopHook(options: RalphLoopOptions & { input: PluginI
                         
                         if (detectCompletion(text, state.completion_promise)) {
                             log.info("Completion promise detected, loop finished", { sessionID })
-                            await clearState(directory)
+                            clearState(directory)
                             return
                         }
                     }
@@ -279,7 +280,7 @@ export function createRalphLoopHook(options: RalphLoopOptions & { input: PluginI
                 ...state,
                 iteration: newIteration,
             }
-            await writeState(directory, newState)
+            writeState(directory, newState)
 
             log.info("Continuing loop", {
                 sessionID,
@@ -317,9 +318,9 @@ export function createRalphLoopHook(options: RalphLoopOptions & { input: PluginI
         if (eventData.type === "session.deleted") {
             const sessionInfo = props?.info as { id?: string } | undefined
             if (sessionInfo?.id) {
-                const state = await readState(directory)
+                const state = readState(directory)
                 if (state?.session_id === sessionInfo.id) {
-                    await clearState(directory)
+                    clearState(directory)
                     log.info("Session deleted, loop cleared", { sessionID: sessionInfo.id })
                 }
                 recoveringSessions.delete(sessionInfo.id)
@@ -334,9 +335,9 @@ export function createRalphLoopHook(options: RalphLoopOptions & { input: PluginI
             // User abort clears the loop
             if (error?.name === "MessageAbortedError") {
                 if (sessionID) {
-                    const state = await readState(directory)
+                    const state = readState(directory)
                     if (state?.session_id === sessionID) {
-                        await clearState(directory)
+                        clearState(directory)
                         log.info("User aborted, loop cleared", { sessionID })
                     }
                     recoveringSessions.delete(sessionID)
@@ -344,12 +345,13 @@ export function createRalphLoopHook(options: RalphLoopOptions & { input: PluginI
                 return
             }
 
-            // Mark session as recovering on error
+            // Mark session as recovering on error (throttled 5s window, unref'd so it never holds the loop open)
             if (sessionID) {
                 recoveringSessions.add(sessionID)
-                setTimeout(() => {
+                const timer = setTimeout(() => {
                     recoveringSessions.delete(sessionID)
                 }, 5000)
+                timer.unref?.()
             }
         }
     }
@@ -363,3 +365,4 @@ export function createRalphLoopHook(options: RalphLoopOptions & { input: PluginI
 }
 
 export default createRalphLoopHook
+

@@ -48,8 +48,7 @@ async function httpGet(url: string, timeoutMs = 12_000): Promise<string | null> 
         clearTimeout(timer)
         if (!res.ok) return null
         return await res.text()
-    } catch (e: any) {
-        log.warn("httpGet request failed", { url, error: e.message || String(e) })
+    } catch {
         return null
     } finally {
         clearTimeout(timer)
@@ -87,6 +86,7 @@ async function searchGoogle(query: string, num: number): Promise<SearchResult[]>
         const re = new RegExp(anchorRe.source, "gi")
         while ((match = re.exec(section)) !== null) {
             const href = match[1]
+            if (!href) continue
             if (seen.has(href)) continue
             // Skip google internal, ads, etc.
             if (href.includes("google.com") || href.includes("googleadservices") || href.includes("#")) continue
@@ -96,8 +96,8 @@ async function searchGoogle(query: string, num: number): Promise<SearchResult[]>
             const titleMatch = h3Re.exec(section)
             const snippetMatch = snippetRe.exec(section)
 
-            const title = titleMatch ? stripTags(titleMatch[1]) : stripTags(match[2])
-            const snippet = snippetMatch ? stripTags(snippetMatch[1]) : ""
+            const title = titleMatch ? stripTags(titleMatch[1] ?? "") : stripTags(match[2] ?? "")
+            const snippet = snippetMatch ? stripTags(snippetMatch[1] ?? "") : ""
 
             if (title) {
                 results.push({ title, url: href, snippet })
@@ -111,8 +111,8 @@ async function searchGoogle(query: string, num: number): Promise<SearchResult[]>
         const allLinks = /<a\s+[^>]*href="(https?:\/\/[^"]+)"[^>]*><h3[^>]*>([\s\S]*?)<\/h3>/gi
         let m: RegExpExecArray | null
         while ((m = allLinks.exec(html)) !== null && results.length < num) {
-            const href = m[1]
-            const title = stripTags(m[2])
+            const href = m[1] ?? ""
+            const title = stripTags(m[2] ?? "")
             if (!href.includes("google.com") && !seen.has(href) && title) {
                 seen.add(href)
                 results.push({ title, url: href, snippet: "" })
@@ -137,6 +137,7 @@ async function searchBing(query: string, num: number): Promise<SearchResult[]> {
     const blocks = html.split(/<li\s+class="b_algo"/)
     for (let i = 1; i < blocks.length && results.length < num; i++) {
         const block = blocks[i]
+        if (!block) continue
 
         // Title + URL: <h2><a href="...">title</a></h2>
         const titleUrlMatch = block.match(/<h2[^>]*><a\s+[^>]*href="(https?:\/\/[^"]+)"[^>]*>([\s\S]*?)<\/a>/)
@@ -144,14 +145,14 @@ async function searchBing(query: string, num: number): Promise<SearchResult[]> {
         const snippetMatch = block.match(/<p\s+[^>]*(?:class="b_algoSlug|class="b_lineclamp)[^>]*>([\s\S]*?)<\/p>/)
 
         if (titleUrlMatch) {
-            const href = titleUrlMatch[1]
-            const title = stripTags(titleUrlMatch[2])
+            const href = titleUrlMatch[1] ?? ""
+            const title = stripTags(titleUrlMatch[2] ?? "")
             if (!seen.has(href) && title && !href.includes("bing.com")) {
                 seen.add(href)
                 results.push({
                     title,
                     url: href,
-                    snippet: snippetMatch ? stripTags(snippetMatch[1]) : "",
+                    snippet: snippetMatch ? stripTags(snippetMatch[1] ?? "") : "",
                 })
             }
         }
@@ -182,29 +183,26 @@ async function searchDuckDuckGo(query: string, num: number): Promise<SearchResul
     const blocks = html.split(/<div\s+[^>]*class="result\s/)
     for (let i = 1; i < blocks.length && results.length < num; i++) {
         const block = blocks[i]
+        if (!block) continue
 
         const re = new RegExp(titleRe.source, "gi")
         const m = re.exec(block)
         if (!m) continue
 
-        let href = m[1]
+        let href = m[1] ?? ""
+        if (!href) continue
         // DDG encodes the real URL in the uddg param
         const uddgMatch = href.match(/uddg=([^&]+)/)
         if (uddgMatch) {
-            try {
-                href = decodeURIComponent(uddgMatch[1])
-            } catch (e) {
-                // Ignore malformed URI decoding and skip
-                continue
-            }
+            try { href = decodeURIComponent(uddgMatch[1] ?? "") } catch { continue }
         }
 
         if (!href.startsWith("http") || seen.has(href)) continue
         seen.add(href)
 
-        const title = stripTags(m[2])
+        const title = stripTags(m[2] ?? "")
         const snippetM = snippetRe.exec(block)
-        const snippet = snippetM ? stripTags(snippetM[1]) : ""
+        const snippet = snippetM ? stripTags(snippetM[1] ?? "") : ""
 
         if (title) results.push({ title, url: href, snippet })
     }

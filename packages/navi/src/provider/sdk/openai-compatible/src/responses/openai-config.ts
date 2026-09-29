@@ -7,6 +7,11 @@ export type OpenAIConfig = {
   fetch?: FetchFunction
   generateId?: () => string
   /**
+   * Provider-options namespace for parseProviderOptions (default "openai").
+   * Lets the copilot adapter single-source this file with key "copilot".
+   */
+  providerOptionsKey?: string
+  /**
    * File ID prefixes used to identify file IDs in Responses API.
    * When undefined, all file data is treated as base64 content.
    *

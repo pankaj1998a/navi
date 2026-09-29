@@ -11,6 +11,7 @@ import { Instance } from "../../src/project/instance"
 import { WithInstance } from "../../src/project/with-instance"
 import { GlobalBus } from "../../src/bus/global"
 import { Vcs } from "@/project/vcs"
+import { uniqueName } from "../lib/names"
 
 // Skip in CI — native @parcel/watcher binding needed
 const describeVcs = FileWatcher.hasNativeBinding() && !process.env.CI ? describe : describe.skip
@@ -121,7 +122,7 @@ describeVcs("Vcs", () => {
 
   test("publishes BranchUpdated when .git/HEAD changes", async () => {
     await using tmp = await tmpdir({ git: true })
-    const branch = `test-${Math.random().toString(36).slice(2)}`
+    const branch = uniqueName("test")
     await $`git branch ${branch}`.cwd(tmp.path).quiet()
 
     await withVcs(tmp.path, async () => {
@@ -137,7 +138,7 @@ describeVcs("Vcs", () => {
 
   test("branch() reflects the new branch after HEAD change", async () => {
     await using tmp = await tmpdir({ git: true })
-    const branch = `test-${Math.random().toString(36).slice(2)}`
+    const branch = uniqueName("test")
     await $`git branch ${branch}`.cwd(tmp.path).quiet()
 
     await withVcs(tmp.path, async () => {

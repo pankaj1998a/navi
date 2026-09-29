@@ -55,6 +55,7 @@ const configFile = process.argv[2]
 const tuiFile = process.argv[3]
 
 console.log(configFile)
+if (!configFile) throw new Error("missing config output path")
 await Bun.write(configFile, JSON.stringify(generate(Config.Info.zod), null, 2))
 
 if (tuiFile) {

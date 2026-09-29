@@ -5,7 +5,9 @@ export namespace Binary {
 
     while (left <= right) {
       const mid = Math.floor((left + right) / 2)
-      const midId = compare(array[mid])
+      const midItem = array[mid]
+      if (midItem === undefined) break
+      const midId = compare(midItem)
 
       if (midId === id) {
         return { found: true, index: mid }
@@ -26,7 +28,9 @@ export namespace Binary {
 
     while (left < right) {
       const mid = Math.floor((left + right) / 2)
-      const midId = compare(array[mid])
+      const midItem = array[mid]
+      if (midItem === undefined) break
+      const midId = compare(midItem)
 
       if (midId < id) {
         left = mid + 1

@@ -1,4 +1,6 @@
 import { describe, expect, test } from "bun:test"
+import path from "node:path"
+import { fileURLToPath } from "node:url"
 import { Result, Schema } from "effect"
 import { toJsonSchema } from "@navi-ai/core/effect-zod"
 
@@ -33,23 +35,40 @@ const accepts = (schema: Schema.Decoder<unknown>, input: unknown): boolean =>
   Result.isSuccess(Schema.decodeUnknownResult(schema)(input))
 
 describe("tool parameters", () => {
+  // File snapshots (one JSON file per tool) instead of the opaque
+  // `__snapshots__/parameters.test.ts.snap` blob. Review diffs per-tool.
+  // Update policy: `UPDATE_SNAPSHOTS=1 bun test test/tool/parameters.test.ts`
+  // from `packages/navi`, then commit the changed files under
+  // `test/tool/__file_snapshots__/parameters-*.json`. Without the env var,
+  // a missing file is created on first run; mismatches fail.
   describe("JSON Schema (wire shape)", () => {
-    test("apply_patch", () => expect(toJsonSchema(ApplyPatch)).toMatchSnapshot())
-    test("bash", () => expect(toJsonSchema(Shell)).toMatchSnapshot())
-    test("edit", () => expect(toJsonSchema(Edit)).toMatchSnapshot())
-    test("glob", () => expect(toJsonSchema(Glob)).toMatchSnapshot())
-    test("grep", () => expect(toJsonSchema(Grep)).toMatchSnapshot())
-    test("invalid", () => expect(toJsonSchema(Invalid)).toMatchSnapshot())
-    test("lsp", () => expect(toJsonSchema(Lsp)).toMatchSnapshot())
-    test("plan", () => expect(toJsonSchema(Plan)).toMatchSnapshot())
-    test("question", () => expect(toJsonSchema(Question)).toMatchSnapshot())
-    test("read", () => expect(toJsonSchema(Read)).toMatchSnapshot())
-    test("skill", () => expect(toJsonSchema(Skill)).toMatchSnapshot())
-    test("task", () => expect(toJsonSchema(Task)).toMatchSnapshot())
-    test("todo", () => expect(toJsonSchema(Todo)).toMatchSnapshot())
-    test("webfetch", () => expect(toJsonSchema(WebFetch)).toMatchSnapshot())
-    test("websearch", () => expect(toJsonSchema(WebSearch)).toMatchSnapshot())
-    test("write", () => expect(toJsonSchema(Write)).toMatchSnapshot())
+    const snapshotDir = path.join(path.dirname(fileURLToPath(import.meta.url)), "__file_snapshots__")
+    const fileSnapshot = (name: string, schema: Schema.Decoder<unknown>) =>
+      test(name, async () => {
+        const json = `${JSON.stringify(toJsonSchema(schema), null, 2)}\n`
+        const file = Bun.file(path.join(snapshotDir, `parameters-${name}.json`))
+        if (process.env.UPDATE_SNAPSHOTS === "1" || !(await file.exists())) {
+          await Bun.write(file, json)
+          return
+        }
+        expect(await file.text()).toBe(json)
+      })
+    fileSnapshot("apply_patch", ApplyPatch)
+    fileSnapshot("bash", Shell)
+    fileSnapshot("edit", Edit)
+    fileSnapshot("glob", Glob)
+    fileSnapshot("grep", Grep)
+    fileSnapshot("invalid", Invalid)
+    fileSnapshot("lsp", Lsp)
+    fileSnapshot("plan", Plan)
+    fileSnapshot("question", Question)
+    fileSnapshot("read", Read)
+    fileSnapshot("skill", Skill)
+    fileSnapshot("task", Task)
+    fileSnapshot("todo", Todo)
+    fileSnapshot("webfetch", WebFetch)
+    fileSnapshot("websearch", WebSearch)
+    fileSnapshot("write", Write)
   })
 
   describe("apply_patch", () => {

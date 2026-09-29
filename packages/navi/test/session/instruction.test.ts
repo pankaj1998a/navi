@@ -125,7 +125,7 @@ describe("Instruction.resolve", () => {
           MessageID.make("msg_message-test-2"),
         )
         expect(results.length).toBe(1)
-        expect(results[0].filepath).toBe(path.join(dir, "subdir", "AGENTS.md"))
+        expect(results[0]?.filepath).toBe(path.join(dir, "subdir", "AGENTS.md"))
       }),
     ),
   )
@@ -155,7 +155,7 @@ describe("Instruction.resolve", () => {
         const second = yield* svc.resolve([], filepath, id)
 
         expect(first).toHaveLength(1)
-        expect(first[0].filepath).toBe(path.join(dir, "subdir", "AGENTS.md"))
+        expect(first[0]?.filepath).toBe(path.join(dir, "subdir", "AGENTS.md"))
         expect(second).toEqual([])
       }),
     ),
@@ -174,7 +174,7 @@ describe("Instruction.resolve", () => {
 
         expect(first).toHaveLength(1)
         expect(second).toHaveLength(1)
-        expect(second[0].filepath).toBe(path.join(dir, "subdir", "AGENTS.md"))
+        expect(second[0]?.filepath).toBe(path.join(dir, "subdir", "AGENTS.md"))
       }),
     ),
   )

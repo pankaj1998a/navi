@@ -12,7 +12,7 @@ import { MessageV2 } from "./message-v2"
 import { Image } from "@/image/image"
 import { isOverflow } from "./overflow"
 import { PartID } from "./schema"
-import type { SessionID, MessageID } from "./schema"
+import type { SessionID } from "./schema"
 import { SessionRetry } from "./retry"
 import { SessionStatus } from "./status"
 import { SessionSummary } from "./summary"
@@ -58,6 +58,7 @@ type Input = {
   assistantMessage: MessageV2.Assistant
   sessionID: SessionID
   model: Provider.Model
+  parentSessionID?: SessionID
 }
 
 export interface Interface {
@@ -79,7 +80,6 @@ interface ProcessorContext extends Input {
   needsCompaction: boolean
   currentText: MessageV2.TextPart | undefined
   reasoningMap: Record<string, MessageV2.ReasoningPart>
-  deltaBuffers: Map<string, { delta: string; field: string; sessionID: SessionID; messageID: MessageID; partID: PartID; timer: ReturnType<typeof setTimeout> | undefined }>
 }
 
 type StreamEvent = Event
@@ -120,7 +120,9 @@ export const layer: Layer.Layer<
       // Pre-capture snapshot before the LLM stream starts. The AI SDK
       // may execute tools internally before emitting start-step events,
       // so capturing inside the event handler can be too late.
-      const initialSnapshot = yield* snapshot.track()
+      // Subagent sessions (child sessions) do not need full repository snapshot commits.
+      const isSubagent = !!input.parentSessionID
+      const initialSnapshot = isSubagent ? undefined : yield* snapshot.track()
       const ctx: ProcessorContext = {
         assistantMessage: input.assistantMessage,
         sessionID: input.sessionID,
@@ -132,7 +134,6 @@ export const layer: Layer.Layer<
         needsCompaction: false,
         currentText: undefined,
         reasoningMap: {},
-        deltaBuffers: new Map(),
       }
       let aborted = false
       const slog = log.clone().tag("session.id", input.sessionID).tag("messageID", input.assistantMessage.id)
@@ -225,84 +226,6 @@ export const layer: Layer.Layer<
         return true
       })
 
-      const flushDelta = Effect.fn("SessionProcessor.flushDelta")(function* (partID: string) {
-        const entry = ctx.deltaBuffers.get(partID)
-        if (!entry) return
-        if (entry.timer) {
-          clearTimeout(entry.timer)
-          entry.timer = undefined
-        }
-        const delta = entry.delta
-        if (!delta) {
-          ctx.deltaBuffers.delete(partID)
-          return
-        }
-        ctx.deltaBuffers.delete(partID)
-        yield* session.updatePartDelta({
-          sessionID: entry.sessionID,
-          messageID: entry.messageID,
-          partID: entry.partID,
-          field: entry.field,
-          delta,
-        })
-      })
-
-      const flushAllDeltas = Effect.fn("SessionProcessor.flushAllDeltas")(function* () {
-        const ids = Array.from(ctx.deltaBuffers.keys())
-        for (const id of ids) {
-          yield* flushDelta(id)
-        }
-      })
-
-      const bufferDelta = Effect.fn("SessionProcessor.bufferDelta")(function* (input: {
-        sessionID: SessionID
-        messageID: MessageID
-        partID: PartID
-        field: string
-        delta: string
-      }) {
-        let entry = ctx.deltaBuffers.get(input.partID)
-        if (!entry) {
-          entry = {
-            delta: "",
-            field: input.field,
-            sessionID: input.sessionID,
-            messageID: input.messageID,
-            partID: input.partID,
-            timer: undefined,
-          }
-          ctx.deltaBuffers.set(input.partID, entry)
-        }
-        entry.delta += input.delta
-        if (entry.delta.length >= 64) {
-          if (entry.timer) {
-            clearTimeout(entry.timer)
-            entry.timer = undefined
-          }
-          const toFlush = entry.delta
-          ctx.deltaBuffers.delete(input.partID)
-          yield* session.updatePartDelta({ ...input, delta: toFlush } as any)
-          return
-        }
-        if (!entry.timer) {
-          entry.timer = setTimeout(() => {
-            const e = ctx.deltaBuffers.get(input.partID)
-            if (!e || !e.delta) return
-            const d = e.delta
-            const captured = {
-              sessionID: e.sessionID,
-              messageID: e.messageID,
-              partID: e.partID,
-              field: e.field,
-              delta: d,
-            }
-            if (e.timer) clearTimeout(e.timer)
-            ctx.deltaBuffers.delete(input.partID)
-            Effect.runPromise(session.updatePartDelta(captured)).catch(() => {})
-          }, 16)
-        }
-      })
-
       const handleEvent = Effect.fnUntraced(function* (value: StreamEvent) {
         switch (value.type) {
           case "start":
@@ -326,39 +249,44 @@ export const layer: Layer.Layer<
               time: { start: Date.now() },
               metadata: value.providerMetadata,
             }
-            yield* session.updatePart(ctx.reasoningMap[value.id])
+            const reasoningPart = ctx.reasoningMap[value.id]
+            if (!reasoningPart) return
+            yield* session.updatePart(reasoningPart)
             return
 
-          case "reasoning-delta":
-            if (!(value.id in ctx.reasoningMap)) return
-            ctx.reasoningMap[value.id].text += value.text
-            if (value.providerMetadata) ctx.reasoningMap[value.id].metadata = value.providerMetadata
-            yield* bufferDelta({
-              sessionID: ctx.reasoningMap[value.id].sessionID,
-              messageID: ctx.reasoningMap[value.id].messageID,
-              partID: ctx.reasoningMap[value.id].id,
+          case "reasoning-delta": {
+            const reasoningEntry = ctx.reasoningMap[value.id]
+            if (!reasoningEntry) return
+            reasoningEntry.text += value.text
+            if (value.providerMetadata) reasoningEntry.metadata = value.providerMetadata
+            yield* session.updatePartDelta({
+              sessionID: reasoningEntry.sessionID,
+              messageID: reasoningEntry.messageID,
+              partID: reasoningEntry.id,
               field: "text",
               delta: value.text,
             })
             return
+          }
 
-          case "reasoning-end":
-            if (!(value.id in ctx.reasoningMap)) return
-            yield* flushDelta(ctx.reasoningMap[value.id].id)
+          case "reasoning-end": {
+            const reasoningEntry = ctx.reasoningMap[value.id]
+            if (!reasoningEntry) return
             // TODO(v2): Temporary dual-write while migrating session messages to v2 events.
             EventV2.run(SessionEvent.Reasoning.Ended.Sync, {
               sessionID: ctx.sessionID,
               reasoningID: value.id,
-              text: ctx.reasoningMap[value.id].text,
+              text: reasoningEntry.text,
               timestamp: DateTime.makeUnsafe(Date.now()),
             })
             // oxlint-disable-next-line no-self-assign -- reactivity trigger
-            ctx.reasoningMap[value.id].text = ctx.reasoningMap[value.id].text
-            ctx.reasoningMap[value.id].time = { ...ctx.reasoningMap[value.id].time, end: Date.now() }
-            if (value.providerMetadata) ctx.reasoningMap[value.id].metadata = value.providerMetadata
-            yield* session.updatePart(ctx.reasoningMap[value.id])
+            reasoningEntry.text = reasoningEntry.text
+            reasoningEntry.time = { ...reasoningEntry.time, end: Date.now() }
+            if (value.providerMetadata) reasoningEntry.metadata = value.providerMetadata
+            yield* session.updatePart(reasoningEntry)
             delete ctx.reasoningMap[value.id]
             return
+          }
 
           case "tool-input-start":
             if (ctx.assistantMessage.summary) {
@@ -440,7 +368,7 @@ export const layer: Layer.Layer<
             if (
               recentParts.length !== DOOM_LOOP_THRESHOLD ||
               !recentParts.every(
-                (part: any) =>
+                (part) =>
                   part.type === "tool" &&
                   part.tool === value.toolName &&
                   part.state.status !== "pending" &&
@@ -482,13 +410,14 @@ export const layer: Layer.Layer<
             const attachments = normalized.filter(Exit.isSuccess).map((item) => item.value)
 
             const parts = MessageV2.parts(ctx.assistantMessage.id)
-            const currentPartIndex = parts.findIndex((p: any) => p.type === "tool" && p.callID === value.toolCallId)
+            const currentPartIndex = parts.findIndex(p => p.type === "tool" && p.callID === value.toolCallId)
             let consecutiveCount = 1
             if (currentPartIndex !== -1 && toolCall) {
               const currentPart = parts[currentPartIndex] as MessageV2.ToolPart
               const inputStr = JSON.stringify(currentPart.state.input)
               for (let i = currentPartIndex - 1; i >= 0; i--) {
                 const part = parts[i]
+                if (!part) continue
                 if (part.type === "tool" && part.tool === currentPart.tool && JSON.stringify(part.state.input) === inputStr) {
                   consecutiveCount++
                 } else if (part.type === "tool") {
@@ -540,13 +469,14 @@ export const layer: Layer.Layer<
           case "tool-error": {
             const toolCall = yield* readToolCall(value.toolCallId)
             const parts = MessageV2.parts(ctx.assistantMessage.id)
-            const currentPartIndex = parts.findIndex((p: any) => p.type === "tool" && p.callID === value.toolCallId)
+            const currentPartIndex = parts.findIndex(p => p.type === "tool" && p.callID === value.toolCallId)
             let consecutiveCount = 1
             if (currentPartIndex !== -1 && toolCall) {
               const currentPart = parts[currentPartIndex] as MessageV2.ToolPart
               const inputStr = JSON.stringify(currentPart.state.input)
               for (let i = currentPartIndex - 1; i >= 0; i--) {
                 const part = parts[i]
+                if (!part) continue
                 if (part.type === "tool" && part.tool === currentPart.tool && JSON.stringify(part.state.input) === inputStr) {
                   consecutiveCount++
                 } else if (part.type === "tool") {
@@ -582,7 +512,7 @@ export const layer: Layer.Layer<
             throw value.error
 
           case "start-step":
-            if (!ctx.snapshot) ctx.snapshot = yield* snapshot.track()
+            if (!ctx.snapshot && !isSubagent) ctx.snapshot = yield* snapshot.track()
             if (!ctx.assistantMessage.summary) {
               // TODO(v2): Temporary dual-write while migrating session messages to v2 events.
               EventV2.run(SessionEvent.Step.Started.Sync, {
@@ -691,7 +621,7 @@ export const layer: Layer.Layer<
             if (!ctx.currentText) return
             ctx.currentText.text += value.text
             if (value.providerMetadata) ctx.currentText.metadata = value.providerMetadata
-            yield* bufferDelta({
+            yield* session.updatePartDelta({
               sessionID: ctx.currentText.sessionID,
               messageID: ctx.currentText.messageID,
               partID: ctx.currentText.id,
@@ -702,7 +632,6 @@ export const layer: Layer.Layer<
 
           case "text-end":
             if (!ctx.currentText) return
-            yield* flushDelta(ctx.currentText.id)
             // oxlint-disable-next-line no-self-assign -- reactivity trigger
             ctx.currentText.text = ctx.currentText.text
             ctx.currentText.text = (yield* plugin.trigger(
@@ -741,13 +670,6 @@ export const layer: Layer.Layer<
       })
 
       const cleanup = Effect.fn("SessionProcessor.cleanup")(function* () {
-        yield* flushAllDeltas().pipe(Effect.catch(() => Effect.void))
-        // clear any remaining timers that may have been set after flushAllDeltas via async setTimeout race
-        for (const entry of Array.from(ctx.deltaBuffers.values())) {
-          if (entry.timer) clearTimeout(entry.timer)
-        }
-        ctx.deltaBuffers.clear()
-
         if (ctx.snapshot) {
           const patch = yield* snapshot.patch(ctx.snapshot)
           if (patch.files.length) {
@@ -782,7 +704,7 @@ export const layer: Layer.Layer<
         yield* Effect.forEach(
           Object.values(ctx.toolcalls),
           (call) => Deferred.await(call.done).pipe(Effect.timeout("250 millis"), Effect.ignore),
-          { concurrency: 8 },
+          { concurrency: "unbounded" },
         )
 
         for (const toolCallID of Object.keys(ctx.toolcalls)) {
@@ -895,15 +817,6 @@ export const layer: Layer.Layer<
           }).pipe(Effect.catch((_e) => Effect.void))
           // ── End budget enforcement ──────────────────────────────────────────
 
-          // Derive existing retry count from persistent session log
-          const history = yield* session
-            .messages({ sessionID: ctx.sessionID })
-            .pipe(Effect.catch(() => Effect.succeed([] as MessageV2.WithParts[])))
-          const priorRetries =
-            SessionRetry.deriveRetryCount(history, ctx.assistantMessage.id) ||
-            ctx.assistantMessage.retries ||
-            0
-
           yield* Effect.gen(function* () {
             ctx.currentText = undefined
             ctx.reasoningMap = {}
@@ -931,11 +844,7 @@ export const layer: Layer.Layer<
               SessionRetry.policy({
                 provider: input.model.providerID,
                 parse,
-                initialAttempt: priorRetries,
                 set: (info) => {
-                  ctx.assistantMessage.retries = info.attempt
-                  // Update message in database so retry count is persisted across restarts
-                  session.updateMessage(ctx.assistantMessage).pipe(Effect.ignore, Effect.runSync)
                   // TODO(v2): Temporary dual-write while migrating session messages to v2 events.
                   EventV2.run(SessionEvent.Retried.Sync, {
                     sessionID: ctx.sessionID,

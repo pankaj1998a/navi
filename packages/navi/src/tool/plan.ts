@@ -11,6 +11,7 @@ import EXIT_DESCRIPTION from "./plan-exit.txt"
 
 function getLastModel(sessionID: SessionID) {
   for (const item of MessageV2.stream(sessionID)) {
+    if (item === undefined) continue
     if (item.info.role === "user" && item.info.model) return item.info.model
   }
   return undefined

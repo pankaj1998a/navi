@@ -13,6 +13,13 @@ const CLIENT_ID = "Ov23li8tweQw6odWQebz"
 // Add a small safety buffer when polling to avoid hitting the server
 // slightly too early due to clock skew / timer drift.
 const OAUTH_POLLING_SAFETY_MARGIN_MS = 3000 // 3 seconds
+// Bound device-flow polling: GitHub device codes expire (~15 min).
+// Equivalent of Schedule.exponential + take(n) for plain async code.
+const DEVICE_CODE_MAX_WAIT_MS = 15 * 60 * 1000
+const pollSleep = (baseMs: number) => {
+  const jitter = Math.floor(Math.random() * 1000)
+  return sleep(Math.min(baseMs + jitter, 120_000))
+}
 function normalizeDomain(url: string) {
   return url.replace(/^https?:\/\//, "").replace(/\/$/, "")
 }
@@ -143,9 +150,7 @@ export async function CopilotAuthPlugin(input: PluginInput): Promise<Hooks> {
                     isAgent: !(last?.role === "user" && hasNonToolCalls) || imgMsg(last),
                   }
                 }
-              } catch (e) {
-                // Ignore parsing errors for non-JSON or invalid payloads and default to false
-              }
+              } catch {}
               return { isVision: false, isAgent: false }
             })
 
@@ -205,7 +210,7 @@ export async function CopilotAuthPlugin(input: PluginInput): Promise<Hooks> {
                   const url = value.includes("://") ? new URL(value) : new URL(`https://${value}`)
                   if (!url.hostname) return "Please enter a valid URL or domain"
                   return undefined
-                } catch (err) {
+                } catch {
                   return "Please enter a valid URL (e.g., company.ghe.com or https://company.ghe.com)"
                 }
               },
@@ -252,7 +257,12 @@ export async function CopilotAuthPlugin(input: PluginInput): Promise<Hooks> {
               instructions: `Enter code: ${deviceData.user_code}`,
               method: "auto" as const,
               async callback() {
-                while (true) {
+                // Bounded attempts: stop polling once the device code expires instead of looping forever.
+                const maxAttempts = Math.max(
+                  1,
+                  Math.ceil(DEVICE_CODE_MAX_WAIT_MS / (deviceData.interval * 1000 + OAUTH_POLLING_SAFETY_MARGIN_MS)),
+                )
+                for (let attempt = 0; attempt < maxAttempts; attempt++) {
                   const response = await fetch(urls.ACCESS_TOKEN_URL, {
                     method: "POST",
                     headers: {
@@ -298,7 +308,7 @@ export async function CopilotAuthPlugin(input: PluginInput): Promise<Hooks> {
                   }
 
                   if (data.error === "authorization_pending") {
-                    await sleep(deviceData.interval * 1000 + OAUTH_POLLING_SAFETY_MARGIN_MS)
+                    await pollSleep(deviceData.interval * 1000 + OAUTH_POLLING_SAFETY_MARGIN_MS)
                     continue
                   }
 
@@ -314,15 +324,16 @@ export async function CopilotAuthPlugin(input: PluginInput): Promise<Hooks> {
                       newInterval = serverInterval * 1000
                     }
 
-                    await sleep(newInterval + OAUTH_POLLING_SAFETY_MARGIN_MS)
+                    await pollSleep(newInterval + OAUTH_POLLING_SAFETY_MARGIN_MS)
                     continue
                   }
 
                   if (data.error) return { type: "failed" as const }
 
-                  await sleep(deviceData.interval * 1000 + OAUTH_POLLING_SAFETY_MARGIN_MS)
+                  await pollSleep(deviceData.interval * 1000 + OAUTH_POLLING_SAFETY_MARGIN_MS)
                   continue
                 }
+                return { type: "failed" as const }
               },
             }
           },

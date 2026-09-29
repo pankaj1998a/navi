@@ -95,9 +95,11 @@ describe("session.listGlobal", () => {
 
     const page = [...svc.listGlobal({ directory: tmp.path, limit: 1 })]
     expect(page.length).toBe(1)
-    expect(page[0].id).toBe(second.id)
+    const firstPage = page[0]
+    if (!firstPage) throw new Error("expected first page entry")
+    expect(firstPage.id).toBe(second.id)
 
-    const next = [...svc.listGlobal({ directory: tmp.path, limit: 10, cursor: page[0].time.updated })]
+    const next = [...svc.listGlobal({ directory: tmp.path, limit: 10, cursor: firstPage.time.updated })]
     const ids = next.map((session) => session.id)
 
     expect(ids).toContain(first.id)

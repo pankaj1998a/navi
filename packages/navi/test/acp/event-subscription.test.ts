@@ -403,6 +403,9 @@ describe("acp.agent event subscription", () => {
 
         const tokenA = ["ALPHA_", "111", "_X"]
         const tokenB = ["BETA_", "222", "_Y"]
+        const [a0, a1, a2] = tokenA
+        const [b0, b1, b2] = tokenB
+        if (!a0 || !a1 || !a2 || !b0 || !b1 || !b2) throw new Error("missing token")
 
         const push = (sessionId: string, messageID: string, delta: string) => {
           controller.push({
@@ -420,12 +423,12 @@ describe("acp.agent event subscription", () => {
           } as any)
         }
 
-        push(sessionA, "msg_a", tokenA[0])
-        push(sessionB, "msg_b", tokenB[0])
-        push(sessionA, "msg_a", tokenA[1])
-        push(sessionB, "msg_b", tokenB[1])
-        push(sessionA, "msg_a", tokenA[2])
-        push(sessionB, "msg_b", tokenB[2])
+        push(sessionA, "msg_a", a0)
+        push(sessionB, "msg_b", b0)
+        push(sessionA, "msg_a", a1)
+        push(sessionB, "msg_b", b1)
+        push(sessionA, "msg_a", a2)
+        push(sessionB, "msg_b", b2)
 
         await new Promise((r) => setTimeout(r, 20))
 

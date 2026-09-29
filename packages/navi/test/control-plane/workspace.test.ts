@@ -24,6 +24,8 @@ import { EventSequenceTable } from "@/sync/event.sql"
 import { resetDatabase } from "../fixture/db"
 import { disposeAllInstances, provideTmpdirInstance, tmpdir } from "../fixture/fixture"
 import { testEffect } from "../lib/effect"
+import { waitFor, waitForEffect } from "../lib/wait"
+import { uniqueName } from "../lib/names"
 import { registerAdapter } from "../../src/control-plane/adapters"
 import { WorkspaceID } from "../../src/control-plane/schema"
 import { WorkspaceTable } from "../../src/control-plane/workspace.sql"
@@ -76,7 +78,7 @@ type FetchCall = {
 }
 
 function unique(prefix: string) {
-  return `${prefix}-${Math.random().toString(36).slice(2)}`
+  return uniqueName(prefix)
 }
 
 function restoreEnv() {
@@ -156,31 +158,11 @@ function captureGlobalEvents() {
 }
 
 async function eventually<T>(fn: () => T | Promise<T>, timeout = 1500) {
-  const started = Date.now()
-  let last: unknown
-  while (Date.now() - started < timeout) {
-    try {
-      return await fn()
-    } catch (err) {
-      last = err
-      await delay(10)
-    }
-  }
-  throw last ?? new Error("Timed out waiting for condition")
+  return waitFor(fn, { timeout })
 }
 
 function eventuallyEffect(effect: Effect.Effect<void>, timeout = 1500) {
-  return Effect.gen(function* () {
-    const started = Date.now()
-    let last: unknown
-    while (Date.now() - started < timeout) {
-      const exit = yield* Effect.exit(effect)
-      if (exit._tag === "Success") return
-      last = exit.cause
-      yield* Effect.sleep("10 millis")
-    }
-    throw last ?? new Error("Timed out waiting for condition")
-  })
+  return waitForEffect(effect, timeout)
 }
 
 function recordedAdapter(input: {
@@ -467,7 +449,7 @@ describe("workspace CRUD", () => {
       expect(recorded.calls.configure).toHaveLength(1)
       expect(recorded.calls.configure[0]).toMatchObject({ id: workspaceID, type, directory: null })
       expect(recorded.calls.create).toHaveLength(1)
-      expect(recorded.calls.create[0].info).toEqual({
+      expect(recorded.calls.create[0]?.info).toEqual({
         id: workspaceID,
         type,
         branch: "configured-branch",
@@ -476,14 +458,14 @@ describe("workspace CRUD", () => {
         extra: { configured: true },
         projectID: Instance.project.id,
       })
-      expect(JSON.parse(recorded.calls.create[0].env.NAVI_AUTH_CONTENT ?? "{}")).toEqual({
+      expect(JSON.parse(recorded.calls.create[0]?.env.NAVI_AUTH_CONTENT ?? "{}")).toEqual({
         test: { type: "api", key: "secret" },
       })
-      expect(recorded.calls.create[0].env.NAVI_WORKSPACE_ID).toBe(workspaceID)
-      expect(recorded.calls.create[0].env.NAVI_EXPERIMENTAL_WORKSPACES).toBe("true")
-      expect(recorded.calls.create[0].env.OTEL_EXPORTER_OTLP_HEADERS).toBe("authorization=otel")
-      expect(recorded.calls.create[0].env.OTEL_EXPORTER_OTLP_ENDPOINT).toBe("https://otel.test")
-      expect(recorded.calls.create[0].env.OTEL_RESOURCE_ATTRIBUTES).toBe("service.name=navi-test")
+      expect(recorded.calls.create[0]?.env.NAVI_WORKSPACE_ID).toBe(workspaceID)
+      expect(recorded.calls.create[0]?.env.NAVI_EXPERIMENTAL_WORKSPACES).toBe("true")
+      expect(recorded.calls.create[0]?.env.OTEL_EXPORTER_OTLP_HEADERS).toBe("authorization=otel")
+      expect(recorded.calls.create[0]?.env.OTEL_EXPORTER_OTLP_ENDPOINT).toBe("https://otel.test")
+      expect(recorded.calls.create[0]?.env.OTEL_RESOURCE_ATTRIBUTES).toBe("service.name=navi-test")
       expect((await workspaceStatus()).find((item) => item.workspaceID === workspaceID)?.status).toBe("connected")
 
       await removeWorkspace(workspaceID)
@@ -535,6 +517,7 @@ describe("workspace CRUD", () => {
       expect(rows).toHaveLength(1)
       expect(rows[0]).toMatchObject({ type, branch: "branch", extra: { x: 1 } })
       expect(recorded.calls.target).toHaveLength(0)
+      if (!rows[0]) throw new Error("expected workspace row")
       await removeWorkspace(rows[0].id)
     })
   })
@@ -703,7 +686,7 @@ describe("workspace CRUD", () => {
             expect(
               calls.map((call) => `${call.method} ${call.url.pathname}${call.url.search}${call.url.hash}`),
             ).toEqual(["GET /base/global/event", "POST /base/sync/history"])
-            expect(calls[1].json).toEqual({})
+            expect(calls[1]?.json).toEqual({})
             expect((yield* workspace.status()).find((item) => item.workspaceID === info.id)?.status).toBe("connected")
             expect(yield* workspace.isSyncing(info.id)).toBe(true)
 
@@ -949,9 +932,9 @@ describe("workspace CRUD", () => {
               "POST /warp-target/sync/replay",
               "POST /warp-target/sync/steal",
             ])
-            expect(calls[0].json).toEqual({ [session.id]: historyNextSeq - 1 })
-            expect(calls[2].json).toEqual({ patch: "remote patch" })
-            expect(calls[3].json).toMatchObject({
+            expect(calls[0]?.json).toEqual({ [session.id]: historyNextSeq - 1 })
+            expect(calls[2]?.json).toEqual({ patch: "remote patch" })
+            expect(calls[3]?.json).toMatchObject({
               directory: "remote-target-dir",
               events: [
                 {
@@ -966,7 +949,7 @@ describe("workspace CRUD", () => {
                 },
               ],
             })
-            expect(calls[4].json).toEqual({ sessionID: session.id })
+            expect(calls[4]?.json).toEqual({ sessionID: session.id })
             expect((yield* sessionSvc.get(session.id)).title).toBe("from source history")
             expect(sessionSequenceOwner(session.id)).toBe(target.id)
           }),

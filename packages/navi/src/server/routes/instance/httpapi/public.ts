@@ -228,14 +228,17 @@ function normalizeComponentNames(spec: OpenApiSpec) {
   for (const name of Object.keys(schemas)) {
     const next = componentTypeName(name)
     if (next === name) continue
-    if (schemas[next]) {
-      if (stableSchema(schemas[name], schemas) === stableSchema(schemas[next], schemas)) {
+    const current = schemas[name]
+    if (!current) continue
+    const target = schemas[next]
+    if (target) {
+      if (stableSchema(current, schemas) === stableSchema(target, schemas)) {
         rewriteRefs(spec, name, next)
         delete schemas[name]
       }
       continue
     }
-    schemas[next] = schemas[name]
+    schemas[next] = current
     rewriteRefs(spec, name, next)
     delete schemas[name]
   }
@@ -256,9 +259,12 @@ function applyLegacySchemaOverrides(spec: OpenApiSpec) {
   if (schemas.AgentConfig) schemas.AgentConfig.additionalProperties = {}
   if (schemas.Command?.properties?.template) schemas.Command.properties.template = { type: "string" }
   if (schemas.Workspace?.properties) {
-    schemas.Workspace.properties.branch = nullable(schemas.Workspace.properties.branch)
-    schemas.Workspace.properties.directory = nullable(schemas.Workspace.properties.directory)
-    schemas.Workspace.properties.extra = nullable(schemas.Workspace.properties.extra)
+    const branch = schemas.Workspace.properties.branch
+    if (branch) schemas.Workspace.properties.branch = nullable(branch)
+    const directory = schemas.Workspace.properties.directory
+    if (directory) schemas.Workspace.properties.directory = nullable(directory)
+    const extra = schemas.Workspace.properties.extra
+    if (extra) schemas.Workspace.properties.extra = nullable(extra)
   }
   if (schemas.GlobalSession?.properties?.project)
     schemas.GlobalSession.properties.project = nullable(schemas.GlobalSession.properties.project)
@@ -438,7 +444,10 @@ function stripOptionalNull(schema: OpenApiSchema): OpenApiSchema {
   const options = flattenOptions(schema.anyOf ?? schema.oneOf)
   if (options) {
     const withoutNull = options.filter((item) => item.type !== "null")
-    if (withoutNull.length === 1) return stripOptionalNull(withoutNull[0])
+    if (withoutNull.length === 1) {
+      const single = withoutNull[0]
+      if (single) return stripOptionalNull(single)
+    }
     if (schema.anyOf) schema.anyOf = withoutNull.map(stripOptionalNull)
     if (schema.oneOf) schema.oneOf = withoutNull.map(stripOptionalNull)
   }

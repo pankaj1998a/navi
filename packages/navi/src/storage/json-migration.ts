@@ -1,5 +1,5 @@
-type SQLiteBunDatabase = any
-type NodeSQLiteDatabase = any
+import type { SQLiteBunDatabase } from "drizzle-orm/bun-sqlite"
+import type { NodeSQLiteDatabase } from "drizzle-orm/node-sqlite"
 import { Global } from "@navi-ai/core/global"
 import * as Log from "@navi-ai/core/util/log"
 import { ProjectTable } from "../project/project.sql"
@@ -22,7 +22,7 @@ type Options = {
   progress?: (event: Progress) => void
 }
 
-export async function run(db: SQLiteBunDatabase | NodeSQLiteDatabase, options?: Options) {
+export async function run(db: SQLiteBunDatabase<any, any> | NodeSQLiteDatabase<any, any>, options?: Options) {
   const storageDir = path.join(Global.Path.data, "storage")
 
   if (!existsSync(storageDir)) {
@@ -79,18 +79,23 @@ export async function run(db: SQLiteBunDatabase | NodeSQLiteDatabase, options?: 
     // oxlint-disable-next-line unicorn/no-new-array -- pre-allocated for index-based batch fill
     const tasks = new Array(count)
     for (let i = 0; i < count; i++) {
-      tasks[i] = Filesystem.readJson(files[start + i])
+      const file = files[start + i]
+      if (!file) continue
+      tasks[i] = Filesystem.readJson(file)
     }
     const results = await Promise.allSettled(tasks)
     // oxlint-disable-next-line unicorn/no-new-array -- pre-allocated for index-based batch fill
     const items = new Array(count)
     for (let i = 0; i < results.length; i++) {
       const result = results[i]
+      if (!result) continue
       if (result.status === "fulfilled") {
         items[i] = result.value
         continue
       }
-      errs.push(`failed to read ${files[start + i]}: ${result.reason}`)
+      const file = files[start + i]
+      if (!file) continue
+      errs.push(`failed to read ${file}: ${result.reason}`)
     }
     return items
   }
@@ -160,7 +165,9 @@ export async function run(db: SQLiteBunDatabase | NodeSQLiteDatabase, options?: 
     for (let j = 0; j < batch.length; j++) {
       const data = batch[j]
       if (!data) continue
-      const id = path.basename(projectFiles[i + j], ".json")
+      const projectFile = projectFiles[i + j]
+      if (!projectFile) continue
+      const id = path.basename(projectFile, ".json")
       projectIds.add(id)
       projectValues.push({
         id,
@@ -195,9 +202,11 @@ export async function run(db: SQLiteBunDatabase | NodeSQLiteDatabase, options?: 
     for (let j = 0; j < batch.length; j++) {
       const data = batch[j]
       if (!data) continue
-      const id = path.basename(sessionFiles[i + j], ".json")
+      const sessionFile = sessionFiles[i + j]
+      if (!sessionFile) continue
+      const id = path.basename(sessionFile, ".json")
       const projectID = sessionProjects[i + j]
-      if (!projectIds.has(projectID)) {
+      if (!projectID || !projectIds.has(projectID)) {
         orphans.sessions++
         continue
       }
@@ -253,8 +262,9 @@ export async function run(db: SQLiteBunDatabase | NodeSQLiteDatabase, options?: 
       const data = batch[j]
       if (!data) continue
       const file = allMessageFiles[i + j]
-      const id = path.basename(file, ".json")
       const sessionID = allMessageSessions[i + j]
+      if (!file || !sessionID) continue
+      const id = path.basename(file, ".json")
       messageSessions.set(id, sessionID)
       const rest = data
       delete rest.id
@@ -284,6 +294,7 @@ export async function run(db: SQLiteBunDatabase | NodeSQLiteDatabase, options?: 
       const data = batch[j]
       if (!data) continue
       const file = partFiles[i + j]
+      if (!file) continue
       const id = path.basename(file, ".json")
       const messageID = path.basename(path.dirname(file))
       const sessionID = messageSessions.get(messageID)
@@ -321,7 +332,7 @@ export async function run(db: SQLiteBunDatabase | NodeSQLiteDatabase, options?: 
       const data = batch[j]
       if (!data) continue
       const sessionID = todoSessions[i + j]
-      if (!sessionIds.has(sessionID)) {
+      if (!sessionID || !sessionIds.has(sessionID)) {
         orphans.todos++
         continue
       }
@@ -362,7 +373,7 @@ export async function run(db: SQLiteBunDatabase | NodeSQLiteDatabase, options?: 
       const data = batch[j]
       if (!data) continue
       const projectID = permProjects[i + j]
-      if (!projectIds.has(projectID)) {
+      if (!projectID || !projectIds.has(projectID)) {
         orphans.permissions++
         continue
       }
@@ -387,7 +398,7 @@ export async function run(db: SQLiteBunDatabase | NodeSQLiteDatabase, options?: 
       const data = batch[j]
       if (!data) continue
       const sessionID = shareSessions[i + j]
-      if (!sessionIds.has(sessionID)) {
+      if (!sessionID || !sessionIds.has(sessionID)) {
         orphans.shares++
         continue
       }

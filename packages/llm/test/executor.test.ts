@@ -106,14 +106,16 @@ describe("RequestExecutor", () => {
       expect(errorHttp(error)?.body).toBe("rate limited")
     }).pipe(
       Effect.provide(
-        responsesLayer(Array.from(
+        responsesLayer([
+          ...Array.from(
             { length: 3 },
             () =>
               new Response("rate limited", {
                 status: 429,
                 headers: { "retry-after-ms": "0", "x-request-id": "req_123", "x-api-key": "secret" },
               }),
-          )),
+          ),
+        ]),
       ),
     ),
   )

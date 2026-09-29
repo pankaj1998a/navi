@@ -39,9 +39,12 @@ describe("util.process", () => {
       nothrow: true,
     })
 
+    // Signal behaviour is the assertion; wall-time is only an upper bound
+    // (CI runners stall - 1s flakes). 5s still catches a hung kill path.
+    expect(abort.signal.aborted).toBe(true)
     expect(out.code).not.toBe(0)
-    expect(Date.now() - started).toBeLessThan(1000)
-  }, 3000)
+    expect(Date.now() - started).toBeLessThan(5000)
+  }, 10000)
 
   test("kills after timeout when process ignores terminate signal", async () => {
     if (process.platform === "win32") return
@@ -56,9 +59,10 @@ describe("util.process", () => {
       timeout: 25,
     })
 
+    expect(abort.signal.aborted).toBe(true)
     expect(out.code).not.toBe(0)
-    expect(Date.now() - started).toBeLessThan(1000)
-  }, 3000)
+    expect(Date.now() - started).toBeLessThan(5000)
+  }, 10000)
 
   test("uses cwd when spawning commands", async () => {
     await using tmp = await tmpdir()

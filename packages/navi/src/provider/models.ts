@@ -9,6 +9,9 @@ import { Hash } from "@navi-ai/core/util/hash"
 import { AppFileSystem } from "@navi-ai/core/filesystem"
 import { withTransientReadRetry } from "@/util/effect-http-client"
 import { CatalogModelStatus } from "./model-status"
+import * as Log from "@navi-ai/core/util/log"
+
+const log = Log.create({ service: "models-dev" })
 
 const Cost = Schema.Struct({
   input: Schema.Finite,
@@ -133,6 +136,7 @@ export const layer: Layer.Layer<Service, never, AppFileSystem.Service | HttpClie
     )
 
     // Bundled at build time; absent in dev — `tryPromise` covers both.
+    // TODO: chunk provider/models-snapshot.js (4.4MB) per-provider so startup only parses what's needed.
     const loadSnapshot = Effect.tryPromise({
       // @ts-ignore — generated at build time, may not exist in dev
       try: () => import("./models-snapshot.js").then((m) => m.snapshot as Record<string, Provider> | undefined),
@@ -158,7 +162,15 @@ export const layer: Layer.Layer<Service, never, AppFileSystem.Service | HttpClie
           return yield* fetchAndWrite()
         }),
       )
-      return JSON.parse(text) as Record<string, Provider>
+      return yield* Effect.try({
+        try: () => JSON.parse(text) as Record<string, Provider>,
+        catch: (cause) => cause,
+      }).pipe(
+        Effect.tapError((cause) =>
+          Effect.sync(() => log.debug("invalid models.dev JSON, using empty", { error: String(cause) })),
+        ),
+        Effect.orElseSucceed(() => ({}) as Record<string, Provider>),
+      )
     }).pipe(Effect.withSpan("ModelsDev.populate"), Effect.orDie)
 
     const [cachedGet, invalidate] = yield* Effect.cachedInvalidateWithTTL(populate, Duration.infinity)

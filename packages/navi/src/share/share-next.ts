@@ -273,10 +273,11 @@ export const layer = Layer.effect(
       const info = yield* session.get(sessionID)
       const diffs = yield* session.diff(sessionID)
       const messages = yield* Effect.sync(() => Array.from(MessageV2.stream(sessionID)))
+      const defined = messages.filter((msg): msg is NonNullable<typeof msg> => msg !== undefined)
       const models = yield* Effect.forEach(
         Array.from(
           new Map(
-            messages
+            defined
               .filter((msg) => msg.info.role === "user")
               .map((msg) => (msg.info as SDK.UserMessage).model)
               .map((item) => [`${item.providerID}/${item.modelID}`, item] as const),
@@ -288,8 +289,8 @@ export const layer = Layer.effect(
 
       yield* sync(sessionID, [
         { type: "session", data: info },
-        ...messages.map((item) => ({ type: "message" as const, data: item.info })),
-        ...messages.flatMap((item) => item.parts.map((part) => ({ type: "part" as const, data: part }))),
+        ...defined.map((item) => ({ type: "message" as const, data: item.info })),
+        ...defined.flatMap((item) => item.parts.map((part) => ({ type: "part" as const, data: part }))),
         { type: "session_diff", data: diffs },
         { type: "model", data: models },
       ])

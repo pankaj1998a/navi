@@ -14,8 +14,7 @@ export async function exists(p: string): Promise<boolean> {
 export async function isDir(p: string): Promise<boolean> {
   try {
     return statSync(p).isDirectory()
-  } catch (e) {
-    // Return false if path does not exist or is inaccessible
+  } catch {
     return false
   }
 }
@@ -41,7 +40,13 @@ export async function readText(p: string): Promise<string> {
 }
 
 export async function readJson<T = unknown>(p: string): Promise<T> {
-  return JSON.parse(await readFile(p, "utf-8"))
+  const text = await readFile(p, "utf-8")
+  try {
+    return JSON.parse(text)
+  } catch (e) {
+    if (e instanceof SyntaxError) throw new SyntaxError(`invalid JSON in ${p}: ${e.message}`)
+    throw e
+  }
 }
 
 export async function readBytes(p: string): Promise<Buffer> {
@@ -116,8 +121,7 @@ export function normalizePath(p: string): string {
   const resolved = win32.normalize(win32.resolve(windowsPath(p)))
   try {
     return realpathSync.native(resolved)
-  } catch (e) {
-    // Return resolved path if canonical lookup fails
+  } catch {
     return resolved
   }
 }
@@ -127,7 +131,9 @@ export function normalizePathPattern(p: string): string {
   if (p === "*") return p
   const match = p.match(/^(.*)[\\/]\*$/)
   if (!match) return normalizePath(p)
-  const dir = /^[A-Za-z]:$/.test(match[1]) ? match[1] + "\\" : match[1]
+  const dirPart = match[1]
+  if (dirPart === undefined) return normalizePath(p)
+  const dir = /^[A-Za-z]:$/.test(dirPart) ? dirPart + "\\" : dirPart
   return join(normalizePath(dir), "*")
 }
 
@@ -146,23 +152,16 @@ export function resolve(p: string): string {
 
 export function windowsPath(p: string): string {
   if (process.platform !== "win32") return p
-  const converted = p
-    .replace(/^\/([a-zA-Z]):(?:[\\/]|$)/, (_, drive) => `${drive.toUpperCase()}:/`)
-    // Git Bash for Windows paths are typically /<drive>/...
-    .replace(/^\/([a-zA-Z])(?:\/|$)/, (_, drive) => `${drive.toUpperCase()}:/`)
-    // Cygwin git paths are typically /cygdrive/<drive>/...
-    .replace(/^\/cygdrive\/([a-zA-Z])(?:\/|$)/, (_, drive) => `${drive.toUpperCase()}:/`)
-    // WSL paths are typically /mnt/<drive>/...
-    .replace(/^\/mnt\/([a-zA-Z])(?:\/|$)/, (_, drive) => `${drive.toUpperCase()}:/`)
-  if (converted !== p) return converted
-  if ((p.startsWith("/") || p.startsWith("\\")) && !/^[A-Za-z]:/.test(p)) {
-    const lower = p.toLowerCase()
-    if (lower === "/tmp" || lower.startsWith("/tmp/") || lower === "\\tmp" || lower.startsWith("\\tmp\\") || lower.startsWith("\\tmp/")) return p
-    const systemDrive = (process.env.SystemDrive || "C:").replace(/:+$/, "").toUpperCase() + ":"
-    const suffix = p.includes("\\") ? p.replace(/\\/g, "/") : p
-    return `${systemDrive}${suffix}`
-  }
-  return p
+  return (
+    p
+      .replace(/^\/([a-zA-Z]):(?:[\\/]|$)/, (_, drive) => `${drive.toUpperCase()}:/`)
+      // Git Bash for Windows paths are typically /<drive>/...
+      .replace(/^\/([a-zA-Z])(?:\/|$)/, (_, drive) => `${drive.toUpperCase()}:/`)
+      // Cygwin git paths are typically /cygdrive/<drive>/...
+      .replace(/^\/cygdrive\/([a-zA-Z])(?:\/|$)/, (_, drive) => `${drive.toUpperCase()}:/`)
+      // WSL paths are typically /mnt/<drive>/...
+      .replace(/^\/mnt\/([a-zA-Z])(?:\/|$)/, (_, drive) => `${drive.toUpperCase()}:/`)
+  )
 }
 export function overlaps(a: string, b: string) {
   const relA = relative(a, b)
@@ -240,7 +239,7 @@ export async function globUp(pattern: string, start: string, stop?: string) {
         dot: true,
       })
       result.push(...matches)
-    } catch (e) {
+    } catch {
       // Skip invalid glob patterns
     }
     if (stop === current) break

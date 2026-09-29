@@ -164,3 +164,39 @@ MOCK_EVENT='{"eventName":"issue_comment","repo":{"owner":"sst","repo":"hello-wor
 ```
 MOCK_EVENT='{"eventName":"pull_request_review_comment","repo":{"owner":"sst","repo":"hello-world"},"actor":"fwang","payload":{"pull_request":{"number":7},"comment":{"id":1,"body":"hey navi, add error handling","path":"src/components/Button.tsx","diff_hunk":"@@ -45,8 +45,11 @@\n- const handleClick = () => {\n-   console.log('clicked')\n+ const handleClick = useCallback(() => {\n+   console.log('clicked')\n+   doSomething()\n+ }, [doSomething])","line":47,"original_line":45,"position":10,"commit_id":"abc123","original_commit_id":"def456"}}}'
 ```
+
+## Pull Request Code Review
+
+Navi includes a comprehensive, multi-mode code review engine adapted from OpenCodeReview. It provides automated, high-signal PR reviews directly within GitHub.
+
+### CLI Command
+
+You can run reviews directly from your local terminal:
+
+```bash
+# Review a PR
+navi github review --pr 42
+
+# Review with specific model and options
+navi github review --pr 42 \
+  --model anthropic/claude-3-5-sonnet-20241022 \
+  --sticky-summary \
+  --incremental \
+  --checkpoint-range \
+  --resolve-outdated true
+```
+
+### GitHub Actions PR Auto-Review Workflow
+
+To enable automated PR reviews on every push or on-demand via comments (`/navi review` or `/oc review`), copy [`workflow-examples/navi-review.yml`](./workflow-examples/navi-review.yml) into `.github/workflows/navi-review.yml`.
+
+### Key Review Capabilities
+
+- **Inline Diff Comments:** Line-level comments placed directly on modified code using GitHub's Review API, including code suggestions (````suggestion`).
+- **Sticky PR Summary:** Updates a single PR overview comment in-place with a clean status banner, statistics table, routed findings, and warnings.
+- **Incremental Deduplication (`incremental: true`):** Tracks existing bot review comments using Intersection over Union (IoU) overlap calculation (`incremental_overlap_threshold: 0.6`) so repeated runs only comment on newly introduced issues.
+- **Cross-Push Checkpointing (`checkpoint_range: true`):** Stores an authenticated checkpoint marker (`<!-- navi-checkpoint:v1 ... -->`) in the sticky summary. Subsequent pushes review only `checkpoint..head` instead of re-analyzing the entire branch from scratch.
+- **Outdated Thread Resolution (`resolve_outdated: true`):** Automatically resolves bot review threads when subsequent commits modify or fix the reviewed code lines.
+- **Severity & Category Routing (`route_severity_below`, `route_categories`):** Routes low-severity or style findings into a summary table rather than cluttering inline diffs.
+- **Rate-Limit & Batching Resilience:** Automatically packs review comments into batches (<= 50) and handles secondary rate-limits with backoff and retry.
+

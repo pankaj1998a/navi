@@ -1,3 +1,5 @@
+// TODO: extract per-family transforms from this file (~50KB) into
+// provider/transform/*.ts. Split is deferred: transform ordering is load-bearing.
 import type { ModelMessage, ToolResultPart } from "ai"
 import { mergeDeep, unique } from "remeda"
 import type { JSONSchema7 } from "@ai-sdk/provider"
@@ -248,6 +250,7 @@ function normalizeMessages(
     const result: ModelMessage[] = []
     for (let i = 0; i < msgs.length; i++) {
       const msg = msgs[i]
+      if (!msg) continue
       const nextMsg = msgs[i + 1]
 
       if (msg.role === "assistant" && Array.isArray(msg.content)) {
@@ -411,7 +414,7 @@ function unsupportedParts(msgs: ModelMessage[], model: Provider.Model): ModelMes
         }
       }
 
-      const mime = part.type === "image" ? String(part.image).split(";")[0].replace("data:", "") : part.mediaType
+      const mime = part.type === "image" ? (String(part.image).split(";")[0] ?? "").replace("data:", "") : part.mediaType
       const filename = part.type === "file" ? part.filename : undefined
       const modality = mimeToModality(mime)
       if (!modality) return part
@@ -475,19 +478,11 @@ export function message(msgs: ModelMessage[], model: Provider.Model, options: Re
   return msgs
 }
 
-const GEMINI_MODELS_WITH_SAMPLING_DEFAULTS = [
-  /gemini-2[.-]5(?:[.-]|$)/,
-  /gemini-3-(?:flash|pro)(?:[.-]|$)/,
-  /gemini-3[.-]1(?:[.-]|$)/,
-  /gemini-3[.-]5-flash(?!-lite)(?:[.-]|$)/,
-]
-
 export function temperature(model: Provider.Model) {
   const id = model.id.toLowerCase()
   if (id.includes("qwen")) return 0.55
   if (id.includes("claude")) return undefined
-  if (id.includes("gemini"))
-    return GEMINI_MODELS_WITH_SAMPLING_DEFAULTS.some((model) => model.test(id)) ? 1.0 : undefined
+  if (id.includes("gemini")) return 1.0
   if (id.includes("glm-4.6")) return 1.0
   if (id.includes("glm-4.7")) return 1.0
   if (id.includes("minimax-m2")) return 1.0
@@ -504,11 +499,9 @@ export function temperature(model: Provider.Model) {
 export function topP(model: Provider.Model) {
   const id = model.id.toLowerCase()
   if (id.includes("qwen")) return 1
-  if (["minimax-m2", "kimi-k2.5", "kimi-k2p5", "kimi-k2-5"].some((s) => id.includes(s))) {
+  if (["minimax-m2", "gemini", "kimi-k2.5", "kimi-k2p5", "kimi-k2-5"].some((s) => id.includes(s))) {
     return 0.95
   }
-  if (id.includes("gemini"))
-    return GEMINI_MODELS_WITH_SAMPLING_DEFAULTS.some((model) => model.test(id)) ? 0.95 : undefined
   return undefined
 }
 
@@ -518,8 +511,7 @@ export function topK(model: Provider.Model) {
     if (["m2.", "m25", "m21"].some((s) => id.includes(s))) return 40
     return 20
   }
-  if (id.includes("gemini"))
-    return GEMINI_MODELS_WITH_SAMPLING_DEFAULTS.some((model) => model.test(id)) ? 64 : undefined
+  if (id.includes("gemini")) return 64
   return undefined
 }
 
@@ -1278,7 +1270,7 @@ export function providerOptions(model: Provider.Model, options: { [x: string]: a
     model.api.npm === "@ai-sdk/openai-compatible" ||
     model.api.npm === "@ai-sdk/openai" ||
     model.api.npm === "@ai-sdk/anthropic"
-  const key = sdkKey(model.api.npm) ?? (usesDotSplitOptions ? model.providerID.split(".")[0] : model.providerID)
+  const key = sdkKey(model.api.npm) ?? (usesDotSplitOptions ? (model.providerID.split(".")[0] ?? model.providerID) : model.providerID)
   // @ai-sdk/azure delegates to OpenAIChatLanguageModel which reads from
   // providerOptions["openai"], but OpenAIResponsesLanguageModel checks
   // "azure" first. Pass both so model options work on either code path.
@@ -1293,59 +1285,23 @@ export function maxOutputTokens(model: Provider.Model): number {
 }
 
 export function schema(model: Provider.Model, schema: JSONSchema.BaseSchema | JSONSchema7): JSONSchema7 {
-  if (model.providerID === "openai" || model.providerID === "azure") {
-    const sanitizeOpenAI = (obj: any): any => {
-      if (obj === null || typeof obj !== "object") {
-        return obj
-      }
-
-      if (Array.isArray(obj)) {
-        return obj.map(sanitizeOpenAI)
-      }
-
-      const result: any = {}
-      for (const [key, value] of Object.entries(obj)) {
-        if (typeof value === "object" && value !== null) {
-          result[key] = sanitizeOpenAI(value)
-        } else {
-          result[key] = value
+  /*
+  if (["openai", "azure"].includes(providerID)) {
+    if (schema.type === "object" && schema.properties) {
+      for (const [key, value] of Object.entries(schema.properties)) {
+        if (schema.required?.includes(key)) continue
+        schema.properties[key] = {
+          anyOf: [
+            value as JSONSchema.JSONSchema,
+            {
+              type: "null",
+            },
+          ],
         }
       }
-
-      if (result.type === "object" && result.properties) {
-        const required = new Set<string>(Array.isArray(result.required) ? result.required : [])
-        for (const [key, value] of Object.entries(result.properties)) {
-          if (!required.has(key)) {
-            const val = value as any
-            if (val && typeof val === "object" && !Array.isArray(val)) {
-              if (val.anyOf) {
-                if (!val.anyOf.some((item: any) => item && item.type === "null")) {
-                  val.anyOf = [...val.anyOf, { type: "null" }]
-                }
-              } else if (Array.isArray(val.type)) {
-                if (!val.type.includes("null")) {
-                  val.type = [...val.type, "null"]
-                }
-              } else {
-                const original = { ...val }
-                for (const k of Object.keys(val)) {
-                  delete val[k]
-                }
-                val.anyOf = [original, { type: "null" }]
-              }
-            }
-            required.add(key)
-          }
-        }
-        result.required = Array.from(required)
-        result.additionalProperties = false
-      }
-
-      return result
     }
-
-    schema = sanitizeOpenAI(schema)
   }
+  */
 
   if (model.providerID === "moonshotai" || model.api.id.toLowerCase().includes("kimi")) {
     const sanitizeMoonshot = (obj: unknown): unknown => {

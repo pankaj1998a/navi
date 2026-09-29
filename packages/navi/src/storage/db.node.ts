@@ -1,8 +1,8 @@
-import { Database } from "bun:sqlite"
-import { drizzle } from "drizzle-orm/bun-sqlite"
+import { DatabaseSync } from "node:sqlite"
+import { drizzle } from "drizzle-orm/node-sqlite"
 
 export function init(path: string) {
-  const sqlite = new Database(path, { create: true } as any)
-  const db = drizzle({ client: sqlite as any })
+  const sqlite = new DatabaseSync(path)
+  const db = drizzle({ client: sqlite })
   return db
 }

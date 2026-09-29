@@ -15,6 +15,32 @@ import { ConfigPermission } from "./permission"
 
 const log = Log.create({ service: "config" })
 
+// Memoized Glob.scan per (dir, pattern) with short TTL: config dirs are re-loaded
+// on every get(), so share the listing instead of hitting the FS each time.
+// TTL (not forever) so newly added agent files are picked up without restart.
+// Invalidation is TTL-based (no manual clear needed); call invalidateAgentScan on config writes.
+const scanCache = new Map<string, { at: number; files: Promise<string[]> }>()
+const SCAN_TTL_MS = 30_000
+function cachedScan(dir: string, pattern: string): Promise<string[]> {
+  const key = `${dir}\n${pattern}`
+  const now = Date.now()
+  const hit = scanCache.get(key)
+  if (hit && now - hit.at < SCAN_TTL_MS) return hit.files
+  const p = Glob.scan(pattern, { cwd: dir, absolute: true, dot: true, symlink: true })
+  scanCache.set(key, { at: now, files: p })
+  p.catch(() => scanCache.delete(key))
+  return p
+}
+
+export function invalidateAgentScan(dir?: string, pattern?: string) {
+  if (dir === undefined) scanCache.clear()
+  else if (pattern === undefined) {
+    for (const key of scanCache.keys()) {
+      if (key.startsWith(`${dir}\n`)) scanCache.delete(key)
+    }
+  } else scanCache.delete(`${dir}\n${pattern}`)
+}
+
 const Color = Schema.Union([
   Schema.String.check(Schema.isPattern(/^#[0-9a-fA-F]{6}$/)),
   Schema.Literals(["primary", "secondary", "accent", "success", "warning", "error", "info"]),
@@ -109,12 +135,7 @@ export type Info = Schema.Schema.Type<typeof Info>
 
 export async function load(dir: string) {
   const result: Record<string, Info> = {}
-  for (const item of await Glob.scan("{agent,agents}/**/*.md", {
-    cwd: dir,
-    absolute: true,
-    dot: true,
-    symlink: true,
-  })) {
+  for (const item of await cachedScan(dir, "{agent,agents}/**/*.md")) {
     const md = await ConfigMarkdown.parse(item).catch(async (err) => {
       const message = ConfigMarkdown.FrontmatterError.isInstance(err)
         ? err.data.message
@@ -141,12 +162,7 @@ export async function load(dir: string) {
 
 export async function loadMode(dir: string) {
   const result: Record<string, Info> = {}
-  for (const item of await Glob.scan("{mode,modes}/*.md", {
-    cwd: dir,
-    absolute: true,
-    dot: true,
-    symlink: true,
-  })) {
+  for (const item of await cachedScan(dir, "{mode,modes}/*.md")) {
     const md = await ConfigMarkdown.parse(item).catch(async (err) => {
       const message = ConfigMarkdown.FrontmatterError.isInstance(err)
         ? err.data.message

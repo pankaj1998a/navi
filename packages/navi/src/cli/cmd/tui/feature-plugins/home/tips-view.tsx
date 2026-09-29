@@ -16,7 +16,7 @@ function parse(tip: string): TipPart[] {
       if (start > acc.index) {
         acc.parts.push({ text: tip.slice(acc.index, start), highlight: false })
       }
-      acc.parts.push({ text: match[1], highlight: true })
+      acc.parts.push({ text: match[1] ?? "", highlight: true })
       acc.index = start + match[0].length
       return acc
     },
@@ -34,7 +34,7 @@ const NO_MODELS_TIP = "Run {highlight}/connect{/highlight} to add an AI provider
 
 export function Tips(props: { connected?: boolean }) {
   const theme = useTheme().theme
-  const randomTip = TIPS[Math.floor(Math.random() * TIPS.length)]
+  const randomTip = TIPS[Math.floor(Math.random() * TIPS.length)] ?? NO_MODELS_TIP
   const parts = createMemo(() => parse(props.connected === false ? NO_MODELS_TIP : randomTip))
 
   return (

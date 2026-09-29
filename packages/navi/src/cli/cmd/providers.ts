@@ -62,6 +62,7 @@ const handlePluginAuth = Effect.fn("Cli.providers.pluginAuth")(function* (
     return match
   })
   const method = plugin.auth.methods[index]
+  if (!method) return yield* fail(`Unknown method for ${provider}`)
 
   yield* Effect.sleep("10 millis")
   const inputs: Record<string, string> = {}

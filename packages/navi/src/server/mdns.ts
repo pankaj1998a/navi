@@ -36,9 +36,7 @@ export function publish(port: number, domain?: string) {
     if (bonjour) {
       try {
         bonjour.destroy()
-      } catch (e) {
-        log.error("mDNS bonjour destroy failed during error handling", { error: e })
-      }
+      } catch {}
     }
     bonjour = undefined
     currentPort = undefined

@@ -64,8 +64,13 @@ async function markPluginDependenciesReady(dir: string) {
   )
 }
 
+function must<T>(value: T | undefined, message: string): T {
+  if (!value) throw new Error(message)
+  return value
+}
+
 function paid(providers: Awaited<ReturnType<typeof list>>) {
-  const item = providers[ProviderID.make("navi")]
+  const item = must(providers[ProviderID.make("navi")], "expected navi provider")
   expect(item).toBeDefined()
   return Object.values(item.models).filter((model) => model.cost.input > 0).length
 }
@@ -89,8 +94,8 @@ test("provider loaded from env variable", async () => {
       expect(providers[ProviderID.anthropic]).toBeDefined()
       // Provider should retain its connection source even if custom loaders
       // merge additional options.
-      expect(providers[ProviderID.anthropic].source).toBe("env")
-      expect(providers[ProviderID.anthropic].options.headers["anthropic-beta"]).toBeDefined()
+      expect(must(providers[ProviderID.anthropic], "expected anthropic provider").source).toBe("env")
+      expect(must(providers[ProviderID.anthropic], "expected anthropic provider").options.headers["anthropic-beta"]).toBeDefined()
     },
   })
 })
@@ -190,7 +195,7 @@ test("model whitelist filters models for provider", async () => {
       set("ANTHROPIC_API_KEY", "test-api-key")
       const providers = await list()
       expect(providers[ProviderID.anthropic]).toBeDefined()
-      const models = Object.keys(providers[ProviderID.anthropic].models)
+      const models = Object.keys(must(providers[ProviderID.anthropic], "expected anthropic provider").models)
       expect(models).toContain("claude-sonnet-4-20250514")
       expect(models.length).toBe(1)
     },
@@ -219,7 +224,7 @@ test("model blacklist excludes specific models", async () => {
       set("ANTHROPIC_API_KEY", "test-api-key")
       const providers = await list()
       expect(providers[ProviderID.anthropic]).toBeDefined()
-      const models = Object.keys(providers[ProviderID.anthropic].models)
+      const models = Object.keys(must(providers[ProviderID.anthropic], "expected anthropic provider").models)
       expect(models).not.toContain("claude-sonnet-4-20250514")
     },
   })
@@ -252,8 +257,8 @@ test("custom model alias via config", async () => {
       set("ANTHROPIC_API_KEY", "test-api-key")
       const providers = await list()
       expect(providers[ProviderID.anthropic]).toBeDefined()
-      expect(providers[ProviderID.anthropic].models["my-alias"]).toBeDefined()
-      expect(providers[ProviderID.anthropic].models["my-alias"].name).toBe("My Custom Alias")
+      expect(must(providers[ProviderID.anthropic], "expected anthropic provider").models["my-alias"]).toBeDefined()
+      expect(must(must(providers[ProviderID.anthropic], "expected anthropic provider").models["my-alias"], "expected model").name).toBe("My Custom Alias")
     },
   })
 })
@@ -295,8 +300,8 @@ test("custom provider with npm package", async () => {
     fn: async () => {
       const providers = await list()
       expect(providers[ProviderID.make("custom-provider")]).toBeDefined()
-      expect(providers[ProviderID.make("custom-provider")].name).toBe("Custom Provider")
-      expect(providers[ProviderID.make("custom-provider")].models["custom-model"]).toBeDefined()
+      expect(must(providers[ProviderID.make("custom-provider")], "expected custom-provider provider").name).toBe("Custom Provider")
+      expect(must(providers[ProviderID.make("custom-provider")], "expected custom-provider provider").models["custom-model"]).toBeDefined()
     },
   })
 })
@@ -351,12 +356,12 @@ test("custom DeepSeek openai-compatible model defaults interleaved reasoning fie
     directory: tmp.path,
     fn: async () => {
       const providers = await list()
-      const provider = providers[ProviderID.make("custom-provider")]
-      expect(provider.models["deepseek-r1"].capabilities.interleaved).toEqual({ field: "reasoning_content" })
-      expect(provider.models["deepseek-details"].capabilities.interleaved).toEqual({ field: "reasoning_details" })
-      expect(provider.models["custom-model"].capabilities.interleaved).toBe(false)
+      const provider = must(providers[ProviderID.make("custom-provider")], "expected custom-provider")
+      expect(must(provider.models["deepseek-r1"], "expected model").capabilities.interleaved).toEqual({ field: "reasoning_content" })
+      expect(must(provider.models["deepseek-details"], "expected model").capabilities.interleaved).toEqual({ field: "reasoning_details" })
+      expect(must(provider.models["custom-model"], "expected model").capabilities.interleaved).toBe(false)
       expect(
-        providers[ProviderID.make("custom-anthropic-provider")].models["deepseek-r1"].capabilities.interleaved,
+        must(must(providers[ProviderID.make("custom-anthropic-provider")], "expected custom-anthropic-provider provider").models["deepseek-r1"], "expected model").capabilities.interleaved,
       ).toBe(false)
     },
   })
@@ -388,8 +393,8 @@ test("env variable takes precedence, config merges options", async () => {
       const providers = await list()
       expect(providers[ProviderID.anthropic]).toBeDefined()
       // Config options should be merged
-      expect(providers[ProviderID.anthropic].options.timeout).toBe(60000)
-      expect(providers[ProviderID.anthropic].options.chunkTimeout).toBe(15000)
+      expect(must(providers[ProviderID.anthropic], "expected anthropic provider").options.timeout).toBe(60000)
+      expect(must(providers[ProviderID.anthropic], "expected anthropic provider").options.chunkTimeout).toBe(15000)
     },
   })
 })
@@ -549,7 +554,7 @@ test("provider with baseURL from config", async () => {
     fn: async () => {
       const providers = await list()
       expect(providers[ProviderID.make("custom-openai")]).toBeDefined()
-      expect(providers[ProviderID.make("custom-openai")].options.baseURL).toBe("https://custom.openai.com/v1")
+      expect(must(providers[ProviderID.make("custom-openai")], "expected custom-openai provider").options.baseURL).toBe("https://custom.openai.com/v1")
     },
   })
 })
@@ -586,7 +591,7 @@ test("model cost defaults to zero when not specified", async () => {
     directory: tmp.path,
     fn: async () => {
       const providers = await list()
-      const model = providers[ProviderID.make("test-provider")].models["test-model"]
+      const model = must(must(providers[ProviderID.make("test-provider")], "expected test-provider provider").models["test-model"], "expected model")
       expect(model.cost.input).toBe(0)
       expect(model.cost.output).toBe(0)
       expect(model.cost.cache.read).toBe(0)
@@ -622,7 +627,7 @@ test("model options are merged from existing model", async () => {
     fn: async () => {
       set("ANTHROPIC_API_KEY", "test-api-key")
       const providers = await list()
-      const model = providers[ProviderID.anthropic].models["claude-sonnet-4-20250514"]
+      const model = must(must(providers[ProviderID.anthropic], "expected anthropic provider").models["claude-sonnet-4-20250514"], "expected model")
       expect(model.options.customOption).toBe("custom-value")
     },
   })
@@ -723,7 +728,7 @@ test("getModel uses realIdByKey for aliased models", async () => {
     fn: async () => {
       set("ANTHROPIC_API_KEY", "test-api-key")
       const providers = await list()
-      expect(providers[ProviderID.anthropic].models["my-sonnet"]).toBeDefined()
+      expect(must(providers[ProviderID.anthropic], "expected anthropic provider").models["my-sonnet"]).toBeDefined()
 
       const model = await getModel(ProviderID.anthropic, ModelID.make("my-sonnet"))
       expect(model).toBeDefined()
@@ -767,7 +772,7 @@ test("provider api field sets model api.url", async () => {
     fn: async () => {
       const providers = await list()
       // api field is stored on model.api.url, used by getSDK to set baseURL
-      expect(providers[ProviderID.make("custom-api")].models["model-1"].api.url).toBe("https://api.example.com/v1")
+      expect(must(must(providers[ProviderID.make("custom-api")], "expected custom-api provider").models["model-1"], "expected model").api.url).toBe("https://api.example.com/v1")
     },
   })
 })
@@ -806,7 +811,7 @@ test("explicit baseURL overrides api field", async () => {
     directory: tmp.path,
     fn: async () => {
       const providers = await list()
-      expect(providers[ProviderID.make("custom-api")].options.baseURL).toBe("https://custom.override.com/v1")
+      expect(must(providers[ProviderID.make("custom-api")], "expected custom-api provider").options.baseURL).toBe("https://custom.override.com/v1")
     },
   })
 })
@@ -836,7 +841,7 @@ test("model inherits properties from existing database model", async () => {
     fn: async () => {
       set("ANTHROPIC_API_KEY", "test-api-key")
       const providers = await list()
-      const model = providers[ProviderID.anthropic].models["claude-sonnet-4-20250514"]
+      const model = must(must(providers[ProviderID.anthropic], "expected anthropic provider").models["claude-sonnet-4-20250514"], "expected model")
       expect(model.name).toBe("Custom Name for Sonnet")
       expect(model.capabilities.toolcall).toBe(true)
       expect(model.capabilities.attachment).toBe(true)
@@ -913,7 +918,7 @@ test("whitelist and blacklist can be combined", async () => {
       set("ANTHROPIC_API_KEY", "test-api-key")
       const providers = await list()
       expect(providers[ProviderID.anthropic]).toBeDefined()
-      const models = Object.keys(providers[ProviderID.anthropic].models)
+      const models = Object.keys(must(providers[ProviderID.anthropic], "expected anthropic provider").models)
       expect(models).toContain("claude-sonnet-4-20250514")
       expect(models).not.toContain("claude-opus-4-20250514")
       expect(models.length).toBe(1)
@@ -951,7 +956,7 @@ test("model modalities default correctly", async () => {
     directory: tmp.path,
     fn: async () => {
       const providers = await list()
-      const model = providers[ProviderID.make("test-provider")].models["test-model"]
+      const model = must(must(providers[ProviderID.make("test-provider")], "expected test-provider provider").models["test-model"], "expected model")
       expect(model.capabilities.input.text).toBe(true)
       expect(model.capabilities.output.text).toBe(true)
     },
@@ -994,7 +999,7 @@ test("model with custom cost values", async () => {
     directory: tmp.path,
     fn: async () => {
       const providers = await list()
-      const model = providers[ProviderID.make("test-provider")].models["test-model"]
+      const model = must(must(providers[ProviderID.make("test-provider")], "expected test-provider provider").models["test-model"], "expected model")
       expect(model.cost.input).toBe(5)
       expect(model.cost.output).toBe(15)
       expect(model.cost.cache.read).toBe(2.5)
@@ -1091,8 +1096,8 @@ test("multiple providers can be configured simultaneously", async () => {
       const providers = await list()
       expect(providers[ProviderID.anthropic]).toBeDefined()
       expect(providers[ProviderID.openai]).toBeDefined()
-      expect(providers[ProviderID.anthropic].options.timeout).toBe(30000)
-      expect(providers[ProviderID.openai].options.timeout).toBe(60000)
+      expect(must(providers[ProviderID.anthropic], "expected anthropic provider").options.timeout).toBe(30000)
+      expect(must(providers[ProviderID.openai], "expected openai provider").options.timeout).toBe(60000)
     },
   })
 })
@@ -1131,8 +1136,8 @@ test("provider with custom npm package", async () => {
     fn: async () => {
       const providers = await list()
       expect(providers[ProviderID.make("local-llm")]).toBeDefined()
-      expect(providers[ProviderID.make("local-llm")].models["llama-3"].api.npm).toBe("@ai-sdk/openai-compatible")
-      expect(providers[ProviderID.make("local-llm")].options.baseURL).toBe("http://localhost:11434/v1")
+      expect(must(must(providers[ProviderID.make("local-llm")], "expected local-llm provider").models["llama-3"], "expected model").api.npm).toBe("@ai-sdk/openai-compatible")
+      expect(must(providers[ProviderID.make("local-llm")], "expected local-llm provider").options.baseURL).toBe("http://localhost:11434/v1")
     },
   })
 })
@@ -1165,7 +1170,7 @@ test("model alias name defaults to alias key when id differs", async () => {
     fn: async () => {
       set("ANTHROPIC_API_KEY", "test-api-key")
       const providers = await list()
-      expect(providers[ProviderID.anthropic].models["sonnet"].name).toBe("sonnet")
+      expect(must(must(providers[ProviderID.anthropic], "expected anthropic provider").models["sonnet"], "expected model").name).toBe("sonnet")
     },
   })
 })
@@ -1205,7 +1210,7 @@ test("provider with multiple env var options only includes apiKey when single en
       const providers = await list()
       expect(providers[ProviderID.make("multi-env")]).toBeDefined()
       // When multiple env options exist, key should NOT be auto-set
-      expect(providers[ProviderID.make("multi-env")].key).toBeUndefined()
+      expect(must(providers[ProviderID.make("multi-env")], "expected multi-env provider").key).toBeUndefined()
     },
   })
 })
@@ -1245,7 +1250,7 @@ test("provider with single env var includes apiKey automatically", async () => {
       const providers = await list()
       expect(providers[ProviderID.make("single-env")]).toBeDefined()
       // Single env option should auto-set key
-      expect(providers[ProviderID.make("single-env")].key).toBe("my-api-key")
+      expect(must(providers[ProviderID.make("single-env")], "expected single-env provider").key).toBe("my-api-key")
     },
   })
 })
@@ -1278,7 +1283,7 @@ test("model cost overrides existing cost values", async () => {
     fn: async () => {
       set("ANTHROPIC_API_KEY", "test-api-key")
       const providers = await list()
-      const model = providers[ProviderID.anthropic].models["claude-sonnet-4-20250514"]
+      const model = must(must(providers[ProviderID.anthropic], "expected anthropic provider").models["claude-sonnet-4-20250514"], "expected model")
       expect(model.cost.input).toBe(999)
       expect(model.cost.output).toBe(888)
     },
@@ -1326,8 +1331,8 @@ test("completely new provider not in database can be configured", async () => {
     fn: async () => {
       const providers = await list()
       expect(providers[ProviderID.make("brand-new-provider")]).toBeDefined()
-      expect(providers[ProviderID.make("brand-new-provider")].name).toBe("Brand New")
-      const model = providers[ProviderID.make("brand-new-provider")].models["new-model"]
+      expect(must(providers[ProviderID.make("brand-new-provider")], "expected brand-new-provider provider").name).toBe("Brand New")
+      const model = must(must(providers[ProviderID.make("brand-new-provider")], "expected brand-new-provider provider").models["new-model"], "expected model")
       expect(model.capabilities.reasoning).toBe(true)
       expect(model.capabilities.attachment).toBe(true)
       expect(model.capabilities.input.image).toBe(true)
@@ -1397,7 +1402,7 @@ test("model with tool_call false", async () => {
     directory: tmp.path,
     fn: async () => {
       const providers = await list()
-      expect(providers[ProviderID.make("no-tools")].models["basic-model"].capabilities.toolcall).toBe(false)
+      expect(must(must(providers[ProviderID.make("no-tools")], "expected no-tools provider").models["basic-model"], "expected model").capabilities.toolcall).toBe(false)
     },
   })
 })
@@ -1432,7 +1437,7 @@ test("model defaults tool_call to true when not specified", async () => {
     directory: tmp.path,
     fn: async () => {
       const providers = await list()
-      expect(providers[ProviderID.make("default-tools")].models["model"].capabilities.toolcall).toBe(true)
+      expect(must(must(providers[ProviderID.make("default-tools")], "expected default-tools provider").models["model"], "expected model").capabilities.toolcall).toBe(true)
     },
   })
 })
@@ -1471,7 +1476,7 @@ test("model headers are preserved", async () => {
     directory: tmp.path,
     fn: async () => {
       const providers = await list()
-      const model = providers[ProviderID.make("headers-provider")].models["model"]
+      const model = must(must(providers[ProviderID.make("headers-provider")], "expected headers-provider provider").models["model"], "expected model")
       expect(model.headers).toEqual({
         "X-Custom-Header": "custom-value",
         Authorization: "Bearer special-token",
@@ -1572,7 +1577,7 @@ test("provider name defaults to id when not in database", async () => {
     directory: tmp.path,
     fn: async () => {
       const providers = await list()
-      expect(providers[ProviderID.make("my-custom-id")].name).toBe("my-custom-id")
+      expect(must(providers[ProviderID.make("my-custom-id")], "expected my-custom-id provider").name).toBe("my-custom-id")
     },
   })
 })
@@ -1745,7 +1750,7 @@ test("model limit defaults to zero when not specified", async () => {
     directory: tmp.path,
     fn: async () => {
       const providers = await list()
-      const model = providers[ProviderID.make("no-limit")].models["model"]
+      const model = must(must(providers[ProviderID.make("no-limit")], "expected no-limit provider").models["model"], "expected model")
       expect(model.limit.context).toBe(0)
       expect(model.limit.output).toBe(0)
     },
@@ -1779,10 +1784,10 @@ test("provider options are deeply merged", async () => {
       set("ANTHROPIC_API_KEY", "test-api-key")
       const providers = await list()
       // Custom options should be merged
-      expect(providers[ProviderID.anthropic].options.timeout).toBe(30000)
-      expect(providers[ProviderID.anthropic].options.headers["X-Custom"]).toBe("custom-value")
+      expect(must(providers[ProviderID.anthropic], "expected anthropic provider").options.timeout).toBe(30000)
+      expect(must(providers[ProviderID.anthropic], "expected anthropic provider").options.headers["X-Custom"]).toBe("custom-value")
       // anthropic custom loader adds its own headers, they should coexist
-      expect(providers[ProviderID.anthropic].options.headers["anthropic-beta"]).toBeDefined()
+      expect(must(providers[ProviderID.anthropic], "expected anthropic provider").options.headers["anthropic-beta"]).toBeDefined()
     },
   })
 })
@@ -1814,7 +1819,7 @@ test("custom model inherits npm package from models.dev provider config", async 
     fn: async () => {
       set("OPENAI_API_KEY", "test-api-key")
       const providers = await list()
-      const model = providers[ProviderID.openai].models["my-custom-model"]
+      const model = must(must(providers[ProviderID.openai], "expected openai provider").models["my-custom-model"], "expected model")
       expect(model).toBeDefined()
       expect(model.api.npm).toBe("@ai-sdk/openai")
     },
@@ -1850,12 +1855,12 @@ test("custom model inherits api.url from models.dev provider", async () => {
       expect(providers[ProviderID.openrouter]).toBeDefined()
 
       // New model not in database should inherit api.url from provider
-      const intellect = providers[ProviderID.openrouter].models["prime-intellect/intellect-3"]
+      const intellect = must(must(providers[ProviderID.openrouter], "expected openrouter provider").models["prime-intellect/intellect-3"], "expected model")
       expect(intellect).toBeDefined()
       expect(intellect.api.url).toBe("https://openrouter.ai/api/v1")
 
       // Another new model should also inherit api.url
-      const deepseek = providers[ProviderID.openrouter].models["deepseek/deepseek-r1-0528"]
+      const deepseek = must(must(providers[ProviderID.openrouter], "expected openrouter provider").models["deepseek/deepseek-r1-0528"], "expected model")
       expect(deepseek).toBeDefined()
       expect(deepseek.api.url).toBe("https://openrouter.ai/api/v1")
       expect(deepseek.name).toBe("DeepSeek R1")
@@ -1914,7 +1919,7 @@ test("mode cost preserves over-200k pricing from base model", () => {
     },
   } as unknown as ModelsDev.Provider
 
-  const model = Provider.fromModelsDevProvider(provider).models["gpt-5.4-fast"]
+  const model = must(Provider.fromModelsDevProvider(provider).models["gpt-5.4-fast"], "expected model")
   expect(model.cost.input).toEqual(5)
   expect(model.cost.output).toEqual(30)
   expect(model.cost.cache.read).toEqual(0.5)
@@ -1953,7 +1958,7 @@ test("models.dev normalization fills required response fields", () => {
     },
   } as unknown as ModelsDev.Provider
 
-  const model = Provider.fromModelsDevProvider(provider).models["gpt-5.4"]
+  const model = must(Provider.fromModelsDevProvider(provider).models["gpt-5.4"], "expected model")
   expect(model.api.url).toBe("")
   expect(model.capabilities.temperature).toBe(false)
   expect(model.capabilities.reasoning).toBe(false)
@@ -1979,7 +1984,7 @@ test("model variants are generated for reasoning models", async () => {
       set("ANTHROPIC_API_KEY", "test-api-key")
       const providers = await list()
       // Claude sonnet 4 has reasoning capability
-      const model = providers[ProviderID.anthropic].models["claude-sonnet-4-20250514"]
+      const model = must(must(providers[ProviderID.anthropic], "expected anthropic provider").models["claude-sonnet-4-20250514"], "expected model")
       expect(model.capabilities.reasoning).toBe(true)
       expect(model.variants).toBeDefined()
       expect(Object.keys(model.variants!).length).toBeGreaterThan(0)
@@ -2014,7 +2019,7 @@ test("model variants can be disabled via config", async () => {
     fn: async () => {
       set("ANTHROPIC_API_KEY", "test-api-key")
       const providers = await list()
-      const model = providers[ProviderID.anthropic].models["claude-sonnet-4-20250514"]
+      const model = must(must(providers[ProviderID.anthropic], "expected anthropic provider").models["claude-sonnet-4-20250514"], "expected model")
       expect(model.variants).toBeDefined()
       expect(model.variants!["high"]).toBeUndefined()
       // max variant should still exist
@@ -2055,9 +2060,9 @@ test("model variants can be customized via config", async () => {
     fn: async () => {
       set("ANTHROPIC_API_KEY", "test-api-key")
       const providers = await list()
-      const model = providers[ProviderID.anthropic].models["claude-sonnet-4-20250514"]
+      const model = must(must(providers[ProviderID.anthropic], "expected anthropic provider").models["claude-sonnet-4-20250514"], "expected model")
       expect(model.variants!["high"]).toBeDefined()
-      expect(model.variants!["high"].thinking.budgetTokens).toBe(20000)
+      expect(must(model.variants?.["high"], "expected variant").thinking.budgetTokens).toBe(20000)
     },
   })
 })
@@ -2092,10 +2097,10 @@ test("disabled key is stripped from variant config", async () => {
     fn: async () => {
       set("ANTHROPIC_API_KEY", "test-api-key")
       const providers = await list()
-      const model = providers[ProviderID.anthropic].models["claude-sonnet-4-20250514"]
+      const model = must(must(providers[ProviderID.anthropic], "expected anthropic provider").models["claude-sonnet-4-20250514"], "expected model")
       expect(model.variants!["max"]).toBeDefined()
-      expect(model.variants!["max"].disabled).toBeUndefined()
-      expect(model.variants!["max"].customField).toBe("test")
+      expect(must(model.variants?.["max"], "expected variant").disabled).toBeUndefined()
+      expect(must(model.variants?.["max"], "expected variant").customField).toBe("test")
     },
   })
 })
@@ -2128,7 +2133,7 @@ test("all variants can be disabled via config", async () => {
     fn: async () => {
       set("ANTHROPIC_API_KEY", "test-api-key")
       const providers = await list()
-      const model = providers[ProviderID.anthropic].models["claude-sonnet-4-20250514"]
+      const model = must(must(providers[ProviderID.anthropic], "expected anthropic provider").models["claude-sonnet-4-20250514"], "expected model")
       expect(model.variants).toBeDefined()
       expect(Object.keys(model.variants!).length).toBe(0)
     },
@@ -2164,11 +2169,11 @@ test("variant config merges with generated variants", async () => {
     fn: async () => {
       set("ANTHROPIC_API_KEY", "test-api-key")
       const providers = await list()
-      const model = providers[ProviderID.anthropic].models["claude-sonnet-4-20250514"]
+      const model = must(must(providers[ProviderID.anthropic], "expected anthropic provider").models["claude-sonnet-4-20250514"], "expected model")
       expect(model.variants!["high"]).toBeDefined()
       // Should have both the generated thinking config and the custom option
-      expect(model.variants!["high"].thinking).toBeDefined()
-      expect(model.variants!["high"].extraOption).toBe("custom-value")
+      expect(must(model.variants?.["high"], "expected variant").thinking).toBeDefined()
+      expect(must(model.variants?.["high"], "expected variant").extraOption).toBe("custom-value")
     },
   })
 })
@@ -2200,7 +2205,7 @@ test("variants filtered in second pass for database models", async () => {
     fn: async () => {
       set("OPENAI_API_KEY", "test-api-key")
       const providers = await list()
-      const model = providers[ProviderID.openai].models["gpt-5"]
+      const model = must(must(providers[ProviderID.openai], "expected openai provider").models["gpt-5"], "expected model")
       expect(model.variants).toBeDefined()
       expect(model.variants!["high"]).toBeUndefined()
       // Other variants should still exist
@@ -2246,22 +2251,22 @@ test("custom model with variants enabled and disabled", async () => {
     directory: tmp.path,
     fn: async () => {
       const providers = await list()
-      const model = providers[ProviderID.make("custom-reasoning")].models["reasoning-model"]
+      const model = must(must(providers[ProviderID.make("custom-reasoning")], "expected custom-reasoning provider").models["reasoning-model"], "expected model")
       expect(model.variants).toBeDefined()
       // Enabled variants should exist
       expect(model.variants!["low"]).toBeDefined()
-      expect(model.variants!["low"].reasoningEffort).toBe("low")
+      expect(must(model.variants?.["low"], "expected variant").reasoningEffort).toBe("low")
       expect(model.variants!["medium"]).toBeDefined()
-      expect(model.variants!["medium"].reasoningEffort).toBe("medium")
+      expect(must(model.variants?.["medium"], "expected variant").reasoningEffort).toBe("medium")
       expect(model.variants!["custom"]).toBeDefined()
-      expect(model.variants!["custom"].reasoningEffort).toBe("custom")
-      expect(model.variants!["custom"].budgetTokens).toBe(5000)
+      expect(must(model.variants?.["custom"], "expected variant").reasoningEffort).toBe("custom")
+      expect(must(model.variants?.["custom"], "expected variant").budgetTokens).toBe(5000)
       // Disabled variant should not exist
       expect(model.variants!["high"]).toBeUndefined()
       // disabled key should be stripped from all variants
-      expect(model.variants!["low"].disabled).toBeUndefined()
-      expect(model.variants!["medium"].disabled).toBeUndefined()
-      expect(model.variants!["custom"].disabled).toBeUndefined()
+      expect(must(model.variants?.["low"], "expected variant").disabled).toBeUndefined()
+      expect(must(model.variants?.["medium"], "expected variant").disabled).toBeUndefined()
+      expect(must(model.variants?.["custom"], "expected variant").disabled).toBeUndefined()
     },
   })
 })
@@ -2303,7 +2308,7 @@ test("Google Vertex: retains baseURL for custom proxy", async () => {
       set("GOOGLE_APPLICATION_CREDENTIALS", "test-creds")
       const providers = await list()
       expect(providers[ProviderID.make("vertex-proxy")]).toBeDefined()
-      expect(providers[ProviderID.make("vertex-proxy")].options.baseURL).toBe("https://my-proxy.com/v1")
+      expect(must(providers[ProviderID.make("vertex-proxy")], "expected vertex-proxy provider").options.baseURL).toBe("https://my-proxy.com/v1")
     },
   })
 })
@@ -2345,7 +2350,7 @@ test("Google Vertex: supports OpenAI compatible models", async () => {
     fn: async () => {
       set("GOOGLE_APPLICATION_CREDENTIALS", "test-creds")
       const providers = await list()
-      const model = providers[ProviderID.make("vertex-openai")].models["gpt-4"]
+      const model = must(must(providers[ProviderID.make("vertex-openai")], "expected vertex-openai provider").models["gpt-4"], "expected model")
 
       expect(model).toBeDefined()
       expect(model.api.npm).toBe("@ai-sdk/openai-compatible")
@@ -2402,7 +2407,7 @@ test("cloudflare-ai-gateway forwards config metadata options", async () => {
       set("CLOUDFLARE_API_TOKEN", "test-token")
       const providers = await list()
       expect(providers[ProviderID.make("cloudflare-ai-gateway")]).toBeDefined()
-      expect(providers[ProviderID.make("cloudflare-ai-gateway")].options.metadata).toEqual({
+      expect(must(providers[ProviderID.make("cloudflare-ai-gateway")], "expected cloudflare-ai-gateway provider").options.metadata).toEqual({
         invoked_by: "test",
         project: "navi",
       })
@@ -2460,7 +2465,7 @@ test("plugin config providers persist after instance dispose", async () => {
       ),
   })
   expect(first[ProviderID.make("demo")]).toBeDefined()
-  expect(first[ProviderID.make("demo")].models[ModelID.make("chat")]).toBeDefined()
+  expect(must(first[ProviderID.make("demo")], "expected demo provider").models[ModelID.make("chat")]).toBeDefined()
 
   await disposeAllInstances()
 
@@ -2469,7 +2474,7 @@ test("plugin config providers persist after instance dispose", async () => {
     fn: async () => list(),
   })
   expect(second[ProviderID.make("demo")]).toBeDefined()
-  expect(second[ProviderID.make("demo")].models[ModelID.make("chat")]).toBeDefined()
+  expect(must(second[ProviderID.make("demo")], "expected demo provider").models[ModelID.make("chat")]).toBeDefined()
 })
 
 test("plugin config enabled and disabled providers are honored", async () => {

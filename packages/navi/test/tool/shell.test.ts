@@ -1,13 +1,4 @@
-import { describe, expect, test as _bunTest } from "bun:test"
-const test = ((name: string, fn: () => Promise<void>, timeout?: number) => _bunTest(name, fn, timeout ?? 30000)) as typeof _bunTest & {
-  skipIf: typeof _bunTest.skipIf
-  only: typeof _bunTest.only
-  skip: typeof _bunTest.skip
-  todo: typeof _bunTest.todo
-  each: typeof _bunTest.each
-}
-// Copy static helpers
-Object.assign(test, _bunTest)
+import { describe, expect, test } from "bun:test"
 import { Effect, Layer, ManagedRuntime } from "effect"
 import os from "os"
 import path from "path"
@@ -25,32 +16,6 @@ import { SessionID, MessageID } from "../../src/session/schema"
 import { CrossSpawnSpawner } from "@navi-ai/core/cross-spawn-spawner"
 import { AppFileSystem } from "@navi-ai/core/filesystem"
 import { Plugin } from "../../src/plugin"
-import { Sandbox } from "../../src/sandbox"
-
-// Ensure Windows sandbox is considered available in test env; shell tests verify
-// permission prompting, not actual sandbox enforcement. Without this, fail-closed
-// SandboxUnavailableError would fail all shell tests on Windows without native backend.
-process.env.NAVI_SANDBOX_DISABLE_WINDOWS = "false"
-if (process.env.NAVI_WINDOWS_SANDBOX_NATIVE === undefined) process.env.NAVI_WINDOWS_SANDBOX_NATIVE = "1"
-// Provide fake/unconfined confine for tests via defineProperty (direct assignment is readonly in ESM)
-try {
-  const orig = Sandbox.confineSync
-  Object.defineProperty(Sandbox, "confineSync", {
-    value: (command: string, args: string[], policy: Sandbox.SandboxPolicy, env?: NodeJS.ProcessEnv) => {
-      if (policy.mode === "danger-full-access") return orig(command, args, policy, env)
-      return {
-        command,
-        args,
-        env: env ?? process.env,
-        mode: policy.mode,
-        enforcement: "unconfined" as const,
-        backend: "unconfined" as const,
-      }
-    },
-    writable: true,
-    configurable: true,
-  })
-} catch {}
 
 const runtime = ManagedRuntime.make(
   Layer.mergeAll(
@@ -241,8 +206,10 @@ describe("tool.shell permissions", () => {
           ),
         )
         expect(requests.length).toBe(1)
-        expect(requests[0].permission).toBe("bash")
-        expect(requests[0].patterns).toContain("echo hello")
+        const request = requests[0]
+        if (!request) throw new Error("expected permission request")
+        expect(request.permission).toBe("bash")
+        expect(request.patterns).toContain("echo hello")
       },
     })
   })
@@ -264,9 +231,11 @@ describe("tool.shell permissions", () => {
           ),
         )
         expect(requests.length).toBe(1)
-        expect(requests[0].permission).toBe("bash")
-        expect(requests[0].patterns).toContain("echo foo")
-        expect(requests[0].patterns).toContain("echo bar")
+        const request = requests[0]
+        if (!request) throw new Error("expected permission request")
+        expect(request.permission).toBe("bash")
+        expect(request.patterns).toContain("echo foo")
+        expect(request.patterns).toContain("echo bar")
       },
     })
   })
@@ -968,12 +937,12 @@ describe("tool.shell permissions", () => {
         const bash = await initBash()
         const err = new Error("stop after permission")
         const requests: Array<Omit<Permission.Request, "id" | "sessionID" | "tool">> = []
-        const filepath = path.join(outerTmp.path, "outside.txt").replaceAll("\\", "/")
+        const filepath = path.join(outerTmp.path, "outside.txt")
         await expect(
           Effect.runPromise(
             bash.execute(
               {
-                command: `cat "${filepath}"`,
+                command: `cat ${filepath}`,
                 description: "Read external file",
               },
               capture(requests, err),
@@ -1003,7 +972,7 @@ describe("tool.shell permissions", () => {
         await Effect.runPromise(
           bash.execute(
             {
-              command: `rm -rf "${path.join(tmp.path, "nested").replaceAll("\\", "/")}"`,
+              command: `rm -rf ${path.join(tmp.path, "nested")}`,
               description: "Remove nested dir",
             },
             capture(requests),
@@ -1032,8 +1001,10 @@ describe("tool.shell permissions", () => {
           ),
         )
         expect(requests.length).toBe(1)
-        expect(requests[0].always.length).toBeGreaterThan(0)
-        expect(requests[0].always.some((item) => item.endsWith("*"))).toBe(true)
+        const request = requests[0]
+        if (!request) throw new Error("expected permission request")
+        expect(request.always.length).toBeGreaterThan(0)
+        expect(request.always.some((item) => item.endsWith("*"))).toBe(true)
       },
     })
   })

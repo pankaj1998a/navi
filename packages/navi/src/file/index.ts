@@ -294,7 +294,7 @@ function shouldEncode(mimeType: string) {
   if (!type) return false
   if (type.startsWith("text/")) return false
   if (type.includes("charset=")) return false
-  const top = type.split("/", 2)[0]
+  const top = type.split("/", 2)[0] ?? ""
   return ["image", "audio", "video", "font", "model", "multipart"].includes(top)
 }
 
@@ -437,10 +437,11 @@ export const layer = Layer.effect(
       if (diffOutput.trim()) {
         for (const line of diffOutput.trim().split("\n")) {
           const [added, removed, file] = line.split("\t")
+          if (!file) continue
           changed.push({
             path: file,
-            added: added === "-" ? 0 : parseInt(added, 10),
-            removed: removed === "-" ? 0 : parseInt(removed, 10),
+            added: added === "-" ? 0 : parseInt(added ?? "0", 10),
+            removed: removed === "-" ? 0 : parseInt(removed ?? "0", 10),
             status: "modified",
           })
         }

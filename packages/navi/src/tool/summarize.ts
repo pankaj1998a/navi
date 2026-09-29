@@ -97,6 +97,7 @@ Provide a concise but comprehensive summary.`,
 async function resolveSmallModelForSession(sessionID: string): Promise<Awaited<ReturnType<typeof Provider.getModel>>> {
     if (sessionID) {
         for await (const item of MessageV2.stream(SessionID.make(sessionID))) {
+            if (!item) continue
             if (item.info.role === "user" && item.info.model) {
                 const providerID = ProviderID.make(item.info.model.providerID)
                 const model = await Provider.getSmallModel(providerID)

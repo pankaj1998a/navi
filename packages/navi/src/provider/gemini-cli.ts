@@ -288,6 +288,7 @@ function parseGoogleAIUrl(input: RequestInfo | URL): { model: string; method: st
     // Handle both /models/model-id and /v1beta/models/model-id
     const match = pathname.match(/\/(?:models\/)+(?:models\/)?([^:/?#]+):(generateContent|streamGenerateContent|countTokens)$/)
     if (!match) return null
+    if (match[1] === undefined || match[2] === undefined) return null
     return { model: match[1], method: match[2] }
   } catch {
     return null
@@ -572,10 +573,10 @@ export async function geminiCliFetch(input: RequestInfo | URL, init?: RequestIni
         if (error.message === "INSUFFICIENT_SCOPES") {
           skipGeminiFileMigration = true
           await Auth.remove("gemini-cli")
-          throw new Error("Gemini CLI: insufficient authentication scopes. Please log in again with `navi auth login gemini-cli`.", { cause: error })
+          throw new Error("Gemini CLI: insufficient authentication scopes. Please log in again with `navi auth login gemini-cli`.")
         }
         if (error.message === "NO_CODE_ASSIST_PROJECT") {
-          throw new Error("Gemini CLI: your account does not have Gemini Code Assist access.", { cause: error })
+          throw new Error("Gemini CLI: your account does not have Gemini Code Assist access.")
         }
       }
       throw error

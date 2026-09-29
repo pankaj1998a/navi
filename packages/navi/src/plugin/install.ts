@@ -348,6 +348,14 @@ async function patchOne(dir: string, target: Target, spec: string, force: boolea
 
   const files = dep.files(dir, name)
   let cfg = files[0]
+  if (!cfg) {
+    return {
+      ok: false,
+      code: "patch_failed",
+      kind: target.kind,
+      error: new Error("no config file candidates"),
+    }
+  }
   for (const file of files) {
     if (!(await dep.exists(file))) continue
     cfg = file
@@ -372,14 +380,26 @@ async function patchOne(dir: string, target: Target, spec: string, force: boolea
   const data = parseJsonc(text, errs, { allowTrailingComma: true })
   if (errs.length) {
     const err = errs[0]
+    if (!err) {
+      return {
+        ok: false,
+        code: "invalid_json",
+        kind: target.kind,
+        file: cfg,
+        line: 1,
+        col: 1,
+        parse: "Unknown",
+      }
+    }
     const lines = text.substring(0, err.offset).split("\n")
+    const last = lines[lines.length - 1] ?? ""
     return {
       ok: false,
       code: "invalid_json",
       kind: target.kind,
       file: cfg,
       line: lines.length,
-      col: lines[lines.length - 1].length + 1,
+      col: last.length + 1,
       parse: printParseErrorCode(err.error),
     }
   }

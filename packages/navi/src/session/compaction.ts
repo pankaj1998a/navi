@@ -108,6 +108,7 @@ function completedCompactions(messages: MessageV2.WithParts[]) {
   const users = new Map<MessageID, number>()
   for (let i = 0; i < messages.length; i++) {
     const msg = messages[i]
+    if (!msg) continue
     if (msg.info.role !== "user") continue
     if (!msg.parts.some((part) => part.type === "compaction")) continue
     users.set(msg.info.id, i)
@@ -146,6 +147,7 @@ function turns(messages: MessageV2.WithParts[]) {
   const result: Turn[] = []
   for (let i = 0; i < messages.length; i++) {
     const msg = messages[i]
+    if (!msg) continue
     if (msg.info.role !== "user") continue
     if (msg.parts.some((part) => part.type === "compaction")) continue
     result.push({
@@ -155,7 +157,10 @@ function turns(messages: MessageV2.WithParts[]) {
     })
   }
   for (let i = 0; i < result.length - 1; i++) {
-    result[i].end = result[i + 1].start
+    const current = result[i]
+    const next = result[i + 1]
+    if (!current || !next) continue
+    current.end = next.start
   }
   return result
 }
@@ -171,6 +176,11 @@ function splitTurn(input: {
     if (input.budget <= 0) return undefined
     if (input.turn.end - input.turn.start <= 1) return undefined
     for (let start = input.turn.start + 1; start < input.turn.end; start++) {
+      const msg = input.messages[start]
+      if (!msg) {
+        log.debug("compaction tail: missing message, skipping", { start })
+        continue
+      }
       const size = yield* input.estimate({
         messages: input.messages.slice(start, input.turn.end),
         model: input.model,
@@ -178,7 +188,7 @@ function splitTurn(input: {
       if (size > input.budget) continue
       return {
         start,
-        id: input.messages[start]!.info.id,
+        id: msg.info.id,
       } satisfies Tail
     }
     return undefined
@@ -243,31 +253,8 @@ export const layer: Layer.Layer<
       messages: MessageV2.WithParts[]
       model: Provider.Model
     }) {
-      let totalTokens = 0
-      for (const msg of input.messages) {
-        // Anchor on recorded provider usage tokens when available
-        if (msg.info.role === "assistant" && msg.info.tokens) {
-          const t = msg.info.tokens
-          const recorded = (t.input || 0) + (t.output || 0) + (t.reasoning || 0)
-          if (recorded > 0) {
-            totalTokens += recorded
-            continue
-          }
-        }
-        let msgTokens = 0
-        for (const part of msg.parts) {
-          if (part.type === "text" && typeof part.text === "string") {
-            msgTokens += Token.estimate(part.text)
-          } else if (part.type === "tool") {
-            if (part.state.status === "completed") {
-              msgTokens += Token.estimate(part.state.output)
-            }
-            msgTokens += Token.estimateValue(part.state.input ?? {})
-          }
-        }
-        totalTokens += Math.max(msgTokens, 1)
-      }
-      return totalTokens
+      const msgs = yield* MessageV2.toModelMessagesEffect(input.messages, input.model)
+      return Token.estimate(JSON.stringify(msgs))
     })
 
     const select = Effect.fn("SessionCompaction.select")(function* (input: {
@@ -296,6 +283,7 @@ export const layer: Layer.Layer<
       for (let i = recent.length - 1; i >= 0; i--) {
         const turn = recent[i]!
         const size = sizes[i]
+        if (size === undefined) continue
         if (total + size <= budget) {
           total += size
           keep = { start: turn.start, id: turn.id }
@@ -340,11 +328,13 @@ export const layer: Layer.Layer<
 
       loop: for (let msgIndex = msgs.length - 1; msgIndex >= 0; msgIndex--) {
         const msg = msgs[msgIndex]
+        if (!msg) continue
         if (msg.info.role === "user") turns++
         if (turns < 2) continue
         if (msg.info.role === "assistant" && msg.info.summary) break loop
         for (let partIndex = msg.parts.length - 1; partIndex >= 0; partIndex--) {
           const part = msg.parts[partIndex]
+          if (!part) continue
           if (part.type !== "tool") continue
           if (part.state.status !== "completed") continue
           if (PRUNE_PROTECTED_TOOLS.includes(part.tool)) continue
@@ -394,6 +384,7 @@ export const layer: Layer.Layer<
         const idx = input.messages.findIndex((m) => m.info.id === input.parentID)
         for (let i = idx - 1; i >= 0; i--) {
           const msg = input.messages[i]
+          if (!msg) continue
           if (msg.info.role === "user" && !msg.parts.some((p) => p.type === "compaction")) {
             replay = { info: msg.info, parts: msg.parts }
             messages = input.messages.slice(0, i)
@@ -493,29 +484,6 @@ export const layer: Layer.Layer<
         processor.message.finish = "error"
         yield* session.updateMessage(processor.message)
         return "stop"
-      }
-
-      // Transactional validation: verify summary size reduction and log anomalies
-      const headTokens = yield* estimate({ messages: selected.head, model })
-      const summaryTokens =
-        processor.message.tokens?.output && processor.message.tokens.output > 0
-          ? processor.message.tokens.output
-          : processor.message.error
-            ? 0
-            : Token.estimateValue(processor.message)
-      if (summaryTokens > 0 && headTokens > 0 && summaryTokens >= headTokens) {
-        log.warn("Compaction summary was not smaller than pruned head", { summaryTokens, headTokens })
-      }
-
-      // Head stability recheck: detect concurrent message arrivals during summarization
-      const currentMessages = yield* session
-        .messages({ sessionID: input.sessionID })
-        .pipe(Effect.catchIf(NotFoundError.isInstance, () => Effect.succeed([] as MessageV2.WithParts[])))
-      if (currentMessages.length > input.messages.length) {
-        log.info("Concurrent message arrivals detected during compaction summarization", {
-          initialCount: input.messages.length,
-          currentCount: currentMessages.length,
-        })
       }
 
       if (compactionPart && selected.tail_start_id && compactionPart.tail_start_id !== selected.tail_start_id) {

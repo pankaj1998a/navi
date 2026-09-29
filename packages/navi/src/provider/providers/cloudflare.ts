@@ -1,5 +1,8 @@
 import type { ProviderLoader } from "../loader"
 import { iife } from "../../util/iife"
+import * as Log from "@navi-ai/core/util/log"
+
+const log = Log.create({ service: "cloudflare-provider" })
 
 export const CloudflareAiGatewayProvider: ProviderLoader.Info = {
     async load(input, dep) {
@@ -42,7 +45,7 @@ export const CloudflareAiGatewayProvider: ProviderLoader.Info = {
                                 init = { ...init, body: JSON.stringify(body) }
                             }
                         } catch (e) {
-                            console.error("[Cloudflare] Failed to parse request body for max_completion_tokens fix", e)
+                            log.debug("[Cloudflare] Failed to parse request body for max_completion_tokens fix", { error: String(e) })
                         }
                     }
 

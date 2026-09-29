@@ -102,7 +102,7 @@ it.instance(
 
       const pending = yield* waitForPending(1)
       expect(pending.length).toBe(1)
-      expect(pending[0].questions).toEqual(questions)
+      expect(pending[0]!.questions).toEqual(questions)
       yield* rejectAll
       expect((yield* Fiber.await(fiber))._tag).toBe("Failure")
     }),
@@ -132,7 +132,7 @@ it.instance(
       }).pipe(Effect.forkScoped)
 
       const pending = yield* waitForPending(1)
-      const requestID = pending[0].id
+      const requestID = pending[0]!.id
 
       yield* replyEffect({
         requestID,
@@ -166,7 +166,7 @@ it.instance(
       expect(pending.length).toBe(1)
 
       yield* replyEffect({
-        requestID: pending[0].id,
+        requestID: pending[0]!.id,
         answers: [["Option 1"]],
       })
       yield* Fiber.join(fiber)
@@ -208,7 +208,7 @@ it.instance(
       }).pipe(Effect.forkScoped)
 
       const pending = yield* waitForPending(1)
-      yield* rejectEffect(pending[0].id)
+      yield* rejectEffect(pending[0]!.id)
 
       const exit = yield* Fiber.await(fiber)
       expect(exit._tag).toBe("Failure")
@@ -238,7 +238,7 @@ it.instance(
       const pending = yield* waitForPending(1)
       expect(pending.length).toBe(1)
 
-      yield* rejectEffect(pending[0].id)
+      yield* rejectEffect(pending[0]!.id)
       expect((yield* Fiber.await(fiber))._tag).toBe("Failure")
 
       const after = yield* listEffect
@@ -284,7 +284,7 @@ it.instance(
       const pending = yield* waitForPending(1)
 
       yield* replyEffect({
-        requestID: pending[0].id,
+        requestID: pending[0]!.id,
         answers: [["Build"], ["Dev"]],
       })
 
@@ -372,11 +372,11 @@ it.live("questions stay isolated by directory", () =>
 
     expect(onePending.length).toBe(1)
     expect(twoPending.length).toBe(1)
-    expect(onePending[0].sessionID).toBe(SessionID.make("ses_one"))
-    expect(twoPending[0].sessionID).toBe(SessionID.make("ses_two"))
+    expect(onePending[0]!.sessionID).toBe(SessionID.make("ses_one"))
+    expect(twoPending[0]!.sessionID).toBe(SessionID.make("ses_two"))
 
-    yield* rejectEffect(onePending[0].id).pipe(provideInstance(one))
-    yield* rejectEffect(twoPending[0].id).pipe(provideInstance(two))
+    yield* rejectEffect(onePending[0]!.id).pipe(provideInstance(one))
+    yield* rejectEffect(twoPending[0]!.id).pipe(provideInstance(two))
 
     expect((yield* Fiber.await(fiber1))._tag).toBe("Failure")
     expect((yield* Fiber.await(fiber2))._tag).toBe("Failure")

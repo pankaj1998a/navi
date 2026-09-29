@@ -9,7 +9,6 @@ import { Identifier } from "../id/id"
 import * as Log from "@navi-ai/core/util/log"
 import { ToolID } from "./schema"
 import { TRUNCATION_DIR } from "./truncation-dir"
-import { scrubSecrets } from "@/util/secret-scrubber"
 
 const log = Log.create({ service: "truncation" })
 const RETENTION = Duration.days(7)
@@ -68,10 +67,9 @@ export const layer = Layer.effect(
     })
 
     const write = Effect.fn("Truncate.write")(function* (text: string) {
-      const scrubbed = scrubSecrets(text).text
       const file = path.join(TRUNCATION_DIR, ToolID.ascending())
       yield* fs.ensureDir(TRUNCATION_DIR).pipe(Effect.orDie)
-      yield* fs.writeFileString(file, scrubbed).pipe(Effect.orDie)
+      yield* fs.writeFileString(file, text).pipe(Effect.orDie)
       return file
     })
 
@@ -104,22 +102,26 @@ export const layer = Layer.effect(
 
       if (direction === "head") {
         for (i = 0; i < lines.length && i < maxLines; i++) {
-          const size = Buffer.byteLength(lines[i], "utf-8") + (i > 0 ? 1 : 0)
+          const line = lines[i]
+          if (line === undefined) break
+          const size = Buffer.byteLength(line, "utf-8") + (i > 0 ? 1 : 0)
           if (bytes + size > maxBytes) {
             hitBytes = true
             break
           }
-          out.push(lines[i])
+          out.push(line)
           bytes += size
         }
       } else {
         for (i = lines.length - 1; i >= 0 && out.length < maxLines; i--) {
-          const size = Buffer.byteLength(lines[i], "utf-8") + (out.length > 0 ? 1 : 0)
+          const line = lines[i]
+          if (line === undefined) break
+          const size = Buffer.byteLength(line, "utf-8") + (out.length > 0 ? 1 : 0)
           if (bytes + size > maxBytes) {
             hitBytes = true
             break
           }
-          out.unshift(lines[i])
+          out.unshift(line)
           bytes += size
         }
       }

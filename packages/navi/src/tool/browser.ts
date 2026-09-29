@@ -2,6 +2,7 @@ import { Effect, Schema } from "effect"
 import * as Tool from "./tool"
 import { InstanceState } from "@/effect/instance-state"
 import * as Log from "@navi-ai/core/util/log"
+import { Hash } from "@navi-ai/core/util/hash"
 import { getBrowser, htmlToMarkdown, htmlToText } from "./browser-engine"
 import type { Page, Browser } from "puppeteer-core"
 import path from "path"
@@ -9,6 +10,34 @@ import fs from "fs"
 import DESCRIPTION from "./browser.txt"
 
 const log = Log.create({ service: "tool.browser" })
+
+const EVALUATE_MAX_LENGTH = 10_000
+const EVALUATE_TIMEOUT_MS = 10_000
+
+function safeStringify(value: unknown): string {
+  const seen = new Set<object>()
+  try {
+    return JSON.stringify(
+      value,
+      (_key, val: unknown) => {
+        if (typeof val === "object" && val !== null) {
+          if (seen.has(val as object)) return "[Circular]"
+          seen.add(val as object)
+        }
+        if (typeof val === "function") return "[Function]"
+        if (typeof val === "bigint") return `${val}n`
+        return val as object
+      },
+      2,
+    ) ?? String(value)
+  } catch {
+    try {
+      return String(value)
+    } catch {
+      return "[Unserializable]"
+    }
+  }
+}
 
 export const Parameters = Schema.Struct({
   action: Schema.Literals([
@@ -283,15 +312,37 @@ export const BrowserTool = Tool.define(
             case "evaluate": {
               if (!params.script) throw new Error("Parameter 'script' is required for action 'evaluate'")
               const scriptToRun = params.script
+              if (scriptToRun.length > EVALUATE_MAX_LENGTH) {
+                throw new Error(`Parameter 'script' exceeds maximum length of ${EVALUATE_MAX_LENGTH}`)
+              }
+              const scriptHash = Hash.fast(scriptToRun)
+              const trusted = process.env.NAVI_BROWSER_ALLOW_EVAL === "1" || process.env.NAVI_TRUST_BROWSER_EVAL === "1"
+              if (!trusted) {
+                yield* ctx.ask({
+                  permission: "browser.evaluate",
+                  patterns: [scriptToRun.slice(0, 200)],
+                  always: [],
+                  metadata: { action: "evaluate", scriptHash },
+                })
+              }
+              log.info("browser evaluate", { scriptHash, length: scriptToRun.length })
 
               const result = yield* Effect.promise(() =>
-                page.evaluate((code) => {
-                  // eslint-disable-next-line no-eval
-                  return eval(code)
-                }, scriptToRun),
+                Promise.race([
+                  page.evaluate((code) => {
+                    // eslint-disable-next-line no-eval
+                    return eval(code)
+                  }, scriptToRun),
+                  new Promise<never>((_resolve, reject) =>
+                    setTimeout(() => reject(new Error(`Evaluate timed out after ${EVALUATE_TIMEOUT_MS}ms`)), EVALUATE_TIMEOUT_MS),
+                  ),
+                ]).catch((e: unknown) => {
+                  log.error("browser evaluate failed", { scriptHash, error: String(e) })
+                  throw e
+                }),
               )
 
-              const stringified = typeof result === "object" ? JSON.stringify(result, null, 2) : String(result)
+              const stringified = typeof result === "object" ? safeStringify(result) : String(result)
 
               return {
                 title: "JavaScript Evaluated",

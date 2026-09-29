@@ -73,8 +73,7 @@ export const assertWriteAllowed = Effect.fn("Tool.assertWriteAllowed")(function*
   const projectID = (() => {
     try {
       return (Instance.current?.project?.id as ProjectID | undefined) ?? ("global" as ProjectID)
-    } catch (e) {
-      // Fall back to global project ID if instance context access fails
+    } catch {
       return "global" as ProjectID
     }
   })()

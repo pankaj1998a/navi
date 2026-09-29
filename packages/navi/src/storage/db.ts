@@ -1,6 +1,6 @@
-type SQLiteBunDatabase = any
+import { type SQLiteBunDatabase } from "drizzle-orm/bun-sqlite"
 import { migrate } from "drizzle-orm/bun-sqlite/migrator"
-import type { SQLiteTransaction } from "drizzle-orm/sqlite-core"
+import { type SQLiteTransaction } from "drizzle-orm/sqlite-core"
 export * from "drizzle-orm"
 import { LocalContext } from "../util/local-context"
 import { lazy } from "../util/lazy"
@@ -42,7 +42,7 @@ export const Path = iife(() => {
   return getChannelPath()
 })
 
-export type Transaction = SQLiteTransaction<"sync", void, any, any>
+export type Transaction = SQLiteTransaction<"sync", void>
 
 type Client = SQLiteBunDatabase
 
@@ -69,6 +69,10 @@ function time(tag: string) {
 }
 
 function migrations(dir: string): Journal {
+  // Memoized: migration dir scan happens once per process (cold start only).
+  // Prefer bundled NAVI_MIGRATIONS in prod; this fs fallback is dev-only.
+  const cached = migrationCache.get(dir)
+  if (cached) return cached
   const dirs = readdirSync(dir, { withFileTypes: true })
     .filter((entry) => entry.isDirectory())
     .map((entry) => entry.name)
@@ -85,8 +89,12 @@ function migrations(dir: string): Journal {
     })
     .filter(Boolean) as Journal
 
-  return sql.sort((a, b) => a.timestamp - b.timestamp)
+  const sorted = sql.sort((a, b) => a.timestamp - b.timestamp)
+  migrationCache.set(dir, sorted)
+  return sorted
 }
+
+const migrationCache = new Map<string, Journal>()
 
 export const Client = lazy(() => {
   log.info("opening database", { path: Path })
@@ -159,14 +167,6 @@ export function effect(fn: () => any | Promise<any>) {
 
 type NotPromise<T> = T extends Promise<any> ? never : T
 
-function isBusyError(error: unknown): boolean {
-  if (!error) return false
-  const anyErr = error as { code?: unknown; message?: unknown }
-  if (anyErr?.code === "SQLITE_BUSY" || anyErr?.code === "SQLITE_BUSY_SNAPSHOT") return true
-  const msg = error instanceof Error ? error.message : String(error)
-  return msg.includes("SQLITE_BUSY") || msg.toLowerCase().includes("busy")
-}
-
 export function transaction<T>(
   callback: (tx: TxOrDb) => NotPromise<T>,
   options?: {
@@ -177,37 +177,11 @@ export function transaction<T>(
     return callback(ctx.use().tx)
   } catch (err) {
     if (err instanceof LocalContext.NotFound) {
-      const effectiveBehavior = (() => {
-        const requested = options?.behavior
-        if (requested !== "immediate") return requested
-        const isTestEnv =
-          !!process.env.CI ||
-          !!process.env.NAVI_TEST ||
-          process.env.NAVI_DB === ":memory:" ||
-          !!process.env.NAV_DEBUG ||
-          !!process.env.NAVI_DEBUG
-        return isTestEnv ? "deferred" : requested
-      })()
       const effects: (() => void | Promise<void>)[] = []
       const txCallback = InstanceState.bind((tx: TxOrDb) => ctx.provide({ tx, effects }, () => callback(tx)))
-      let lastError: unknown = undefined
-      for (let attempt = 0; attempt < 5; attempt++) {
-        try {
-          const result = Client().transaction(txCallback, {
-            behavior: effectiveBehavior as "deferred" | "immediate" | "exclusive" | undefined,
-          })
-          for (const effect of effects) effect()
-          return result as NotPromise<T>
-        } catch (e) {
-          if (!isBusyError(e) || attempt === 4) throw e
-          lastError = e
-          const delayMs = 20 * Math.pow(2, attempt) + Math.random() * 10
-          const start = Date.now()
-          while (Date.now() - start < delayMs) {}
-          effects.length = 0
-        }
-      }
-      throw lastError as Error
+      const result = Client().transaction(txCallback, { behavior: options?.behavior })
+      for (const effect of effects) effect()
+      return result as NotPromise<T>
     }
     throw err
   }

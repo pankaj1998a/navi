@@ -456,6 +456,7 @@ export const layer: Layer.Layer<Service, never, AppFileSystem.Service | ChildPro
         let used = 0
         for (let i = 0; i < queue.length && used < limit; i++) {
           const item = queue[i]
+          if (!item) continue
           lines.push(item.path)
           used++
           queue.push(
