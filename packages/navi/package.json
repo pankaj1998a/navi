@@ -148,7 +148,7 @@
     "gray-matter": "4.0.3",
     "html-to-text": "9.0.5",
     "https-proxy-agent": "7.0.6",
-    "ignore": "7.0.5",
+    "ignore": "7.0.10",
     "immer": "11.1.4",
     "incr-regex-package": "1.0.4",
     "js-tiktoken": "1.0.21",
