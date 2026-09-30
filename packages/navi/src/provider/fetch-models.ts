@@ -11,7 +11,8 @@
  */
 
 import { Provider } from "./provider"
-import { Log } from "../util/log"
+import { ModelID, ProviderID } from "./schema"
+import * as Log from "@navi-ai/core/util/log"
 import { Installation } from "../installation"
 
 const log = Log.create({ service: "fetch-models" })
@@ -52,8 +53,8 @@ function buildModel(
     extra: Partial<Provider.Model> = {},
 ): Provider.Model {
     const base: Provider.Model = {
-        id: raw.id,
-        providerID,
+        id: ModelID.make(raw.id),
+        providerID: ProviderID.make(providerID),
         name: (raw as any).name ?? raw.id,
         api: {
             id: raw.id,

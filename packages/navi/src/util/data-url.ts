@@ -7,4 +7,3 @@ export function decodeDataUrl(url: string) {
   if (head.includes(";base64")) return Buffer.from(body, "base64").toString("utf8")
   return decodeURIComponent(body)
 }
-

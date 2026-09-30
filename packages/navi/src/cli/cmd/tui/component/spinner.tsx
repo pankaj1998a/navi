@@ -5,36 +5,16 @@ import type { JSX } from "@opentui/solid"
 import type { RGBA } from "@opentui/core"
 import "opentui-spinner/solid"
 
-import { createFrames, createColors } from "../ui/spinner"
+export const SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
 
-const frames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
-
-export function Spinner(props: { children?: JSX.Element; color?: RGBA; variant?: "default" | "premium" }) {
+export function Spinner(props: { children?: JSX.Element; color?: RGBA }) {
   const { theme } = useTheme()
   const kv = useKV()
   const color = () => props.color ?? theme.textMuted
-  
-  const isPremium = () => props.variant === "premium" || (theme as any).name === "Navi-Premium"
-
-  const premiumFrames = createFrames({
-    width: 6,
-    style: "diamonds",
-    color: color(),
-    holdStart: 10,
-    holdEnd: 5
-  })
-  
-  const premiumColors = createColors({
-    width: 6,
-    color: color()
-  })
-
   return (
     <Show when={kv.get("animations_enabled", true)} fallback={<text fg={color()}>⋯ {props.children}</text>}>
       <box flexDirection="row" gap={1}>
-        <Show when={isPremium()} fallback={<spinner frames={frames} interval={80} color={color()} />}>
-          <spinner frames={premiumFrames} interval={50} color={premiumColors as any} />
-        </Show>
+        <spinner frames={SPINNER_FRAMES} interval={80} color={color()} />
         <Show when={props.children}>
           <text fg={color()}>{props.children}</text>
         </Show>
@@ -42,4 +22,3 @@ export function Spinner(props: { children?: JSX.Element; color?: RGBA; variant?:
     </Show>
   )
 }
-

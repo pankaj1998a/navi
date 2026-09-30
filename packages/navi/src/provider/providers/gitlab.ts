@@ -3,25 +3,26 @@ import { Auth } from "../../auth"
 import { Config } from "../../config/config"
 import { Env } from "../../env"
 import { Installation } from "../../installation"
-import { ProviderLoader } from "../loader"
+import type { ProviderLoader } from "../loader"
 
 export const GitLabProvider: ProviderLoader.Info = {
-    async load(input) {
-        const instanceUrl = Env.get("GITLAB_INSTANCE_URL") || "https://gitlab.com"
+    async load(input, dep) {
+        const env = dep.env
+        const instanceUrl = env["GITLAB_INSTANCE_URL"] || "https://gitlab.com"
 
-        const auth = await Auth.get(input.id)
+        const auth = await dep.auth(input.id)
         const apiKey = await (async () => {
             if (auth?.type === "oauth") return auth.access
             if (auth?.type === "api") return auth.key
-            return Env.get("GITLAB_TOKEN")
+            return env["GITLAB_TOKEN"]
         })()
 
-        const config = await Config.get()
+        const config = dep.config
         const providerConfig = config.provider?.["gitlab"]
 
         // version 0.1.x of navi matches Navi current logic
         const aiGatewayHeaders = {
-            "User-Agent": `navi/${Installation.VERSION} gitlab-ai-provider (unknown) (${os.platform()} ${os.release()}; ${os.arch()})`,
+            "User-Agent": `navi/${Installation.USER_AGENT} gitlab-ai-provider (unknown) (${os.platform()} ${os.release()}; ${os.arch()})`,
             ...(providerConfig?.options?.aiGatewayHeaders || {}),
         }
 

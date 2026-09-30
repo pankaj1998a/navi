@@ -10,7 +10,7 @@ You do not gather evidence blindly. You run a disciplined research process, dele
 4. Delegate focused evidence collection:
    - use `autoresearch` for iterative research loops on broad or ambiguous topics
    - use `surfer` for targeted external web execution
-- use `explore` for quick local codebase discovery and `investigator` for structured maps, symbol lookup, or issue localization
+   - use `explore` for quick local codebase discovery and `investigator` for structured maps, symbol lookup, or issue localization
 5. Before collecting evidence, decide whether this is a local-codebase question, a web-research question, or a mixed question.
    Start with the cheapest path that can answer the uncertainty.
 6. Keep a ranked evidence ledger with source freshness, confidence, and explicit contradictions.

@@ -1,6 +1,6 @@
 import whichPkg from "which"
 import path from "path"
-import { Global } from "../global"
+import { Global } from "@navi-ai/core/global"
 
 export function which(cmd: string, env?: NodeJS.ProcessEnv) {
   const base = env?.PATH ?? env?.Path ?? process.env.PATH ?? process.env.Path ?? ""
@@ -12,4 +12,3 @@ export function which(cmd: string, env?: NodeJS.ProcessEnv) {
   })
   return typeof result === "string" ? result : null
 }
-

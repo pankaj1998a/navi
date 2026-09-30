@@ -14,7 +14,7 @@
  */
 
 import type { Hooks } from "@navi-ai/plugin"
-import { Log } from "../util/log"
+import { Log } from "@navi-ai/core/util/log"
 
 const log = Log.create({ service: "comment-checker" })
 
@@ -112,7 +112,7 @@ export function checkComments(content: string, filePath: string): CommentCheckRe
     }
 
     for (let i = 0; i < lines.length; i++) {
-        const line = lines[i].trim()
+        const line = (lines[i] ?? "").trim()
         if (!line) continue
 
         if (commentPattern.test(line)) {
@@ -175,6 +175,8 @@ interface PendingCall {
 
 const pendingCalls = new Map<string, PendingCall>()
 const PENDING_CALL_TTL = 60_000
+// Bound memory: drop oldest when exceeding cap (interval sweep is the second line of defense).
+const MAX_PENDING_CALLS = 500
 
 /**
  * Clean up old pending calls
@@ -209,10 +211,12 @@ export function createCommentCheckerHook(options?: CommentCheckerOptions) {
         }
     }
 
-    // Start cleanup interval
+    // Start cleanup interval (unref'd so hooks never hold the process open).
+    // TODO: migrate to Effect.schedule + forkScoped once hooks run inside an Effect scope.
     if (!cleanupStarted) {
         cleanupStarted = true
-        setInterval(cleanupOldPendingCalls, 10_000)
+        const timer = setInterval(cleanupOldPendingCalls, 10_000)
+        timer.unref?.()
     }
 
     return {
@@ -238,6 +242,10 @@ export function createCommentCheckerHook(options?: CommentCheckerOptions) {
 
             if (!filePath) return
 
+            if (pendingCalls.size >= MAX_PENDING_CALLS) {
+                const oldest = pendingCalls.keys().next()
+                if (!oldest.done) pendingCalls.delete(oldest.value)
+            }
             pendingCalls.set(input.callID, {
                 filePath,
                 content,

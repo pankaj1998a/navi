@@ -19,8 +19,8 @@ There are two ways to load plugins.
 
 Place JavaScript or TypeScript files in the plugin directory.
 
-- `.navi/plugin/` - Project-level plugins
-- `~/.config/navi/plugin/` - Global plugins
+- `.Navi/plugins/` - Project-level plugins
+- `~/.config/Navi/plugins/` - Global plugins
 
 Files in these directories are automatically loaded at startup.
 
@@ -30,10 +30,10 @@ Files in these directories are automatically loaded at startup.
 
 Specify npm packages in your config file.
 
-```json title="navi.json"
+```json title="Navi.json"
 {
-  "$schema": "https://navi.ai/config.json",
-  "plugin": ["navi-helicone-session", "navi-wakatime", "@my-org/custom-plugin"]
+  "$schema": "https://Navi.ai/config.json",
+  "plugin": ["Navi-helicone-session", "Navi-wakatime", "@my-org/custom-plugin"]
 }
 ```
 
@@ -45,7 +45,7 @@ Browse available plugins in the [ecosystem](/docs/ecosystem#plugins).
 
 ### How plugins are installed
 
-**npm plugins** are installed automatically using Bun at startup. Packages and their dependencies are cached in `~/.cache/navi/node_modules/`.
+**npm plugins** are installed automatically using Bun at startup. Packages and their dependencies are cached in `~/.cache/Navi/node_modules/`.
 
 **Local plugins** are loaded directly from the plugin directory. To use external packages, you must create a `package.json` within your config directory (see [Dependencies](#dependencies)), or publish the plugin to npm and [add it to your config](/docs/config#plugins).
 
@@ -55,10 +55,10 @@ Browse available plugins in the [ecosystem](/docs/ecosystem#plugins).
 
 Plugins are loaded from all sources and all hooks run in sequence. The load order is:
 
-1. Global config (`~/.config/navi/navi.json`)
-2. Project config (`navi.json`)
-3. Global plugin directory (`~/.config/navi/plugin/`)
-4. Project plugin directory (`.navi/plugin/`)
+1. Global config (`~/.config/Navi/Navi.json`)
+2. Project config (`Navi.json`)
+3. Global plugin directory (`~/.config/Navi/plugins/`)
+4. Project plugin directory (`.Navi/plugins/`)
 
 Duplicate npm packages with the same name and version are loaded once. However, a local plugin and an npm plugin with similar names are both loaded separately.
 
@@ -75,7 +75,7 @@ functions. Each function receives a context object and returns a hooks object.
 
 Local plugins and custom tools can use external npm packages. Add a `package.json` to your config directory with the dependencies you need.
 
-```json title=".navi/package.json"
+```json title=".Navi/package.json"
 {
   "dependencies": {
     "shescape": "^2.1.0"
@@ -85,7 +85,7 @@ Local plugins and custom tools can use external npm packages. Add a `package.jso
 
 Navi runs `bun install` at startup to install these. Your plugins and tools can then import them.
 
-```ts title=".navi/plugin/my-plugin.ts"
+```ts title=".Navi/plugins/my-plugin.ts"
 import { escape } from "shescape"
 
 export const MyPlugin = async (ctx) => {
@@ -103,7 +103,7 @@ export const MyPlugin = async (ctx) => {
 
 ### Basic structure
 
-```js title=".navi/plugin/example.js"
+```js title=".Navi/plugins/example.js"
 export const MyPlugin = async ({ project, client, $, directory, worktree }) => {
   console.log("Plugin initialized!")
 
@@ -118,7 +118,7 @@ The plugin function receives:
 - `project`: The current project information.
 - `directory`: The current working directory.
 - `worktree`: The git worktree path.
-- `client`: An navi SDK client for interacting with the AI.
+- `client`: An Navi SDK client for interacting with the AI.
 - `$`: Bun's [shell API](https://bun.com/docs/runtime/shell) for executing commands.
 
 ---
@@ -128,7 +128,7 @@ The plugin function receives:
 For TypeScript plugins, you can import types from the plugin package:
 
 ```ts title="my-plugin.ts" {1}
-import type { Plugin } from "@navi-ai/plugin"
+import type { Plugin } from "@Navi-ai/plugin"
 
 export const MyPlugin: Plugin = async ({ project, client, $, directory, worktree }) => {
   return {
@@ -170,8 +170,8 @@ Plugins can subscribe to events as seen below in the Examples section. Here is a
 
 #### Permission Events
 
+- `permission.asked`
 - `permission.replied`
-- `permission.updated`
 
 #### Server Events
 
@@ -192,6 +192,10 @@ Plugins can subscribe to events as seen below in the Examples section. Here is a
 
 - `todo.updated`
 
+#### Shell Events
+
+- `shell.env`
+
 #### Tool Events
 
 - `tool.execute.after`
@@ -207,7 +211,7 @@ Plugins can subscribe to events as seen below in the Examples section. Here is a
 
 ## Examples
 
-Here are some examples of plugins you can use to extend navi.
+Here are some examples of plugins you can use to extend Navi.
 
 ---
 
@@ -215,13 +219,13 @@ Here are some examples of plugins you can use to extend navi.
 
 Send notifications when certain events occur:
 
-```js title=".navi/plugin/notification.js"
+```js title=".Navi/plugins/notification.js"
 export const NotificationPlugin = async ({ project, client, $, directory, worktree }) => {
   return {
     event: async ({ event }) => {
       // Send notification on session completion
       if (event.type === "session.idle") {
-        await $`osascript -e 'display notification "Session completed!" with title "navi"'`
+        await $`osascript -e 'display notification "Session completed!" with title "Navi"'`
       }
     },
   }
@@ -238,9 +242,9 @@ If you’re using the Navi desktop app, it can send system notifications automat
 
 ### .env protection
 
-Prevent navi from reading `.env` files:
+Prevent Navi from reading `.env` files:
 
-```javascript title=".navi/plugin/env-protection.js"
+```javascript title=".Navi/plugins/env-protection.js"
 export const EnvProtection = async ({ project, client, $, directory, worktree }) => {
   return {
     "tool.execute.before": async (input, output) => {
@@ -254,12 +258,29 @@ export const EnvProtection = async ({ project, client, $, directory, worktree })
 
 ---
 
+### Inject environment variables
+
+Inject environment variables into all shell execution (AI tools and user terminals):
+
+```javascript title=".Navi/plugins/inject-env.js"
+export const InjectEnvPlugin = async () => {
+  return {
+    "shell.env": async (input, output) => {
+      output.env.MY_API_KEY = "secret"
+      output.env.PROJECT_ROOT = input.cwd
+    },
+  }
+}
+```
+
+---
+
 ### Custom tools
 
-Plugins can also add custom tools to navi:
+Plugins can also add custom tools to Navi:
 
-```ts title=".navi/plugin/custom-tools.ts"
-import { type Plugin, tool } from "@navi-ai/plugin"
+```ts title=".Navi/plugins/custom-tools.ts"
+import { type Plugin, tool } from "@Navi-ai/plugin"
 
 export const CustomToolsPlugin: Plugin = async (ctx) => {
   return {
@@ -269,8 +290,9 @@ export const CustomToolsPlugin: Plugin = async (ctx) => {
         args: {
           foo: tool.schema.string(),
         },
-        async execute(args, ctx) {
-          return `Hello ${args.foo}!`
+        async execute(args, context) {
+          const { directory, worktree } = context
+          return `Hello ${args.foo} from ${directory} (worktree: ${worktree})`
         },
       }),
     },
@@ -278,13 +300,17 @@ export const CustomToolsPlugin: Plugin = async (ctx) => {
 }
 ```
 
-The `tool` helper creates a custom tool that navi can call. It takes a Zod schema function and returns a tool definition with:
+The `tool` helper creates a custom tool that Navi can call. It takes a Zod schema function and returns a tool definition with:
 
 - `description`: What the tool does
 - `args`: Zod schema for the tool's arguments
 - `execute`: Function that runs when the tool is called
 
-Your custom tools will be available to navi alongside built-in tools.
+Your custom tools will be available to Navi alongside built-in tools.
+
+:::note
+If a plugin tool uses the same name as a built-in tool, the plugin tool takes precedence.
+:::
 
 ---
 
@@ -292,18 +318,20 @@ Your custom tools will be available to navi alongside built-in tools.
 
 Use `client.app.log()` instead of `console.log` for structured logging:
 
-```ts title=".navi/plugin/my-plugin.ts"
+```ts title=".Navi/plugins/my-plugin.ts"
 export const MyPlugin = async ({ client }) => {
   await client.app.log({
-    service: "my-plugin",
-    level: "info",
-    message: "Plugin initialized",
-    extra: { foo: "bar" },
+    body: {
+      service: "my-plugin",
+      level: "info",
+      message: "Plugin initialized",
+      extra: { foo: "bar" },
+    },
   })
 }
 ```
 
-Levels: `debug`, `info`, `warn`, `error`. See [SDK documentation](https://navi.ai/docs/sdk) for details.
+Levels: `debug`, `info`, `warn`, `error`. See [SDK documentation](https://Navi.ai/docs/sdk) for details.
 
 ---
 
@@ -311,8 +339,8 @@ Levels: `debug`, `info`, `warn`, `error`. See [SDK documentation](https://navi.a
 
 Customize the context included when a session is compacted:
 
-```ts title=".navi/plugin/compaction.ts"
-import type { Plugin } from "@navi-ai/plugin"
+```ts title=".Navi/plugins/compaction.ts"
+import type { Plugin } from "@Navi-ai/plugin"
 
 export const CompactionPlugin: Plugin = async (ctx) => {
   return {
@@ -335,8 +363,8 @@ The `experimental.session.compacting` hook fires before the LLM generates a cont
 
 You can also replace the compaction prompt entirely by setting `output.prompt`:
 
-```ts title=".navi/plugin/custom-compaction.ts"
-import type { Plugin } from "@navi-ai/plugin"
+```ts title=".Navi/plugins/custom-compaction.ts"
+import type { Plugin } from "@Navi-ai/plugin"
 
 export const CustomCompactionPlugin: Plugin = async (ctx) => {
   return {

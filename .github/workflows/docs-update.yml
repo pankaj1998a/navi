@@ -1,4 +1,4 @@
-name: Docs Update
+name: docs-update
 
 on:
   schedule:
@@ -10,8 +10,8 @@ env:
 
 jobs:
   update-docs:
-    if: github.repository == 'pankaj1998a/navi'
-    runs-on: ubuntu-latest
+    if: github.repository == 'sst/navi'
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     permissions:
       id-token: write
       contents: write
@@ -43,11 +43,11 @@ jobs:
 
       - name: Run navi
         if: steps.commits.outputs.has_commits == 'true'
-        uses: ./github
+        uses: sst/navi/github@latest
         env:
           NAVI_API_KEY: ${{ secrets.NAVI_API_KEY }}
         with:
-          model: anthropic/claude-3-5-sonnet-latest
+          model: navi/gpt-5.2
           agent: docs
           prompt: |
             Review the following commits from the last ${{ env.LOOKBACK_HOURS }} hours and identify any new features that may need documentation.

@@ -1,4 +1,4 @@
-import { ProviderLoader } from "../loader"
+import type { ProviderLoader } from "../loader"
 import { Auth } from "../../auth"
 import { Env } from "../../env"
 import { loadCachedModels, stampCatalog, writeCache } from "../model-cache"
@@ -9,11 +9,12 @@ const BASE_URL = "https://api.x.ai/v1"
 const NPM = "@ai-sdk/xai"
 
 export const XaiProvider: ProviderLoader.Info = {
-    async load(input) {
-        const env = Env.all()
+    async load(input, dep) {
+        const env = dep.env
         const envKey = (input?.env ?? ["XAI_API_KEY"]).map((k) => env[k]).find(Boolean)
-        const auth = await Auth.get(PROVIDER_ID)
-        const apiKey = envKey ?? (auth?.type === "api" ? auth.key : undefined)
+        const auth = await dep.auth(PROVIDER_ID)
+        const config = dep.config
+        const apiKey = envKey ?? (auth?.type === "api" ? auth.key : undefined) ?? config.provider?.[PROVIDER_ID]?.options?.apiKey
 
         const hasKey = !!apiKey
 

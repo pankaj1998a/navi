@@ -14,10 +14,12 @@
  */
 
 import type { Hooks } from "@navi-ai/plugin"
-import { Log } from "../util/log"
-import { existsSync, readFileSync, readdirSync, statSync, realpathSync } from "node:fs"
+import { Log } from "@navi-ai/core/util/log"
+import { existsSync, realpathSync } from "node:fs"
+import fsp from "node:fs/promises"
 import { join, relative, resolve, dirname } from "node:path"
 import { homedir } from "node:os"
+import { Glob } from "@navi-ai/core/util/glob"
 
 const log = Log.create({ service: "rules-injector" })
 
@@ -35,8 +37,7 @@ const PROJECT_RULE_SUBDIRS: [string, string][] = [
 // Single file rules (always apply)
 const PROJECT_RULE_FILES = [".github/copilot-instructions.md", ".navi/instructions.md"]
 
-// Supported rule file extensions
-const RULE_EXTENSIONS = [".md", ".mdc"]
+// Supported rule file extensions (covered by the Glob.scan pattern *.{md,mdc})
 
 /**
  * Find the project root by looking for marker files
@@ -70,8 +71,8 @@ function parseRuleFrontmatter(content: string): { metadata: RuleFrontmatter; bod
         return { metadata: {}, body: content }
     }
 
-    const frontmatter = frontmatterMatch[1]
-    const body = frontmatterMatch[2]
+    const frontmatter = frontmatterMatch[1] ?? ""
+    const body = frontmatterMatch[2] ?? content
 
     const metadata: RuleFrontmatter = {}
 
@@ -80,6 +81,7 @@ function parseRuleFrontmatter(content: string): { metadata: RuleFrontmatter; bod
         const match = line.match(/^(\w+):\s*(.*)$/)
         if (match) {
             const [, key, value] = match
+            if (!key || value === undefined) continue
             if (key === "description") {
                 metadata.description = value.replace(/^["']|["']$/g, "")
             } else if (key === "globs") {
@@ -137,9 +139,18 @@ function shouldApplyRule(
 }
 
 /**
- * Find rule files in project and user directories
+ * Find rule files in project and user directories.
+ * Single Glob.scan per root (shared list) + short-TTL cache to avoid
+ * re-scanning on every tool call. Reads themselves are async + capped.
  */
-function findRuleFiles(projectRoot: string | null, userHome: string, targetFile: string): string[] {
+const ruleListCache = new Map<string, { at: number; files: string[] }>()
+const RULE_LIST_TTL_MS = 10_000
+
+async function findRuleFiles(projectRoot: string | null, userHome: string, targetFile: string): Promise<string[]> {
+    const cacheKey = `${projectRoot ?? "-"}:${userHome}`
+    const now = Date.now()
+    const hit = ruleListCache.get(cacheKey)
+    if (hit && now - hit.at < RULE_LIST_TTL_MS) return hit.files
     const ruleFiles: string[] = []
 
     if (projectRoot) {
@@ -151,30 +162,23 @@ function findRuleFiles(projectRoot: string | null, userHome: string, targetFile:
             }
         }
 
-        // Check rule directories
+        // Check rule directories with a single Glob.scan per subdir (shared list)
         for (const [subdir, rulesDir] of PROJECT_RULE_SUBDIRS) {
             const dir = join(projectRoot, subdir, rulesDir)
-            if (existsSync(dir) && statSync(dir).isDirectory()) {
-                for (const file of readdirSync(dir)) {
-                    if (RULE_EXTENSIONS.some((ext) => file.endsWith(ext))) {
-                        ruleFiles.push(join(dir, file))
-                    }
-                }
-            }
+            const scanned = await Glob.scan("*.{md,mdc}", { cwd: dir, absolute: true }).catch(() => [] as string[])
+            ruleFiles.push(...scanned)
         }
     }
 
-    // Check user-level rules (~/.claude/rules)
+    // Check user-level rules (~/.claude/rules) — single scan
     const userRuleDir = join(userHome, ".claude", "rules")
-    if (existsSync(userRuleDir) && statSync(userRuleDir).isDirectory()) {
-        for (const file of readdirSync(userRuleDir)) {
-            if (RULE_EXTENSIONS.some((ext) => file.endsWith(ext))) {
-                ruleFiles.push(join(userRuleDir, file))
-            }
-        }
-    }
+    const userScanned = await Glob.scan("*.{md,mdc}", { cwd: userRuleDir, absolute: true }).catch(() => [] as string[])
+    ruleFiles.push(...userScanned)
 
-    return ruleFiles
+    // Keep insertion order, dedupe
+    const files = [...new Set(ruleFiles)]
+    ruleListCache.set(cacheKey, { at: now, files })
+    return files
 }
 
 export interface RulesInjectorOptions {
@@ -255,8 +259,8 @@ export function createRulesInjectorHook(options?: RulesInjectorOptions) {
             const projectRoot = findProjectRoot(resolvedPath)
             const cache = getSessionCache(input.sessionID)
 
-            // Find applicable rules
-            const ruleFiles = findRuleFiles(projectRoot, userHome, resolvedPath)
+            // Find applicable rules (shared cached list, single scan)
+            const ruleFiles = await findRuleFiles(projectRoot, userHome, resolvedPath)
             const injectedRules: { path: string; content: string; reason: string }[] = []
 
             for (const rulePath of ruleFiles) {
@@ -268,7 +272,7 @@ export function createRulesInjectorHook(options?: RulesInjectorOptions) {
                         continue
                     }
 
-                    const content = readFileSync(rulePath, "utf-8")
+                    const content = await fsp.readFile(rulePath, "utf-8")
                     const { metadata, body } = parseRuleFrontmatter(content)
 
                     // Check if rule applies

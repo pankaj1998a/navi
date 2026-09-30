@@ -1,35 +1,34 @@
-import { ProviderLoader } from "../loader"
+import type { ProviderLoader } from "../loader"
 import { Config } from "../../config/config"
 import { Auth } from "../../auth"
 import { Env } from "../../env"
 import { iife } from "../../util/iife"
-import { BunProc } from "../../bun"
+import { Npm } from "@navi-ai/core/npm"
 import type { AmazonBedrockProviderSettings } from "@ai-sdk/amazon-bedrock"
 
 export const AmazonBedrockProvider: ProviderLoader.Info = {
-    async load() {
-        const config = await Config.get()
+    async load(input, dep) {
+        const config = dep.config
         const providerConfig = config.provider?.["amazon-bedrock"]
-
-        const auth = await Auth.get("amazon-bedrock")
+        const auth = await dep.auth("amazon-bedrock")
+        const env = dep.env
 
         // Region precedence: 1) config file, 2) env var, 3) default
         const configRegion = providerConfig?.options?.region
-        const envRegion = Env.get("AWS_REGION")
+        const envRegion = env["AWS_REGION"]
         const defaultRegion = configRegion ?? envRegion ?? "us-east-1"
 
         // Profile: config file takes precedence over env var
         const configProfile = providerConfig?.options?.profile
-        const envProfile = Env.get("AWS_PROFILE")
+        const envProfile = env["AWS_PROFILE"]
         const profile = configProfile ?? envProfile
 
-        const awsAccessKeyId = Env.get("AWS_ACCESS_KEY_ID")
+        const awsAccessKeyId = env["AWS_ACCESS_KEY_ID"]
 
         const awsBearerToken = iife(() => {
-            const envToken = Env.get("AWS_BEARER_TOKEN_BEDROCK")
+            const envToken = env["AWS_BEARER_TOKEN_BEDROCK"]
             if (envToken) return envToken
             if (auth?.type === "api") {
-                Env.set("AWS_BEARER_TOKEN_BEDROCK", auth.key)
                 return auth.key
             }
             return undefined
@@ -37,7 +36,7 @@ export const AmazonBedrockProvider: ProviderLoader.Info = {
 
         if (!profile && !awsAccessKeyId && !awsBearerToken) return { autoload: false, models: {} }
 
-        const { fromNodeProviderChain } = await import(await BunProc.install("@aws-sdk/credential-providers"))
+        const { fromNodeProviderChain } = await import((await Npm.add("@aws-sdk/credential-providers")).entrypoint!)
 
         // Build credential provider options (only pass profile if specified)
         const credentialProviderOptions = profile ? { profile } : {}

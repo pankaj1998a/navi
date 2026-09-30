@@ -7,11 +7,15 @@ import SidebarTodo from "../feature-plugins/sidebar/todo"
 import SidebarFiles from "../feature-plugins/sidebar/files"
 import SidebarFooter from "../feature-plugins/sidebar/footer"
 import PluginManager from "../feature-plugins/system/plugins"
+import SessionV2Debug from "../feature-plugins/system/session-v2"
+import WhichKey from "../feature-plugins/system/which-key"
 import type { TuiPlugin, TuiPluginModule } from "@navi-ai/plugin/tui"
+import { Flag } from "@navi-ai/core/flag/flag"
 
-export type InternalTuiPlugin = TuiPluginModule & {
+export type InternalTuiPlugin = Omit<TuiPluginModule, "id"> & {
   id: string
   tui: TuiPlugin
+  enabled?: boolean
 }
 
 export const INTERNAL_TUI_PLUGINS: InternalTuiPlugin[] = [
@@ -24,5 +28,6 @@ export const INTERNAL_TUI_PLUGINS: InternalTuiPlugin[] = [
   SidebarFiles,
   SidebarFooter,
   PluginManager,
+  WhichKey,
+  ...(Flag.NAVI_EXPERIMENTAL_EVENT_SYSTEM ? [SessionV2Debug] : []),
 ]
-

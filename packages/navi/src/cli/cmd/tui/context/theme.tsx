@@ -2,7 +2,7 @@ import { CliRenderEvents, SyntaxStyle, RGBA, type TerminalColors } from "@opentu
 import path from "path"
 import { createEffect, createMemo, onCleanup, onMount } from "solid-js"
 import { createSimpleContext } from "./helper"
-import { Glob } from "../../../../util/glob"
+import { Glob } from "@navi-ai/core/util/glob"
 import aura from "./theme/aura.json" with { type: "json" }
 import ayu from "./theme/ayu.json" with { type: "json" }
 import catppuccin from "./theme/catppuccin.json" with { type: "json" }
@@ -24,8 +24,7 @@ import nightowl from "./theme/nightowl.json" with { type: "json" }
 import nord from "./theme/nord.json" with { type: "json" }
 import osakaJade from "./theme/osaka-jade.json" with { type: "json" }
 import onedark from "./theme/one-dark.json" with { type: "json" }
-import Navi from "./theme/Navi.json" with { type: "json" }
-import NaviPremium from "./theme/Navi-Premium.json" with { type: "json" }
+import navi from "./theme/navi.json" with { type: "json" }
 import orng from "./theme/orng.json" with { type: "json" }
 import lucentOrng from "./theme/lucent-orng.json" with { type: "json" }
 import palenight from "./theme/palenight.json" with { type: "json" }
@@ -40,7 +39,7 @@ import carbonfox from "./theme/carbonfox.json" with { type: "json" }
 import { useKV } from "./kv"
 import { useRenderer } from "@opentui/solid"
 import { createStore, produce } from "solid-js/store"
-import { Global } from "@/global"
+import { Global } from "@navi-ai/core/global"
 import { Filesystem } from "@/util/filesystem"
 import { useTuiConfig } from "./tui-config"
 import { isRecord } from "@/util/record"
@@ -108,8 +107,7 @@ export const DEFAULT_THEMES: Record<string, ThemeJson> = {
   nord,
   ["one-dark"]: onedark,
   ["osaka-jade"]: osakaJade,
-  Navi,
-  ["Navi-Premium"]: NaviPremium,
+  navi,
   orng,
   ["lucent-orng"]: lucentOrng,
   palenight,
@@ -157,7 +155,7 @@ const [store, setStore] = createStore<State>({
   themes: listThemes(),
   mode: "dark",
   lock: undefined,
-  active: "Navi",
+  active: "navi",
   ready: false,
 })
 
@@ -316,11 +314,14 @@ export const { use: useTheme, provider: ThemeProvider } = createSimpleContext({
     setStore(
       produce((draft) => {
         const lock = pick(kv.get("theme_mode_lock"))
-        const mode = pick(kv.get("theme_mode", props.mode))
-        draft.mode = lock ?? mode ?? props.mode
+        const mode = lock ?? pick(renderer.themeMode) ?? props.mode
+        if (!lock && pick(kv.get("theme_mode")) !== undefined) {
+          kv.set("theme_mode", undefined)
+        }
+        draft.mode = mode
         draft.lock = lock
-        const active = config.theme ?? kv.get("theme", "Navi")
-        draft.active = typeof active === "string" ? active : "Navi"
+        const active = config.theme ?? kv.get("theme", "navi")
+        draft.active = "navi"
         draft.ready = false
       }),
     )
@@ -331,7 +332,7 @@ export const { use: useTheme, provider: ThemeProvider } = createSimpleContext({
     })
 
     function init() {
-      Promise.allSettled([
+      void Promise.allSettled([
         resolveSystemTheme(store.mode),
         getCustomThemes()
           .then((custom) => {
@@ -339,7 +340,7 @@ export const { use: useTheme, provider: ThemeProvider } = createSimpleContext({
             syncThemes()
           })
           .catch(() => {
-            setStore("active", "Navi")
+            setStore("active", "navi")
           }),
       ]).finally(() => {
         setStore("ready", true)
@@ -358,7 +359,7 @@ export const { use: useTheme, provider: ThemeProvider } = createSimpleContext({
             systemTheme = undefined
             syncThemes()
             if (store.active === "system") {
-              setStore("active", "Navi")
+              setStore("active", "navi")
             }
             return
           }
@@ -369,17 +370,17 @@ export const { use: useTheme, provider: ThemeProvider } = createSimpleContext({
           systemTheme = undefined
           syncThemes()
           if (store.active === "system") {
-            setStore("active", "Navi")
+            setStore("active", "navi")
           }
         })
     }
 
     function apply(mode: "dark" | "light") {
-      kv.set("theme_mode", mode)
+      if (store.lock !== undefined) kv.set("theme_mode", mode)
       if (store.mode === mode) return
       setStore("mode", mode)
       renderer.clearPaletteCache()
-      resolveSystemTheme(mode)
+      void resolveSystemTheme(mode)
     }
 
     function pin(mode: "dark" | "light" = store.mode) {
@@ -391,6 +392,7 @@ export const { use: useTheme, provider: ThemeProvider } = createSimpleContext({
     function free() {
       setStore("lock", undefined)
       kv.set("theme_mode_lock", undefined)
+      kv.set("theme_mode", undefined)
       const mode = renderer.themeMode
       if (mode) apply(mode)
     }
@@ -414,15 +416,19 @@ export const { use: useTheme, provider: ThemeProvider } = createSimpleContext({
 
     const values = createMemo(() => {
       const active = store.themes[store.active]
-      if (active) return resolveTheme(active, store.mode)
+      if (active) {
+        return resolveTheme(active, store.mode)
+      }
 
       const saved = kv.get("theme")
       if (typeof saved === "string") {
         const theme = store.themes[saved]
-        if (theme) return resolveTheme(theme, store.mode)
+        if (theme) {
+          return resolveTheme(theme, store.mode)
+        }
       }
 
-      return resolveTheme(store.themes.Navi, store.mode)
+      return resolveTheme(store.themes.navi!, store.mode)
     })
 
     createEffect(() => {
@@ -478,28 +484,49 @@ export const { use: useTheme, provider: ThemeProvider } = createSimpleContext({
   },
 })
 
+// Memoized custom-theme scan (30s TTL): theme listing reloads share one Glob.scan
+// per dir, and one bad theme file must not fail the whole load.
+const themeScanCache = new Map<string, { at: number; files: Promise<string[]> }>()
+const THEME_SCAN_TTL_MS = 30_000
+function cachedThemeScan(dir: string): Promise<string[]> {
+  const key = dir
+  const now = Date.now()
+  const hit = themeScanCache.get(key)
+  if (hit && now - hit.at < THEME_SCAN_TTL_MS) return hit.files
+  const p = Glob.scan("themes/*.json", { cwd: dir, absolute: true, dot: true, symlink: true })
+  themeScanCache.set(key, { at: now, files: p })
+  p.catch(() => themeScanCache.delete(key))
+  return p
+}
+
+export function invalidateThemeScan(dir?: string) {
+  if (!dir) themeScanCache.clear()
+  else themeScanCache.delete(dir)
+}
+
 async function getCustomThemes() {
   const directories = [
     Global.Path.config,
     ...(await Array.fromAsync(
       Filesystem.up({
-        targets: [".Navi"],
+        targets: [".navi"],
         start: process.cwd(),
       }),
     )),
   ]
 
   const result: Record<string, ThemeJson> = {}
-  for (const dir of directories) {
-    for (const item of await Glob.scan("themes/*.json", {
-      cwd: dir,
-      absolute: true,
-      dot: true,
-      symlink: true,
-    })) {
-      const name = path.basename(item, ".json")
-      result[name] = await Filesystem.readJson(item)
-    }
+  const listed = await Promise.allSettled(directories.map((dir) => cachedThemeScan(dir)))
+  const items = listed.flatMap((r) => (r.status === "fulfilled" ? r.value : []))
+  const loaded = await Promise.allSettled(
+    items.map(async (item) => {
+      const theme = await Filesystem.readJson(item)
+      return { name: path.basename(item, ".json"), theme }
+    }),
+  )
+  for (const entry of loaded) {
+    if (entry.status !== "fulfilled") continue
+    if (isTheme(entry.value.theme)) result[entry.value.name] = entry.value.theme
   }
   return result
 }
@@ -511,7 +538,7 @@ export function tint(base: RGBA, overlay: RGBA, alpha: number): RGBA {
   return RGBA.fromInts(Math.round(r * 255), Math.round(g * 255), Math.round(b * 255))
 }
 
-function generateSystem(colors: TerminalColors, mode: "dark" | "light"): ThemeJson {
+export function generateSystem(colors: TerminalColors, mode: "dark" | "light"): ThemeJson {
   const bg = RGBA.fromHex(colors.defaultBackground ?? colors.palette[0]!)
   const fg = RGBA.fromHex(colors.defaultForeground ?? colors.palette[7]!)
   const transparent = RGBA.fromValues(bg.r, bg.g, bg.b, 0)
@@ -544,8 +571,10 @@ function generateSystem(colors: TerminalColors, mode: "dark" | "light"): ThemeJs
   const diffAlpha = isDark ? 0.22 : 0.14
   const diffAddedBg = tint(bg, ansiColors.green, diffAlpha)
   const diffRemovedBg = tint(bg, ansiColors.red, diffAlpha)
-  const diffAddedLineNumberBg = tint(grays[3], ansiColors.green, diffAlpha)
-  const diffRemovedLineNumberBg = tint(grays[3], ansiColors.red, diffAlpha)
+  const diffContextBg = grays[2]!
+  const diffAddedLineNumberBg = tint(diffContextBg, ansiColors.green, diffAlpha)
+  const diffRemovedLineNumberBg = tint(diffContextBg, ansiColors.red, diffAlpha)
+  const diffLineNumber = textMuted
 
   return {
     theme: {
@@ -567,26 +596,26 @@ function generateSystem(colors: TerminalColors, mode: "dark" | "light"): ThemeJs
 
       // Background colors - use transparent to respect terminal transparency
       background: transparent,
-      backgroundPanel: grays[2],
-      backgroundElement: grays[3],
-      backgroundMenu: grays[3],
+      backgroundPanel: grays[2]!,
+      backgroundElement: grays[3]!,
+      backgroundMenu: grays[3]!,
 
       // Border colors
-      borderSubtle: grays[6],
-      border: grays[7],
-      borderActive: grays[8],
+      borderSubtle: grays[6]!,
+      border: grays[7]!,
+      borderActive: grays[8]!,
 
       // Diff colors
       diffAdded: ansiColors.green,
       diffRemoved: ansiColors.red,
-      diffContext: grays[7],
-      diffHunkHeader: grays[7],
+      diffContext: grays[7]!,
+      diffHunkHeader: grays[7]!,
       diffHighlightAdded: ansiColors.greenBright,
       diffHighlightRemoved: ansiColors.redBright,
       diffAddedBg,
       diffRemovedBg,
-      diffContextBg: grays[1],
-      diffLineNumber: grays[6],
+      diffContextBg,
+      diffLineNumber,
       diffAddedLineNumberBg,
       diffRemovedLineNumberBg,
 
@@ -599,7 +628,7 @@ function generateSystem(colors: TerminalColors, mode: "dark" | "light"): ThemeJs
       markdownBlockQuote: ansiColors.yellow,
       markdownEmph: ansiColors.yellow,
       markdownStrong: fg,
-      markdownHorizontalRule: grays[7],
+      markdownHorizontalRule: grays[7]!,
       markdownListItem: ansiColors.blue,
       markdownListEnumeration: ansiColors.cyan,
       markdownImage: ansiColors.blue,
@@ -705,11 +734,11 @@ function generateMutedTextColor(bg: RGBA, isDark: boolean): RGBA {
   return RGBA.fromInts(grayValue, grayValue, grayValue)
 }
 
-function generateSyntax(theme: Theme) {
+export function generateSyntax(theme: Theme) {
   return SyntaxStyle.fromTheme(getSyntaxRules(theme))
 }
 
-function generateSubtleSyntax(theme: Theme) {
+export function generateSubtleSyntax(theme: Theme) {
   const rules = getSyntaxRules(theme)
   return SyntaxStyle.fromTheme(
     rules.map((rule) => {
@@ -1236,4 +1265,3 @@ function getSyntaxRules(theme: Theme) {
     },
   ]
 }
-

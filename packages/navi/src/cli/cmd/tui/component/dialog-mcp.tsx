@@ -4,19 +4,18 @@ import { useSync } from "@tui/context/sync"
 import { map, pipe, entries, sortBy } from "remeda"
 import { DialogSelect, type DialogSelectRef, type DialogSelectOption } from "@tui/ui/dialog-select"
 import { useTheme } from "../context/theme"
-import { Keybind } from "@/util/keybind"
 import { TextAttributes } from "@opentui/core"
 import { useSDK } from "@tui/context/sdk"
 
 function Status(props: { enabled: boolean; loading: boolean }) {
   const { theme } = useTheme()
   if (props.loading) {
-    return <text fg={theme.textMuted}>⋯ Loading</text>
+    return <span style={{ fg: theme.textMuted }}>⋯ Loading</span>
   }
   if (props.enabled) {
-    return <text fg={theme.success} attributes={TextAttributes.BOLD}>✓ Enabled</text>
+    return <span style={{ fg: theme.success, attributes: TextAttributes.BOLD }}>✓ Enabled</span>
   }
-  return <text fg={theme.textMuted}>○ Disabled</text>
+  return <span style={{ fg: theme.textMuted }}>○ Disabled</span>
 }
 
 export function DialogMcp() {
@@ -45,9 +44,9 @@ export function DialogMcp() {
     )
   })
 
-  const keybinds = createMemo(() => [
+  const actions = createMemo(() => [
     {
-      keybind: Keybind.parse("space")[0],
+      command: "dialog.mcp.toggle",
       title: "toggle",
       onTrigger: async (option: DialogSelectOption<string>) => {
         // Prevent toggling while an operation is already in progress
@@ -77,11 +76,10 @@ export function DialogMcp() {
       ref={setRef}
       title="MCPs"
       options={options()}
-      keybind={keybinds()}
-      onSelect={(option) => {
+      actions={actions()}
+      onSelect={(_option) => {
         // Don't close on select, only on escape
       }}
     />
   )
 }
-

@@ -7,13 +7,13 @@ import {
   printParseErrorCode,
 } from "jsonc-parser"
 
-import { ConfigPaths } from "@/config/paths"
-import { Global } from "@/global"
+import * as ConfigPaths from "@/config/paths"
+import { Global } from "@navi-ai/core/global"
 import { Filesystem } from "@/util/filesystem"
-import { Flock } from "@/util/flock"
+import { Flock } from "@navi-ai/core/util/flock"
 import { isRecord } from "@/util/record"
 
-import { parsePluginSpecifier, readPluginPackage, resolvePluginTarget } from "./shared"
+import { parsePluginSpecifier, readPackageThemes, readPluginPackage, resolvePluginTarget } from "./shared"
 
 type Mode = "noop" | "add" | "replace"
 type Kind = "server" | "tui"
@@ -31,7 +31,7 @@ export type PatchDeps = {
   readText: (file: string) => Promise<string>
   write: (file: string, text: string) => Promise<void>
   exists: (file: string) => Promise<boolean>
-  files: (dir: string, name: "Navi" | "tui") => string[]
+  files: (dir: string, name: "navi" | "tui") => string[]
 }
 
 export type PatchInput = {
@@ -142,19 +142,26 @@ function hasMainTarget(pkg: Record<string, unknown>) {
   return Boolean(main.trim())
 }
 
-function packageTargets(pkg: Record<string, unknown>) {
+function packageTargets(pkg: { json: Record<string, unknown>; dir: string; pkg: string }) {
+  const spec =
+    typeof pkg.json.name === "string" && pkg.json.name.trim().length > 0 ? pkg.json.name.trim() : path.basename(pkg.dir)
   const targets: Target[] = []
-  const server = exportTarget(pkg, "server")
+  const server = exportTarget(pkg.json, "server")
   if (server) {
     targets.push({ kind: "server", opts: server.opts })
-  } else if (hasMainTarget(pkg)) {
+  } else if (hasMainTarget(pkg.json)) {
     targets.push({ kind: "server" })
   }
 
-  const tui = exportTarget(pkg, "tui")
+  const tui = exportTarget(pkg.json, "tui")
   if (tui) {
     targets.push({ kind: "tui", opts: tui.opts })
   }
+
+  if (!targets.some((item) => item.kind === "tui") && readPackageThemes(spec, pkg).length) {
+    targets.push({ kind: "tui" })
+  }
+
   return targets
 }
 
@@ -293,8 +300,23 @@ export async function readPluginManifest(target: string): Promise<ManifestResult
     }
   }
 
-  const targets = packageTargets(pkg.item.json)
-  if (!targets.length) {
+  const targets = await Promise.resolve()
+    .then(() => packageTargets(pkg.item))
+    .then(
+      (item) => ({ ok: true as const, item }),
+      (error: unknown) => ({ ok: false as const, error }),
+    )
+
+  if (!targets.ok) {
+    return {
+      ok: false,
+      code: "manifest_read_failed",
+      file: pkg.item.pkg,
+      error: targets.error,
+    }
+  }
+
+  if (!targets.item.length) {
     return {
       ok: false,
       code: "manifest_no_targets",
@@ -304,7 +326,7 @@ export async function readPluginManifest(target: string): Promise<ManifestResult
 
   return {
     ok: true,
-    targets,
+    targets: targets.item,
   }
 }
 
@@ -312,11 +334,11 @@ function patchDir(input: PatchInput) {
   if (input.global) return input.config ?? Global.Path.config
   const git = input.vcs === "git" && input.worktree !== "/"
   const root = git ? input.worktree : input.directory
-  return path.join(root, ".Navi")
+  return path.join(root, ".navi")
 }
 
-function patchName(kind: Kind): "Navi" | "tui" {
-  if (kind === "server") return "Navi"
+function patchName(kind: Kind): "navi" | "tui" {
+  if (kind === "server") return "navi"
   return "tui"
 }
 
@@ -326,6 +348,14 @@ async function patchOne(dir: string, target: Target, spec: string, force: boolea
 
   const files = dep.files(dir, name)
   let cfg = files[0]
+  if (!cfg) {
+    return {
+      ok: false,
+      code: "patch_failed",
+      kind: target.kind,
+      error: new Error("no config file candidates"),
+    }
+  }
   for (const file of files) {
     if (!(await dep.exists(file))) continue
     cfg = file
@@ -350,14 +380,26 @@ async function patchOne(dir: string, target: Target, spec: string, force: boolea
   const data = parseJsonc(text, errs, { allowTrailingComma: true })
   if (errs.length) {
     const err = errs[0]
+    if (!err) {
+      return {
+        ok: false,
+        code: "invalid_json",
+        kind: target.kind,
+        file: cfg,
+        line: 1,
+        col: 1,
+        parse: "Unknown",
+      }
+    }
     const lines = text.substring(0, err.offset).split("\n")
+    const last = lines[lines.length - 1] ?? ""
     return {
       ok: false,
       code: "invalid_json",
       kind: target.kind,
       file: cfg,
       line: lines.length,
-      col: lines[lines.length - 1].length + 1,
+      col: last.length + 1,
       parse: printParseErrorCode(err.error),
     }
   }
@@ -415,4 +457,3 @@ export async function patchPluginConfig(input: PatchInput, dep: PatchDeps = defa
     items,
   }
 }
-

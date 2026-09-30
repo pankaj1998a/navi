@@ -1,7 +1,7 @@
 import type { AssistantMessage } from "@navi-ai/sdk/v2"
-import type { TuiPlugin, TuiPluginApi, TuiPluginModule } from "@navi-ai/plugin/tui"
+import type { TuiPlugin, TuiPluginApi } from "@navi-ai/plugin/tui"
+import type { InternalTuiPlugin } from "../../plugin/internal"
 import { createMemo } from "solid-js"
-import { TextAttributes } from "@opentui/core"
 
 const id = "internal:sidebar-context"
 
@@ -35,11 +35,11 @@ function View(props: { api: TuiPluginApi; session_id: string }) {
 
   return (
     <box>
-      <text fg={theme().text} attributes={TextAttributes.BOLD}>
-        Context
+      <text fg={theme().text}>
+        <b>Context</b>
       </text>
       <text fg={theme().textMuted}>{state().tokens.toLocaleString()} tokens</text>
-      <text fg={theme().textMuted}>{String(state().percent ?? 0)}% used</text>
+      <text fg={theme().textMuted}>{state().percent ?? 0}% used</text>
       <text fg={theme().textMuted}>{money.format(cost())} spent</text>
     </box>
   )
@@ -56,10 +56,9 @@ const tui: TuiPlugin = async (api) => {
   })
 }
 
-const plugin: TuiPluginModule & { id: string } = {
+const plugin: InternalTuiPlugin = {
   id,
   tui,
 }
 
 export default plugin
-

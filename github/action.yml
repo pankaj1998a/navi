@@ -1,5 +1,5 @@
-name: "Navi GitHub Action"
-description: "Run Navi in GitHub Actions workflows"
+name: "navi GitHub Action"
+description: "Run navi in GitHub Actions workflows"
 branding:
   icon: "code"
   color: "orange"
@@ -14,7 +14,7 @@ inputs:
     required: false
 
   share:
-    description: "Share the Navi session (defaults to true for public repos)"
+    description: "Share the navi session (defaults to true for public repos)"
     required: false
 
   prompt:
@@ -27,40 +27,133 @@ inputs:
     default: "false"
 
   mentions:
-    description: "Comma-separated list of trigger phrases (case-insensitive). Defaults to '/navi'"
+    description: "Comma-separated list of trigger phrases (case-insensitive). Defaults to '/navi,/oc'"
+    required: false
+
+  variant:
+    description: "Model variant for provider-specific reasoning effort (e.g., high, max, minimal)"
     required: false
 
   oidc_base_url:
     description: "Base URL for OIDC token exchange API. Only required when running a custom GitHub App install. Defaults to https://api.navi.ai"
     required: false
 
+  sticky_summary:
+    description: "Update an existing PR summary comment in place (sticky) instead of posting a new one each run"
+    required: false
+    default: "true"
+
+  incremental:
+    description: "Only append inline comments whose (path, line range) does not overlap existing bot comments"
+    required: false
+    default: "false"
+
+  incremental_overlap_threshold:
+    description: "IoU threshold for incremental mode overlap detection. Value in (0, 1]"
+    required: false
+    default: "0.6"
+
+  resolve_outdated:
+    description: "Resolve outdated bot review threads. Options: 'false', 'report', 'true'. 'true' requires contents: write permission."
+    required: false
+    default: "false"
+
+  review_comment_batch_size:
+    description: "Maximum number of inline comments packed into a single createReview call"
+    required: false
+    default: "50"
+
+  route_severity_below:
+    description: "Route findings at-or-below this severity from inline comments to PR summary: critical, high, medium, low"
+    required: false
+    default: ""
+
+  route_categories:
+    description: "Comma-separated categories routed from inline comments to summary: bug, security, performance, maintainability, test, style, documentation, other"
+    required: false
+    default: ""
+
+  checkpoint_range:
+    description: "Cross-push checkpoints: reviews <checkpoint>..<head> instead of <merge-base>..<head>"
+    required: false
+    default: "false"
+
+  full_review:
+    description: "Force full review even when checkpoint_range is enabled"
+    required: false
+    default: "false"
+
+  base_ref:
+    description: "Override base ref (useful for issue_comment triggers)"
+    required: false
+
+  head_sha:
+    description: "Override head commit SHA (useful for issue_comment triggers)"
+    required: false
+
+  pr_number:
+    description: "Override pull request number"
+    required: false
+
+outputs:
+  comments_total:
+    description: "Total review comments generated"
+    value: ${{ steps.run_navi.outputs.comments_total }}
+  comments_inline:
+    description: "Number of inline comments posted"
+    value: ${{ steps.run_navi.outputs.comments_inline }}
+  comments_skipped:
+    description: "Number of inline comments skipped by incremental deduplication"
+    value: ${{ steps.run_navi.outputs.comments_skipped }}
+  comments_routed:
+    description: "Number of comments routed to summary"
+    value: ${{ steps.run_navi.outputs.comments_routed }}
+  comments_failed:
+    description: "Number of inline comments that failed to post"
+    value: ${{ steps.run_navi.outputs.comments_failed }}
+  comments_resolved:
+    description: "Number of outdated review threads resolved"
+    value: ${{ steps.run_navi.outputs.comments_resolved }}
+  summary_comment_url:
+    description: "URL of the posted or updated summary comment"
+    value: ${{ steps.run_navi.outputs.summary_comment_url }}
+  range_mode:
+    description: "Review range mode ('checkpoint' or 'full')"
+    value: ${{ steps.run_navi.outputs.range_mode }}
+  range_summary:
+    description: "Summary of reviewed commit range"
+    value: ${{ steps.run_navi.outputs.range_summary }}
+  checkpoint_after:
+    description: "The head recorded as the new checkpoint"
+    value: ${{ steps.run_navi.outputs.checkpoint_after }}
+
 runs:
   using: "composite"
   steps:
-    - name: Get Navi version
+    - name: Get navi version
       id: version
       shell: bash
       run: |
-        VERSION=$(curl -sf https://api.github.com/repos/pankaj1998a/navi/releases/latest | grep -o '"tag_name": *"[^"]*"' | cut -d'"' -f4)
+        VERSION=$(curl -sf https://api.github.com/repos/anomalyco/navi/releases/latest | grep -o '"tag_name": *"[^"]*"' | cut -d'"' -f4)
         echo "version=${VERSION:-latest}" >> $GITHUB_OUTPUT
 
-    - name: Cache Navi
+    - name: Cache navi
       id: cache
       uses: actions/cache@v4
       with:
         path: ~/.navi/bin
         key: navi-${{ runner.os }}-${{ runner.arch }}-${{ steps.version.outputs.version }}
 
-    - name: Install Navi
+    - name: Install navi
       if: steps.cache.outputs.cache-hit != 'true'
       shell: bash
       run: curl -fsSL https://navi.ai/install | bash
 
-    - name: Add Navi to PATH
+    - name: Add navi to PATH
       shell: bash
       run: echo "$HOME/.navi/bin" >> $GITHUB_PATH
 
-    - name: Run Navi
+    - name: Run navi
       shell: bash
       id: run_navi
       run: navi github run
@@ -71,4 +164,17 @@ runs:
         PROMPT: ${{ inputs.prompt }}
         USE_GITHUB_TOKEN: ${{ inputs.use_github_token }}
         MENTIONS: ${{ inputs.mentions }}
+        VARIANT: ${{ inputs.variant }}
         OIDC_BASE_URL: ${{ inputs.oidc_base_url }}
+        STICKY_SUMMARY: ${{ inputs.sticky_summary }}
+        INCREMENTAL: ${{ inputs.incremental }}
+        INCREMENTAL_OVERLAP_THRESHOLD: ${{ inputs.incremental_overlap_threshold }}
+        RESOLVE_OUTDATED: ${{ inputs.resolve_outdated }}
+        REVIEW_COMMENT_BATCH_SIZE: ${{ inputs.review_comment_batch_size }}
+        ROUTE_SEVERITY_BELOW: ${{ inputs.route_severity_below }}
+        ROUTE_CATEGORIES: ${{ inputs.route_categories }}
+        CHECKPOINT_RANGE: ${{ inputs.checkpoint_range }}
+        FULL_REVIEW: ${{ inputs.full_review }}
+        BASE_REF: ${{ inputs.base_ref }}
+        HEAD_SHA: ${{ inputs.head_sha }}
+        PR_NUMBER: ${{ inputs.pr_number }}

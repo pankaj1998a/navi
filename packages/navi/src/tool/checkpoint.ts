@@ -1,172 +1,230 @@
-import z from "zod"
-import { Tool } from "./tool"
-import { Session } from "../session"
-import { Snapshot } from "../snapshot"
-import { Log } from "../util/log"
-import { Storage } from "@/storage/storage"
-import { Instance } from "@/project/instance"
+import { Effect, Schema } from "effect"
+import * as Tool from "./tool"
+import { InstanceState } from "@/effect/instance-state"
+import * as Log from "@navi-ai/core/util/log"
+import path from "path"
+import fs from "fs"
+import DESCRIPTION from "./checkpoint.txt"
 
-const log = Log.create({ service: "checkpoint-tool" })
+const log = Log.create({ service: "tool.checkpoint" })
 
-type CheckpointMeta = {
-    name?: string
-    note?: string
-    sessionID?: string
-    createdAt: number
-    source: "tool"
-}
-
-async function loadCheckpointMeta(projectID: string) {
-    const meta = new Map<string, CheckpointMeta>()
-    const keys = await Storage.list(["checkpoint", "meta", projectID]).catch(() => [])
-
-    for (const key of keys) {
-        const hash = key.at(-1)
-        if (!hash) continue
-        try {
-            meta.set(hash, await Storage.read<CheckpointMeta>(key))
-        } catch (e) {
-            log.error("failed to read checkpoint meta", { key, error: e })
-        }
-    }
-
-    return meta
-}
-
-export const CheckpointTool = Tool.define("checkpoint", async () => {
-    return {
-        description: `Manage checkpoints (snapshots) of the project state.
-You can list available checkpoints and restore the project to a previous state.
-Checkpoints are automatically created at each step (tool execution or message).
-Restoring a checkpoint will revert all files in the working directory to that state.`,
-        parameters: z.object({
-            action: z.enum(["list", "restore", "create"]).describe("The action to perform"),
-            hash: z.string().optional().describe("The snapshot hash to restore to (required for 'restore')"),
-            name: z.string().optional().describe("A human-friendly label for the checkpoint (optional for 'create')"),
-            message: z.string().optional().describe("A description for the checkpoint (optional for 'create')"),
-        }),
-        async execute(params, ctx) {
-            if (params.action === "create") {
-                const hash = await Snapshot.track()
-                if (!hash) {
-                    return {
-                        title: "Checkpoint Disabled",
-                        output: "Snapshot tracking is disabled for this project.",
-                        metadata: { hash: undefined as string | undefined },
-                    }
-                }
-                const metadata: CheckpointMeta = {
-                    name: params.name,
-                    note: params.message,
-                    sessionID: ctx.sessionID,
-                    createdAt: Date.now(),
-                    source: "tool",
-                }
-                await Storage.write(["checkpoint", "meta", Instance.project.id, hash], metadata)
-                return {
-                    title: "Checkpoint Created",
-                    output: `Created checkpoint with hash: ${hash}${params.name ? `\nName: ${params.name}` : ""}${params.message ? `\nDescription: ${params.message}` : ""}`,
-                    metadata: { hash }
-                }
-            } else if (params.action === "list") {
-                const metadata = await loadCheckpointMeta(Instance.project.id)
-                const messages = await Session.messages({ sessionID: ctx.sessionID })
-                const checkpoints = []
-
-                for (const msg of messages) {
-                    for (const part of msg.parts) {
-                        if (part.type === "step-start" && part.snapshot) {
-                            const meta = metadata.get(part.snapshot)
-                            checkpoints.push({
-                                hash: part.snapshot,
-                                messageID: msg.info.id,
-                                type: "start",
-                                time: msg.info.time.created,
-                                name: meta?.name,
-                                note: meta?.note,
-                            })
-                        } else if (part.type === "step-finish" && part.snapshot) {
-                            const meta = metadata.get(part.snapshot)
-                            checkpoints.push({
-                                hash: part.snapshot,
-                                messageID: msg.info.id,
-                                type: "finish",
-                                time: msg.info.role === "assistant" && msg.info.time.completed ? msg.info.time.completed : msg.info.time.created,
-                                name: meta?.name,
-                                note: meta?.note,
-                            })
-                        } else if (part.type === "snapshot" && part.snapshot) {
-                            const meta = metadata.get(part.snapshot)
-                            checkpoints.push({
-                                hash: part.snapshot,
-                                messageID: msg.info.id,
-                                type: "manual",
-                                time: msg.info.time.created,
-                                name: meta?.name,
-                                note: meta?.note,
-                            })
-                        }
-                    }
-                }
-
-                // Sort by time descending
-                checkpoints.sort((a, b) => b.time - a.time)
-
-                const output = checkpoints.map((cp, i) => {
-                    const date = new Date(cp.time).toISOString()
-                    const name = cp.name ? ` | Name: ${cp.name}` : ""
-                    const note = cp.note ? ` | Note: ${cp.note}` : ""
-                    return `[${i}] Hash: ${cp.hash.substring(0, 7)}${name}${note} | Time: ${date} | Type: ${cp.type} | Msg: ${cp.messageID}`
-                }).join("\n")
-
-                return {
-                    title: "Checkpoints",
-                    output: output || "No checkpoints found.",
-                    metadata: { hash: undefined as string | undefined }
-                }
-            } else if (params.action === "restore") {
-                if (!params.hash) throw new Error("Hash is required for restore action")
-
-                // Find the full hash if short hash is provided
-                let targetHash = params.hash
-                if (params.hash.length < 40) {
-                    const metadata = await loadCheckpointMeta(Instance.project.id)
-                    const messages = await Session.messages({ sessionID: ctx.sessionID })
-                    let found = false
-                    for (const msg of messages) {
-                        for (const part of msg.parts) {
-                            if ((part.type === "step-start" || part.type === "step-finish" || part.type === "snapshot") && part.snapshot && part.snapshot.startsWith(params.hash)) {
-                                targetHash = part.snapshot
-                                found = true
-                                break
-                            }
-                        }
-                        if (found) break
-                    }
-                    if (!found) {
-                        for (const [hash, meta] of metadata.entries()) {
-                            if (meta.name?.toLowerCase() === params.hash.toLowerCase() || meta.note?.toLowerCase() === params.hash.toLowerCase()) {
-                                targetHash = hash
-                                found = true
-                                break
-                            }
-                        }
-                    }
-                    if (!found) throw new Error(`Checkpoint with hash prefix ${params.hash} not found`)
-                }
-
-                await Snapshot.restore(targetHash)
-
-                return {
-                    title: "Checkpoint Restored",
-                    output: `Restored project state to snapshot ${targetHash}`,
-                    metadata: { hash: undefined as string | undefined }
-                }
-            }
-
-            throw new Error(`Unknown action: ${params.action}`)
-        }
-    }
+export const Parameters = Schema.Struct({
+  action: Schema.Literals(["create", "list", "restore", "drop"]).annotate({
+    description: "The checkpoint action to perform: 'create', 'list', 'restore', or 'drop'",
+  }),
+  name: Schema.optional(Schema.String).annotate({
+    description: "Descriptive name for the checkpoint (e.g. 'before-auth-refactor', 'pre-migration')",
+  }),
+  id: Schema.optional(Schema.String).annotate({
+    description: "Checkpoint ID to restore or drop (e.g. 'cp-1725000000-abc')",
+  }),
 })
 
+type CheckpointEntry = {
+  id: string
+  name: string
+  createdAt: string
+  patchFile: string
+}
 
+function getCheckpointDir(worktree: string): string {
+  const dir = path.join(worktree, ".navi", "state", "checkpoints")
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true })
+  }
+  return dir
+}
+
+function getIndexFile(worktree: string): string {
+  return path.join(getCheckpointDir(worktree), "index.json")
+}
+
+function loadCheckpoints(worktree: string): CheckpointEntry[] {
+  const file = getIndexFile(worktree)
+  if (fs.existsSync(file)) {
+    try {
+      // TODO: async-ify via FileSystem.readFileStringSafe in execute path (callers are Effect.gen).
+      return JSON.parse(fs.readFileSync(file, "utf-8")) as CheckpointEntry[]
+    } catch {
+      return []
+    }
+  }
+  return []
+}
+
+function saveCheckpoints(worktree: string, list: CheckpointEntry[]): void {
+  const file = getIndexFile(worktree)
+  // Atomic tmp+rename to avoid corrupt index on crash.
+  const tmp = `${file}.${process.pid}.tmp`
+  fs.writeFileSync(tmp, JSON.stringify(list, null, 2), "utf-8")
+  fs.renameSync(tmp, file)
+}
+
+export const CheckpointTool = Tool.define(
+  "checkpoint",
+  Effect.gen(function* () {
+    return {
+      description: DESCRIPTION,
+      parameters: Parameters,
+      execute: (params: Schema.Schema.Type<typeof Parameters>, ctx: Tool.Context) =>
+        Effect.gen(function* () {
+          const instance = yield* InstanceState.context
+          const cpDir = getCheckpointDir(instance.directory)
+
+          yield* ctx.ask({
+            permission: "checkpoint",
+            patterns: [params.action, params.id ?? params.name ?? "*"],
+            always: ["*"],
+            metadata: {
+              action: params.action,
+              name: params.name,
+              id: params.id,
+            },
+          })
+
+          switch (params.action) {
+            case "create": {
+              const name = params.name || "manual-checkpoint"
+              const id = `cp-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
+              const patchFile = `${id}.patch`
+              const patchPath = path.join(cpDir, patchFile)
+
+              // Capture git diff HEAD
+              const diffResult = yield* Effect.promise(async () => {
+                try {
+                  const proc = Bun.spawn(["git", "diff", "HEAD"], {
+                    cwd: instance.directory,
+                    stdout: "pipe",
+                    stderr: "pipe",
+                  })
+                  return await new Response(proc.stdout).text()
+                } catch {
+                  return ""
+                }
+              })
+
+              // Atomic patch write: tmp+rename so restore never reads a partial patch.
+              const patchTmp = `${patchPath}.${process.pid}.tmp`
+              fs.writeFileSync(patchTmp, diffResult, "utf-8")
+              fs.renameSync(patchTmp, patchPath)
+
+              const list = loadCheckpoints(instance.directory)
+              const entry: CheckpointEntry = {
+                id,
+                name,
+                createdAt: new Date().toISOString(),
+                patchFile,
+              }
+              list.unshift(entry)
+              saveCheckpoints(instance.directory, list)
+
+              return {
+                title: `Created checkpoint ${id}`,
+                output: [
+                  `🛡️ **Safety Checkpoint Created**`,
+                  `- **ID**: \`${id}\``,
+                  `- **Name**: ${name}`,
+                  `- **Timestamp**: ${new Date(entry.createdAt).toLocaleString()}`,
+                  `- **Saved to**: \`.navi/state/checkpoints/${patchFile}\``,
+                  "",
+                  `You can restore this state anytime using \`checkpoint\` with \`action: "restore"\` and \`id: "${id}"\`.`,
+                ].join("\n"),
+                metadata: { action: "create", id, name } as Record<string, unknown>,
+              }
+            }
+
+            case "list": {
+              const list = loadCheckpoints(instance.directory)
+              if (list.length === 0) {
+                return {
+                  title: "Checkpoints (0)",
+                  output: "No checkpoints recorded yet. Use `checkpoint` with `action: 'create'` to save one.",
+                  metadata: { count: 0 } as Record<string, unknown>,
+                }
+              }
+
+              const formatted = list
+                .map(
+                  (c) =>
+                    `- **${c.name}** (\`${c.id}\`)\n  Created: ${new Date(c.createdAt).toLocaleString()}`,
+                )
+                .join("\n")
+
+              return {
+                title: `Checkpoints (${list.length})`,
+                output: `### Saved Safety Checkpoints\n\n${formatted}`,
+                metadata: { count: list.length } as Record<string, unknown>,
+              }
+            }
+
+            case "restore": {
+              if (!params.id && !params.name) {
+                throw new Error("Either 'id' or 'name' is required for action 'restore'")
+              }
+
+              const list = loadCheckpoints(instance.directory)
+              const target = list.find((c) => c.id === params.id || c.name === params.name)
+              if (!target) {
+                throw new Error(`Checkpoint not found for id/name: "${params.id || params.name}"`)
+              }
+
+              const patchPath = path.join(cpDir, target.patchFile)
+
+              // 1. Reset working directory with git checkout .
+              yield* Effect.promise(async () => {
+                const cleanProc = Bun.spawn(["git", "checkout", "."], {
+                  cwd: instance.directory,
+                  stdout: "pipe",
+                  stderr: "pipe",
+                })
+                await cleanProc.exited
+
+                if (fs.existsSync(patchPath)) {
+                  const patchContent = fs.readFileSync(patchPath, "utf-8")
+                  if (patchContent.trim().length > 0) {
+                    const applyProc = Bun.spawn(["git", "apply", "--whitespace=nowarn", patchPath], {
+                      cwd: instance.directory,
+                      stdout: "pipe",
+                      stderr: "pipe",
+                    })
+                    await applyProc.exited
+                  }
+                }
+              })
+
+              return {
+                title: `Restored checkpoint ${target.id}`,
+                output: `⏪ Working tree successfully restored to checkpoint: **${target.name}** (\`${target.id}\`).`,
+                metadata: { action: "restore", id: target.id } as Record<string, unknown>,
+              }
+            }
+
+            case "drop": {
+              if (!params.id) throw new Error("Parameter 'id' is required for action 'drop'")
+              const list = loadCheckpoints(instance.directory)
+              const filtered = list.filter((c) => c.id !== params.id)
+              const removed = list.find((c) => c.id === params.id)
+
+              if (removed) {
+                const patchPath = path.join(cpDir, removed.patchFile)
+                if (fs.existsSync(patchPath)) {
+                  fs.unlinkSync(patchPath)
+                }
+              }
+
+              saveCheckpoints(instance.directory, filtered)
+
+              return {
+                title: `Dropped checkpoint ${params.id}`,
+                output: `🗑️ Checkpoint \`${params.id}\` deleted.`,
+                metadata: { action: "drop", id: params.id } as Record<string, unknown>,
+              }
+            }
+
+            default:
+              throw new Error(`Unknown checkpoint action: ${params.action}`)
+          }
+        }),
+    }
+  }),
+)

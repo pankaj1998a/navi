@@ -1,11 +1,11 @@
 {
   "$schema": "https://json.schemastore.org/package.json",
   "name": "@navi-ai/plugin",
-  "version": "1.1.17",
+  "version": "1.14.46",
   "type": "module",
   "license": "MIT",
   "scripts": {
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsgo --noEmit",
     "build": "tsc"
   },
   "exports": {
@@ -18,14 +18,32 @@
   ],
   "dependencies": {
     "@navi-ai/sdk": "workspace:*",
-    "@opentui/core": "0.1.95",
-    "@opentui/solid": "0.1.95",
-    "zod": "4.1.8"
+    "effect": "catalog:",
+    "zod": "catalog:"
+  },
+  "peerDependencies": {
+    "@opentui/core": ">=0.2.6",
+    "@opentui/keymap": ">=0.2.6",
+    "@opentui/solid": ">=0.2.6"
+  },
+  "peerDependenciesMeta": {
+    "@opentui/core": {
+      "optional": true
+    },
+    "@opentui/keymap": {
+      "optional": true
+    },
+    "@opentui/solid": {
+      "optional": true
+    }
   },
   "devDependencies": {
-    "@tsconfig/node22": "22.0.2",
-    "@types/node": "22.13.9",
-    "typescript": "5.8.2",
-    "@typescript/native-preview": "7.0.0-dev.20251207.1"
+    "@opentui/core": "catalog:",
+    "@opentui/keymap": "catalog:",
+    "@opentui/solid": "catalog:",
+    "@tsconfig/node22": "catalog:",
+    "@types/node": "catalog:",
+    "typescript": "catalog:",
+    "@typescript/native-preview": "catalog:"
   }
 }

@@ -58,6 +58,7 @@ export namespace Buddy {
         "Use /viz to see token usage.",
         "Mention files with @ to give me context.",
         "Try /rewind if you make a mistake.",
+        "Use web search to find anything online!",
         "I love clean code and bamboo!",
     ]
 
@@ -106,10 +107,10 @@ export namespace Buddy {
             greeting: `Hello! I'm your ${species} buddy. Ready to code?`,
             reactions: {
                 idle: mascotBase,
-                thinking: mascotBase.replace(eye, '-'),
-                working: mascotBase.replace(eye, '◡'),
-                success: mascotBase.replace(eye, '◕'),
-                error: mascotBase.replace(eye, 'x'),
+                thinking: mascotBase.replaceAll(eye, '-'),
+                working: mascotBase.replaceAll(eye, '◡'),
+                success: mascotBase.replaceAll(eye, '◕'),
+                error: mascotBase.replaceAll(eye, 'x'),
             },
             tips: TIPS,
         }

@@ -1,16 +1,16 @@
-import { ProviderLoader } from "../loader"
+import type { ProviderLoader } from "../loader"
 import { Env } from "../../env"
 import { Auth } from "../../auth"
 import { Config } from "../../config/config"
 
 export const NaviProvider: ProviderLoader.Info = {
-  async load(input) {
+  async load(input, dep) {
     if (!input) return { autoload: false, options: {} }
     const hasKey = await (async () => {
-      const env = Env.all()
+      const env = dep.env
       if (input.env.some((item) => env[item])) return true
-      if (await Auth.get(input.id)) return true
-      const config = await Config.get()
+      if (await dep.auth(input.id)) return true
+      const config = dep.config
       if (config.provider?.["navi"]?.options?.apiKey) return true
       return false
     })()
@@ -29,8 +29,10 @@ export const NaviProvider: ProviderLoader.Info = {
       options: {
         ...(hasKey ? {} : { apiKey: "public" }),
         headers: {
-          "HTTP-Referer": "https://Navi.ai/",
-          "X-Title": "Navi",
+          "User-Agent": "opencode/1.1.1",
+          "x-opencode-client": "cli",
+          "HTTP-Referer": "https://opencode.ai/",
+          "X-Title": "OpenCode",
         },
       },
       models,

@@ -1,0 +1,10 @@
+You are executing a high-perseverance autonomous goal: "$ARGUMENTS".
+
+Follow this rigorous execution protocol:
+1. **Analyze & Plan**: Deconstruct the user's goal into measurable, verifiable milestones.
+2. **Execute Autonomously**: Loop continuously, using terminal commands, file edits, and tools to make tangible progress.
+3. **Verify Independently**: Never declare victory without empirical proof (running test suites, building code, verifying output).
+4. **Handle Obstacles**: If a test fails or an error occurs, diagnose the root cause and try alternative strategies rather than asking the user prematurely.
+5. **Final Walkthrough**: Once the goal is completely met, provide a structured summary of changes made, tests verified, and outcomes achieved.
+
+Goal: $ARGUMENTS

@@ -1,77 +1,123 @@
-import z from "zod"
-import { Tool } from "./tool"
+import { Effect, Schema } from "effect"
+import { HttpClient } from "effect/unstable/http"
+import * as Tool from "./tool"
+import { Env } from "../env"
+import * as McpWebSearch from "./mcp-websearch"
 
-/**
- * ExaSearchTool — Neural + keyword web search with extraction.
- */
-export const ExaSearchTool = Tool.define("exa_search", {
-  description: `Search the web using Exa AI. Supports neural or keyword search, date filters, and content extraction (highlights, summaries).`,
-
-  parameters: z.object({
-    query: z.string().describe("Search query string."),
-    type: z.enum(["auto", "neural", "fast", "deep", "deep-reasoning", "instant"]).optional().default("auto").describe("Exa search mode."),
-    count: z.number().min(1).max(100).optional().default(10).describe("Number of results to return."),
-    freshness: z.enum(["day", "week", "month", "year"]).optional().describe("Filter by time."),
-    include_highlights: z.boolean().optional().default(true).describe("Include highlights."),
-    include_summary: z.boolean().optional().default(false).describe("Include summary."),
+export const Parameters = Schema.Struct({
+  query: Schema.String.annotate({ description: "Search query string." }),
+  type: Schema.optional(Schema.Literals(["auto", "neural", "fast", "deep", "deep-reasoning", "instant"]))
+    .pipe(Schema.withDecodingDefault(Effect.succeed("auto" as const)))
+    .annotate({ description: "Exa search mode." }),
+  count: Schema.optional(Schema.Number).annotate({
+    description: "Number of results to return (default 10, max 100).",
   }),
+  freshness: Schema.optional(Schema.Literals(["day", "week", "month", "year"])).annotate({
+    description: "Filter by time.",
+  }),
+  include_highlights: Schema.optional(Schema.Boolean).annotate({
+    description: "Include highlights (default true).",
+  }),
+  include_summary: Schema.optional(Schema.Boolean).annotate({
+    description: "Include summary (default false).",
+  }),
+})
 
-  async execute(params, _ctx) {
-    const apiKey = process.env.EXA_API_KEY
-    if (!apiKey) {
-      throw new Error("EXA_API_KEY environment variable is not set.")
-    }
-
-    const body: any = {
-      query: params.query,
-      numResults: params.count,
-      type: params.type,
-      contents: { 
-        highlights: params.include_highlights,
-        summary: params.include_summary
-      },
-    }
-
-    if (params.freshness) {
-      const now = new Date()
-      if (params.freshness === "day") now.setDate(now.getDate() - 1)
-      if (params.freshness === "week") now.setDate(now.getDate() - 7)
-      if (params.freshness === "month") now.setMonth(now.getMonth() - 1)
-      if (params.freshness === "year") now.setFullYear(now.getFullYear() - 1)
-      body.startPublishedDate = now.toISOString()
-    }
-
-    const response = await fetch("https://api.exa.ai/search", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": apiKey,
-      },
-      body: JSON.stringify(body),
-    })
-
-    if (!response.ok) {
-      const error = await response.text()
-      throw new Error(`Exa API error: ${error}`)
-    }
-
-    const data = await response.json() as any
-
-    let output = `Exa Search Results for: ${params.query}\n\n`
-    data.results.forEach((result: any, index: number) => {
-      output += `${index + 1}. [${result.title || result.url}](${result.url})\n`
-      if (result.publishedDate) output += `   Date: ${result.publishedDate}\n`
-      if (result.summary) output += `   Summary: ${result.summary}\n`
-      if (result.highlights && result.highlights.length > 0) {
-        output += `   Highlights:\n      - ${result.highlights.join("\n      - ")}\n`
-      }
-      output += `\n`
-    })
+export const ExaSearchTool = Tool.define(
+  "exa_search",
+  Effect.gen(function* () {
+    const http = yield* HttpClient.HttpClient
 
     return {
-      title: `Exa Search: ${params.query}`,
-      output,
-      metadata: { count: data.results.length } as Record<string, any>,
+      description: "Search the web using Exa AI. Supports neural or keyword search, date filters, and content extraction.",
+      parameters: Parameters,
+      execute: (params: Schema.Schema.Type<typeof Parameters>, ctx: Tool.Context) =>
+        Effect.gen(function* () {
+          const apiKey = yield* Effect.promise(() => Env.get("EXA_API_KEY"))
+
+          yield* ctx.ask({
+            permission: "websearch",
+            patterns: [params.query],
+            always: ["*"],
+            metadata: { query: params.query, provider: "exa" },
+          })
+
+          // If no API key is provided, fall back to the MCP bridge used in opencode
+          if (!apiKey) {
+            const result = yield* McpWebSearch.call(
+              http,
+              McpWebSearch.EXA_URL,
+              "web_search_exa",
+              McpWebSearch.SearchArgs,
+              {
+                query: params.query,
+                type: params.type === "neural" ? "auto" : (params.type || "auto"),
+                numResults: params.count || 10,
+                livecrawl: "fallback",
+              },
+              "25 seconds",
+            )
+
+            return {
+              output: result ?? "No search results found.",
+              title: `Exa (via Bridge): ${params.query}`,
+              metadata: { count: result ? 1 : 0 },
+            }
+          }
+
+          // Direct API call if API key is present (supports more features)
+          const body: any = {
+            query: params.query,
+            numResults: params.count ?? 10,
+            type: params.type,
+            contents: {
+              highlights: params.include_highlights ?? true,
+              summary: params.include_summary ?? false,
+            },
+          }
+
+          if (params.freshness) {
+            const now = new Date()
+            if (params.freshness === "day") now.setDate(now.getDate() - 1)
+            if (params.freshness === "week") now.setDate(now.getDate() - 7)
+            if (params.freshness === "month") now.setMonth(now.getMonth() - 1)
+            if (params.freshness === "year") now.setFullYear(now.getFullYear() - 1)
+            body.startPublishedDate = now.toISOString()
+          }
+
+          const response = yield* Effect.promise(() =>
+            fetch("https://api.exa.ai/search", {
+              method: "POST",
+              headers: { "Content-Type": "application/json", "x-api-key": apiKey },
+              body: JSON.stringify(body),
+            }),
+          )
+
+          if (!response.ok) {
+            const error = yield* Effect.promise(() => response.text())
+            throw new Error(`Exa API error: ${error}`)
+          }
+
+          const data = (yield* Effect.promise(() => response.json())) as any
+          const results = data.results || []
+
+          let output = `# Exa Search Results: ${params.query}\n\n`
+          results.forEach((result: any, index: number) => {
+            output += `${index + 1}. [${result.title || result.url}](${result.url})\n`
+            if (result.publishedDate) output += `   Date: ${result.publishedDate}\n`
+            if (result.summary) output += `   Summary: ${result.summary}\n`
+            if (result.highlights && result.highlights.length > 0) {
+              output += `   Highlights:\n      - ${result.highlights.join("\n      - ")}\n`
+            }
+            output += `\n`
+          })
+
+          return {
+            output,
+            title: `Exa: ${params.query}`,
+            metadata: { count: results.length },
+          }
+        }).pipe(Effect.orDie) as any,
     }
-  },
-})
+  }),
+)

@@ -1,6 +1,6 @@
 import type { Hooks, AuthHook, AuthOuathResult, PluginInput } from "@navi-ai/plugin"
 import { Auth } from "../auth"
-import { Log } from "../util/log"
+import * as Log from "@navi-ai/core/util/log"
 import http from "http"
 import { randomBytes } from "crypto"
 import net from "net"

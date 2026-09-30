@@ -1,16 +1,18 @@
 import "../../brand/index.css"
 import "./index.css"
-import { Title, Meta, Link } from "@solidjs/meta"
+import { Title, Meta } from "@solidjs/meta"
 import { Header } from "~/component/header"
-import { config } from "~/config"
 import { Footer } from "~/component/footer"
 import { Legal } from "~/component/legal"
+import { LocaleLinks } from "~/component/locale-links"
+import { useLanguage } from "~/context/language"
 
 export default function TermsOfService() {
+  const language = useLanguage()
   return (
     <main data-page="legal">
       <Title>Navi | Terms of Service</Title>
-      <Link rel="canonical" href={`${config.baseUrl}/legal/terms-of-service`} />
+      <LocaleLinks path="/legal/terms-of-service" />
       <Meta name="description" content="Navi terms of service" />
       <div data-component="container">
         <Header />
@@ -19,12 +21,12 @@ export default function TermsOfService() {
           <section data-component="brand-content">
             <article data-component="terms-of-service">
               <h1>Terms of Use</h1>
-              <p class="effective-date">Effective date: Dec 16, 2025</p>
+              <p class="effective-date">Effective date: Mar 6, 2026</p>
 
               <p>
-                Welcome to Navi. Please read on to learn the rules and restrictions that govern your use of Navi
-                (the "Services"). If you have any questions, comments, or concerns regarding these terms or the
-                Services, please contact us at:
+                Welcome to Navi. Please read on to learn the rules and restrictions that govern your use of
+                Navi&apos;s website, inference product and hosted software offering (the "Services"). If you have
+                any questions, comments, or concerns regarding these terms or the Services, please contact us at:
               </p>
 
               <p>
@@ -36,13 +38,16 @@ export default function TermsOfService() {
                 <strong>ANOMALY INNOVATIONS, INC.</strong> ("Navi," "we" and "us"). Your use of the Services in any
                 way means that you agree to all of these Terms, and these Terms will remain in effect while you use the
                 Services. These Terms include the provisions in this document as well as those in the Privacy Policy{" "}
-                <a href="/legal/privacy-policy">https://navi.ai/legal/privacy-policy</a>.{" "}
+                <a href={language.route("/legal/privacy-policy")}>https://navi.ai/legal/privacy-policy</a>.{" "}
                 <strong>
                   Your use of or participation in certain Services may also be subject to additional policies, rules
                   and/or conditions ("Additional Terms"), which are incorporated herein by reference, and you understand
                   and agree that by using or participating in any such Services, you agree to also comply with these
                   Additional Terms.
-                </strong>
+                </strong>{" "}
+                For clarity, our open source software that is not provided to you on a hosted basis is subject to the
+                open source license and terms set forth on the applicable repository where you access such open source
+                software, and such license and terms will exclusively govern your use of such open source software.
               </p>
 
               <p>
@@ -259,9 +264,10 @@ export default function TermsOfService() {
               <h3>Paid Services</h3>
               <p>
                 Certain of our Services, including Zen, may be subject to payments now or in the future (the "Paid
-                Services"). Please see our Paid Services page <a href="/zen">https://navi.ai/zen</a> for a
-                description of the current Paid Services. Please note that any payment terms presented to you in the
-                process of using or signing up for a Paid Service are deemed part of these Terms.
+                Services"). Please see our Paid Services page{" "}
+                <a href={language.route("/zen")}>https://navi.ai/zen</a> for a description of the current Paid
+                Services. Please note that any payment terms presented to you in the process of using or signing up for
+                a Paid Service are deemed part of these Terms.
               </p>
 
               <h3>Billing</h3>
@@ -315,9 +321,9 @@ export default function TermsOfService() {
               <h2 id="what-if-i-want-to-stop">What if I want to stop using the Services?</h2>
               <p>
                 You're free to do that at any time; please refer to our Privacy Policy{" "}
-                <a href="/legal/privacy-policy">https://navi.ai/legal/privacy-policy</a>, as well as the licenses
-                above, to understand how we treat information you provide to us after you have stopped using our
-                Services.
+                <a href={language.route("/legal/privacy-policy")}>https://navi.ai/legal/privacy-policy</a>, as well
+                as the licenses above, to understand how we treat information you provide to us after you have stopped
+                using our Services.
               </p>
 
               <p>
@@ -347,7 +353,7 @@ export default function TermsOfService() {
                 procedures, costs, expenses, damages or liabilities arising out of use of, or in any way related to your
                 participation in, the Services. The Navi Parties make no representations or warranties regarding
                 suggestions or recommendations of services or products offered or purchased through or in connection
-                with the Services. THE SERVICES AND CONTENT ARE PROVIDED BY navi (AND ITS LICENSORS AND SUPPLIERS)
+                with the Services. THE SERVICES AND CONTENT ARE PROVIDED BY OPENCODE (AND ITS LICENSORS AND SUPPLIERS)
                 ON AN "AS-IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING, WITHOUT
                 LIMITATION, IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, NON-INFRINGEMENT,
                 OR THAT USE OF THE SERVICES WILL BE UNINTERRUPTED OR ERROR-FREE. SOME STATES DO NOT ALLOW LIMITATIONS ON
@@ -358,12 +364,12 @@ export default function TermsOfService() {
               <p>
                 TO THE FULLEST EXTENT ALLOWED BY APPLICABLE LAW, UNDER NO CIRCUMSTANCES AND UNDER NO LEGAL THEORY
                 (INCLUDING, WITHOUT LIMITATION, TORT, CONTRACT, STRICT LIABILITY, OR OTHERWISE) SHALL ANY OF THE
-                navi PARTIES BE LIABLE TO YOU OR TO ANY OTHER PERSON FOR (A) ANY INDIRECT, SPECIAL, INCIDENTAL,
+                OPENCODE PARTIES BE LIABLE TO YOU OR TO ANY OTHER PERSON FOR (A) ANY INDIRECT, SPECIAL, INCIDENTAL,
                 PUNITIVE OR CONSEQUENTIAL DAMAGES OF ANY KIND, INCLUDING DAMAGES FOR LOST PROFITS, BUSINESS
                 INTERRUPTION, LOSS OF DATA, LOSS OF GOODWILL, WORK STOPPAGE, ACCURACY OF RESULTS, OR COMPUTER FAILURE OR
                 MALFUNCTION, (B) ANY SUBSTITUTE GOODS, SERVICES OR TECHNOLOGY, (C) ANY AMOUNT, IN THE AGGREGATE, IN
                 EXCESS OF THE GREATER OF (I) ONE-HUNDRED ($100) DOLLARS OR (II) THE AMOUNTS PAID AND/OR PAYABLE BY YOU
-                TO navi IN CONNECTION WITH THE SERVICES IN THE TWELVE (12) MONTH PERIOD PRECEDING THIS APPLICABLE
+                TO OPENCODE IN CONNECTION WITH THE SERVICES IN THE TWELVE (12) MONTH PERIOD PRECEDING THIS APPLICABLE
                 CLAIM OR (D) ANY MATTER BEYOND OUR REASONABLE CONTROL. SOME STATES DO NOT ALLOW THE EXCLUSION OR
                 LIMITATION OF INCIDENTAL OR CONSEQUENTIAL OR CERTAIN OTHER DAMAGES, SO THE ABOVE LIMITATION AND
                 EXCLUSIONS MAY NOT APPLY TO YOU.
@@ -436,11 +442,11 @@ export default function TermsOfService() {
 
               <h4>Waiver of Jury Trial</h4>
               <p>
-                YOU AND navi WAIVE ANY CONSTITUTIONAL AND STATUTORY RIGHTS TO GO TO COURT AND HAVE A TRIAL IN FRONT
+                YOU AND OPENCODE WAIVE ANY CONSTITUTIONAL AND STATUTORY RIGHTS TO GO TO COURT AND HAVE A TRIAL IN FRONT
                 OF A JUDGE OR JURY. You and Navi are instead choosing to have claims and disputes resolved by
                 arbitration. Arbitration procedures are typically more limited, more efficient, and less costly than
                 rules applicable in court and are subject to very limited review by a court. In any litigation between
-                you and Navi over whether to vacate or enforce an arbitration award, YOU AND navi WAIVE ALL
+                you and Navi over whether to vacate or enforce an arbitration award, YOU AND OPENCODE WAIVE ALL
                 RIGHTS TO A JURY TRIAL, and elect instead to have the dispute be resolved by a judge.
               </p>
 
@@ -457,10 +463,10 @@ export default function TermsOfService() {
               <h4>Opt-out</h4>
               <p>
                 You have the right to opt out of the provisions of this Section by sending written notice of your
-                decision to opt out to the following address: [ADDRESS], [CITY], Canada [ZIP CODE] postmarked within
-                thirty (30) days of first accepting these Terms. You must include (i) your name and residence address,
-                (ii) the email address and/or telephone number associated with your account, and (iii) a clear statement
-                that you want to opt out of these Terms' arbitration agreement.
+                decision to opt out to the following address: 2443 Fillmore St #380-6343, San Francisco, CA 94115,
+                United States postmarked within thirty (30) days of first accepting these Terms. You must include (i)
+                your name and residence address, (ii) the email address and/or telephone number associated with your
+                account, and (iii) a clear statement that you want to opt out of these Terms' arbitration agreement.
               </p>
 
               <h4>Exclusive Venue</h4>

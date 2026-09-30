@@ -1,13 +1,9 @@
 #!/usr/bin/env bun
-import { $ } from "bun"
+import { Script } from "@navi-ai/script"
 
-import { copyBinaryToSidecarFolder, getCurrentSidecar, windowsify } from "./utils"
+await import("./prebuild")
 
-const sidecarConfig = getCurrentSidecar()
-
-const dir = "src-tauri/target/navi-binaries"
-
-await $`mkdir -p ${dir}`
-await $`gh run download ${Bun.env.GITHUB_RUN_ID} -n navi-cli`.cwd(dir)
-
-await copyBinaryToSidecarFolder(windowsify(`${dir}/${sidecarConfig.ocBinary}/bin/navi`))
+const pkg = await Bun.file("./package.json").json()
+pkg.version = Script.version
+await Bun.write("./package.json", JSON.stringify(pkg, null, 2) + "\n")
+console.log(`Updated package.json version to ${Script.version}`)

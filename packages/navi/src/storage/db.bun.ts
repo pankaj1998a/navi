@@ -6,4 +6,3 @@ export function init(path: string) {
   const db = drizzle({ client: sqlite })
   return db
 }
-

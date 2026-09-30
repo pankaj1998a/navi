@@ -1,4 +1,6 @@
 import { Provider } from "./provider"
+import { Auth } from "../auth"
+import { Config } from "../config/config"
 
 export namespace ProviderLoader {
     export interface Result {
@@ -9,7 +11,11 @@ export namespace ProviderLoader {
     }
 
     export interface Info {
-        load(provider: Provider.Info): Promise<Result>
+        load(provider: Provider.Info, dep: {
+            auth(id: string): Promise<Auth.Info | undefined>
+            config: Config.Info
+            env: Record<string, string | undefined>
+        }): Promise<Result>
     }
 }
 

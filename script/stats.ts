@@ -1,11 +1,6 @@
 #!/usr/bin/env bun
 
-interface PostHogProperties {
-  count: number
-  source: string
-}
-
-async function sendToPostHog(event: string, properties: PostHogProperties) {
+async function sendToPostHog(event: string, properties: Record<string, any>) {
   const key = process.env["POSTHOG_KEY"]
 
   if (!key) {
@@ -99,25 +94,13 @@ async function fetchReleases(): Promise<Release[]> {
   return releases
 }
 
-interface ReleaseStat {
-  tag: string
-  name: string
-  downloads: number
-  assets: Array<{ name: string; downloads: number }>
-}
-
-interface CalculateResult {
-  total: number
-  stats: ReleaseStat[]
-}
-
-function calculate(releases: Release[]): CalculateResult {
+function calculate(releases: Release[]) {
   let total = 0
-  const stats: ReleaseStat[] = []
+  const stats = []
 
   for (const release of releases) {
     let downloads = 0
-    const assets: Array<{ name: string; downloads: number }> = []
+    const assets = []
 
     for (const asset of release.assets) {
       downloads += asset.download_count
@@ -210,7 +193,7 @@ console.log("Fetching GitHub releases for anomalyco/navi...\n")
 const releases = await fetchReleases()
 console.log(`\nFetched ${releases.length} releases total\n`)
 
-const { total: githubTotal, stats } = calculate(releases)
+const { total: githubTotal } = calculate(releases)
 
 console.log("Fetching npm all-time downloads for navi-ai...\n")
 const npmDownloads = await fetchNpmDownloads("navi-ai")

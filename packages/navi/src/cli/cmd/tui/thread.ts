@@ -1,21 +1,26 @@
 import { cmd } from "@/cli/cmd/cmd"
-import { tui } from "./app"
 import { Rpc } from "@/util/rpc"
 import { type rpc } from "./worker"
 import path from "path"
-import { fileURLToPath, pathToFileURL } from "url"
+import { fileURLToPath } from "url"
 import { UI } from "@/cli/ui"
-import { Log } from "@/util/log"
+import * as Log from "@navi-ai/core/util/log"
 import { errorMessage } from "@/util/error"
 import { withTimeout } from "@/util/timeout"
-import { withNetworkOptions, resolveNetworkOptions } from "@/cli/network"
+import { withNetworkOptions, resolveNetworkOptionsNoConfig } from "@/cli/network"
 import { Filesystem } from "@/util/filesystem"
-import type { Event } from "@navi-ai/sdk/v2"
+import type { GlobalEvent } from "@navi-ai/sdk/v2"
 import type { EventSource } from "./context/sdk"
 import { win32DisableProcessedInput, win32InstallCtrlCGuard } from "./win32"
-import { TuiConfig } from "@/config/tui"
-import { Instance } from "@/project/instance"
 import { writeHeapSnapshot } from "v8"
+import { TuiConfig } from "./config/tui"
+import {
+  NAVI_PROCESS_ROLE,
+  NAVI_RUN_ID,
+  ensureRunID,
+  sanitizedProcessEnv,
+} from "@navi-ai/core/util/navi-process"
+import { validateSession } from "./validate-session"
 
 declare global {
   const NAVI_WORKER_PATH: string
@@ -43,20 +48,19 @@ function createWorkerFetch(client: RpcClient): typeof fetch {
 
 function createEventSource(client: RpcClient): EventSource {
   return {
-    on: (handler) => client.on<Event>("event", handler),
-    setWorkspace: (workspaceID) => {
-      void client.call("setWorkspace", { workspaceID })
+    subscribe: async (handler) => {
+      return client.on<GlobalEvent>("global.event", (e) => {
+        handler(e)
+      })
     },
   }
 }
 
 async function target() {
   if (typeof NAVI_WORKER_PATH !== "undefined") return NAVI_WORKER_PATH
-
-  const ts = new URL("./worker.ts", import.meta.url)
-  if (await Filesystem.exists(fileURLToPath(ts))) return ts
-
-  return new URL("./cli/cmd/tui/worker.js", import.meta.url)
+  const dist = new URL("./cli/cmd/tui/worker.js", import.meta.url)
+  if (await Filesystem.exists(fileURLToPath(dist))) return dist
+  return new URL("./worker.ts", import.meta.url)
 }
 
 async function input(value?: string) {
@@ -66,14 +70,20 @@ async function input(value?: string) {
   return piped + "\n" + value
 }
 
+export function resolveThreadDirectory(project?: string, envPWD = process.env.PWD, cwd = process.cwd()) {
+  const root = Filesystem.resolve(envPWD ?? cwd)
+  if (project) return Filesystem.resolve(path.isAbsolute(project) ? project : path.join(root, project))
+  return Filesystem.resolve(cwd)
+}
+
 export const TuiThreadCommand = cmd({
   command: "$0 [project]",
-  describe: "start Navi tui",
+  describe: "start navi tui",
   builder: (yargs) =>
     withNetworkOptions(yargs)
       .positional("project", {
         type: "string",
-        describe: "path to start Navi in",
+        describe: "path to start navi in",
       })
       .option("model", {
         type: "string",
@@ -119,10 +129,7 @@ export const TuiThreadCommand = cmd({
 
       // Resolve relative --project paths from PWD, then use the real cwd after
       // chdir so the thread and worker share the same directory key.
-      const root = Filesystem.resolve(process.env.PWD ?? process.cwd())
-      const next = args.project
-        ? Filesystem.resolve(path.isAbsolute(args.project) ? args.project : path.join(root, args.project))
-        : Filesystem.resolve(process.cwd())
+      const next = resolveThreadDirectory(args.project)
       const file = await target()
       try {
         process.chdir(next)
@@ -131,15 +138,16 @@ export const TuiThreadCommand = cmd({
         return
       }
       const cwd = Filesystem.resolve(process.cwd())
+      const env = sanitizedProcessEnv({
+        [NAVI_PROCESS_ROLE]: "worker",
+        [NAVI_RUN_ID]: ensureRunID(),
+      })
 
       const worker = new Worker(file, {
-        env: Object.fromEntries(
-          Object.entries(process.env).filter((entry): entry is [string, string] => entry[1] !== undefined),
-        ),
+        env,
       })
-      worker.onerror = (e: any) => {
-        console.error("Worker process error:", e.message)
-        Log.Default.error("Worker error", {
+      worker.onerror = (e) => {
+        Log.Default.error("thread error", {
           message: e.message,
           filename: e.filename,
           lineno: e.lineno,
@@ -150,7 +158,7 @@ export const TuiThreadCommand = cmd({
 
       const client = Rpc.client<typeof rpc>(worker)
       const error = (e: unknown) => {
-        Log.Default.error(e)
+        Log.Default.error("process error", { error: errorMessage(e) })
       }
       const reload = () => {
         client.call("reload", undefined).catch((err) => {
@@ -179,32 +187,40 @@ export const TuiThreadCommand = cmd({
       }
 
       const prompt = await input(args.prompt)
-      const config = await Instance.provide({
-        directory: cwd,
-        fn: () => TuiConfig.get(),
-      })
-      const network = await resolveNetworkOptions(args)
+      const config = await TuiConfig.get()
+
+      const network = resolveNetworkOptionsNoConfig(args)
       const external =
         process.argv.includes("--port") ||
         process.argv.includes("--hostname") ||
         process.argv.includes("--mdns") ||
-        network.mdns === true ||
-        (network.port ?? 0) !== 0 ||
-        (network.hostname ?? "127.0.0.1") !== "127.0.0.1"
+        network.mdns ||
+        network.port !== 0 ||
+        network.hostname !== "127.0.0.1"
 
-      let transport: { url: string; fetch: any; events: any }
-      if (external) {
-        transport = {
-          url: (await client.call("server", network)).url,
-          fetch: undefined,
-          events: undefined,
-        }
-      } else {
-        transport = {
-          url: "http://Navi.internal",
-          fetch: createWorkerFetch(client),
-          events: createEventSource(client),
-        }
+      const transport = external
+        ? {
+            url: (await client.call("server", network)).url,
+            fetch: undefined,
+            events: undefined,
+          }
+        : {
+            url: "http://navi.internal",
+            fetch: createWorkerFetch(client),
+            events: createEventSource(client),
+          }
+
+      try {
+        await validateSession({
+          url: transport.url,
+          sessionID: args.session,
+          directory: cwd,
+          fetch: transport.fetch,
+        })
+      } catch (error) {
+        UI.error(errorMessage(error))
+        process.exitCode = 1
+        return
       }
 
       setTimeout(() => {
@@ -212,6 +228,7 @@ export const TuiThreadCommand = cmd({
       }, 1000).unref?.()
 
       try {
+        const { tui } = await import("./app")
         await tui({
           url: transport.url,
           async onSnapshot() {
@@ -241,4 +258,4 @@ export const TuiThreadCommand = cmd({
     process.exit(0)
   },
 })
-
+// scratch

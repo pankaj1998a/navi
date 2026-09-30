@@ -1,48 +1,50 @@
 {
+  "$schema": "https://json.schemastore.org/package.json",
+  "version": "1.14.46",
   "name": "@navi-ai/core",
-  "version": "0.1.0",
-  "private": true,
   "type": "module",
-  "exports": {
-    ".": "./src/index.ts",
-    "./tools": "./src/tools/index.ts",
-    "./util": "./src/util/index.ts"
-  },
+  "license": "MIT",
+  "private": true,
   "scripts": {
-    "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "bun test",
+    "test:ci": "mkdir -p .artifacts/unit && bun test --timeout 30000 --reporter=junit --reporter-outfile=.artifacts/unit/junit.xml",
+    "typecheck": "tsgo --noEmit"
+  },
+  "bin": {
+    "navi": "./bin/navi"
+  },
+  "exports": {
+    "./*": "./src/*.ts"
+  },
+  "imports": {},
+  "devDependencies": {
+    "@tsconfig/bun": "catalog:",
+    "@types/bun": "catalog:",
+    "@types/cross-spawn": "catalog:",
+    "@types/npm-package-arg": "6.1.4",
+    "@types/npmcli__arborist": "6.3.3",
+    "@types/semver": "catalog:"
   },
   "dependencies": {
-    "@google/genai": "catalog:",
-    "@modelcontextprotocol/sdk": "catalog:",
-    "ai": "catalog:",
-    "chalk": "5.3.0",
-    "diff": "catalog:",
-    "effect": "catalog:",
-    "framer-motion": "12.4.7",
-    "fzf": "^0.5.2",
-    "glob": "13.0.5",
-    "google-auth-library": "10.5.0",
-    "lucide-react": "0.475.0",
-    "minimatch": "10.0.3",
-    "open": "10.1.2",
-    "picomatch": "3.0.1",
-    "remeda": "catalog:",
-    "strip-ansi": "7.1.2",
-    "ulid": "catalog:",
-    "uuid": "13.0.0",
-    "xdg-basedir": "5.1.0",
-    "zod": "catalog:",
-    "zod-to-json-schema": "3.24.1"
-  },
-  "devDependencies": {
+    "@effect/opentelemetry": "catalog:",
     "@effect/platform-node": "catalog:",
-    "@types/js-yaml": "^4.0.9",
-    "@types/node": "catalog:",
-    "@types/picomatch": "2.3.4",
-    "@types/uuid": "^10.0.0",
-    "cross-spawn": "7.0.6",
-    "typescript": "catalog:",
-    "vitest": "2.1.8"
+    "@npmcli/arborist": "9.4.0",
+    "@npmcli/config": "10.8.1",
+    "@opentelemetry/api": "1.9.0",
+    "@opentelemetry/context-async-hooks": "2.6.1",
+    "@opentelemetry/exporter-trace-otlp-http": "0.214.0",
+    "@opentelemetry/sdk-trace-base": "2.6.1",
+    "effect": "catalog:",
+    "cross-spawn": "catalog:",
+    "glob": "13.0.5",
+    "mime-types": "3.0.2",
+    "minimatch": "10.2.5",
+    "npm-package-arg": "13.0.2",
+    "semver": "^7.6.3",
+    "xdg-basedir": "5.1.0",
+    "zod": "catalog:"
+  },
+  "overrides": {
+    "drizzle-orm": "catalog:"
   }
 }

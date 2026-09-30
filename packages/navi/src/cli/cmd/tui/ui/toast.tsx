@@ -2,12 +2,15 @@ import { createContext, useContext, type ParentProps, Show } from "solid-js"
 import { createStore } from "solid-js/store"
 import { useTheme } from "@tui/context/theme"
 import { useTerminalDimensions } from "@opentui/solid"
-import { LuxuryBorder } from "../component/border"
+import { SplitBorder } from "../component/border"
 import { TextAttributes } from "@opentui/core"
-import z from "zod"
+import { Schema } from "effect"
 import { TuiEvent } from "../event"
 
-export type ToastOptions = z.infer<typeof TuiEvent.ToastShow.properties>
+type ToastInput = Schema.Codec.Encoded<typeof TuiEvent.ToastShow.properties>
+export type ToastOptions = Schema.Schema.Type<typeof TuiEvent.ToastShow.properties>
+
+const decodeToastOptions = Schema.decodeUnknownSync(TuiEvent.ToastShow.properties)
 
 export function Toast() {
   const toast = useToast()
@@ -30,8 +33,8 @@ export function Toast() {
           paddingBottom={1}
           backgroundColor={theme.backgroundPanel}
           borderColor={theme[current().variant]}
-          border={LuxuryBorder.border}
-          customBorderChars={LuxuryBorder.customBorderChars}
+          border={["left", "right"]}
+          customBorderChars={SplitBorder.customBorderChars}
         >
           <Show when={current().title}>
             <text attributes={TextAttributes.BOLD} marginBottom={1} fg={theme.text}>
@@ -55,16 +58,15 @@ function init() {
   let timeoutHandle: NodeJS.Timeout | null = null
 
   const toast = {
-    show(options: ToastOptions) {
-      const parsedOptions = TuiEvent.ToastShow.properties.parse(options)
-      const { duration, ...currentToast } = parsedOptions
-      setStore("currentToast", currentToast)
+    show(options: ToastInput) {
+      const toastOptions = decodeToastOptions(options)
+      setStore("currentToast", toastOptions)
       if (timeoutHandle) clearTimeout(timeoutHandle)
       timeoutHandle = setTimeout(() => {
         setStore("currentToast", null)
-      }, duration).unref()
+      }, toastOptions.duration).unref()
     },
-    error: (err: any) => {
+    error: (err: unknown) => {
       if (err instanceof Error)
         return toast.show({
           variant: "error",
@@ -98,4 +100,3 @@ export function useToast() {
   }
   return value
 }
-

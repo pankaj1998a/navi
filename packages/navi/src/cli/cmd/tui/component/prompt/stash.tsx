@@ -1,11 +1,14 @@
 import path from "path"
-import { Global } from "@/global"
+import { Global } from "@navi-ai/core/global"
 import { Filesystem } from "@/util/filesystem"
 import { onMount } from "solid-js"
 import { createStore, produce, unwrap } from "solid-js/store"
 import { createSimpleContext } from "../../context/helper"
 import { appendFile, writeFile } from "fs/promises"
+import * as Log from "@navi-ai/core/util/log"
 import type { PromptInfo } from "./history"
+
+const log = Log.create({ service: "prompt-stash" })
 
 export type StashEntry = {
   input: string
@@ -39,7 +42,9 @@ export const { use: usePromptStash, provider: PromptStashProvider } = createSimp
       // Rewrite file with only valid entries to self-heal corruption
       if (lines.length > 0) {
         const content = lines.map((line) => JSON.stringify(line)).join("\n") + "\n"
-        writeFile(stashPath, content).catch(() => {})
+        writeFile(stashPath, content).catch((e) => {
+            log.debug("failed to persist prompt stash", { error: String(e) })
+          })
       }
     })
 
@@ -66,11 +71,15 @@ export const { use: usePromptStash, provider: PromptStashProvider } = createSimp
 
         if (trimmed) {
           const content = store.entries.map((line) => JSON.stringify(line)).join("\n") + "\n"
-          writeFile(stashPath, content).catch(() => {})
+          writeFile(stashPath, content).catch((e) => {
+            log.debug("failed to persist prompt stash", { error: String(e) })
+          })
           return
         }
 
-        appendFile(stashPath, JSON.stringify(stash) + "\n").catch(() => {})
+        appendFile(stashPath, JSON.stringify(stash) + "\n").catch((e) => {
+            log.debug("failed to persist prompt stash", { error: String(e) })
+          })
       },
       pop() {
         if (store.entries.length === 0) return undefined
@@ -82,7 +91,9 @@ export const { use: usePromptStash, provider: PromptStashProvider } = createSimp
         )
         const content =
           store.entries.length > 0 ? store.entries.map((line) => JSON.stringify(line)).join("\n") + "\n" : ""
-        writeFile(stashPath, content).catch(() => {})
+        writeFile(stashPath, content).catch((e) => {
+            log.debug("failed to persist prompt stash", { error: String(e) })
+          })
         return entry
       },
       remove(index: number) {
@@ -94,9 +105,10 @@ export const { use: usePromptStash, provider: PromptStashProvider } = createSimp
         )
         const content =
           store.entries.length > 0 ? store.entries.map((line) => JSON.stringify(line)).join("\n") + "\n" : ""
-        writeFile(stashPath, content).catch(() => {})
+        writeFile(stashPath, content).catch((e) => {
+            log.debug("failed to persist prompt stash", { error: String(e) })
+          })
       },
     }
   },
 })
-

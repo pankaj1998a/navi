@@ -1,50 +1,36 @@
 import { Env } from "../env";
-import { Log } from "../util/log";
-import { SearchQuery, SearchResult, SearchService } from "./index";
-import { SearchProvider } from "../tool/search-pipeline";
+import * as Log from "@navi-ai/core/util/log"
+
+import type { SearchQuery, SearchResult, SearchService } from "./index";
+import type { SearchProvider } from "../tool/search-pipeline";
+import { executeSearchPipeline } from "../tool/search-pipeline";
 import { searchWithProvider } from "../tool/http-search";
 
 const log = Log.create({ service: "search-service" });
 
 export class DefaultSearchService implements SearchService {
   async search(query: SearchQuery, provider?: SearchProvider | 'exa' | 'tavily' | 'firecrawl'): Promise<SearchResult[]> {
-    const targetProvider = provider || (Env.get("NAVI_WEB_SEARCH_PROVIDER") as any) || "google";
+    const targetProvider = provider || ((await Env.get("NAVI_WEB_SEARCH_PROVIDER")) as any) || "google";
     const limit = query.limit || 8;
 
     log.info("searching", { query: query.text, provider: targetProvider });
 
     try {
-      switch (targetProvider) {
-        case "exa":
-          return await this.searchExa(query);
-        case "tavily":
-          return await this.searchTavily(query);
-        case "firecrawl":
-          return await this.searchFirecrawl(query);
-        case "google":
-        case "bing":
-        case "duckduckgo":
-          return await searchWithProvider(targetProvider, query.text, limit);
-        case "browser":
-          const { webSearch } = await import("../tool/browser-engine");
-          return await webSearch(query.text, limit);
-        default:
-          log.warn("unknown search provider, falling back to google", { provider: targetProvider });
-          return await searchWithProvider("google", query.text, limit);
-      }
+      if (targetProvider === "exa") return await this.searchExa(query);
+      if (targetProvider === "tavily") return await this.searchTavily(query);
+      if (targetProvider === "firecrawl") return await this.searchFirecrawl(query);
+
+      // Use the pipeline for standard providers (google, bing, duckduckgo, browser)
+      const execution = await executeSearchPipeline(query.text, limit, [targetProvider as SearchProvider]);
+      return execution.results;
     } catch (error) {
       log.error("search failed", { provider: targetProvider, error: String(error) });
-      // Fallback to DuckDuckGo if preferred provider fails
-      if (targetProvider !== "duckduckgo") {
-        log.info("falling back to duckduckgo");
-        return await searchWithProvider("duckduckgo", query.text, limit).catch(() => []);
-      }
       return [];
     }
   }
 
   private async searchExa(query: SearchQuery): Promise<SearchResult[]> {
-    const apiKey = Env.get("EXA_API_KEY");
+    const apiKey = await Env.get("EXA_API_KEY");
     if (!apiKey) throw new Error("EXA_API_KEY not set");
 
     const body: any = {
@@ -79,7 +65,7 @@ export class DefaultSearchService implements SearchService {
   }
 
   private async searchTavily(query: SearchQuery): Promise<SearchResult[]> {
-    const apiKey = Env.get("TAVILY_API_KEY");
+    const apiKey = await Env.get("TAVILY_API_KEY");
     if (!apiKey) throw new Error("TAVILY_API_KEY not set");
 
     const res = await fetch("https://api.tavily.com/search", {
@@ -103,7 +89,7 @@ export class DefaultSearchService implements SearchService {
   }
 
   private async searchFirecrawl(query: SearchQuery): Promise<SearchResult[]> {
-    const apiKey = Env.get("FIRECRAWL_API_KEY");
+    const apiKey = await Env.get("FIRECRAWL_API_KEY");
     if (!apiKey) throw new Error("FIRECRAWL_API_KEY not set");
 
     const res = await fetch("https://api.firecrawl.dev/v1/search", {

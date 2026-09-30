@@ -1,7 +1,8 @@
-import { ProviderLoader } from "../loader"
+import type { ProviderLoader } from "../loader"
+import { ModelID, ProviderID } from "../schema"
 import { Auth } from "../../auth"
 import { Env } from "../../env"
-import { Log } from "../../util/log"
+import * as Log from "@navi-ai/core/util/log"
 import { loadCachedModels, stampCatalog, writeCache } from "../model-cache"
 import { Provider } from "../provider"
 import { Installation } from "../../installation"
@@ -13,11 +14,12 @@ const NPM = "@ai-sdk/cohere"
 const log = Log.create({ service: "cohere-provider" })
 
 export const CohereProvider: ProviderLoader.Info = {
-    async load(input) {
-        const env = Env.all()
+    async load(input, dep) {
+        const env = dep.env
         const envKey = (input?.env ?? ["COHERE_API_KEY"]).map((k) => env[k]).find(Boolean)
-        const auth = await Auth.get(PROVIDER_ID)
-        const apiKey = envKey ?? (auth?.type === "api" ? auth.key : undefined)
+        const auth = await dep.auth(PROVIDER_ID)
+        const config = dep.config
+        const apiKey = envKey ?? (auth?.type === "api" ? auth.key : undefined) ?? config.provider?.[PROVIDER_ID]?.options?.apiKey
 
         const hasKey = !!apiKey
 
@@ -46,8 +48,8 @@ export const CohereProvider: ProviderLoader.Info = {
                         if (typeof raw.name !== "string") continue
                         const id: string = raw.name
                         fetched[id] = {
-                            id,
-                            providerID: PROVIDER_ID,
+                            id: ModelID.make(id),
+                            providerID: ProviderID.make(PROVIDER_ID),
                             name: raw.name,
                             api: { id, url: BASE_URL, npm: NPM },
                             status: raw.is_deprecated ? "deprecated" : "active",

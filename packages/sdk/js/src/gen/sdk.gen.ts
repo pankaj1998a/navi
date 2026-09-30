@@ -1195,4 +1195,3 @@ export class NaviClient extends _HeyApiClient {
   auth = new Auth({ client: this._client })
   event = new Event({ client: this._client })
 }
-

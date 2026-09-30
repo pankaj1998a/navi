@@ -1,30 +1,20 @@
 import { createMemo, createSignal } from "solid-js"
 import { useLocal } from "@tui/context/local"
 import { useSync } from "@tui/context/sync"
+import { useSDK } from "@tui/context/sdk"
 import { map, pipe, flatMap, entries, filter, sortBy, take } from "remeda"
 import { DialogSelect } from "@tui/ui/dialog-select"
 import { useDialog } from "@tui/ui/dialog"
 import { createDialogProviderOptions, DialogProvider } from "./dialog-provider"
 import { DialogVariant } from "./dialog-variant"
-import { useKeybind } from "../context/keybind"
 import * as fuzzysort from "fuzzysort"
+import { useConnected } from "./use-connected"
 
-export function useConnected() {
-  const sync = useSync()
-  return createMemo(() =>
-    sync.data.provider.some((x) => x.id !== "Navi" || Object.values(x.models).some((y) => y.cost?.input !== 0)),
-  )
-}
-
-export function DialogModel(props: {
-  providerID?: string
-  title?: string
-  onSelect?: (providerID: string, modelID: string) => void
-}) {
+export function DialogModel(props: { providerID?: string; agent?: string }) {
   const local = useLocal()
   const sync = useSync()
+  const sdk = useSDK()
   const dialog = useDialog()
-  const keybind = useKeybind()
   const [query, setQuery] = createSignal("")
 
   const connected = useConnected()
@@ -33,6 +23,8 @@ export function DialogModel(props: {
   const showExtra = createMemo(() => connected() && !props.providerID)
 
   const options = createMemo(() => {
+    // ... same options logic ...
+    // (keeping original logic for now)
     const needle = query().trim()
     const showSections = showExtra() && needle.length === 0
     const favorites = connected() ? local.model.favorite() : []
@@ -52,8 +44,8 @@ export function DialogModel(props: {
             title: model.name ?? item.modelID,
             description: provider.name,
             category,
-            disabled: provider.id === "Navi" && model.id.includes("-nano"),
-            footer: model.cost?.input === 0 ? "Free" : undefined,
+            disabled: provider.id === "navi" && model.id.includes("-nano"),
+            footer: model.cost?.input === 0 && provider.id === "navi" ? "Free" : undefined,
             onSelect: () => {
               onSelect(provider.id, model.id)
             },
@@ -73,7 +65,7 @@ export function DialogModel(props: {
     const providerOptions = pipe(
       sync.data.provider,
       sortBy(
-        (provider) => provider.id !== "Navi",
+        (provider) => provider.id !== "navi",
         (provider) => provider.name,
       ),
       flatMap((provider) =>
@@ -89,8 +81,8 @@ export function DialogModel(props: {
               ? "(Favorite)"
               : undefined,
             category: connected() ? provider.name : undefined,
-            disabled: provider.id === "Navi" && model.includes("-nano"),
-            footer: info.cost?.input === 0 ? "Free" : undefined,
+            disabled: provider.id === "navi" && model.includes("-nano"),
+            footer: info.cost?.input === 0 && provider.id === "navi" ? "Free" : undefined,
             onSelect() {
               onSelect(provider.id, model)
             },
@@ -136,21 +128,63 @@ export function DialogModel(props: {
     props.providerID ? sync.data.provider.find((x) => x.id === props.providerID) : null,
   )
 
-  const title = createMemo(() => props.title ?? provider()?.name ?? "Select model")
+  const title = createMemo(() => {
+    const value = provider()
+    if (!value) return props.agent ? `Select model for ${props.agent}` : "Select model"
+    return value.name
+  })
+
+  // Determine if props.agent is the currently active primary agent or a different agent
+  const isConfiguringCurrentAgent = createMemo(() => {
+    if (!props.agent) return true
+    return props.agent === local.agent.current()?.name
+  })
+
+  async function persistAgentModelToConfig(agentName: string, providerID: string, modelID: string) {
+    const workspace = undefined // instance-level config
+    try {
+      const res = await sdk.client.config.get({ workspace })
+      if (res.error || !res.data) return
+      const current = res.data as Record<string, unknown>
+      const currentAgents = (current.agent ?? {}) as Record<string, Record<string, unknown>>
+      const currentAgentCfg = currentAgents[agentName] ?? {}
+      await sdk.client.config.update({
+        workspace,
+        config: {
+          ...current,
+          agent: {
+            ...currentAgents,
+            [agentName]: {
+              ...currentAgentCfg,
+              model: `${providerID}/${modelID}`,
+            },
+          },
+        } as NonNullable<Parameters<typeof sdk.client.config.update>[0]>["config"],
+      })
+    } catch {
+      // best-effort: don't break the dialog if config persistence fails
+    }
+  }
 
   function onSelect(providerID: string, modelID: string) {
-    if (props.onSelect) {
-      props.onSelect(providerID, modelID)
-      return
+    if (isConfiguringCurrentAgent()) {
+      // Setting model for the active primary agent — use TUI in-memory state only
+      local.model.set({ providerID, modelID }, { recent: true, agent: props.agent })
+    } else {
+      // Setting model for a different agent (e.g. a subagent):
+      // - Store in TUI memory (without polluting `recent` — local.tsx guards this)
+      // - Also persist to server config so server-side task spawning uses the right model
+      local.model.set({ providerID, modelID }, { recent: false, agent: props.agent })
+      void persistAgentModelToConfig(props.agent!, providerID, modelID)
     }
-    local.model.set({ providerID, modelID }, { recent: true })
+
     const list = local.model.variant.list()
     const cur = local.model.variant.selected()
     if (cur === "default" || (cur && list.includes(cur))) {
       dialog.clear()
       return
     }
-    if (list.length > 0) {
+    if (list.length > 0 && isConfiguringCurrentAgent()) {
       dialog.replace(() => <DialogVariant />)
       return
     }
@@ -160,16 +194,16 @@ export function DialogModel(props: {
   return (
     <DialogSelect<ReturnType<typeof options>[number]["value"]>
       options={options()}
-      keybind={[
+      actions={[
         {
-          keybind: keybind.all.model_provider_list?.[0],
+          command: "model.dialog.provider",
           title: connected() ? "Connect provider" : "View all providers",
           onTrigger() {
             dialog.replace(() => <DialogProvider />)
           },
         },
         {
-          keybind: keybind.all.model_favorite_toggle?.[0],
+          command: "model.dialog.favorite",
           title: "Favorite",
           disabled: !connected(),
           onTrigger: (option) => {
@@ -185,4 +219,3 @@ export function DialogModel(props: {
     />
   )
 }
-

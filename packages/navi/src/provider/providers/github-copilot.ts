@@ -1,7 +1,7 @@
-import { ProviderLoader } from "../loader"
+import type { ProviderLoader } from "../loader"
 
 export const GitHubCopilotProvider: ProviderLoader.Info = {
-    async load() {
+    async load(input, dep) {
         return {
             autoload: false,
             async getModel(sdk: any, modelID: string) {
@@ -16,7 +16,7 @@ export const GitHubCopilotProvider: ProviderLoader.Info = {
 }
 
 export const GitHubCopilotEnterpriseProvider: ProviderLoader.Info = {
-    async load() {
+    async load(input, dep) {
         return {
             autoload: false,
             async getModel(sdk: any, modelID: string) {

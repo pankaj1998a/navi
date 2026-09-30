@@ -23,10 +23,10 @@ export function DialogStatus() {
         const parts = path.split("/")
         const filename = parts.pop() || path
         if (!filename.includes(".")) return { name: filename }
-        const basename = filename.split(".")[0]
+        const basename = filename.split(".")[0] ?? filename
         if (basename === "index") {
           const dirname = parts.pop()
-          const name = dirname || basename
+          const name = dirname ?? basename
           return { name }
         }
         return { name: basename }
@@ -37,7 +37,7 @@ export function DialogStatus() {
       const version = value.substring(index + 1)
       return { name, version }
     })
-    return result.toSorted((a, b) => a.name.localeCompare(b.name))
+    return result.toSorted((a, b) => (a.name ?? "").localeCompare(b.name ?? ""))
   })
 
   return (
@@ -52,13 +52,14 @@ export function DialogStatus() {
       </box>
       <Show when={Object.keys(sync.data.mcp).length > 0} fallback={<text fg={theme.text}>No MCP Servers</text>}>
         <box>
-          <text fg={theme.text}>{String(Object.keys(sync.data.mcp).length)} MCP Servers</text>
+          <text fg={theme.text}>{Object.keys(sync.data.mcp).length} MCP Servers</text>
           <For each={Object.entries(sync.data.mcp)}>
             {([key, item]) => (
               <box flexDirection="row" gap={1}>
                 <text
                   flexShrink={0}
-                  fg={(
+                  style={{
+                    fg: (
                       {
                         connected: theme.success,
                         failed: theme.error,
@@ -66,26 +67,27 @@ export function DialogStatus() {
                         needs_auth: theme.warning,
                         needs_client_registration: theme.error,
                       } as Record<string, typeof theme.success>
-                    )[item.status]}
+                    )[item.status],
+                  }}
                 >
                   •
                 </text>
-                <box flexDirection="row" gap={1} flexWrap="wrap">
-                  <text fg={theme.text} attributes={TextAttributes.BOLD}>{String(key)}</text>
-                  <text fg={theme.textMuted}>
-                    <Switch fallback={String(item.status)}>
+                <text fg={theme.text} wrapMode="word">
+                  <b>{key}</b>{" "}
+                  <span style={{ fg: theme.textMuted }}>
+                    <Switch fallback={item.status}>
                       <Match when={item.status === "connected"}>Connected</Match>
-                      <Match when={item.status === "failed" && item}>{(val) => String(val().error)}</Match>
+                      <Match when={item.status === "failed" && item}>{(val) => val().error}</Match>
                       <Match when={item.status === "disabled"}>Disabled in configuration</Match>
                       <Match when={(item.status as string) === "needs_auth"}>
-                        Needs authentication (run: Navi mcp auth {String(key)})
+                        Needs authentication (run: navi mcp auth {key})
                       </Match>
                       <Match when={(item.status as string) === "needs_client_registration" && item}>
-                        {(val) => String((val() as { error: string }).error)}
+                        {(val) => (val() as { error: string }).error}
                       </Match>
                     </Switch>
-                  </text>
-                </box>
+                  </span>
+                </text>
               </box>
             )}
           </For>
@@ -93,23 +95,24 @@ export function DialogStatus() {
       </Show>
       {sync.data.lsp.length > 0 && (
         <box>
-          <text fg={theme.text}>{String(sync.data.lsp.length)} LSP Servers</text>
+          <text fg={theme.text}>{sync.data.lsp.length} LSP Servers</text>
           <For each={sync.data.lsp}>
             {(item) => (
               <box flexDirection="row" gap={1}>
                 <text
                   flexShrink={0}
-                  fg={{
+                  style={{
+                    fg: {
                       connected: theme.success,
                       error: theme.error,
-                    }[item.status]}
+                    }[item.status],
+                  }}
                 >
                   •
                 </text>
-                <box flexDirection="row" gap={1} flexWrap="wrap">
-                  <text fg={theme.text} attributes={TextAttributes.BOLD}>{String(item.id)}</text>
-                  <text fg={theme.textMuted}>{String(item.root)}</text>
-                </box>
+                <text fg={theme.text} wrapMode="word">
+                  <b>{item.id}</b> <span style={{ fg: theme.textMuted }}>{item.root}</span>
+                </text>
               </box>
             )}
           </For>
@@ -117,16 +120,21 @@ export function DialogStatus() {
       )}
       <Show when={enabledFormatters().length > 0} fallback={<text fg={theme.text}>No Formatters</text>}>
         <box>
-          <text fg={theme.text}>{String(enabledFormatters().length)} Formatters</text>
+          <text fg={theme.text}>{enabledFormatters().length} Formatters</text>
           <For each={enabledFormatters()}>
             {(item) => (
               <box flexDirection="row" gap={1}>
-                <text flexShrink={0} fg={theme.success}>
+                <text
+                  flexShrink={0}
+                  style={{
+                    fg: theme.success,
+                  }}
+                >
                   •
                 </text>
-                <box flexDirection="row" gap={1}>
-                  <text fg={theme.text} attributes={TextAttributes.BOLD}>{String(item.name)}</text>
-                </box>
+                <text wrapMode="word" fg={theme.text}>
+                  <b>{item.name}</b>
+                </text>
               </box>
             )}
           </For>
@@ -134,19 +142,22 @@ export function DialogStatus() {
       </Show>
       <Show when={plugins().length > 0} fallback={<text fg={theme.text}>No Plugins</text>}>
         <box>
-          <text fg={theme.text}>{String(plugins().length)} Plugins</text>
+          <text fg={theme.text}>{plugins().length} Plugins</text>
           <For each={plugins()}>
             {(item) => (
               <box flexDirection="row" gap={1}>
-                <text flexShrink={0} fg={theme.success}>
+                <text
+                  flexShrink={0}
+                  style={{
+                    fg: theme.success,
+                  }}
+                >
                   •
                 </text>
-                <box flexDirection="row" gap={1} flexWrap="wrap">
-                  <text fg={theme.text} attributes={TextAttributes.BOLD}>{String(item.name)}</text>
-                  <Show when={item.version}>
-                    <text fg={theme.textMuted}>@{String(item.version)}</text>
-                  </Show>
-                </box>
+                <text wrapMode="word" fg={theme.text}>
+                  <b>{item.name}</b>
+                  {item.version && <span style={{ fg: theme.textMuted }}> @{item.version}</span>}
+                </text>
               </box>
             )}
           </For>
@@ -155,4 +166,3 @@ export function DialogStatus() {
     </box>
   )
 }
-

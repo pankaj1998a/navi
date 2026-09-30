@@ -8,7 +8,7 @@
 import type { Hooks, AuthHook, AuthOuathResult, PluginInput } from "@navi-ai/plugin"
 import { Auth } from "../auth"
 import { Env } from "../env"
-import { Log } from "../util/log"
+import * as Log from "@navi-ai/core/util/log"
 import { readFile } from "fs/promises"
 import { homedir } from "os"
 import { join } from "path"
@@ -189,9 +189,9 @@ function normalizeBaseURL(resourceUrl?: string): string {
   return base.replace(/\/+$/, "")
 }
 
-function getGeminiProjectHint(): string | undefined {
+async function getGeminiProjectHint(): Promise<string | undefined> {
   try {
-    return Env.get("GOOGLE_CLOUD_PROJECT") ?? Env.get("GOOGLE_CLOUD_PROJECT_ID") ?? undefined
+    return (await Env.get("GOOGLE_CLOUD_PROJECT")) ?? (await Env.get("GOOGLE_CLOUD_PROJECT_ID")) ?? undefined
   } catch {
     return undefined
   }
@@ -288,6 +288,7 @@ function parseGoogleAIUrl(input: RequestInfo | URL): { model: string; method: st
     // Handle both /models/model-id and /v1beta/models/model-id
     const match = pathname.match(/\/(?:models\/)+(?:models\/)?([^:/?#]+):(generateContent|streamGenerateContent|countTokens)$/)
     if (!match) return null
+    if (match[1] === undefined || match[2] === undefined) return null
     return { model: match[1], method: match[2] }
   } catch {
     return null
@@ -334,7 +335,7 @@ async function callCodeAssist(input: RequestInfo | URL, init: RequestInit | unde
   if (!parsed) return null
   const auth = await getGeminiAuth()
   const projectCacheKey = auth?.accountId ?? auth?.refresh ?? auth?.access ?? token
-  const projectHint = getGeminiProjectHint()
+  const projectHint = await getGeminiProjectHint()
 
   const rawBody = extractRequestBody(init?.body)
   const body = JSON.parse(rawBody || "{}") as Record<string, any>
@@ -498,7 +499,7 @@ async function getGeminiAuth(forceRefresh = false): Promise<GeminiAuth | null> {
         refresh: migrated.refresh,
         expires: migrated.expires,
         accountId: migrated.accountId,
-        resourceUrl: migrated.resourceUrl,
+        enterpriseUrl: migrated.resourceUrl,
       })
       return migrated
     }
@@ -522,7 +523,7 @@ export async function getAccessToken(forceRefresh = false): Promise<string | nul
           refresh: auth.refresh,
           expires: refreshed.expires,
           accountId: auth.accountId,
-          resourceUrl: refreshed.resourceUrl ?? auth.resourceUrl,
+          enterpriseUrl: refreshed.resourceUrl ?? auth.resourceUrl,
         })
         return refreshed.access
       } catch (error) {

@@ -1,9 +1,9 @@
-import { ProviderLoader } from "../loader"
+import type { ProviderLoader } from "../loader"
 import { Auth } from "../../auth"
 import { Env } from "../../env"
 import { loadCachedModels, stampCatalog, writeCache } from "../model-cache"
 import { fetchOpenAICompatibleModels } from "../fetch-models"
-import { Log } from "../../util/log"
+import * as Log from "@navi-ai/core/util/log"
 
 const PROVIDER_ID = "openai"
 const BASE_URL = "https://api.openai.com/v1"
@@ -46,11 +46,12 @@ function getOpenAIRank(id: string): number {
 }
 
 export const OpenAIProvider: ProviderLoader.Info = {
-    async load(input) {
-        const env = Env.all()
+    async load(input, dep) {
+        const env = dep.env
         const envKey = (input?.env ?? ["OPENAI_API_KEY"]).map((k) => env[k]).find(Boolean)
-        const auth = await Auth.get(PROVIDER_ID)
-        const apiKey = envKey ?? (auth?.type === "api" ? auth.key : undefined)
+        const auth = await dep.auth(PROVIDER_ID)
+        const config = dep.config
+        const apiKey = envKey ?? (auth?.type === "api" ? auth.key : undefined) ?? config.provider?.[PROVIDER_ID]?.options?.apiKey
 
         const hasKey = !!apiKey
 

@@ -1,11 +1,11 @@
 import type { Hooks, PluginInput } from "@navi-ai/plugin"
-import { Log } from "../util/log"
+import * as Log from "@navi-ai/core/util/log"
 import { Installation } from "../installation"
-import { Auth, OAUTH_DUMMY_KEY } from "../auth"
+import { InstallationVersion } from "@navi-ai/core/installation/version"
+import { OAUTH_DUMMY_KEY } from "../auth"
 import os from "os"
-import { ProviderTransform } from "@/provider/transform"
-import { ModelID, ProviderID } from "@/provider/schema"
 import { setTimeout as sleep } from "node:timers/promises"
+import { createServer } from "http"
 
 const log = Log.create({ service: "plugin.codex" })
 
@@ -14,6 +14,20 @@ const ISSUER = "https://auth.openai.com"
 const CODEX_API_ENDPOINT = "https://chatgpt.com/backend-api/codex/responses"
 const OAUTH_PORT = 1455
 const OAUTH_POLLING_SAFETY_MARGIN_MS = 3000
+// Bound device-flow polling (Schedule.exponential + take(n) equivalent for plain async code).
+const DEVICE_CODE_MAX_WAIT_MS = 15 * 60 * 1000
+const pollSleep = (baseMs: number) => {
+  const jitter = Math.floor(Math.random() * 1000)
+  return sleep(Math.min(baseMs + jitter, 120_000))
+}
+const ALLOWED_MODELS = new Set([
+  "gpt-5.5",
+  "gpt-5.2",
+  "gpt-5.3-codex",
+  "gpt-5.3-codex-spark",
+  "gpt-5.4",
+  "gpt-5.4-mini",
+])
 
 interface PkceCodes {
   verifier: string
@@ -59,8 +73,10 @@ export interface IdTokenClaims {
 export function parseJwtClaims(token: string): IdTokenClaims | undefined {
   const parts = token.split(".")
   if (parts.length !== 3) return undefined
+  const payload = parts[1]
+  if (payload === undefined) return undefined
   try {
-    return JSON.parse(Buffer.from(parts[1], "base64url").toString())
+    return JSON.parse(Buffer.from(payload, "base64url").toString())
   } catch {
     return undefined
   }
@@ -98,7 +114,7 @@ function buildAuthorizeUrl(redirectUri: string, pkce: PkceCodes, state: string):
     id_token_add_organizations: "true",
     codex_cli_simplified_flow: "true",
     state,
-    originator: "Navi",
+    originator: "navi",
   })
   return `${ISSUER}/oauth/authorize?${params.toString()}`
 }
@@ -241,7 +257,7 @@ interface PendingOAuth {
   reject: (error: Error) => void
 }
 
-let oauthServer: ReturnType<typeof Bun.serve> | undefined
+let oauthServer: ReturnType<typeof createServer> | undefined
 let pendingOAuth: PendingOAuth | undefined
 
 async function startOAuthServer(): Promise<{ port: number; redirectUri: string }> {
@@ -249,77 +265,83 @@ async function startOAuthServer(): Promise<{ port: number; redirectUri: string }
     return { port: OAUTH_PORT, redirectUri: `http://localhost:${OAUTH_PORT}/auth/callback` }
   }
 
-  oauthServer = Bun.serve({
-    port: OAUTH_PORT,
-    fetch(req) {
-      const url = new URL(req.url)
+  oauthServer = createServer((req, res) => {
+    const url = new URL(req.url || "/", `http://localhost:${OAUTH_PORT}`)
 
-      if (url.pathname === "/auth/callback") {
-        const code = url.searchParams.get("code")
-        const state = url.searchParams.get("state")
-        const error = url.searchParams.get("error")
-        const errorDescription = url.searchParams.get("error_description")
+    if (url.pathname === "/auth/callback") {
+      const code = url.searchParams.get("code")
+      const state = url.searchParams.get("state")
+      const error = url.searchParams.get("error")
+      const errorDescription = url.searchParams.get("error_description")
 
-        if (error) {
-          const errorMsg = errorDescription || error
-          pendingOAuth?.reject(new Error(errorMsg))
-          pendingOAuth = undefined
-          return new Response(HTML_ERROR(errorMsg), {
-            headers: { "Content-Type": "text/html" },
-          })
-        }
-
-        if (!code) {
-          const errorMsg = "Missing authorization code"
-          pendingOAuth?.reject(new Error(errorMsg))
-          pendingOAuth = undefined
-          return new Response(HTML_ERROR(errorMsg), {
-            status: 400,
-            headers: { "Content-Type": "text/html" },
-          })
-        }
-
-        if (!pendingOAuth || state !== pendingOAuth.state) {
-          const errorMsg = "Invalid state - potential CSRF attack"
-          pendingOAuth?.reject(new Error(errorMsg))
-          pendingOAuth = undefined
-          return new Response(HTML_ERROR(errorMsg), {
-            status: 400,
-            headers: { "Content-Type": "text/html" },
-          })
-        }
-
-        const current = pendingOAuth
+      if (error) {
+        const errorMsg = errorDescription || error
+        pendingOAuth?.reject(new Error(errorMsg))
         pendingOAuth = undefined
-
-        exchangeCodeForTokens(code, `http://localhost:${OAUTH_PORT}/auth/callback`, current.pkce)
-          .then((tokens) => current.resolve(tokens))
-          .catch((err) => current.reject(err))
-
-        return new Response(HTML_SUCCESS, {
-          headers: { "Content-Type": "text/html" },
-        })
+        res.writeHead(200, { "Content-Type": "text/html" })
+        res.end(HTML_ERROR(errorMsg))
+        return
       }
 
-      if (url.pathname === "/cancel") {
-        pendingOAuth?.reject(new Error("Login cancelled"))
+      if (!code) {
+        const errorMsg = "Missing authorization code"
+        pendingOAuth?.reject(new Error(errorMsg))
         pendingOAuth = undefined
-        return new Response("Login cancelled", { status: 200 })
+        res.writeHead(400, { "Content-Type": "text/html" })
+        res.end(HTML_ERROR(errorMsg))
+        return
       }
 
-      return new Response("Not found", { status: 404 })
-    },
+      if (!pendingOAuth || state !== pendingOAuth.state) {
+        const errorMsg = "Invalid state - potential CSRF attack"
+        pendingOAuth?.reject(new Error(errorMsg))
+        pendingOAuth = undefined
+        res.writeHead(400, { "Content-Type": "text/html" })
+        res.end(HTML_ERROR(errorMsg))
+        return
+      }
+
+      const current = pendingOAuth
+      pendingOAuth = undefined
+
+      exchangeCodeForTokens(code, `http://localhost:${OAUTH_PORT}/auth/callback`, current.pkce)
+        .then((tokens) => current.resolve(tokens))
+        .catch((err) => current.reject(err))
+
+      res.writeHead(200, { "Content-Type": "text/html" })
+      res.end(HTML_SUCCESS)
+      return
+    }
+
+    if (url.pathname === "/cancel") {
+      pendingOAuth?.reject(new Error("Login cancelled"))
+      pendingOAuth = undefined
+      res.writeHead(200)
+      res.end("Login cancelled")
+      return
+    }
+
+    res.writeHead(404)
+    res.end("Not found")
   })
 
-  log.info("codex oauth server started", { port: OAUTH_PORT })
+  await new Promise<void>((resolve, reject) => {
+    oauthServer!.listen(OAUTH_PORT, () => {
+      log.info("codex oauth server started", { port: OAUTH_PORT })
+      resolve()
+    })
+    oauthServer!.on("error", reject)
+  })
+
   return { port: OAUTH_PORT, redirectUri: `http://localhost:${OAUTH_PORT}/auth/callback` }
 }
 
 function stopOAuthServer() {
   if (oauthServer) {
-    oauthServer.stop()
+    oauthServer.close(() => {
+      log.info("codex oauth server stopped")
+    })
     oauthServer = undefined
-    log.info("codex oauth server stopped")
   }
 }
 
@@ -352,37 +374,47 @@ function waitForOAuthCallback(pkce: PkceCodes, state: string): Promise<TokenResp
 
 export async function CodexAuthPlugin(input: PluginInput): Promise<Hooks> {
   return {
+    provider: {
+      id: "openai",
+      async models(provider, ctx) {
+        if (ctx.auth?.type !== "oauth") return provider.models
+
+        return Object.fromEntries(
+          Object.entries(provider.models)
+            .filter(([, model]) => {
+              if (ALLOWED_MODELS.has(model.api.id)) return true
+              const match = model.api.id.match(/^gpt-(\d+\.\d+)/)
+              if (!match) return false
+              const minor = match[1]
+              if (minor === undefined) return false
+              return parseFloat(minor) > 5.4
+            })
+            .map(([modelID, model]) => [
+              modelID,
+              {
+                ...model,
+                cost: {
+                  input: 0,
+                  output: 0,
+                  cache: { read: 0, write: 0 },
+                },
+                limit: model.id.includes("gpt-5.5")
+                  ? {
+                      context: 400_000,
+                      input: 272_000,
+                      output: 128_000,
+                    }
+                  : model.limit,
+              },
+            ]),
+        )
+      },
+    },
     auth: {
       provider: "openai",
-      async loader(getAuth, provider) {
+      async loader(getAuth) {
         const auth = await getAuth()
         if (auth.type !== "oauth") return {}
-
-        // Filter models to only allowed Codex models for OAuth
-        const allowedModels = new Set([
-          "gpt-5.1-codex",
-          "gpt-5.1-codex-max",
-          "gpt-5.1-codex-mini",
-          "gpt-5.2",
-          "gpt-5.2-codex",
-          "gpt-5.3-codex",
-          "gpt-5.4",
-          "gpt-5.4-mini",
-        ])
-        for (const modelId of Object.keys(provider.models)) {
-          if (modelId.includes("codex")) continue
-          if (allowedModels.has(modelId)) continue
-          delete provider.models[modelId]
-        }
-
-        // Zero out costs for Codex (included with ChatGPT subscription)
-        for (const model of Object.values(provider.models)) {
-          model.cost = {
-            input: 0,
-            output: 0,
-            cache: { read: 0, write: 0 },
-          }
-        }
 
         return {
           apiKey: OAUTH_DUMMY_KEY,
@@ -505,7 +537,7 @@ export async function CodexAuthPlugin(input: PluginInput): Promise<Hooks> {
               method: "POST",
               headers: {
                 "Content-Type": "application/json",
-                "User-Agent": `Navi/${Installation.VERSION}`,
+                "User-Agent": `navi/${InstallationVersion}`,
               },
               body: JSON.stringify({ client_id: CLIENT_ID }),
             })
@@ -524,12 +556,13 @@ export async function CodexAuthPlugin(input: PluginInput): Promise<Hooks> {
               instructions: `Enter code: ${deviceData.user_code}`,
               method: "auto" as const,
               async callback() {
-                while (true) {
+                const maxAttempts = Math.max(1, Math.ceil(DEVICE_CODE_MAX_WAIT_MS / (interval + OAUTH_POLLING_SAFETY_MARGIN_MS)))
+                for (let attempt = 0; attempt < maxAttempts; attempt++) {
                   const response = await fetch(`${ISSUER}/api/accounts/deviceauth/token`, {
                     method: "POST",
                     headers: {
                       "Content-Type": "application/json",
-                      "User-Agent": `Navi/${Installation.VERSION}`,
+                      "User-Agent": `navi/${InstallationVersion}`,
                     },
                     body: JSON.stringify({
                       device_auth_id: deviceData.device_auth_id,
@@ -574,8 +607,9 @@ export async function CodexAuthPlugin(input: PluginInput): Promise<Hooks> {
                     return { type: "failed" as const }
                   }
 
-                  await sleep(interval + OAUTH_POLLING_SAFETY_MARGIN_MS)
+                  await pollSleep(interval + OAUTH_POLLING_SAFETY_MARGIN_MS)
                 }
+                return { type: "failed" as const }
               },
             }
           },
@@ -588,10 +622,14 @@ export async function CodexAuthPlugin(input: PluginInput): Promise<Hooks> {
     },
     "chat.headers": async (input, output) => {
       if (input.model.providerID !== "openai") return
-      output.headers.originator = "Navi"
-      output.headers["User-Agent"] = `Navi/${Installation.VERSION} (${os.platform()} ${os.release()}; ${os.arch()})`
+      output.headers.originator = "navi"
+      output.headers["User-Agent"] = `navi/${InstallationVersion} (${os.platform()} ${os.release()}; ${os.arch()})`
       output.headers.session_id = input.sessionID
+    },
+    "chat.params": async (input, output) => {
+      if (input.model.providerID !== "openai") return
+      // Match codex cli
+      output.maxOutputTokens = undefined
     },
   }
 }
-

@@ -58,4 +58,3 @@ export const { use: useExit, provider: ExitProvider } = createSimpleContext({
     return exit
   },
 })
-

@@ -1,16 +1,5 @@
 {
   "$schema": "https://json.schemastore.org/tsconfig",
-  "compilerOptions": {
-    "target": "ESNext",
-    "module": "ESNext",
-    "moduleResolution": "bundler",
-    "moduleDetection": "force",
-    "strict": true,
-    "esModuleInterop": true,
-    "skipLibCheck": true,
-    "types": [
-      "bun",
-      "node"
-    ]
-  }
+  "extends": "@tsconfig/bun/tsconfig.json",
+  "compilerOptions": {}
 }

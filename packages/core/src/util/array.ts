@@ -8,4 +8,3 @@ export function findLast<T>(
   }
   return undefined
 }
-

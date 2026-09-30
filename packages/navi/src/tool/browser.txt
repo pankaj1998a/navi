@@ -1,0 +1,17 @@
+Interactive browser automation tool for web testing, UI verification, DOM inspection, and navigation.
+
+Supports the following actions:
+- "navigate": Open a URL in the browser (e.g. `http://localhost:3000` or a public URL)
+- "click": Click an element by CSS selector or text content (e.g. `button#submit`, `a[href='/about']`, or text "Sign In")
+- "type": Type text into an input field (selector and text required)
+- "screenshot": Capture a screenshot of the current page or specific element (saved to .navi/artifacts and returned as image attachment)
+- "content": Extract the page content (as structured markdown or text)
+- "evaluate": Execute custom JavaScript inside the browser page context
+- "wait": Wait for a specific CSS selector or duration in milliseconds
+- "close": Close the active browser session
+
+Use this tool when:
+- Testing and verifying local web applications (dev servers)
+- Validating UI layouts, user flows, and forms
+- Scraping interactive or single-page applications (SPA)
+- Capturing screenshots of web pages for verification

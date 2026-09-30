@@ -1,5 +1,6 @@
-import { Native } from "../util/native"
-import { Log } from "../util/log"
+import * as NativeImport from "../native"
+const Native = NativeImport as any
+import { Log } from "@navi-ai/core/util/log"
 import { Instance } from "../project/instance"
 import path from "path"
 
@@ -95,6 +96,7 @@ export class IndexService {
 
       for (let i = 0; i < lines.length; i++) {
         const line = lines[i]
+        if (!line) continue
         // Match func, type struct, type interface
         const funcMatch = line.match(/func\s+([A-Z][a-zA-Z0-9_]+)\s*\(/)
         const methodMatch = line.match(/func\s*\(\s*[^)]+\s*\)\s+([A-Z][a-zA-Z0-9_]+)\s*\(/)

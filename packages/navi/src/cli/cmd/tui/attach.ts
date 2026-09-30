@@ -1,14 +1,14 @@
 import { cmd } from "../cmd"
 import { UI } from "@/cli/ui"
-import { tui } from "./app"
 import { win32DisableProcessedInput, win32InstallCtrlCGuard } from "./win32"
-import { TuiConfig } from "@/config/tui"
-import { Instance } from "@/project/instance"
-import { existsSync } from "fs"
+import { TuiConfig } from "@/cli/cmd/tui/config/tui"
+import { errorMessage } from "@/util/error"
+import { validateSession } from "./validate-session"
+import { ServerAuth } from "@/server/auth"
 
 export const AttachCommand = cmd({
   command: "attach <url>",
-  describe: "attach to a running Navi server",
+  describe: "attach to a running navi server",
   builder: (yargs) =>
     yargs
       .positional("url", {
@@ -38,6 +38,11 @@ export const AttachCommand = cmd({
         alias: ["p"],
         type: "string",
         describe: "basic auth password (defaults to NAVI_SERVER_PASSWORD)",
+      })
+      .option("username", {
+        alias: ["u"],
+        type: "string",
+        describe: "basic auth username (defaults to NAVI_SERVER_USERNAME or 'navi')",
       }),
   handler: async (args) => {
     const unguard = win32InstallCtrlCGuard()
@@ -60,16 +65,23 @@ export const AttachCommand = cmd({
           return args.dir
         }
       })()
-      const headers = (() => {
-        const password = args.password ?? process.env.NAVI_SERVER_PASSWORD
-        if (!password) return undefined
-        const auth = `Basic ${Buffer.from(`Navi:${password}`).toString("base64")}`
-        return { Authorization: auth }
-      })()
-      const config = await Instance.provide({
-        directory: directory && existsSync(directory) ? directory : process.cwd(),
-        fn: () => TuiConfig.get(),
-      })
+      const headers = ServerAuth.headers({ password: args.password, username: args.username })
+      const config = await TuiConfig.get()
+      const { tui } = await import("./app")
+
+      try {
+        await validateSession({
+          url: args.url,
+          sessionID: args.session,
+          directory,
+          headers,
+        })
+      } catch (error) {
+        UI.error(errorMessage(error))
+        process.exitCode = 1
+        return
+      }
+
       await tui({
         url: args.url,
         config,
@@ -86,4 +98,3 @@ export const AttachCommand = cmd({
     }
   },
 })
-

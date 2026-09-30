@@ -42,9 +42,10 @@ export const StandardHooksPlugin: Plugin = async (_input, _options) => {
                 if (fn) await fn(i, o as any)
             }
         },
-        "tool.execute.error": async (i, o) => {
+        // @ts-expect-error - tool.execute.error is not defined in Hooks type yet
+        "tool.execute.error": async (i: any, o: any) => {
             for (const h of hooks) {
-                const fn = h["tool.execute.error"]
+                const fn = (h as any)["tool.execute.error"]
                 if (fn) await fn(i, o)
             }
         },

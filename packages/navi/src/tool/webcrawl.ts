@@ -1,105 +1,80 @@
-import z from "zod"
-import { Tool } from "./tool"
+import { Effect, Schema } from "effect"
+import * as Tool from "./tool"
 import { webCrawl } from "./browser-engine"
-import { validateUrl } from "../util/url"
 
-export const WebCrawlTool = Tool.define("webcrawl", {
-    description: `Crawl a website starting from a given URL, following links up to a specified depth.
-Returns multiple pages with their content, useful for understanding an entire site or section.
+export const Parameters = Schema.Struct({
+  url: Schema.String.annotate({ description: "URL to start crawling from" }),
+  maxPages: Schema.optional(Schema.Number).annotate({
+    description: "Maximum number of pages to crawl (default 10, max 50)",
+  }),
+  maxDepth: Schema.optional(Schema.Number).annotate({
+    description: "Maximum depth of links to follow (default 2)",
+  }),
+  sameDomain: Schema.optional(Schema.Boolean).annotate({
+    description: "Only follow links on the same domain as the start URL (default true)",
+  }),
+  format: Schema.Literals(["text", "markdown", "html"])
+    .pipe(Schema.optional, Schema.withDecodingDefault(Effect.succeed("markdown" as const)))
+    .annotate({ description: "Output format for each page" }),
+  includePattern: Schema.optional(Schema.String).annotate({
+    description: "Only crawl URLs matching this regex pattern",
+  }),
+  excludePattern: Schema.optional(Schema.String).annotate({
+    description: "Skip URLs matching this regex pattern",
+  }),
+})
 
-Use this when you need to:
-- Understand the structure of a website
-- Gather content from multiple related pages
-- Index documentation or help sites
-- Research a topic across many pages of a domain`,
-    parameters: z.object({
-        url: z.string().describe("Starting URL to crawl from"),
-        maxPages: z
-            .number()
-            .optional()
-            .describe("Maximum number of pages to crawl (default: 10, max: 50)"),
-        maxDepth: z
-            .number()
-            .optional()
-            .describe("Maximum link-follow depth from the start URL (default: 2)"),
-        sameDomain: z
-            .boolean()
-            .optional()
-            .describe("Only follow links on the same domain as the start URL (default: true)"),
-        format: z
-            .enum(["markdown", "text", "html"])
-            .optional()
-            .describe("Content format for each crawled page (default: markdown)"),
-        includePattern: z
-            .string()
-            .optional()
-            .describe("Only crawl URLs matching this regex pattern (e.g. '/docs/'  to crawl only the docs section)"),
-        excludePattern: z
-            .string()
-            .optional()
-            .describe("Skip URLs matching this regex pattern (e.g. '/blog/' to skip blog posts)"),
-    }),
-    async execute(params, ctx) {
-        validateUrl(params.url)
-
-        await ctx.ask({
+export const WebCrawlTool = Tool.define(
+  "webcrawl",
+  Effect.gen(function* () {
+    return {
+      description: "Crawl a website starting from a URL, following links up to a specified depth.",
+      parameters: Parameters,
+      execute: (params: Schema.Schema.Type<typeof Parameters>, ctx: Tool.Context) =>
+        Effect.gen(function* () {
+          yield* ctx.ask({
             permission: "webfetch",
             patterns: [params.url],
             always: ["*"],
-            metadata: { url: params.url, maxPages: params.maxPages, maxDepth: params.maxDepth },
-        })
+            metadata: { url: params.url, maxPages: params.maxPages },
+          })
 
-        const maxPages = Math.min(params.maxPages ?? 10, 50)
-        const maxDepth = Math.min(params.maxDepth ?? 2, 5)
+          const opts = {
+            maxPages: Math.min(params.maxPages ?? 10, 50),
+            maxDepth: params.maxDepth ?? 2,
+            sameDomain: params.sameDomain ?? true,
+            format: params.format,
+            includePattern: params.includePattern ? new RegExp(params.includePattern) : undefined,
+            excludePattern: params.excludePattern ? new RegExp(params.excludePattern) : undefined,
+          }
 
-        let pages
-        try {
-            pages = await webCrawl(params.url, {
-                maxPages,
-                maxDepth,
-                sameDomain: params.sameDomain ?? true,
-                format: (params.format ?? "markdown") as "markdown" | "text" | "html",
-                includePattern: params.includePattern ? new RegExp(params.includePattern) : undefined,
-                excludePattern: params.excludePattern ? new RegExp(params.excludePattern) : undefined,
-            })
-        } catch (err) {
-            const msg = err instanceof Error ? err.message : String(err)
-            throw new Error(`Crawl failed: ${msg}`)
-        }
+          const _pages = yield* Effect.promise(() => webCrawl(params.url, opts as any))
+          const pages = Array.isArray(_pages) ? _pages : []
 
-        if (pages.length === 0) {
-            return {
-                output: `No pages were crawled from ${params.url}. The site may block crawlers or require JavaScript.`,
-                title: `Crawl: ${params.url}`,
-                metadata: { pageCount: 0 } as Record<string, unknown>,
-            }
-        }
+          const lines: string[] = [`# Crawl Results: ${params.url}`, ""]
+          lines.push(`Found ${pages.length} pages.`, "")
 
-        const sections: string[] = [`# Crawl Results: ${params.url}`, `Pages crawled: ${pages.length}`, ""]
+          for (const page of pages) {
+            lines.push(`## ${page.title || page.url}`)
+            lines.push(`URL: ${page.url}`)
+            lines.push(`Depth: ${page.depth}`)
+            lines.push("")
+            lines.push(page.content.slice(0, 2000))
+            if (page.content.length > 2000) lines.push("…(truncated)")
+            lines.push("")
+            lines.push("---")
+            lines.push("")
+          }
 
-        for (const page of pages) {
-            sections.push(`---`)
-            sections.push(`## [${page.title || page.url}](${page.url})`)
-            sections.push(`Depth: ${page.depth} | Links found: ${page.links.length}`)
-            sections.push("")
-            // Limit per-page content to be manageable
-            const content = page.content.slice(0, 4000)
-            sections.push(content)
-            if (page.content.length > 4000) sections.push("…(page truncated)")
-            sections.push("")
-        }
-
-        const output = sections.join("\n")
-
-        return {
-            output,
-            title: `Crawl: ${params.url} (${pages.length} pages)`,
+          return {
+            output: lines.join("\n"),
+            title: `Crawled: ${params.url}`,
             metadata: {
-                pageCount: pages.length,
-                pages: pages.map((p) => ({ url: p.url, title: p.title, depth: p.depth, linkCount: p.links.length })),
-            } as Record<string, unknown>,
-        }
-    },
-})
-
-
+              url: params.url,
+              pagesFound: pages.length,
+            },
+          }
+        }).pipe(Effect.orDie),
+    }
+  }),
+)

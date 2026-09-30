@@ -1,7 +1,7 @@
 import { render, useTerminalDimensions } from "@opentui/solid"
 import { createSignal, Switch, Match } from "solid-js"
 import { CanvasIPC } from "./ipc"
-import { Log } from "../util/log"
+import { Log } from "@navi-ai/core/util/log"
 import { TextAttributes } from "@opentui/core"
 import { Global } from "../global"
 

@@ -49,4 +49,3 @@ export function sampledChecksum(content: string, limit = 500_000): string | unde
     .join(":")
   return `${content.length}:${hashes}`
 }
-

@@ -3,48 +3,61 @@
 import os from "os"
 import path from "path"
 import fs from "fs/promises"
-import fsSync from "fs"
+import { setTimeout as sleep } from "node:timers/promises"
 import { afterAll } from "bun:test"
 
+// Set XDG env vars FIRST, before any src/ imports
 const dir = path.join(os.tmpdir(), "navi-test-data-" + process.pid)
 await fs.mkdir(dir, { recursive: true })
-afterAll(() => {
-  try {
-    fsSync.rmSync(dir, { recursive: true, force: true })
-  } catch {
-    // Windows can briefly keep files open at shutdown; ignore cleanup races in tests.
+afterAll(async () => {
+  const { Database } = await import("../src/storage/db")
+  Database.close()
+  const busy = (error: unknown) =>
+    typeof error === "object" && error !== null && "code" in error && error.code === "EBUSY"
+  const rm = async (left: number): Promise<void> => {
+    Bun.gc(true)
+    await sleep(100)
+    return fs.rm(dir, { recursive: true, force: true }).catch((error) => {
+      if (!busy(error)) throw error
+      if (left <= 1) throw error
+      return rm(left - 1)
+    })
   }
+
+  // Windows can keep SQLite WAL handles alive until GC finalizers run, so we
+  // force GC and retry teardown to avoid flaky EBUSY in test cleanup.
+  await rm(30)
 })
-// Set test home directory to isolate tests from user's actual home directory
-// This prevents tests from picking up real user configs/skills from ~/.claude/skills
-const testHome = path.join(dir, "home")
-await fs.mkdir(testHome, { recursive: true })
-process.env["navi_TEST_HOME"] = testHome
 
 process.env["XDG_DATA_HOME"] = path.join(dir, "share")
 process.env["XDG_CACHE_HOME"] = path.join(dir, "cache")
 process.env["XDG_CONFIG_HOME"] = path.join(dir, "config")
 process.env["XDG_STATE_HOME"] = path.join(dir, "state")
+process.env["NAVI_MODELS_PATH"] = path.join(import.meta.dir, "tool", "fixtures", "models-api.json")
+process.env["NAVI_EXPERIMENTAL_EVENT_SYSTEM"] = "true"
+// Tests assert exact skill counts from disk discovery; the built-in
+// customize-navi skill is opt-in for stable channels and on by default
+// for unstable channels (including "local" where CI runs). Disable it here
+// so disk-discovery tests aren't off-by-one.
+process.env["NAVI_EXPERIMENTAL_CUSTOMIZE_SKILL"] = "false"
 
-// Pre-fetch models.json so tests don't need the macro fallback
-// Also write the cache version file to prevent global/index.ts from clearing the cache
+// Set test home directory to isolate tests from user's actual home directory
+// This prevents tests from picking up real user configs/skills from ~/.claude/skills
+const testHome = path.join(dir, "home")
+await fs.mkdir(testHome, { recursive: true })
+process.env["NAVI_TEST_HOME"] = testHome
+
+// Set test managed config directory to isolate tests from system managed settings
+const testManagedConfigDir = path.join(dir, "managed")
+process.env["NAVI_TEST_MANAGED_CONFIG_DIR"] = testManagedConfigDir
+process.env["NAVI_DISABLE_DEFAULT_PLUGINS"] = "true"
+
+// Write the cache version file to prevent global/index.ts from clearing the cache
 const cacheDir = path.join(dir, "cache", "navi")
 await fs.mkdir(cacheDir, { recursive: true })
 await fs.writeFile(path.join(cacheDir, "version"), "14")
-const bundledModels = path.join(import.meta.dir, "tool", "fixtures", "models-api.json")
-const response = await fetch("https://models.dev/api.json").catch(() => undefined)
-if (response?.ok) {
-  await fs.writeFile(path.join(cacheDir, "models.json"), await response.text())
-} else {
-  const localModels = await fs.readFile(bundledModels, "utf8").catch(() => undefined)
-  if (localModels) {
-    await fs.writeFile(path.join(cacheDir, "models.json"), localModels)
-  }
-}
-// Disable models.dev refresh to avoid race conditions during tests
-process.env["navi_DISABLE_MODELS_FETCH"] = "true"
 
-// Clear provider env vars to ensure clean test state
+// Clear provider and server auth env vars to ensure clean test state
 delete process.env["ANTHROPIC_API_KEY"]
 delete process.env["OPENAI_API_KEY"]
 delete process.env["GOOGLE_API_KEY"]
@@ -55,6 +68,7 @@ delete process.env["AWS_PROFILE"]
 delete process.env["AWS_REGION"]
 delete process.env["AWS_BEARER_TOKEN_BEDROCK"]
 delete process.env["OPENROUTER_API_KEY"]
+delete process.env["LLM_GATEWAY_API_KEY"]
 delete process.env["GROQ_API_KEY"]
 delete process.env["MISTRAL_API_KEY"]
 delete process.env["PERPLEXITY_API_KEY"]
@@ -64,12 +78,20 @@ delete process.env["DEEPSEEK_API_KEY"]
 delete process.env["FIREWORKS_API_KEY"]
 delete process.env["CEREBRAS_API_KEY"]
 delete process.env["SAMBANOVA_API_KEY"]
+delete process.env["NAVI_SERVER_PASSWORD"]
+delete process.env["NAVI_SERVER_USERNAME"]
+
+// Use in-memory sqlite
+process.env["NAVI_DB"] = ":memory:"
 
 // Now safe to import from src/
-const { Log } = await import("../src/util/log")
+const { Log } = await import("@navi-ai/core/util/log")
+const { initProjectors } = await import("../src/server/projectors")
 
-Log.init({
+void Log.init({
   print: false,
   dev: true,
   level: "DEBUG",
 })
+
+initProjectors()

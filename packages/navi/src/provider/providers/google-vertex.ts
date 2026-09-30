@@ -1,13 +1,14 @@
-import { ProviderLoader } from "../loader"
+import type { ProviderLoader } from "../loader"
 import { Env } from "../../env"
-import { Log } from "../../util/log"
+import * as Log from "@navi-ai/core/util/log"
 
 const log = Log.create({ service: "provider-google" })
 
 export const GoogleVertexProvider: ProviderLoader.Info = {
-    async load() {
-        const project = Env.get("GOOGLE_CLOUD_PROJECT") ?? Env.get("GCP_PROJECT") ?? Env.get("GCLOUD_PROJECT")
-        const location = Env.get("GOOGLE_CLOUD_LOCATION") ?? Env.get("VERTEX_LOCATION") ?? "us-east5"
+    async load(input, dep) {
+        const env = dep.env
+        const project = env["GOOGLE_CLOUD_PROJECT"] ?? env["GCP_PROJECT"] ?? env["GCLOUD_PROJECT"]
+        const location = env["GOOGLE_CLOUD_LOCATION"] ?? env["VERTEX_LOCATION"] ?? "us-east5"
         if (!project) return { autoload: false }
         return {
             autoload: true,
@@ -20,9 +21,10 @@ export const GoogleVertexProvider: ProviderLoader.Info = {
 }
 
 export const GoogleVertexAnthropicProvider: ProviderLoader.Info = {
-    async load() {
-        const project = Env.get("GOOGLE_CLOUD_PROJECT") ?? Env.get("GCP_PROJECT") ?? Env.get("GCLOUD_PROJECT")
-        const location = Env.get("GOOGLE_CLOUD_LOCATION") ?? Env.get("VERTEX_LOCATION") ?? "global"
+    async load(input, dep) {
+        const env = dep.env
+        const project = env["GOOGLE_CLOUD_PROJECT"] ?? env["GCP_PROJECT"] ?? env["GCLOUD_PROJECT"]
+        const location = env["GOOGLE_CLOUD_LOCATION"] ?? env["VERTEX_LOCATION"] ?? "global"
         if (!project) return { autoload: false }
         return {
             autoload: true,

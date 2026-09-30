@@ -1,57 +1,61 @@
-import z from "zod"
-import { Tool } from "./tool"
+import { Effect, Schema } from "effect"
+import * as Tool from "./tool"
+import { Env } from "../env"
 
-/**
- * FirecrawlTool — Web scraping and crawling for agent-ready Markdown.
- */
-export const FirecrawlTool = Tool.define("firecrawl", {
-  description: `Scrape or crawl websites using Firecrawl into agent-friendly Markdown. 
-Ideal for complex, JS-heavy web pages that standard fetching might miss.`,
-
-  parameters: z.object({
-    action: z.enum(["scrape", "crawl"]).describe("Action to perform."),
-    url: z.string().describe("Target URL."),
-  }),
-
-  async execute(params, _ctx) {
-    const apiKey = process.env.FIRECRAWL_API_KEY
-    if (!apiKey) {
-      throw new Error("FIRECRAWL_API_KEY environment variable is not set.")
-    }
-
-    const endpoint = params.action === "scrape" 
-      ? "https://api.firecrawl.dev/v1/scrape" 
-      : "https://api.firecrawl.dev/v1/crawl"
-
-    const response = await fetch(endpoint, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({ url: params.url, formats: ["markdown"] }),
-    })
-
-    if (!response.ok) {
-      const errorText = await response.text()
-      throw new Error(`Firecrawl API error: ${errorText}`)
-    }
-
-    const data = await response.json() as any
-    
-    if (params.action === "scrape") {
-      const result = data.data
-      return {
-        title: `Firecrawl Scrape: ${params.url}`,
-        output: result.markdown || "No markdown content returned.",
-        metadata: { url: params.url, jobId: undefined } as Record<string, any>,
-      }
-    } else {
-      return {
-        title: `Firecrawl Crawl Started`,
-        output: `Crawl job started for ${params.url}. Job ID: ${data.id}`,
-        metadata: { url: params.url, jobId: data.id } as Record<string, any>,
-      }
-    }
-  },
+export const Parameters = Schema.Struct({
+  action: Schema.Literals(["scrape", "crawl", "search"]),
+  url: Schema.optional(Schema.String).annotate({ description: "URL to scrape or crawl" }),
+  query: Schema.optional(Schema.String).annotate({ description: "Search query" }),
 })
+
+export const FirecrawlTool = Tool.define(
+  "firecrawl",
+  Effect.gen(function* () {
+    return {
+      description: "Scrape, crawl, or search websites using Firecrawl into agent-friendly Markdown.",
+      parameters: Parameters,
+      execute: (params: Schema.Schema.Type<typeof Parameters>, ctx: Tool.Context) =>
+        Effect.gen(function* () {
+          const apiKey = yield* Effect.promise(() => Env.get("FIRECRAWL_API_KEY"))
+          if (!apiKey) throw new Error("FIRECRAWL_API_KEY not set")
+
+          const permissionUrl = params.url || params.query || "firecrawl"
+          yield* ctx.ask({
+            permission: "webfetch",
+            patterns: [permissionUrl],
+            always: ["*"],
+            metadata: { action: params.action, input: permissionUrl },
+          })
+
+          const res = yield* Effect.promise(() =>
+            fetch(`https://api.firecrawl.dev/v1/${params.action}`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
+              body: JSON.stringify(
+                params.action === "search" ? { query: params.query, limit: 8 } : { url: params.url },
+              ),
+            }),
+          )
+
+          if (!res.ok) throw new Error(`Firecrawl API error: ${yield* Effect.promise(() => res.text())}`)
+          const data = yield* Effect.promise(() => res.json()) as any
+          const searchResults = data.data || []
+
+          let output = ""
+          if (params.action === "search") {
+            output = searchResults
+              .map((r: any, i: number) => `${i + 1}. **${r.title}**\nURL: ${r.url}\n${r.description}\n`)
+              .join("\n")
+          } else {
+            output = data.data?.markdown || data.markdown || JSON.stringify(data, null, 2)
+          }
+
+          return {
+            output: output || "No content returned from Firecrawl.",
+            title: `Firecrawl ${params.action}: ${permissionUrl}`,
+            metadata: { action: params.action },
+          }
+        }).pipe(Effect.orDie) as any,
+    }
+  }),
+)

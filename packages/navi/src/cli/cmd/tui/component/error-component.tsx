@@ -1,9 +1,10 @@
 import { TextAttributes } from "@opentui/core"
 import { useKeyboard, useRenderer, useTerminalDimensions } from "@opentui/solid"
-import { Clipboard } from "@tui/util/clipboard"
+import * as Clipboard from "@tui/util/clipboard"
 import { createSignal } from "solid-js"
-import { Installation } from "@/installation"
+import { InstallationVersion } from "@navi-ai/core/installation/version"
 import { win32FlushInputBuffer } from "../win32"
+import { getScrollAcceleration } from "../util/scroll"
 
 export function ErrorComponent(props: {
   error: Error
@@ -25,12 +26,12 @@ export function ErrorComponent(props: {
 
   useKeyboard((evt) => {
     if (evt.ctrl && evt.name === "c") {
-      handleExit()
+      void handleExit()
     }
   })
   const [copied, setCopied] = createSignal(false)
 
-  const issueURL = new URL("https://github.com/anomalyco/Navi/issues/new?template=bug-report.yml")
+  const issueURL = new URL("https://github.com/anomalyco/navi/issues/new?template=bug-report.yml")
 
   // Choose safe fallback colors per mode since theme context may not be available
   const isLight = props.mode === "light"
@@ -52,10 +53,10 @@ export function ErrorComponent(props: {
     )
   }
 
-  issueURL.searchParams.set("Navi-version", Installation.VERSION)
+  issueURL.searchParams.set("navi-version", InstallationVersion)
 
   const copyIssueURL = () => {
-    Clipboard.copy(issueURL.toString()).then(() => {
+    void Clipboard.copy(issueURL.toString()).then(() => {
       setCopied(true)
     })
   }
@@ -82,11 +83,10 @@ export function ErrorComponent(props: {
           <text fg={colors.bg}>Exit</text>
         </box>
       </box>
-      <scrollbox height={Math.floor(term().height * 0.7)}>
+      <scrollbox height={Math.floor(term().height * 0.7)} scrollAcceleration={getScrollAcceleration()}>
         <text fg={colors.muted}>{props.error.stack}</text>
       </scrollbox>
       <text fg={colors.text}>{props.error.message}</text>
     </box>
   )
 }
-

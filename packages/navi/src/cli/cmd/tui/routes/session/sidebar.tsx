@@ -1,90 +1,110 @@
+import { useProject } from "@tui/context/project"
 import { useSync } from "@tui/context/sync"
 import { createMemo, Show } from "solid-js"
-import { TextAttributes } from "@opentui/core"
 import { useTheme } from "../../context/theme"
-import { Installation } from "@/installation"
-import { TuiPluginRuntime } from "../../plugin"
-import { GlassBox } from "../../component/glass-box"
+import { useTuiConfig } from "../../context/tui-config"
+import { InstallationChannel, InstallationVersion } from "@navi-ai/core/installation/version"
+import { TuiPluginRuntime } from "@/cli/cmd/tui/plugin/runtime"
 
-export function Sidebar(props: { sessionID: string; overlay?: boolean }) {
+import { getScrollAcceleration } from "../../util/scroll"
+import { WorkspaceLabel } from "../../component/workspace-label"
+
+export function Sidebar(props: { sessionID?: string; overlay?: boolean }) {
+  const project = useProject()
   const sync = useSync()
   const { theme } = useTheme()
-  const session = createMemo(() => sync.session.get(props.sessionID))
-  const transactions = createMemo(() => sync.data.transactions[props.sessionID] ?? [])
+  const tuiConfig = useTuiConfig()
+  const session = createMemo(() => (props.sessionID ? sync.session.get(props.sessionID) : undefined))
+  const workspace = () => {
+    const workspaceID = session()?.workspaceID
+    if (!workspaceID) return
+    return project.workspace.get(workspaceID)
+  }
+  const scrollAcceleration = createMemo(() => getScrollAcceleration(tuiConfig))
 
   return (
-    <Show when={session()}>
-      <box
-        width={42}
-        height="100%"
-        position={props.overlay ? "absolute" : "relative"}
+    <box
+      backgroundColor={theme.backgroundPanel}
+      width={42}
+      height="100%"
+      paddingTop={1}
+      paddingBottom={1}
+      paddingLeft={2}
+      paddingRight={2}
+      position={props.overlay ? "absolute" : "relative"}
+    >
+      <scrollbox
+        flexGrow={1}
+        scrollAcceleration={scrollAcceleration()}
+        verticalScrollbarOptions={{
+          trackOptions: {
+            backgroundColor: theme.background,
+            foregroundColor: theme.borderActive,
+          },
+        }}
       >
-        <GlassBox padding={0} width="100%" height="100%">
-        <box
-          flexGrow={1}
-          paddingTop={1}
-          paddingBottom={1}
-          paddingLeft={2}
-          paddingRight={2}
-        >
-          <scrollbox
-            flexGrow={1}
-            verticalScrollbarOptions={{
-              trackOptions: {
-                backgroundColor: theme.background,
-                foregroundColor: theme.borderActive,
-              },
-            }}
+        <box flexShrink={0} gap={1} paddingRight={1}>
+          <Show
+            when={session()}
+            fallback={
+              <box paddingRight={1}>
+                <text fg={theme.text}>
+                  <b>Navi</b>
+                </text>
+                <text fg={theme.textMuted}>Ready to code</text>
+              </box>
+            }
           >
-            <box flexShrink={0} gap={1} paddingRight={1}>
+            {(s) => (
               <TuiPluginRuntime.Slot
                 name="sidebar_title"
                 mode="single_winner"
-                session_id={props.sessionID}
-                title={session()!.title}
-                share_url={session()!.share?.url}
+                session_id={props.sessionID ?? ""}
+                title={s().title}
+                share_url={s().share?.url}
               >
                 <box paddingRight={1}>
-                  <text fg={theme.text} attributes={TextAttributes.BOLD}>{session()!.title}</text>
-                  <Show when={session()!.share?.url}>
-                    <text fg={theme.textMuted}>{session()!.share!.url}</text>
+                  <text fg={theme.text}>
+                    <b>{s().title}</b>
+                  </text>
+                  <Show when={InstallationChannel !== "latest"}>
+                    <text fg={theme.textMuted}>{props.sessionID}</text>
+                  </Show>
+                  <Show when={s().workspaceID}>
+                    <text fg={theme.textMuted}>
+                      <Show
+                        when={workspace()}
+                        fallback={<WorkspaceLabel type="unknown" name={s().workspaceID!} status="error" icon />}
+                      >
+                        {(item) => (
+                          <WorkspaceLabel
+                            type={item().type}
+                            name={item().name}
+                            status={project.workspace.status(item().id) ?? "error"}
+                            icon
+                          />
+                        )}
+                      </Show>
+                    </text>
+                  </Show>
+                  <Show when={s().share?.url}>
+                    <text fg={theme.textMuted}>{s().share!.url}</text>
                   </Show>
                 </box>
               </TuiPluginRuntime.Slot>
-              <TuiPluginRuntime.Slot name="sidebar_content" session_id={props.sessionID} />
-              
-              <Show when={transactions().length > 0}>
-                <box marginTop={2} gap={1}>
-                  <text fg={theme.accent} attributes={TextAttributes.BOLD}>TRANSACTIONS</text>
-                  <box gap={0}>
-                    <for each={transactions().slice(-10)}>
-                      {(t: any) => (
-                        <box flexDirection="row" gap={1}>
-                          <text fg={t.status === 'committed' ? theme.diffAdded : t.status === 'rolled_back' ? theme.diffRemoved : theme.accent}>
-                            {t.status === 'committed' ? '✓' : t.status === 'rolled_back' ? '✗' : '●'}
-                          </text>
-                          <text fg={theme.textMuted} truncate={true}>{t.taskId.split('-')[0]}</text>
-                        </box>
-                      )}
-                    </for>
-                  </box>
-                </box>
-              </Show>
-            </box>
-          </scrollbox>
-
-          <box flexShrink={0} gap={1} paddingTop={1}>
-            <TuiPluginRuntime.Slot name="sidebar_footer" mode="single_winner" session_id={props.sessionID}>
-              <box flexDirection="row" gap={1}>
-                <text fg={theme.text} attributes={TextAttributes.BOLD}>Navi</text>
-                <text fg={theme.textMuted}>v{Installation.VERSION}</text>
-              </box>
-            </TuiPluginRuntime.Slot>
-          </box>
+            )}
+          </Show>
+          <TuiPluginRuntime.Slot name="sidebar_content" session_id={props.sessionID ?? ""} />
         </box>
-        </GlassBox>
+      </scrollbox>
+
+      <box flexShrink={0} gap={1} paddingTop={1}>
+        <TuiPluginRuntime.Slot name="sidebar_footer" mode="single_winner" session_id={props.sessionID ?? ""}>
+          <text fg={theme.textMuted}>
+            <span style={{ fg: theme.success }}>•</span> <b>Navi</b> <span>{InstallationVersion}</span>
+          </text>
+        </TuiPluginRuntime.Slot>
       </box>
-    </Show>
+    </box>
   )
 }
-

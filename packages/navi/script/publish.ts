@@ -1,137 +1,200 @@
 #!/usr/bin/env bun
-
-/**
- * Navi npm publish script
- * 
- * This script builds and publishes Navi to npm.
- * It creates platform-specific packages for each supported OS/arch combo.
- */
-
 import { $ } from "bun"
-import path from "path"
-import fs from "fs"
+import pkg from "../package.json"
+import { Script } from "@navi-ai/script"
 import { fileURLToPath } from "url"
 
-const __filename = fileURLToPath(import.meta.url)
-const __dirname = path.dirname(__filename)
-const dir = path.resolve(__dirname, "..")
-
+const dir = fileURLToPath(new URL("..", import.meta.url))
 process.chdir(dir)
 
-import pkg from "../package.json"
-const rootPkg = await Bun.file("../../package.json").json()
-import { Script } from "../../../script/info"
-import { build, binaries } from "./build"
+async function published(name: string, version: string) {
+  return (await $`npm view ${name}@${version} version`.nothrow()).exitCode === 0
+}
 
-const dryRun = !process.argv.includes("--publish")
-const otpArg = process.argv.find(arg => arg.startsWith("--otp="))
-const otp = otpArg ? otpArg.split("=")[1] : null
-
-console.log(`
-╔══════════════════════════════════════════════════════════════════╗
-║                     Navi npm Publish Script                      ║
-╠══════════════════════════════════════════════════════════════════╣
-║  Version: ${Script.version.padEnd(54)}║
-║  Channel: ${Script.channel.padEnd(54)}║
-║  Mode:    ${(dryRun ? "DRY RUN (pack only)" : "PUBLISH TO NPM").padEnd(54)}║
-╚══════════════════════════════════════════════════════════════════╝
-`)
-
-// Step 1: Ensure build is complete
-console.log("📦 Running build...")
-await build()
-const distDir = path.join(dir, "dist")
-
-// Step 2: Publish each platform package
-console.log("\n📤 Publishing platform packages...\n")
-
-const binaryList = Object.keys(binaries)
-for (const name of binaryList) {
-  const pkgDir = path.join(distDir, name)
-  if (!fs.existsSync(pkgDir)) {
-    console.log(`⚠️  Skipping ${name} - not found`)
-    continue
+async function publish(dir: string, name: string, version: string) {
+  // GitHub artifact downloads can drop the executable bit, and Docker uses the
+  // unpacked dist binaries directly rather than the published tarball.
+  if (process.platform !== "win32") await $`chmod -R 755 .`.cwd(dir)
+  if (await published(name, version)) {
+    console.log(`already published ${name}@${version}`)
+    return
   }
+  await $`bun pm pack`.cwd(dir)
+  await $`npm publish *.tgz --access public --tag ${Script.channel}`.cwd(dir)
+}
 
-  const version = binaries[name]
-  console.log(`  ${name}@${version}`)
+const binaries: Record<string, string> = {}
+for (const filepath of new Bun.Glob("*/package.json").scanSync({ cwd: "./dist" })) {
+  const pkg = await Bun.file(`./dist/${filepath}`).json()
+  binaries[pkg.name] = pkg.version
+}
+console.log("binaries", binaries)
+const version = Object.values(binaries)[0]
+if (version === undefined) throw new Error("No binaries found")
 
-  if (dryRun) {
-    await $`cd ${pkgDir} && npm pack`.quiet()
-  } else {
-    try {
-      const args = ["publish", "--access", "public"]
-      if (otp) args.push(`--otp=${otp}`)
-      await $`cd ${pkgDir} && npm ${args}`
-      console.log(`    ✅ Published`)
-    } catch (e: unknown) {
-      const message = e instanceof Error ? e.message : String(e)
-      console.log(`    ❌ Failed: ${message}`)
+await $`mkdir -p ./dist/${pkg.name}`
+await $`cp -r ./bin ./dist/${pkg.name}/bin`
+await $`cp ./script/postinstall.mjs ./dist/${pkg.name}/postinstall.mjs`
+await Bun.file(`./dist/${pkg.name}/LICENSE`).write(await Bun.file("../../LICENSE").text())
+
+await Bun.file(`./dist/${pkg.name}/package.json`).write(
+  JSON.stringify(
+    {
+      name: pkg.name + "-ai",
+      bin: {
+        [pkg.name]: `./bin/${pkg.name}`,
+      },
+      scripts: {
+        postinstall: "bun ./postinstall.mjs || node ./postinstall.mjs",
+      },
+      version: version,
+      license: pkg.license,
+      optionalDependencies: binaries,
+    },
+    null,
+    2,
+  ),
+)
+
+const tasks = Object.entries(binaries).map(async ([name]) => {
+  const v = binaries[name]
+  if (v === undefined) return
+  await publish(`./dist/${name}`, name, v)
+})
+await Promise.all(tasks)
+await publish(`./dist/${pkg.name}`, `${pkg.name}-ai`, version)
+
+const image = "ghcr.io/anomalyco/navi"
+const platforms = "linux/amd64,linux/arm64"
+const tags = [`${image}:${version}`, `${image}:${Script.channel}`]
+const tagFlags = tags.flatMap((t) => ["-t", t])
+
+// registries
+if (!Script.preview) {
+  await $`docker buildx build --platform ${platforms} ${tagFlags} --push .`
+  // Calculate SHA values
+  const arm64Sha = await $`sha256sum ./dist/navi-linux-arm64.tar.gz | cut -d' ' -f1`.text().then((x) => x.trim())
+  const x64Sha = await $`sha256sum ./dist/navi-linux-x64.tar.gz | cut -d' ' -f1`.text().then((x) => x.trim())
+  const macX64Sha = await $`sha256sum ./dist/navi-darwin-x64.zip | cut -d' ' -f1`.text().then((x) => x.trim())
+  const macArm64Sha = await $`sha256sum ./dist/navi-darwin-arm64.zip | cut -d' ' -f1`.text().then((x) => x.trim())
+
+  const [pkgver, _subver = ""] = Script.version.split(/(-.*)/, 2)
+
+  // arch
+  const binaryPkgbuild = [
+    "# Maintainer: dax",
+    "# Maintainer: adam",
+    "",
+    "pkgname='navi-bin'",
+    `pkgver=${pkgver}`,
+    `_subver=${_subver}`,
+    "options=('!debug' '!strip')",
+    "pkgrel=1",
+    "pkgdesc='The AI coding agent built for the terminal.'",
+    "url='https://github.com/anomalyco/navi'",
+    "arch=('aarch64' 'x86_64')",
+    "license=('MIT')",
+    "provides=('navi')",
+    "conflicts=('navi')",
+    "depends=('ripgrep')",
+    "",
+    `source_aarch64=("\${pkgname}_\${pkgver}_aarch64.tar.gz::https://github.com/anomalyco/navi/releases/download/v\${pkgver}\${_subver}/navi-linux-arm64.tar.gz")`,
+    `sha256sums_aarch64=('${arm64Sha}')`,
+
+    `source_x86_64=("\${pkgname}_\${pkgver}_x86_64.tar.gz::https://github.com/anomalyco/navi/releases/download/v\${pkgver}\${_subver}/navi-linux-x64.tar.gz")`,
+    `sha256sums_x86_64=('${x64Sha}')`,
+    "",
+    "package() {",
+    '  install -Dm755 ./navi "${pkgdir}/usr/bin/navi"',
+    "}",
+    "",
+  ].join("\n")
+
+  for (const [pkg, pkgbuild] of [["navi-bin", binaryPkgbuild]]) {
+    if (pkgbuild === undefined) continue
+    for (let i = 0; i < 30; i++) {
+      try {
+        await $`rm -rf ./dist/aur-${pkg}`
+        await $`git clone ssh://aur@aur.archlinux.org/${pkg}.git ./dist/aur-${pkg}`
+        await $`cd ./dist/aur-${pkg} && git checkout master`
+        await Bun.file(`./dist/aur-${pkg}/PKGBUILD`).write(pkgbuild)
+        await $`cd ./dist/aur-${pkg} && makepkg --printsrcinfo > .SRCINFO`
+        await $`cd ./dist/aur-${pkg} && git add PKGBUILD .SRCINFO`
+        if ((await $`cd ./dist/aur-${pkg} && git diff --cached --quiet`.nothrow()).exitCode === 0) break
+        await $`cd ./dist/aur-${pkg} && git commit -m "Update to v${Script.version}"`
+        await $`cd ./dist/aur-${pkg} && git push`
+        break
+      } catch {
+        continue
+      }
     }
   }
-}
 
-// Step 3: Update main package for publishing
-console.log("\n📦 Preparing main package...")
+  // Homebrew formula
+  const homebrewFormula = [
+    "# typed: false",
+    "# frozen_string_literal: true",
+    "",
+    "# This file was generated by GoReleaser. DO NOT EDIT.",
+    "class Navi < Formula",
+    `  desc "The AI coding agent built for the terminal."`,
+    `  homepage "https://github.com/anomalyco/navi"`,
+    `  version "${Script.version.split("-")[0]}"`,
+    "",
+    `  depends_on "ripgrep"`,
+    "",
+    "  on_macos do",
+    "    if Hardware::CPU.intel?",
+    `      url "https://github.com/anomalyco/navi/releases/download/v${Script.version}/navi-darwin-x64.zip"`,
+    `      sha256 "${macX64Sha}"`,
+    "",
+    "      def install",
+    '        bin.install "navi"',
+    "      end",
+    "    end",
+    "    if Hardware::CPU.arm?",
+    `      url "https://github.com/anomalyco/navi/releases/download/v${Script.version}/navi-darwin-arm64.zip"`,
+    `      sha256 "${macArm64Sha}"`,
+    "",
+    "      def install",
+    '        bin.install "navi"',
+    "      end",
+    "    end",
+    "  end",
+    "",
+    "  on_linux do",
+    "    if Hardware::CPU.intel? and Hardware::CPU.is_64_bit?",
+    `      url "https://github.com/anomalyco/navi/releases/download/v${Script.version}/navi-linux-x64.tar.gz"`,
+    `      sha256 "${x64Sha}"`,
+    "      def install",
+    '        bin.install "navi"',
+    "      end",
+    "    end",
+    "    if Hardware::CPU.arm? and Hardware::CPU.is_64_bit?",
+    `      url "https://github.com/anomalyco/navi/releases/download/v${Script.version}/navi-linux-arm64.tar.gz"`,
+    `      sha256 "${arm64Sha}"`,
+    "      def install",
+    '        bin.install "navi"',
+    "      end",
+    "    end",
+    "  end",
+    "end",
+    "",
+    "",
+  ].join("\n")
 
-const mainPkg = JSON.parse(JSON.stringify(pkg)) as typeof pkg & {
-  optionalDependencies?: Record<string, string>
-  devDependencies?: Record<string, string>
-  dependencies?: Record<string, string>
-}
-mainPkg.version = Script.version
-
-// Update optionalDependencies versions to match current release
-const optionalDeps: Record<string, string> = {}
-for (const name of binaryList) {
-  optionalDeps[name] = Script.version
-}
-mainPkg.optionalDependencies = optionalDeps
-
-// Clean up dependencies for npm (remove workspace/catalog)
-if (mainPkg.devDependencies) delete mainPkg.devDependencies
-const deps = mainPkg.dependencies || {}
-const catalog = (rootPkg as { workspaces?: { catalog?: Record<string, string> } }).workspaces?.catalog || {}
-
-for (const dep of Object.keys(deps)) {
-  const version = deps[dep]
-  if (version.includes("catalog:")) {
-    deps[dep] = catalog[dep] || version.replace("catalog:", "")
-  } else if (version.includes("workspace:")) {
-    deps[dep] = Script.version
+  const token = process.env.GITHUB_TOKEN
+  if (!token) {
+    console.error("GITHUB_TOKEN is required to update homebrew tap")
+    process.exit(1)
+  }
+  const tap = `https://x-access-token:${token}@github.com/anomalyco/homebrew-tap.git`
+  await $`rm -rf ./dist/homebrew-tap`
+  await $`git clone ${tap} ./dist/homebrew-tap`
+  await Bun.file("./dist/homebrew-tap/navi.rb").write(homebrewFormula)
+  await $`cd ./dist/homebrew-tap && git add navi.rb`
+  if ((await $`cd ./dist/homebrew-tap && git diff --cached --quiet`.nothrow()).exitCode !== 0) {
+    await $`cd ./dist/homebrew-tap && git commit -m "Update to v${Script.version}"`
+    await $`cd ./dist/homebrew-tap && git push`
   }
 }
-
-// Write temporary package.json for publishing
-const publishPkgPath = path.join(dir, "package.publish.json")
-fs.writeFileSync(publishPkgPath, JSON.stringify(mainPkg, null, 2))
-
-// Step 4: Final Publish
-if (dryRun) {
-  console.log("\n📦 Packing main package (dry run)...")
-  const packageJsonPath = path.join(dir, "package.json")
-  try {
-    fs.copyFileSync(publishPkgPath, packageJsonPath)
-    await $`npm pack`
-    console.log("\n✅ Dry run complete! Run with --publish to go live.")
-  } finally {
-    fs.writeFileSync(packageJsonPath, JSON.stringify(pkg, null, 2))
-  }
-} else {
-  console.log("\n🚀 Publishing main package to npm...")
-  try {
-    fs.copyFileSync(publishPkgPath, path.join(dir, "package.json"))
-    const args = ["publish", "--access", "public"]
-    if (otp) args.push(`--otp=${otp}`)
-    await $`npm ${args}`
-    console.log(`\n✅ Successfully published ${mainPkg.name}@${Script.version}!`)
-  } catch (e: unknown) {
-    const message = e instanceof Error ? e.message : String(e)
-    console.error(`❌ Publish failed: ${message}`)
-  } finally {
-    // Restore original
-    fs.writeFileSync(path.join(dir, "package.json"), JSON.stringify(pkg, null, 2))
-  }
-}
-
-if (fs.existsSync(publishPkgPath)) fs.unlinkSync(publishPkgPath)

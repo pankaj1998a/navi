@@ -37,4 +37,3 @@ export const ControlAccountTable = sqliteTable(
   },
   (table) => [primaryKey({ columns: [table.email, table.url] })],
 )
-

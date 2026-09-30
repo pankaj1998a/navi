@@ -6,8 +6,10 @@ import * as core from "@actions/core"
 import * as github from "@actions/github"
 import type { Context as GitHubContext } from "@actions/github/lib/context"
 import type { IssueCommentEvent, PullRequestReviewCommentEvent } from "@octokit/webhooks-types"
-import { createNaviClient } from "@navi-ai/sdk"
+import { createOpencodeClient } from "@navi-ai/sdk"
 import { spawn } from "node:child_process"
+import { setTimeout as sleep } from "node:timers/promises"
+import { runPostReviewComments } from "./post-review-comments"
 
 type GitHubAuthor = {
   login: string
@@ -112,7 +114,7 @@ type IssueQueryResponse = {
   }
 }
 
-const { client, server } = createNavi()
+const { client, server } = createOpencode()
 let accessToken: string
 let octoRest: Octokit
 let octoGraph: typeof graphql
@@ -126,7 +128,7 @@ type PromptFiles = Awaited<ReturnType<typeof getUserPrompt>>["promptFiles"]
 try {
   assertContextEvent("issue_comment", "pull_request_review_comment")
   assertPayloadKeyword()
-  await assertNaviConnected()
+  await assertOpencodeConnected()
 
   accessToken = await getAccessToken()
   octoRest = new Octokit({ auth: accessToken })
@@ -143,7 +145,7 @@ try {
 
   // Setup navi session
   const repoData = await fetchRepo()
-  session = await client.session.create<true>().then((r) => r.data)
+  session = await client.session.create<true>().then((r: any) => r.data)
   await subscribeSessionEvents()
   shareId = await (async () => {
     if (useEnvShare() === false) return
@@ -151,7 +153,7 @@ try {
     await client.session.share<true>({ path: session })
     return session.id.slice(-8)
   })()
-  console.log("Navi session", session.id)
+  console.log("navi session", session.id)
   if (shareId) {
     console.log("Share link:", `${useShareUrl()}/s/${shareId}`)
   }
@@ -162,6 +164,55 @@ try {
   // 3. Fork PR
   if (isPullRequest()) {
     const prData = await fetchPR()
+    const context = useContext()
+
+    const handlePrReviewOrComment = async (response: string) => {
+      const findings = parseReviewFindings(response)
+      const isReview =
+        isReviewRequest(userPrompt, context.eventName) ||
+        findings.length > 0 ||
+        process.env["CHECKPOINT_RANGE"] === "true" ||
+        process.env["FULL_REVIEW"] === "true"
+
+      if (isReview) {
+        const headSha = process.env["HEAD_SHA"] || prData.headRefOid
+        try {
+          await runPostReviewComments({
+            github: octoRest,
+            context,
+            commitSha: headSha,
+            prNumber: useIssueId(),
+            result: {
+              comments: findings,
+              summary: response,
+              message: findings.length === 0 ? response : undefined,
+              manifest: {
+                terminal_state: "complete",
+                input: { resolved_head: headSha },
+              },
+            },
+            stickySummary: process.env["STICKY_SUMMARY"] !== "false",
+            incremental: process.env["INCREMENTAL"] === "true",
+            incrementalOverlapThreshold: process.env["INCREMENTAL_OVERLAP_THRESHOLD"]
+              ? parseFloat(process.env["INCREMENTAL_OVERLAP_THRESHOLD"])
+              : 0.6,
+            resolveOutdated: process.env["RESOLVE_OUTDATED"] || "false",
+            reviewCommentBatchSize: process.env["REVIEW_COMMENT_BATCH_SIZE"]
+              ? parseInt(process.env["REVIEW_COMMENT_BATCH_SIZE"], 10)
+              : 50,
+            routeSeverityBelow: process.env["ROUTE_SEVERITY_BELOW"] || "",
+            routeCategories: process.env["ROUTE_CATEGORIES"] || "",
+          })
+          return
+        } catch (err: any) {
+          console.error("Failed to post structured review comments, falling back to standard comment:", err)
+        }
+      }
+
+      const hasShared = prData.comments.nodes.some((c: any) => c.body.includes(`${useShareUrl()}/s/${shareId}`))
+      await updateComment(`${response}${footer({ image: !hasShared })}`)
+    }
+
     // Local PR
     if (prData.headRepository.nameWithOwner === prData.baseRepository.nameWithOwner) {
       await checkoutLocalBranch(prData)
@@ -170,9 +221,11 @@ try {
       if (await branchIsDirty()) {
         const summary = await summarize(response)
         await pushToLocalBranch(summary)
+        const hasShared = prData.comments.nodes.some((c: any) => c.body.includes(`${useShareUrl()}/s/${shareId}`))
+        await updateComment(`${response}${footer({ image: !hasShared })}`)
+      } else {
+        await handlePrReviewOrComment(response)
       }
-      const hasShared = prData.comments.nodes.some((c) => c.body.includes(`${useShareUrl()}/s/${shareId}`))
-      await updateComment(`${response}${footer({ image: !hasShared })}`)
     }
     // Fork PR
     else {
@@ -182,9 +235,11 @@ try {
       if (await branchIsDirty()) {
         const summary = await summarize(response)
         await pushToForkBranch(summary, prData)
+        const hasShared = prData.comments.nodes.some((c: any) => c.body.includes(`${useShareUrl()}/s/${shareId}`))
+        await updateComment(`${response}${footer({ image: !hasShared })}`)
+      } else {
+        await handlePrReviewOrComment(response)
       }
-      const hasShared = prData.comments.nodes.some((c) => c.body.includes(`${useShareUrl()}/s/${shareId}`))
-      await updateComment(`${response}${footer({ image: !hasShared })}`)
     }
   }
   // Issue
@@ -227,12 +282,12 @@ try {
 }
 process.exit(exitCode)
 
-function createNavi() {
+function createOpencode() {
   const host = "127.0.0.1"
   const port = 4096
   const url = `http://${host}:${port}`
   const proc = spawn(`navi`, [`serve`, `--hostname=${host}`, `--port=${port}`])
-  const client = createNaviClient({ baseUrl: url })
+  const client = createOpencodeClient({ baseUrl: url })
 
   return {
     server: { url, close: () => proc.kill() },
@@ -243,8 +298,8 @@ function createNavi() {
 function assertPayloadKeyword() {
   const payload = useContext().payload as IssueCommentEvent | PullRequestReviewCommentEvent
   const body = payload.comment.body.trim()
-  if (!body.match(/(?:^|\s)\/navi(?=$|\s)/)) {
-    throw new Error("Comments must mention `/navi`")
+  if (!body.match(/(?:^|\s)(?:\/navi|\/oc)(?=$|\s)/)) {
+    throw new Error("Comments must mention `/navi` or `/oc`")
   }
 }
 
@@ -266,7 +321,7 @@ function getReviewCommentContext() {
   }
 }
 
-async function assertNaviConnected() {
+async function assertOpencodeConnected() {
   let retry = 0
   let connected = false
   do {
@@ -275,17 +330,17 @@ async function assertNaviConnected() {
         body: {
           service: "github-workflow",
           level: "info",
-          message: "Prepare to react to Github Workflow event",
+          message: "Prepare to react to GitHub Workflow event",
         },
       })
       connected = true
       break
-    } catch (e) { }
-    await Bun.sleep(300)
+    } catch {}
+    await sleep(300)
   } while (retry++ < 30)
 
   if (!connected) {
-    throw new Error("Failed to connect to Navi server")
+    throw new Error("Failed to connect to navi server")
   }
 }
 
@@ -365,11 +420,6 @@ function useShareUrl() {
   return isMock() ? "https://dev.navi.ai" : "https://navi.ai"
 }
 
-function isScheduleEvent() {
-  const context = useContext()
-  return context.eventName === "schedule"
-}
-
 async function getAccessToken() {
   const { repo } = useContext()
 
@@ -422,19 +472,19 @@ async function getUserPrompt() {
 
   let prompt = (() => {
     const body = payload.comment.body.trim()
-    if (body === "/navi") {
+    if (body === "/navi" || body === "/oc") {
       if (reviewContext) {
         return `Review this code change and suggest improvements for the commented lines:\n\nFile: ${reviewContext.file}\nLines: ${reviewContext.line}\n\n${reviewContext.diffHunk}`
       }
       return "Summarize this thread"
     }
-    if (body.includes("/navi")) {
+    if (body.includes("/navi") || body.includes("/oc")) {
       if (reviewContext) {
         return `${body}\n\nContext: You are reviewing a comment on file "${reviewContext.file}" at line ${reviewContext.line}.\n\nDiff context:\n${reviewContext.diffHunk}`
       }
       return body
     }
-    throw new Error("Comments must mention `/navi`")
+    throw new Error("Comments must mention `/navi` or `/oc`")
   })()
 
   // Handle images
@@ -500,7 +550,6 @@ async function subscribeSessionEvents() {
 
   const TOOL: Record<string, [string, string]> = {
     todowrite: ["Todo", "\x1b[33m\x1b[1m"],
-    todoread: ["Todo", "\x1b[33m\x1b[1m"],
     bash: ["Bash", "\x1b[31m\x1b[1m"],
     edit: ["Edit", "\x1b[32m\x1b[1m"],
     glob: ["Glob", "\x1b[34m\x1b[1m"],
@@ -518,70 +567,74 @@ async function subscribeSessionEvents() {
   const decoder = new TextDecoder()
 
   let text = ""
-    ; (async () => {
-      while (true) {
-        try {
-          const { done, value } = await reader.read()
-          if (done) break
+  void (async () => {
+    while (true) {
+      try {
+        const { done, value } = await reader.read()
+        if (done) break
 
-          const chunk = decoder.decode(value, { stream: true })
-          const lines = chunk.split("\n")
+        const chunk = decoder.decode(value, { stream: true })
+        const lines = chunk.split("\n")
 
-          for (const line of lines) {
-            if (!line.startsWith("data: ")) continue
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue
 
-            const jsonStr = line.slice(6).trim()
-            if (!jsonStr) continue
+          const jsonStr = line.slice(6).trim()
+          if (!jsonStr) continue
 
-            try {
-              const evt = JSON.parse(jsonStr)
+          try {
+            const evt = JSON.parse(jsonStr)
 
-              if (evt.type === "message.part.updated") {
-                if (evt.properties.part.sessionID !== session.id) continue
-                const part = evt.properties.part
+            if (evt.type === "message.part.updated") {
+              if (evt.properties.part.sessionID !== session.id) continue
+              const part = evt.properties.part
 
-                if (part.type === "tool" && part.state.status === "completed") {
-                  const [tool, color] = TOOL[part.tool] ?? [part.tool, "\x1b[34m\x1b[1m"]
-                  const title =
-                    part.state.title || Object.keys(part.state.input).length > 0
-                      ? JSON.stringify(part.state.input)
-                      : "Unknown"
+              if (part.type === "tool" && part.state.status === "completed") {
+                const [tool, color] = TOOL[part.tool] ?? [part.tool, "\x1b[34m\x1b[1m"]
+                const title =
+                  part.state.title || Object.keys(part.state.input).length > 0
+                    ? JSON.stringify(part.state.input)
+                    : "Unknown"
+                console.log()
+                console.log(`${color}|`, `\x1b[0m\x1b[2m ${tool.padEnd(7, " ")}`, "", `\x1b[0m${title}`)
+              }
+
+              if (part.type === "text") {
+                text = part.text
+
+                if (part.time?.end) {
                   console.log()
-                  console.log(color + `|`, "\x1b[0m\x1b[2m" + ` ${tool.padEnd(7, " ")}`, "", "\x1b[0m" + title)
-                }
-
-                if (part.type === "text") {
-                  text = part.text
-
-                  if (part.time?.end) {
-                    console.log()
-                    console.log(text)
-                    console.log()
-                    text = ""
-                  }
+                  console.log(text)
+                  console.log()
+                  text = ""
                 }
               }
-
-              if (evt.type === "session.updated") {
-                if (evt.properties.info.id !== session.id) continue
-                session = evt.properties.info
-              }
-            } catch (e) {
-              // Ignore parse errors
             }
+
+            if (evt.type === "session.updated") {
+              if (evt.properties.info.id !== session.id) continue
+              session = evt.properties.info
+            }
+          } catch {
+            // Ignore parse errors
           }
-        } catch (e) {
-          console.log("Subscribing to session events done", e)
-          break
         }
+      } catch (e) {
+        console.log("Subscribing to session events done", e)
+        break
       }
-    })()
+    }
+  })()
+}
+
+function isScheduleEvent() {
+  return useContext().eventName === "schedule"
 }
 
 async function summarize(response: string) {
   try {
     return await chat(`Summarize the following in less than 40 characters:\n\n${response}`)
-  } catch (e) {
+  } catch {
     if (isScheduleEvent()) {
       return "Scheduled task changes"
     }
@@ -595,8 +648,8 @@ async function resolveAgent(): Promise<string | undefined> {
   if (!envAgent) return undefined
 
   // Validate the agent exists and is a primary agent
-  const agents = await client.app.agents<true>()
-  const agent = agents.data?.find((a) => a.name === envAgent)
+  const agents = await client.agent.list<true>()
+  const agent = agents.data?.find((a: any) => a.name === envAgent)
 
   if (!agent) {
     console.warn(`agent "${envAgent}" not found. Falling back to default agent`)
@@ -612,17 +665,15 @@ async function resolveAgent(): Promise<string | undefined> {
 }
 
 async function chat(text: string, files: PromptFiles = []) {
-  console.log("Sending message to Navi...")
+  console.log("Sending message to navi...")
   const { providerID, modelID } = useEnvModel()
   const agent = await resolveAgent()
 
-  const chat = await client.session.prompt<true>({
-    path: { id: session.id },
+  const chat = await client.session.chat<true>({
+    path: session,
     body: {
-      model: {
-        providerID,
-        modelID,
-      },
+      providerID,
+      modelID,
       agent,
       parts: [
         {
@@ -783,7 +834,7 @@ async function assertPermissions() {
     console.log(`  permission: ${permission}`)
   } catch (error) {
     console.error(`Failed to check permissions: ${error}`)
-    throw new Error(`Failed to check permissions for user ${actor}: ${error}`)
+    throw new Error(`Failed to check permissions for user ${actor}: ${error}`, { cause: error })
   }
 
   if (!["admin", "write"].includes(permission)) throw new Error(`User ${actor} does not have write permissions`)
@@ -830,7 +881,7 @@ function footer(opts?: { image?: boolean }) {
 
     return `<a href="${useShareUrl()}/s/${shareId}"><img width="200" alt="${titleAlt}" src="https://social-cards.sst.dev/navi-share/${title64}.png?model=${providerID}/${modelID}&version=${session.version}&id=${shareId}" /></a>\n`
   })()
-  const shareUrl = shareId ? `[Navi session](${useShareUrl()}/s/${shareId})&nbsp;&nbsp;|&nbsp;&nbsp;` : ""
+  const shareUrl = shareId ? `[navi session](${useShareUrl()}/s/${shareId})&nbsp;&nbsp;|&nbsp;&nbsp;` : ""
   return `\n\n${image}${shareUrl}[github run](${useEnvRunUrl()})`
 }
 
@@ -1057,3 +1108,84 @@ async function revokeAppToken() {
     },
   })
 }
+
+function isReviewRequest(prompt: string, eventName?: string): boolean {
+  if (eventName === "pull_request" || eventName === "pull_request_review_comment") return true
+  const lower = (prompt || "").toLowerCase()
+  return (
+    lower.includes("/review") ||
+    lower.includes("/ocr-review") ||
+    lower.includes("/navi review") ||
+    lower.includes("/oc review") ||
+    lower.startsWith("review ") ||
+    lower.includes("code review") ||
+    lower.includes("review this") ||
+    lower.includes("review the") ||
+    lower.includes("review pr")
+  )
+}
+
+function parseReviewFindings(text: string) {
+  const findings: any[] = []
+  if (!text) return findings
+
+  const codeBlockRegex = /```(?:json)?\s*([\s\S]*?)\s*```/gi
+  let match: RegExpExecArray | null
+  while ((match = codeBlockRegex.exec(text)) !== null) {
+    const raw = (match[1] || "").trim()
+    if (!raw.startsWith("{") && !raw.startsWith("[")) continue
+    try {
+      const parsed = JSON.parse(raw)
+      const list = Array.isArray(parsed) ? parsed : Array.isArray(parsed?.comments) ? parsed.comments : []
+      for (const item of list) {
+        if (item && typeof item === "object" && item.path) {
+          const startLine = Number(item.start_line || item.line || item.startLine || 1)
+          const endLine = Number(item.end_line || item.line || item.endLine || startLine)
+          findings.push({
+            path: String(item.path).trim(),
+            start_line: startLine,
+            end_line: endLine,
+            severity: item.severity ? String(item.severity).toLowerCase() : undefined,
+            category: item.category ? String(item.category).toLowerCase() : undefined,
+            message: item.message || item.content || item.description || "",
+            suggestion_code: item.suggestion_code || item.suggestion,
+            existing_code: item.existing_code,
+          })
+        }
+      }
+      if (findings.length > 0) return findings
+    } catch {
+      // Continue searching
+    }
+  }
+
+  const mdPattern = /(?:###|\*\*)\s*(?:\[(.*?)\])?\s*(?:File:\s*)?`?([a-zA-Z0-9_./\\-]+)`?:(\d+)(?:-(\d+))?/gi
+  while ((match = mdPattern.exec(text)) !== null) {
+    const tag = match[1] || ""
+    const file = match[2] || ""
+    const startLine = parseInt(match[3] || "1", 10)
+    const endLine = match[4] ? parseInt(match[4], 10) : startLine
+    let severity: any = undefined
+    let category: any = undefined
+    if (tag) {
+      const parts = tag.split(/[·,\s]+/).map((s) => s.trim().toLowerCase())
+      for (const p of parts) {
+        if (["critical", "high", "medium", "low"].includes(p)) severity = p
+        if (["bug", "security", "performance", "maintainability", "test", "style", "documentation", "other"].includes(p)) category = p
+      }
+    }
+    const nextIdx = text.indexOf("###", match.index + match[0].length)
+    const block = text.slice(match.index + match[0].length, nextIdx !== -1 ? nextIdx : undefined).trim()
+    findings.push({
+      path: file,
+      start_line: startLine,
+      end_line: endLine,
+      severity,
+      category,
+      message: block,
+    })
+  }
+
+  return findings
+}
+

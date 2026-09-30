@@ -1,10 +1,13 @@
 import path from "path"
-import { Global } from "@/global"
+import { Global } from "@navi-ai/core/global"
 import { Filesystem } from "@/util/filesystem"
 import { onMount } from "solid-js"
 import { createStore } from "solid-js/store"
 import { createSimpleContext } from "../../context/helper"
 import { appendFile, writeFile } from "fs/promises"
+import * as Log from "@navi-ai/core/util/log"
+
+const log = Log.create({ service: "frecency" })
 
 function calculateFrecency(entry?: { frequency: number; lastOpen: number }): number {
   if (!entry) return 0
@@ -54,7 +57,9 @@ export const { use: useFrecency, provider: FrecencyProvider } = createSimpleCont
 
       if (sorted.length > 0) {
         const content = sorted.map((entry) => JSON.stringify(entry)).join("\n") + "\n"
-        writeFile(frecencyPath, content).catch(() => {})
+        writeFile(frecencyPath, content).catch((e) => {
+            log.debug("failed to persist frecency", { error: String(e) })
+          })
       }
     })
 
@@ -69,7 +74,9 @@ export const { use: useFrecency, provider: FrecencyProvider } = createSimpleCont
         lastOpen: Date.now(),
       }
       setStore("data", absolutePath, newEntry)
-      appendFile(frecencyPath, JSON.stringify({ path: absolutePath, ...newEntry }) + "\n").catch(() => {})
+      appendFile(frecencyPath, JSON.stringify({ path: absolutePath, ...newEntry }) + "\n").catch((e) => {
+            log.debug("failed to persist frecency", { error: String(e) })
+          })
 
       if (Object.keys(store.data).length > MAX_FRECENCY_ENTRIES) {
         const sorted = Object.entries(store.data)
@@ -77,7 +84,9 @@ export const { use: useFrecency, provider: FrecencyProvider } = createSimpleCont
           .slice(0, MAX_FRECENCY_ENTRIES)
         setStore("data", Object.fromEntries(sorted))
         const content = sorted.map(([path, entry]) => JSON.stringify({ path, ...entry })).join("\n") + "\n"
-        writeFile(frecencyPath, content).catch(() => {})
+        writeFile(frecencyPath, content).catch((e) => {
+            log.debug("failed to persist frecency", { error: String(e) })
+          })
       }
     }
 
@@ -88,4 +97,3 @@ export const { use: useFrecency, provider: FrecencyProvider } = createSimpleCont
     }
   },
 })
-

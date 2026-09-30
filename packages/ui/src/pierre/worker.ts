@@ -21,10 +21,11 @@ function createPool(lineDiffType: "none" | "word-alt") {
     {
       theme: "Navi",
       lineDiffType,
+      preferredHighlighter: "shiki-wasm",
     },
   )
 
-  pool.initialize()
+  void pool.initialize()
   return pool
 }
 

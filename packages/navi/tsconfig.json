@@ -1,67 +1,18 @@
 {
   "$schema": "https://json.schemastore.org/tsconfig",
+  "extends": "@tsconfig/bun/tsconfig.json",
   "compilerOptions": {
-    "target": "ESNext",
-    "module": "ESNext",
-    "moduleResolution": "bundler",
-    "moduleDetection": "force",
     "jsx": "preserve",
     "jsxImportSource": "@opentui/solid",
-    "lib": [
-      "ESNext",
-      "DOM",
-      "DOM.Iterable"
-    ],
-    "types": [
-      "bun",
-      "node"
-    ],
+    "lib": ["ESNext", "DOM", "DOM.Iterable"],
+    "types": [],
     "strict": true,
-    "esModuleInterop": true,
-    "skipLibCheck": true,
-    "noUncheckedIndexedAccess": false,
-    "allowImportingTsExtensions": true,
-    "noEmit": true,
-    "customConditions": [
-      "browser"
-    ],
+    "noUncheckedIndexedAccess": true,
+    "customConditions": ["browser"],
     "paths": {
-      "@/*": [
-        "./src/*"
-      ],
-      "@tui/*": [
-        "./src/cli/cmd/tui/*"
-      ],
-      "@navi-ai/util/*": [
-        "../util/src/*"
-      ],
-      "@navi-ai/sdk/*": [
-        "../sdk/js/src/*"
-      ],
-      "@navi-ai/native": [
-        "../native/src/index.ts"
-      ]
-    },
-    "incremental": true,
-    "composite": true,
-    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.tsbuildinfo"
-  },
-  "include": [
-    "src/**/*",
-    "parsers-config.ts",
-    "script/**/*",
-    "../plugin/script/**/*",
-    "../sdk/js/script/**/*",
-    "../../script/**/*",
-    "test/**/*",
-    "../util/src/**/*",
-    "../sdk/js/src/**/*",
-    "../native/src/**/*"
-  ],
-  "exclude": [
-    "node_modules",
-    "dist",
-    "**/*.test.ts",
-    "**/*.spec.ts"
-  ]
+      "@/*": ["./src/*"],
+      "@tui/*": ["./src/cli/cmd/tui/*"],
+      "@test/*": ["./test/*"]
+    }
+  }
 }

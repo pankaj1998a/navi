@@ -1,6 +1,6 @@
 import type { Hooks, AuthHook, AuthOuathResult, PluginInput } from "@navi-ai/plugin"
 import { Auth } from "../auth"
-import { Log } from "../util/log"
+import * as Log from "@navi-ai/core/util/log"
 
 const log = Log.create({ service: "kilocode" })
 

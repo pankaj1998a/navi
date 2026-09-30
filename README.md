@@ -1,176 +1,141 @@
-# Navi AI Agent
+<p align="center">
+  <a href="https://navi.ai">
+    <picture>
+      <source srcset="packages/console/app/src/asset/logo-ornate-dark.svg" media="(prefers-color-scheme: dark)">
+      <source srcset="packages/console/app/src/asset/logo-ornate-light.svg" media="(prefers-color-scheme: light)">
+      <img src="packages/console/app/src/asset/logo-ornate-light.svg" alt="Navi logo">
+    </picture>
+  </a>
+</p>
+<p align="center">The open source AI coding agent.</p>
+<p align="center">
+  <a href="https://navi.ai/discord"><img alt="Discord" src="https://img.shields.io/discord/1391832426048651334?style=flat-square&label=discord" /></a>
+  <a href="https://www.npmjs.com/package/navi-ai"><img alt="npm" src="https://img.shields.io/npm/v/navi-ai?style=flat-square" /></a>
+  <a href="https://github.com/anomalyco/navi/actions/workflows/publish.yml"><img alt="Build status" src="https://img.shields.io/github/actions/workflow/status/anomalyco/navi/publish.yml?style=flat-square&branch=dev" /></a>
+</p>
 
-> AI-powered coding assistant for your terminal with parallel agent execution
+<p align="center">
+  <a href="README.md">English</a> |
+  <a href="README.zh.md">简体中文</a> |
+  <a href="README.zht.md">繁體中文</a> |
+  <a href="README.ko.md">한국어</a> |
+  <a href="README.de.md">Deutsch</a> |
+  <a href="README.es.md">Español</a> |
+  <a href="README.fr.md">Français</a> |
+  <a href="README.it.md">Italiano</a> |
+  <a href="README.da.md">Dansk</a> |
+  <a href="README.ja.md">日本語</a> |
+  <a href="README.pl.md">Polski</a> |
+  <a href="README.ru.md">Русский</a> |
+  <a href="README.bs.md">Bosanski</a> |
+  <a href="README.ar.md">العربية</a> |
+  <a href="README.no.md">Norsk</a> |
+  <a href="README.br.md">Português (Brasil)</a> |
+  <a href="README.th.md">ไทย</a> |
+  <a href="README.tr.md">Türkçe</a> |
+  <a href="README.uk.md">Українська</a> |
+  <a href="README.bn.md">বাংলা</a> |
+  <a href="README.gr.md">Ελληνικά</a> |
+  <a href="README.vi.md">Tiếng Việt</a>
+</p>
 
-[![npm version](https://badge.fury.io/js/navi-ai-agent.svg)](https://www.npmjs.com/package/navi-ai-agent)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-
-Navi is a powerful AI coding assistant that runs directly in your terminal. It features a beautiful TUI (Terminal User Interface) and supports multiple AI providers including Claude, GPT, Gemini, and more. Navi is built for performance and scale, providing a complete development cycle directly from your command line.
-
-## ✨ Features
-
-- 🚀 **Parallel Agent Execution** - Run multiple AI agents simultaneously to solve complex tasks.
-- 🎨 **Beautiful TUI** - A modern, responsive terminal interface with multiple themes (Catppuccin, Tokyo Night, etc.).
-- 🔌 **Multi-Provider Support** - Native support for Anthropic, OpenAI, Google Gemini, GitHub Copilot, and 75+ providers via OpenRouter.
-- 🛠️ **Tool Integration** - AI can read/write files, run shell commands, fetch web content, and search your codebase.
-- 📦 **MCP Support** - Full support for the Model Context Protocol (MCP) to extend Navi with custom tools and resources.
-- 🔒 **Permission System** - You're always in control. Navi asks for permission before running potentially destructive commands.
-
-## 📦 Installation
-
-### Method 1: Quick Install (Recommended)
-
-**Mac/Linux:**
-```bash
-curl -fsSL https://github.com/pankaj1998a/navi/raw/main/install | bash
-```
-
-**Windows (PowerShell):**
-```powershell
-irm https://github.com/pankaj1998a/navi/raw/main/install.ps1 | iex
-```
-
-### Method 2: Using npm
-
-```bash
-npm install -g navi-ai-agent
-```
-
-**Using pnpm:**
-```bash
-pnpm add -g navi-ai-agent
-```
-
-**Using yarn:**
-```bash
-yarn global add navi-ai-agent
-```
-
-**Using bun:**
-```bash
-bun add -g navi-ai-agent
-```
-
-### Method 3: Install from Source
-
-If you have cloned the repository, run the installer for your platform:
-
-- **Windows**: `.\install.ps1` (PowerShell)
-- **Mac/Linux**: `./install.sh`
-
-**Manual Installation:**
-```bash
-# 1. Clone the repo
-git clone https://github.com/pankaj1998a/navi.git
-cd navi
-
-# 2. Install dependencies (requires Bun)
-bun install
-
-# 3. Build for your platform
-cd packages/navi
-bun run build --single
-
-# 4. Run directly
-./dist/navi-$(uname -s | tr '[:upper:]' '[:lower:]')-$(uname -m | sed 's/x86_64/x64/' | sed 's/aarch64/arm64/')/bin/navi
-```
-
-### Method 4: Development Mode
-
-For active development and testing:
-
-```bash
-git clone https://github.com/pankaj1998a/navi.git
-cd navi
-bun install
-cd packages/navi
-bun link
-```
-
-This makes the `navi` command available using the latest code from your local machine.
-
-## 🔄 Update & Uninstall
-
-**Quick Install Method:**
-- **Update**: Rerun the quick install command
-- **Uninstall**: Remove the installed files from `~/.navi/bin` and remove PATH additions
-
-**npm Method:**
-- **Update**: `npm update -g navi-ai-agent`
-- **Uninstall**: `npm uninstall -g navi-ai-agent`
-
-**Source/Development Method:**
-- **Update**: `git pull` and `bun install`
-- **Uninstall**: Run `bun unlink` and remove the cloned directory
-
-## 🚀 Quick Start
-
-```bash
-# Start the interactive TUI
-navi
-
-# Ask a quick question or give a command
-navi "Explain how the authentication logic works in this project"
-
-# Continue your last session
-navi -c
-
-# Use a specific model for this session
-navi -m openai/gpt-5.2-codex
-```
-
-## ⌨️ Keyboard Shortcuts
-
-| Shortcut | Action |
-|----------|--------|
-| `Ctrl+P` | Open command palette |
-| `Ctrl+X M` | Switch AI Model |
-| `Ctrl+X L` | Switch/List Sessions |
-| `Ctrl+X N` | Start New Session |
-| `Ctrl+X T` | Change Theme |
-| `Esc` | Stop AI generation / Cancel |
-| `Ctrl+C` | Exit Navi |
-
-## 🔐 Connect Providers
-
-On your first run, Navi will guide you through connecting your preferred AI providers. You can also manage connections anytime:
-
-```bash
-navi
-# Press Ctrl+P and type "connect" to add new providers
-```
-
-Supported providers include:
-- **Anthropic** (Claude 3.5 Sonnet/Opus)
-- **OpenAI** (GPT-5.2, GPT-5.2 Codex, GPT-4.1, GPT-4o)
-- **Google** (Gemini 1.5 Pro/Flash)
-- **GitHub Copilot**
-- **OpenRouter** (Access to Llama 3, Mistral, etc.)
-
-## 📁 Configuration
-
-Navi works out of the box, but you can customize it via `navi.json` in your project root or `~/.config/navi/navi.json` for global settings:
-
-```json
-{
-  "model": "anthropic/claude-3-5-sonnet-latest",
-  "theme": "catppuccin-mocha",
-  "editor": "code"
-}
-```
-
-## 📖 Documentation
-
-For full documentation, guides, and advanced configuration, visit [navi.ai/docs](https://navi.ai/docs)
-
-## 🤝 Contributing
-
-Navi is an open-source project. We welcome contributions of all kinds! Please see our [Contributing Guide](https://github.com/pankaj1998a/navi/blob/main/CONTRIBUTING.md).
-
-## 📄 License
-
-MIT © Pankaj
+[![Navi Terminal UI](packages/web/src/assets/lander/screenshot.png)](https://navi.ai)
 
 ---
 
-**Navi** - Your terminal, supercharged with AI 🚀
+### Installation
+
+```bash
+# YOLO
+curl -fsSL https://navi.ai/install | bash
+
+# Package managers
+npm i -g navi-ai@latest        # or bun/pnpm/yarn
+scoop install navi             # Windows
+choco install navi             # Windows
+brew install anomalyco/tap/navi # macOS and Linux (recommended, always up to date)
+brew install navi              # macOS and Linux (official brew formula, updated less)
+sudo pacman -S navi            # Arch Linux (Stable)
+paru -S navi-bin               # Arch Linux (Latest from AUR)
+mise use -g navi               # Any OS
+nix run nixpkgs#navi           # or github:anomalyco/navi for latest dev branch
+```
+
+> [!TIP]
+> Remove versions older than 0.1.x before installing.
+
+### Desktop App (BETA)
+
+Navi is also available as a desktop application. Download directly from the [releases page](https://github.com/anomalyco/navi/releases) or [navi.ai/download](https://navi.ai/download).
+
+| Platform              | Download                           |
+| --------------------- | ---------------------------------- |
+| macOS (Apple Silicon) | `navi-desktop-mac-arm64.dmg`   |
+| macOS (Intel)         | `navi-desktop-mac-x64.dmg`     |
+| Windows               | `navi-desktop-windows-x64.exe` |
+| Linux                 | `.deb`, `.rpm`, or `.AppImage`     |
+
+```bash
+# macOS (Homebrew)
+brew install --cask navi-desktop
+# Windows (Scoop)
+scoop bucket add extras; scoop install extras/navi-desktop
+```
+
+#### Installation Directory
+
+The install script respects the following priority order for the installation path:
+
+1. `$NAVI_INSTALL_DIR` - Custom installation directory
+2. `$XDG_BIN_DIR` - XDG Base Directory Specification compliant path
+3. `$HOME/bin` - Standard user binary directory (if it exists or can be created)
+4. `$HOME/.navi/bin` - Default fallback
+
+```bash
+# Examples
+NAVI_INSTALL_DIR=/usr/local/bin curl -fsSL https://navi.ai/install | bash
+XDG_BIN_DIR=$HOME/.local/bin curl -fsSL https://navi.ai/install | bash
+```
+
+### Agents
+
+Navi includes two built-in agents you can switch between with the `Tab` key.
+
+- **build** - Default, full-access agent for development work
+- **plan** - Read-only agent for analysis and code exploration
+  - Denies file edits by default
+  - Asks permission before running bash commands
+  - Ideal for exploring unfamiliar codebases or planning changes
+
+Also included is a **general** subagent for complex searches and multistep tasks.
+This is used internally and can be invoked using `@general` in messages.
+
+Learn more about [agents](https://navi.ai/docs/agents).
+
+### Documentation
+
+For more info on how to configure Navi, [**head over to our docs**](https://navi.ai/docs).
+
+### Contributing
+
+If you're interested in contributing to Navi, please read our [contributing docs](./CONTRIBUTING.md) before submitting a pull request.
+
+### Building on Navi
+
+If you are working on a project that's related to Navi and is using "navi" as part of its name, for example "navi-dashboard" or "navi-mobile", please add a note to your README to clarify that it is not built by the Navi team and is not affiliated with us in any way.
+
+### FAQ
+
+#### How is this different from Claude Code?
+
+It's very similar to Claude Code in terms of capability. Here are the key differences:
+
+- 100% open source
+- Not coupled to any provider. Although we recommend the models we provide through [Navi Zen](https://navi.ai/zen), Navi can be used with Claude, OpenAI, Google, or even local models. As models evolve, the gaps between them will close and pricing will drop, so being provider-agnostic is important.
+- Built-in opt-in LSP support
+- A focus on TUI. Navi is built by neovim users and the creators of [terminal.shop](https://terminal.shop); we are going to push the limits of what's possible in the terminal.
+- A client/server architecture. This, for example, can allow Navi to run on your computer while you drive it remotely from a mobile app, meaning that the TUI frontend is just one of the possible clients.
+
+---
+
+**Join our community** [Discord](https://discord.gg/navi) | [X.com](https://x.com/navi)

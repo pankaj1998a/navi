@@ -1,173 +1,181 @@
-import { Effect, Layer, Schema, ServiceMap, Stream } from "effect"
+import { Effect, Layer, Schema, Context, Stream } from "effect"
 import { FetchHttpClient, HttpClient, HttpClientRequest, HttpClientResponse } from "effect/unstable/http"
-import * as CrossSpawnSpawner from "@/effect/cross-spawn-spawner"
-import { makeRuntime } from "@/effect/run-service"
+import { CrossSpawnSpawner } from "@navi-ai/core/cross-spawn-spawner"
 import { withTransientReadRetry } from "@/util/effect-http-client"
 import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process"
 import path from "path"
 import z from "zod"
 import { BusEvent } from "@/bus/bus-event"
-import { Flag } from "../flag/flag"
-import { Log } from "../util/log"
-import { CHANNEL as channel, VERSION as version } from "./meta"
-
+import { Flag } from "@navi-ai/core/flag/flag"
+import * as Log from "@navi-ai/core/util/log"
+import { makeRuntime } from "@navi-ai/core/effect/runtime"
 import semver from "semver"
+import { InstallationChannel, InstallationVersion } from "@navi-ai/core/installation/version"
+import { NpmConfig } from "@navi-ai/core/npm-config"
 
-export namespace Installation {
-  const log = Log.create({ service: "installation" })
+const log = Log.create({ service: "installation" })
 
-  export type Method = "curl" | "npm" | "yarn" | "pnpm" | "bun" | "brew" | "scoop" | "choco" | "unknown"
+export type Method = "curl" | "npm" | "yarn" | "pnpm" | "bun" | "brew" | "scoop" | "choco" | "unknown"
 
-  export type ReleaseType = "patch" | "minor" | "major"
+export type ReleaseType = "patch" | "minor" | "major"
 
-  export const Event = {
-    Updated: BusEvent.define(
-      "installation.updated",
-      z.object({
-        version: z.string(),
-      }),
-    ),
-    UpdateAvailable: BusEvent.define(
-      "installation.update-available",
-      z.object({
-        version: z.string(),
-      }),
-    ),
-  }
+export const Event = {
+  Updated: BusEvent.define(
+    "installation.updated",
+    Schema.Struct({
+      version: Schema.String,
+    }),
+  ),
+  UpdateAvailable: BusEvent.define(
+    "installation.update-available",
+    Schema.Struct({
+      version: Schema.String,
+    }),
+  ),
+}
 
-  export function getReleaseType(current: string, latest: string): ReleaseType {
-    const currMajor = semver.major(current)
-    const currMinor = semver.minor(current)
-    const newMajor = semver.major(latest)
-    const newMinor = semver.minor(latest)
+export function getReleaseType(current: string, latest: string): ReleaseType {
+  const currMajor = semver.major(current)
+  const currMinor = semver.minor(current)
+  const newMajor = semver.major(latest)
+  const newMinor = semver.minor(latest)
 
-    if (newMajor > currMajor) return "major"
-    if (newMinor > currMinor) return "minor"
-    return "patch"
-  }
+  if (newMajor > currMajor) return "major"
+  if (newMinor > currMinor) return "minor"
+  return "patch"
+}
 
-  export const Info = z
-    .object({
-      version: z.string(),
-      latest: z.string(),
-    })
-    .meta({
-      ref: "InstallationInfo",
-    })
-  export type Info = z.infer<typeof Info>
-
-  export const VERSION = version
-  export const CHANNEL = channel
-  export const USER_AGENT = `Navi/${CHANNEL}/${VERSION}/${Flag.NAVI_CLIENT}`
-
-  export function isPreview() {
-    return CHANNEL !== "latest"
-  }
-
-  export function isLocal() {
-    return CHANNEL === "local"
-  }
-
-  export class UpgradeFailedError extends Schema.TaggedErrorClass<UpgradeFailedError>()("UpgradeFailedError", {
-    stderr: Schema.String,
-  }) {}
-
-  // Response schemas for external version APIs
-  const GitHubRelease = Schema.Struct({ tag_name: Schema.String })
-  const NpmPackage = Schema.Struct({ version: Schema.String })
-  const BrewFormula = Schema.Struct({ versions: Schema.Struct({ stable: Schema.String }) })
-  const BrewInfoV2 = Schema.Struct({
-    formulae: Schema.Array(Schema.Struct({ versions: Schema.Struct({ stable: Schema.String }) })),
+export const Info = z
+  .object({
+    version: z.string(),
+    latest: z.string(),
   })
-  const ChocoPackage = Schema.Struct({
-    d: Schema.Struct({ results: Schema.Array(Schema.Struct({ Version: Schema.String })) }),
+  .meta({
+    ref: "InstallationInfo",
   })
-  const ScoopManifest = NpmPackage
+export type Info = z.infer<typeof Info>
 
-  export interface Interface {
-    readonly info: () => Effect.Effect<Info>
-    readonly method: () => Effect.Effect<Method>
-    readonly latest: (method?: Method) => Effect.Effect<string>
-    readonly upgrade: (method: Method, target: string) => Effect.Effect<void, UpgradeFailedError>
-  }
+export const USER_AGENT = `navi/${InstallationChannel}/${InstallationVersion}/${Flag.NAVI_CLIENT}`
 
-  export class Service extends ServiceMap.Service<Service, Interface>()("@navi/Installation") {}
+export function isPreview() {
+  return InstallationChannel !== "latest"
+}
 
-  export const layer: Layer.Layer<Service, never, HttpClient.HttpClient | ChildProcessSpawner.ChildProcessSpawner> =
-    Layer.effect(
-      Service,
-      Effect.gen(function* () {
-        const http = yield* HttpClient.HttpClient
-        const httpOk = HttpClient.filterStatusOk(withTransientReadRetry(http))
-        const spawner = yield* ChildProcessSpawner.ChildProcessSpawner
+export function isLocal() {
+  return InstallationChannel === "local"
+}
 
-        const text = Effect.fnUntraced(
-          function* (cmd: string[], opts?: { cwd?: string; env?: Record<string, string> }) {
-            const proc = ChildProcess.make(cmd[0], cmd.slice(1), {
-              cwd: opts?.cwd,
-              env: opts?.env,
-              extendEnv: true,
-            })
-            const handle = yield* spawner.spawn(proc)
-            const out = yield* Stream.mkString(Stream.decodeText(handle.stdout))
-            yield* handle.exitCode
-            return out
-          },
-          Effect.scoped,
-          Effect.catch(() => Effect.succeed("")),
-        )
+export class UpgradeFailedError extends Schema.TaggedErrorClass<UpgradeFailedError>()("UpgradeFailedError", {
+  stderr: Schema.String,
+}) {}
 
-        const run = Effect.fnUntraced(
-          function* (cmd: string[], opts?: { cwd?: string; env?: Record<string, string> }) {
-            const proc = ChildProcess.make(cmd[0], cmd.slice(1), {
-              cwd: opts?.cwd,
-              env: opts?.env,
-              extendEnv: true,
-            })
-            const handle = yield* spawner.spawn(proc)
-            const [stdout, stderr] = yield* Effect.all(
-              [Stream.mkString(Stream.decodeText(handle.stdout)), Stream.mkString(Stream.decodeText(handle.stderr))],
-              { concurrency: 2 },
-            )
-            const code = yield* handle.exitCode
-            return { code, stdout, stderr }
-          },
-          Effect.scoped,
-          Effect.catch(() => Effect.succeed({ code: ChildProcessSpawner.ExitCode(1), stdout: "", stderr: "" })),
-        )
+// Response schemas for external version APIs
+const GitHubRelease = Schema.Struct({ tag_name: Schema.String })
+const NpmPackage = Schema.Struct({ version: Schema.String })
+const BrewFormula = Schema.Struct({ versions: Schema.Struct({ stable: Schema.String }) })
+const BrewInfoV2 = Schema.Struct({
+  formulae: Schema.Array(Schema.Struct({ versions: Schema.Struct({ stable: Schema.String }) })),
+})
+const ChocoPackage = Schema.Struct({
+  d: Schema.Struct({ results: Schema.Array(Schema.Struct({ Version: Schema.String })) }),
+})
+const ScoopManifest = NpmPackage
 
-        const getBrewFormula = Effect.fnUntraced(function* () {
-          const tapFormula = yield* text(["brew", "list", "--formula", "anomalyco/tap/Navi"])
-          if (tapFormula.includes("Navi")) return "anomalyco/tap/Navi"
-          const coreFormula = yield* text(["brew", "list", "--formula", "Navi"])
-          if (coreFormula.includes("Navi")) return "Navi"
-          return "Navi"
-        })
+export interface Interface {
+  readonly info: () => Effect.Effect<Info>
+  readonly method: () => Effect.Effect<Method>
+  readonly latest: (method?: Method) => Effect.Effect<string>
+  readonly upgrade: (method: Method, target: string) => Effect.Effect<void, UpgradeFailedError>
+}
 
-        const upgradeCurl = Effect.fnUntraced(
-          function* (target: string) {
-            const response = yield* httpOk.execute(HttpClientRequest.get("https://Navi.ai/install"))
-            const body = yield* response.text
-            const bodyBytes = new TextEncoder().encode(body)
-            const proc = ChildProcess.make("bash", [], {
-              stdin: Stream.make(bodyBytes),
-              env: { VERSION: target },
-              extendEnv: true,
-            })
-            const handle = yield* spawner.spawn(proc)
-            const [stdout, stderr] = yield* Effect.all(
-              [Stream.mkString(Stream.decodeText(handle.stdout)), Stream.mkString(Stream.decodeText(handle.stderr))],
-              { concurrency: 2 },
-            )
-            const code = yield* handle.exitCode
-            return { code, stdout, stderr }
-          },
-          Effect.scoped,
-          Effect.orDie,
-        )
+export class Service extends Context.Service<Service, Interface>()("@navi/Installation") {}
 
-        const methodImpl = Effect.fn("Installation.method")(function* () {
-          if (process.execPath.includes(path.join(".Navi", "bin"))) return "curl" as Method
+export const layer: Layer.Layer<Service, never, HttpClient.HttpClient | ChildProcessSpawner.ChildProcessSpawner> =
+  Layer.effect(
+    Service,
+    Effect.gen(function* () {
+      const http = yield* HttpClient.HttpClient
+      const httpOk = HttpClient.filterStatusOk(withTransientReadRetry(http))
+      const spawner = yield* ChildProcessSpawner.ChildProcessSpawner
+
+      const text = Effect.fnUntraced(
+        function* (cmd: string[], opts?: { cwd?: string; env?: Record<string, string> }) {
+          const binary = cmd[0]
+          if (!binary) return ""
+          const proc = ChildProcess.make(binary, cmd.slice(1), {
+            cwd: opts?.cwd,
+            env: opts?.env,
+            extendEnv: true,
+          })
+          const handle = yield* spawner.spawn(proc)
+          const out = yield* Stream.mkString(Stream.decodeText(handle.stdout))
+          yield* handle.exitCode
+          return out
+        },
+        Effect.scoped,
+        Effect.catch(() => Effect.succeed("")),
+      )
+
+      const run = Effect.fnUntraced(
+        function* (cmd: string[], opts?: { cwd?: string; env?: Record<string, string> }) {
+          const binary = cmd[0]
+          if (!binary) return { code: ChildProcessSpawner.ExitCode(1), stdout: "", stderr: "" }
+          const proc = ChildProcess.make(binary, cmd.slice(1), {
+            cwd: opts?.cwd,
+            env: opts?.env,
+            extendEnv: true,
+          })
+          const handle = yield* spawner.spawn(proc)
+          const [stdout, stderr] = yield* Effect.all(
+            [Stream.mkString(Stream.decodeText(handle.stdout)), Stream.mkString(Stream.decodeText(handle.stderr))],
+            { concurrency: 2 },
+          )
+          const code = yield* handle.exitCode
+          return { code, stdout, stderr }
+        },
+        Effect.scoped,
+        Effect.catch(() => Effect.succeed({ code: ChildProcessSpawner.ExitCode(1), stdout: "", stderr: "" })),
+      )
+
+      const getBrewFormula = Effect.fnUntraced(function* () {
+        const tapFormula = yield* text(["brew", "list", "--formula", "anomalyco/tap/navi"])
+        if (tapFormula.includes("navi")) return "anomalyco/tap/navi"
+        const coreFormula = yield* text(["brew", "list", "--formula", "navi"])
+        if (coreFormula.includes("navi")) return "navi"
+        return "navi"
+      })
+
+      const upgradeCurl = Effect.fnUntraced(
+        function* (target: string) {
+          const response = yield* httpOk.execute(HttpClientRequest.get("https://navi.ai/install"))
+          const body = yield* response.text
+          const bodyBytes = new TextEncoder().encode(body)
+          const proc = ChildProcess.make("bash", [], {
+            stdin: Stream.make(bodyBytes),
+            env: { VERSION: target },
+            extendEnv: true,
+          })
+          const handle = yield* spawner.spawn(proc)
+          const [stdout, stderr] = yield* Effect.all(
+            [Stream.mkString(Stream.decodeText(handle.stdout)), Stream.mkString(Stream.decodeText(handle.stderr))],
+            { concurrency: 2 },
+          )
+          const code = yield* handle.exitCode
+          return { code, stdout, stderr }
+        },
+        Effect.scoped,
+        Effect.orDie,
+      )
+
+      const result: Interface = {
+        info: Effect.fn("Installation.info")(function* () {
+          return {
+            version: InstallationVersion,
+            latest: yield* result.latest(),
+          }
+        }),
+        method: Effect.fn("Installation.method")(function* () {
+          if (process.execPath.includes(path.join(".navi", "bin"))) return "curl" as Method
           if (process.execPath.includes(path.join(".local", "bin"))) return "curl" as Method
           const exec = process.execPath.toLowerCase()
 
@@ -176,9 +184,9 @@ export namespace Installation {
             { name: "yarn", command: () => text(["yarn", "global", "list"]) },
             { name: "pnpm", command: () => text(["pnpm", "list", "-g", "--depth=0"]) },
             { name: "bun", command: () => text(["bun", "pm", "ls", "-g"]) },
-            { name: "brew", command: () => text(["brew", "list", "--formula", "Navi"]) },
-            { name: "scoop", command: () => text(["scoop", "list", "Navi"]) },
-            { name: "choco", command: () => text(["choco", "list", "--limit-output", "Navi"]) },
+            { name: "brew", command: () => text(["brew", "list", "--formula", "navi"]) },
+            { name: "scoop", command: () => text(["scoop", "list", "navi"]) },
+            { name: "choco", command: () => text(["choco", "list", "--limit-output", "navi"]) },
           ]
 
           checks.sort((a, b) => {
@@ -192,27 +200,28 @@ export namespace Installation {
           for (const check of checks) {
             const output = yield* check.command()
             const installedName =
-              check.name === "brew" || check.name === "choco" || check.name === "scoop" ? "Navi" : "Navi-ai"
+              check.name === "brew" || check.name === "choco" || check.name === "scoop" ? "navi" : "navi-ai"
             if (output.includes(installedName)) {
               return check.name
             }
           }
 
           return "unknown" as Method
-        })
-
-        const latestImpl = Effect.fn("Installation.latest")(function* (installMethod?: Method) {
-          const detectedMethod = installMethod || (yield* methodImpl())
+        }),
+        latest: Effect.fn("Installation.latest")(function* (installMethod?: Method) {
+          const detectedMethod = installMethod || (yield* result.method())
 
           if (detectedMethod === "brew") {
             const formula = yield* getBrewFormula()
             if (formula.includes("/")) {
               const infoJson = yield* text(["brew", "info", "--json=v2", formula])
               const info = yield* Schema.decodeUnknownEffect(Schema.fromJsonString(BrewInfoV2))(infoJson)
-              return info.formulae[0].versions.stable
+              const first = info.formulae[0]
+              if (!first) return yield* Effect.die(new Error("brew info returned no formulae"))
+              return first.versions.stable
             }
             const response = yield* httpOk.execute(
-              HttpClientRequest.get("https://formulae.brew.sh/api/formula/Navi.json").pipe(
+              HttpClientRequest.get("https://formulae.brew.sh/api/formula/navi.json").pipe(
                 HttpClientRequest.acceptJson,
               ),
             )
@@ -221,12 +230,10 @@ export namespace Installation {
           }
 
           if (detectedMethod === "npm" || detectedMethod === "bun" || detectedMethod === "pnpm") {
-            const r = (yield* text(["npm", "config", "get", "registry"])).trim()
-            const reg = r || "https://registry.npmjs.org"
-            const registry = reg.endsWith("/") ? reg.slice(0, -1) : reg
-            const channel = CHANNEL
             const response = yield* httpOk.execute(
-              HttpClientRequest.get(`${registry}/Navi-ai/${channel}`).pipe(HttpClientRequest.acceptJson),
+              HttpClientRequest.get(
+                `${yield* NpmConfig.registry(process.cwd())}/navi-ai/${InstallationChannel}`,
+              ).pipe(HttpClientRequest.acceptJson),
             )
             const data = yield* HttpClientResponse.schemaBodyJson(NpmPackage)(response)
             return data.version
@@ -235,17 +242,19 @@ export namespace Installation {
           if (detectedMethod === "choco") {
             const response = yield* httpOk.execute(
               HttpClientRequest.get(
-                "https://community.chocolatey.org/api/v2/Packages?$filter=Id%20eq%20%27Navi%27%20and%20IsLatestVersion&$select=Version",
+                "https://community.chocolatey.org/api/v2/Packages?$filter=Id%20eq%20%27navi%27%20and%20IsLatestVersion&$select=Version",
               ).pipe(HttpClientRequest.setHeaders({ Accept: "application/json;odata=verbose" })),
             )
             const data = yield* HttpClientResponse.schemaBodyJson(ChocoPackage)(response)
-            return data.d.results[0].Version
+            const entry = data.d.results[0]
+            if (!entry) return yield* Effect.die(new Error("choco query returned no results"))
+            return entry.Version
           }
 
           if (detectedMethod === "scoop") {
             const response = yield* httpOk.execute(
               HttpClientRequest.get(
-                "https://raw.githubusercontent.com/ScoopInstaller/Main/master/bucket/Navi.json",
+                "https://raw.githubusercontent.com/ScoopInstaller/Main/master/bucket/navi.json",
               ).pipe(HttpClientRequest.setHeaders({ Accept: "application/json" })),
             )
             const data = yield* HttpClientResponse.schemaBodyJson(ScoopManifest)(response)
@@ -253,28 +262,27 @@ export namespace Installation {
           }
 
           const response = yield* httpOk.execute(
-            HttpClientRequest.get("https://api.github.com/repos/anomalyco/Navi/releases/latest").pipe(
+            HttpClientRequest.get("https://api.github.com/repos/anomalyco/navi/releases/latest").pipe(
               HttpClientRequest.acceptJson,
             ),
           )
           const data = yield* HttpClientResponse.schemaBodyJson(GitHubRelease)(response)
           return data.tag_name.replace(/^v/, "")
-        }, Effect.orDie)
-
-        const upgradeImpl = Effect.fn("Installation.upgrade")(function* (m: Method, target: string) {
-          let result: { code: ChildProcessSpawner.ExitCode; stdout: string; stderr: string } | undefined
+        }, Effect.orDie),
+        upgrade: Effect.fn("Installation.upgrade")(function* (m: Method, target: string) {
+          let upgradeResult: { code: ChildProcessSpawner.ExitCode; stdout: string; stderr: string } | undefined
           switch (m) {
             case "curl":
-              result = yield* upgradeCurl(target)
+              upgradeResult = yield* upgradeCurl(target)
               break
             case "npm":
-              result = yield* run(["npm", "install", "-g", `Navi-ai@${target}`])
+              upgradeResult = yield* run(["npm", "install", "-g", `navi-ai@${target}`])
               break
             case "pnpm":
-              result = yield* run(["pnpm", "install", "-g", `Navi-ai@${target}`])
+              upgradeResult = yield* run(["pnpm", "install", "-g", `navi-ai@${target}`])
               break
             case "bun":
-              result = yield* run(["bun", "install", "-g", `Navi-ai@${target}`])
+              upgradeResult = yield* run(["bun", "install", "-g", `navi-ai@${target}`])
               break
             case "brew": {
               const formula = yield* getBrewFormula()
@@ -282,7 +290,7 @@ export namespace Installation {
               if (formula.includes("/")) {
                 const tap = yield* run(["brew", "tap", "anomalyco/tap"], { env })
                 if (tap.code !== 0) {
-                  result = tap
+                  upgradeResult = tap
                   break
                 }
                 const repo = yield* text(["brew", "--repo", "anomalyco/tap"])
@@ -290,71 +298,50 @@ export namespace Installation {
                 if (dir) {
                   const pull = yield* run(["git", "pull", "--ff-only"], { cwd: dir, env })
                   if (pull.code !== 0) {
-                    result = pull
+                    upgradeResult = pull
                     break
                   }
                 }
               }
-              result = yield* run(["brew", "upgrade", formula], { env })
+              upgradeResult = yield* run(["brew", "upgrade", formula], { env })
               break
             }
             case "choco":
-              result = yield* run(["choco", "upgrade", "Navi", `--version=${target}`, "-y"])
+              upgradeResult = yield* run(["choco", "upgrade", "navi", `--version=${target}`, "-y"])
               break
             case "scoop":
-              result = yield* run(["scoop", "install", `Navi@${target}`])
+              upgradeResult = yield* run(["scoop", "install", `navi@${target}`])
               break
             default:
               return yield* new UpgradeFailedError({ stderr: `Unknown method: ${m}` })
           }
-          if (!result || result.code !== 0) {
-            const stderr = m === "choco" ? "not running from an elevated command shell" : result?.stderr || ""
+          if (!upgradeResult || upgradeResult.code !== 0) {
+            const stderr = m === "choco" ? "not running from an elevated command shell" : upgradeResult?.stderr || ""
             return yield* new UpgradeFailedError({ stderr })
           }
           log.info("upgraded", {
             method: m,
             target,
-            stdout: result.stdout,
-            stderr: result.stderr,
+            stdout: upgradeResult.stdout,
+            stderr: upgradeResult.stderr,
           })
           yield* text([process.execPath, "--version"])
-        })
+        }),
+      }
 
-        return Service.of({
-          info: Effect.fn("Installation.info")(function* () {
-            return {
-              version: VERSION,
-              latest: yield* latestImpl(),
-            }
-          }),
-          method: methodImpl,
-          latest: latestImpl,
-          upgrade: upgradeImpl,
-        })
-      }),
-    )
-
-  export const defaultLayer = layer.pipe(
-    Layer.provide(FetchHttpClient.layer),
-    Layer.provide(CrossSpawnSpawner.defaultLayer),
+      return Service.of(result)
+    }),
   )
 
-  const { runPromise } = makeRuntime(Service, defaultLayer)
+export const defaultLayer = layer.pipe(
+  Layer.provide(FetchHttpClient.layer),
+  Layer.provide(CrossSpawnSpawner.defaultLayer),
+)
 
-  export async function info(): Promise<Info> {
-    return runPromise((svc) => svc.info())
-  }
+const { runPromise } = makeRuntime(Service, defaultLayer)
 
-  export async function method(): Promise<Method> {
-    return runPromise((svc) => svc.method())
-  }
+export const latest = (...args: Parameters<Interface["latest"]>) => runPromise((s) => s.latest(...args))
+export const method = () => runPromise((s) => s.method())
+export const upgrade = (...args: Parameters<Interface["upgrade"]>) => runPromise((s) => s.upgrade(...args))
 
-  export async function latest(installMethod?: Method): Promise<string> {
-    return runPromise((svc) => svc.latest(installMethod))
-  }
-
-  export async function upgrade(m: Method, target: string): Promise<void> {
-    return runPromise((svc) => svc.upgrade(m, target))
-  }
-}
-
+export * as Installation from "."

@@ -3,6 +3,7 @@ export * from "./gen/types.gen.js"
 import { createClient } from "./gen/client/client.gen.js"
 import { type Config } from "./gen/client/types.gen.js"
 import { NaviClient } from "./gen/sdk.gen.js"
+import { wrapClientError } from "./error-interceptor.js"
 export { type Config as NaviClientConfig, NaviClient }
 
 function pick(value: string | null, fallback?: string) {
@@ -16,7 +17,7 @@ function pick(value: string | null, fallback?: string) {
 function rewrite(request: Request, directory?: string) {
   if (request.method !== "GET" && request.method !== "HEAD") return request
 
-  const value = pick(request.headers.get("x-Navi-directory"), directory)
+  const value = pick(request.headers.get("x-navi-directory"), directory)
   if (!value) return request
 
   const url = new URL(request.url)
@@ -25,16 +26,22 @@ function rewrite(request: Request, directory?: string) {
   }
 
   const next = new Request(url, request)
-  next.headers.delete("x-Navi-directory")
+  next.headers.delete("x-navi-directory")
   return next
 }
 
+/** Default HTTP idle timeout (Bun Request.timeout). Long enough for agent prompts; finite to avoid hung sockets. */
+const DEFAULT_HTTP_TIMEOUT_MS = 600_000
+
 export function createNaviClient(config?: Config & { directory?: string }) {
   if (!config?.fetch) {
-    const customFetch: any = (req: any) => {
-      // @ts-ignore
-      req.timeout = false
-      return fetch(req)
+    const customFetch = (req: unknown) => {
+      // Bun: Request.timeout is idle timeout in ms. Browsers ignore this property.
+      // Previously set to `false` (no timeout), which could hang forever on stalled connections.
+      if (req && typeof req === "object") {
+        ;(req as { timeout?: number }).timeout = DEFAULT_HTTP_TIMEOUT_MS
+      }
+      return fetch(req as Request)
     }
     config = {
       ...config,
@@ -45,14 +52,12 @@ export function createNaviClient(config?: Config & { directory?: string }) {
   if (config?.directory) {
     config.headers = {
       ...config.headers,
-      "x-Navi-directory": encodeURIComponent(config.directory),
+      "x-navi-directory": encodeURIComponent(config.directory),
     }
   }
 
   const client = createClient(config)
   client.interceptors.request.use((request) => rewrite(request, config?.directory))
+  client.interceptors.error.use(wrapClientError)
   return new NaviClient({ client })
 }
-
-export const createnaviClient = createNaviClient
-

@@ -35,7 +35,7 @@ export const subjects = createSubjects({
 
 const MY_THEME: Theme = {
   ...THEME_OPENAUTH,
-  logo: "https://navi.ai/favicon.svg",
+  logo: "https://navi.ai/favicon-v3.svg",
 }
 
 export default {

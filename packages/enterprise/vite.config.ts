@@ -1,11 +1,10 @@
 import { defineConfig, PluginOption } from "vite"
-// @ts-ignore
-import solid from "vite-plugin-solid"
+import { solidStart } from "@solidjs/start/config"
 import { nitro } from "nitro/vite"
 import tailwindcss from "@tailwindcss/vite"
 
 const nitroConfig: any = (() => {
-  const target = process.env.navi_DEPLOYMENT_TARGET
+  const target = process.env.NAVI_DEPLOYMENT_TARGET
   if (target === "cloudflare") {
     return {
       compatibilityDate: "2024-09-19",
@@ -21,10 +20,10 @@ const nitroConfig: any = (() => {
 export default defineConfig({
   plugins: [
     tailwindcss(),
-    solid() as PluginOption,
+    solidStart() as PluginOption,
     nitro({
       ...nitroConfig,
-      baseURL: process.env.navi_BASE_URL,
+      baseURL: process.env.NAVI_BASE_URL,
     }),
   ],
   server: {

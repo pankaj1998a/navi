@@ -11,4 +11,3 @@ export function updateSchema<T extends z.ZodRawShape>(schema: z.ZodObject<T>) {
 
   return z.object(next)
 }
-

@@ -2,7 +2,6 @@ import { TextareaRenderable, TextAttributes } from "@opentui/core"
 import { useTheme } from "../context/theme"
 import { useDialog, type DialogContext } from "./dialog"
 import { Show, createEffect, onMount, type JSX } from "solid-js"
-import { useKeyboard } from "@opentui/solid"
 import { Spinner } from "../component/spinner"
 
 export type DialogPromptProps = {
@@ -21,18 +20,6 @@ export function DialogPrompt(props: DialogPromptProps) {
   const { theme } = useTheme()
   let textarea: TextareaRenderable
 
-  useKeyboard((evt) => {
-    if (props.busy) {
-      if (evt.name === "escape") return
-      evt.preventDefault()
-      evt.stopPropagation()
-      return
-    }
-    if (evt.name === "return") {
-      props.onConfirm?.(textarea.plainText)
-    }
-  })
-
   onMount(() => {
     dialog.setSize("medium")
     setTimeout(() => {
@@ -45,6 +32,13 @@ export function DialogPrompt(props: DialogPromptProps) {
 
   createEffect(() => {
     if (!textarea || textarea.isDestroyed) return
+    const traits = props.busy
+      ? {
+          suspend: true,
+          status: "BUSY",
+        }
+      : {}
+    textarea.traits = traits
     if (props.busy) {
       textarea.blur()
       return
@@ -64,40 +58,31 @@ export function DialogPrompt(props: DialogPromptProps) {
       </box>
       <box gap={1}>
         {props.description}
-        <box 
-          borderStyle={props.busy ? "single" : "rounded"} 
-          borderColor={props.busy ? theme.border : theme.primary} 
-          paddingLeft={1} 
-          paddingRight={1} 
-          paddingTop={1} // Just a single row of padding on top gives it room
-          backgroundColor={theme.backgroundElement}
-        >
-          <textarea
-            onSubmit={() => {
-              if (props.busy) return
-              props.onConfirm?.(textarea.plainText)
-            }}
-            height={3}
-            keyBindings={props.busy ? [] : [{ name: "return", action: "submit" }]}
-            ref={(val: TextareaRenderable) => (textarea = val)}
-            initialValue={props.value}
-            placeholder={props.placeholder ?? "Enter text"}
-            placeholderColor={theme.textMuted}
-            textColor={props.busy ? theme.textMuted : theme.text}
-            focusedTextColor={props.busy ? theme.textMuted : theme.text}
-            cursorColor={props.busy ? theme.backgroundElement : theme.text}
-          />
-        </box>
+        <textarea
+          onSubmit={() => {
+            if (props.busy) return
+            props.onConfirm?.(textarea.plainText)
+          }}
+          height={3}
+          ref={(val: TextareaRenderable) => {
+            textarea = val
+          }}
+          initialValue={props.value}
+          placeholder={props.placeholder ?? "Enter text"}
+          placeholderColor={theme.textMuted}
+          textColor={props.busy ? theme.textMuted : theme.text}
+          focusedTextColor={props.busy ? theme.textMuted : theme.text}
+          cursorColor={props.busy ? theme.backgroundElement : theme.text}
+        />
         <Show when={props.busy}>
           <Spinner color={theme.textMuted}>{props.busyText ?? "Working..."}</Spinner>
         </Show>
       </box>
       <box paddingBottom={1} gap={1} flexDirection="row">
         <Show when={!props.busy} fallback={<text fg={theme.textMuted}>processing...</text>}>
-          <box flexDirection="row" gap={1}>
-            <text fg={theme.text}>enter</text>
-            <text fg={theme.textMuted}>submit</text>
-          </box>
+          <text fg={theme.text}>
+            enter <span style={{ fg: theme.textMuted }}>submit</span>
+          </text>
         </Show>
       </box>
     </box>
@@ -114,4 +99,3 @@ DialogPrompt.show = (dialog: DialogContext, title: string, options?: Omit<Dialog
     )
   })
 }
-

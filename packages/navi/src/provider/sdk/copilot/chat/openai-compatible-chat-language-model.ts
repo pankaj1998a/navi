@@ -77,7 +77,7 @@ export class OpenAICompatibleChatLanguageModel implements LanguageModelV3 {
   }
 
   private get providerOptionsName(): string {
-    return this.config.provider.split(".")[0].trim()
+    return this.config.provider.split(".")[0]?.trim() ?? ""
   }
 
   get supportedUrls() {
@@ -212,6 +212,7 @@ export class OpenAICompatibleChatLanguageModel implements LanguageModelV3 {
     })
 
     const choice = responseBody.choices[0]
+    if (!choice) throw new Error("No choice in response")
     const content: Array<LanguageModelV3Content> = []
 
     // text content:
@@ -263,11 +264,11 @@ export class OpenAICompatibleChatLanguageModel implements LanguageModelV3 {
     }
     const completionTokenDetails = responseBody.usage?.completion_tokens_details
     if (completionTokenDetails?.accepted_prediction_tokens != null) {
-      providerMetadata[this.providerOptionsName].acceptedPredictionTokens =
+      providerMetadata[this.providerOptionsName]!.acceptedPredictionTokens =
         completionTokenDetails?.accepted_prediction_tokens
     }
     if (completionTokenDetails?.rejected_prediction_tokens != null) {
-      providerMetadata[this.providerOptionsName].rejectedPredictionTokens =
+      providerMetadata[this.providerOptionsName]!.rejectedPredictionTokens =
         completionTokenDetails?.rejected_prediction_tokens
     }
 
@@ -680,11 +681,11 @@ export class OpenAICompatibleChatLanguageModel implements LanguageModelV3 {
               ...metadataExtractor?.buildMetadata(),
             }
             if (usage.completionTokensDetails.acceptedPredictionTokens != null) {
-              providerMetadata[providerOptionsName].acceptedPredictionTokens =
+              providerMetadata[providerOptionsName]!.acceptedPredictionTokens =
                 usage.completionTokensDetails.acceptedPredictionTokens
             }
             if (usage.completionTokensDetails.rejectedPredictionTokens != null) {
-              providerMetadata[providerOptionsName].rejectedPredictionTokens =
+              providerMetadata[providerOptionsName]!.rejectedPredictionTokens =
                 usage.completionTokensDetails.rejectedPredictionTokens
             }
 

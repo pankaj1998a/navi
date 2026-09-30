@@ -107,4 +107,3 @@ export const getUrl = ({
   }
   return url
 }
-

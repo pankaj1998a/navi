@@ -2,7 +2,7 @@ import net from "net"
 import fs from "fs"
 import path from "path"
 import { Global } from "../global"
-import { Log } from "../util/log"
+import { Log } from "@navi-ai/core/util/log"
 
 export type CanvasMessage =
     | { type: "update"; content: string; contentType: "markdown" | "code" | "dashboard" }

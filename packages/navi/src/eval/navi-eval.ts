@@ -1,7 +1,7 @@
-import { execSync } from 'child_process';
+import { execFileSync } from 'child_process';
 import fs from 'fs';
 import path from 'path';
-import { Log } from '@/util/log';
+import { Log } from "@navi-ai/core/util/log";
 import { UI } from '../cli/ui';
 import { SessionPrompt } from '../session/prompt';
 import { SessionID, MessageID } from '../session/schema';
@@ -16,6 +16,43 @@ import { Provider } from '../provider/provider';
  */
 
 const log = Log.create({ service: 'navi-eval' });
+
+const SHA_REGEX = /^[0-9a-f]{4,64}$/;
+const GIT_TIMEOUT_MS = 15_000;
+const MAX_DIFF_BYTES = 10 * 1024 * 1024;
+
+function assertValidSha(sha: string, field: string): void {
+  if (!SHA_REGEX.test(sha)) {
+    log.error(`Invalid git sha for ${field}`, { sha });
+    throw new Error(`Invalid git sha for ${field}`);
+  }
+}
+
+function git(args: string[], cwd: string, maxBuffer: number = MAX_DIFF_BYTES): string {
+  return execFileSync("git", args, { cwd, encoding: 'utf-8', timeout: GIT_TIMEOUT_MS, maxBuffer });
+}
+
+function assertSafeWorktree(repoPath: string): void {
+  const resolved = path.resolve(repoPath);
+  const root = path.parse(resolved).root;
+  if (resolved === root || resolved === os_homedir()) {
+    log.error("Refusing to run destructive git command at filesystem root/home", { repoPath: resolved });
+    throw new Error("Unsafe worktree path");
+  }
+  try {
+    const inside = execFileSync("git", ["rev-parse", "--is-inside-work-tree"], {
+      cwd: resolved, encoding: 'utf-8', timeout: GIT_TIMEOUT_MS,
+    }).trim();
+    if (inside !== "true") throw new Error("not a worktree");
+  } catch (e) {
+    log.error(`Not a git worktree: ${resolved}`, { error: String(e) });
+    throw new Error(`Not a git worktree: ${resolved}`, { cause: e });
+  }
+}
+
+function os_homedir(): string {
+  return process.env.HOME ?? process.env.USERPROFILE ?? "";
+}
 
 export interface EvalTask {
   sha: string;
@@ -73,18 +110,14 @@ export class NaviEval {
    */
   public getCommitList(count: number, startAfterSha?: string): string[] {
     try {
+      const safeCount = Number.isInteger(count) && count > 0 && count <= 100 ? count : 10;
       if (startAfterSha) {
-        const output = execSync(
-          `git log --format=%H --reverse ${startAfterSha}..HEAD`,
-          { cwd: this.repoPath, encoding: 'utf-8' }
-        ).trim();
-        return output ? output.split('\n') : [];
+        assertValidSha(startAfterSha, "startAfterSha");
+        const output = git(["log", "--format=%H", "--reverse", `${startAfterSha}..HEAD`], this.repoPath).trim();
+        return output ? output.split('\n').filter((line) => SHA_REGEX.test(line)) : [];
       }
-      const output = execSync(
-        `git log --format=%H -n ${count} --reverse`,
-        { cwd: this.repoPath, encoding: 'utf-8' }
-      ).trim();
-      return output ? output.split('\n') : [];
+      const output = git(["log", "--format=%H", "-n", String(safeCount), "--reverse"], this.repoPath).trim();
+      return output ? output.split('\n').filter((line) => SHA_REGEX.test(line)) : [];
     } catch (e) {
       log.error(`Failed to get commit list: ${e}`);
       return [];
@@ -96,29 +129,19 @@ export class NaviEval {
    */
   public async buildTask(sha: string): Promise<EvalTask | null> {
     try {
-      const parents = execSync(`git log --pretty=%P -n 1 ${sha}`, {
-        cwd: this.repoPath,
-        encoding: 'utf-8',
-      }).trim();
+      assertValidSha(sha, "sha");
+      const parents = git(["log", "--pretty=%P", "-n", "1", sha], this.repoPath).trim();
 
       if (!parents || parents.split(' ').length > 1) return null; // Skip initial/merge
       const parentSha = parents.split(' ')[0];
+      if (!parentSha) return null;
+      assertValidSha(parentSha, "parentSha");
 
-      const message = execSync(`git log --format=%B -n 1 ${sha}`, {
-        cwd: this.repoPath,
-        encoding: 'utf-8',
-      }).trim();
+      const message = git(["log", "--format=%B", "-n", "1", sha], this.repoPath).trim();
 
-      const diff = execSync(`git diff ${parentSha} ${sha}`, {
-        cwd: this.repoPath,
-        encoding: 'utf-8',
-        maxBuffer: 10 * 1024 * 1024,
-      });
+      const diff = git(["diff", parentSha, sha], this.repoPath);
 
-      const filesOutput = execSync(`git diff --name-only ${parentSha} ${sha}`, {
-        cwd: this.repoPath,
-        encoding: 'utf-8',
-      }).trim();
+      const filesOutput = git(["diff", "--name-only", parentSha, sha], this.repoPath).trim();
       const filesChanged = filesOutput ? filesOutput.split('\n') : [];
 
       if (filesChanged.length === 0 || diff.length > 100000) return null;
@@ -185,10 +208,12 @@ ${diff.slice(0, 5000)}
 
       UI.println(`   ${UI.Style.TEXT_DIM} Prompt: "${UI.Style.TEXT_NORMAL}${task.prompt}${UI.Style.TEXT_DIM}"`);
       
-      // 1. Reset repo to parent state
+      // 1. Reset repo to parent state (isolated worktree, validated sha, arg-array, timeout)
       try {
-        execSync(`git reset --hard ${task.parentSha}`, { cwd: this.repoPath, stdio: 'ignore' });
-        execSync(`git clean -fd`, { cwd: this.repoPath, stdio: 'ignore' });
+        assertValidSha(task.parentSha, "parentSha");
+        assertSafeWorktree(this.repoPath);
+        execFileSync("git", ["reset", "--hard", task.parentSha], { cwd: this.repoPath, stdio: 'ignore', timeout: GIT_TIMEOUT_MS });
+        execFileSync("git", ["clean", "-fd"], { cwd: this.repoPath, stdio: 'ignore', timeout: GIT_TIMEOUT_MS });
       } catch (e) {
         log.error(`Failed to reset repo to ${task.parentSha}: ${e}`);
         continue;
@@ -210,20 +235,18 @@ ${diff.slice(0, 5000)}
         await SessionPrompt.loop({ sessionID });
 
         // 3. Capture the resulting diff
-        agentDiff = execSync(`git diff`, { 
-          cwd: this.repoPath, 
-          encoding: 'utf-8', 
-          maxBuffer: 10 * 1024 * 1024 
-        });
+        agentDiff = git(["diff"], this.repoPath);
       } catch (e) {
         log.error(`Agent execution failed for commit ${sha}: ${e}`);
       }
       
       // 4. Compare and Analyze
-      if (agentDiff.trim() !== task.diff.trim()) {
+      const matched = agentDiff.trim() === task.diff.trim();
+      if (!matched) {
         UI.println(`   ${UI.Style.TEXT_WARNING} ✗ Mismatch found. Analyzing for conventions...`);
         await this.analyzeAndProposeConventions(task, agentDiff);
-      } else {
+      }
+      if (matched) {
         UI.println(`   ${UI.Style.TEXT_SUCCESS} ✓ Ground truth matched perfectly!`);
       }
       

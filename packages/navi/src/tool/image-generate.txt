@@ -1,0 +1,15 @@
+Generate or create visual assets, images, UI mockups, icons, or diagrams.
+
+Use this tool when:
+- Creating mockups or design prototypes for web applications or user interfaces
+- Generating illustrations, icons, logos, or visual diagrams
+- Replacing generic placeholder images with real visual demonstrations
+
+Supported aspect ratios:
+- "1:1" (square, default)
+- "16:9" (landscape banner / wide UI)
+- "9:16" (portrait mobile mockup)
+- "4:3" (standard desktop view)
+- "3:4" (tall portrait)
+
+The tool will save the generated image into the workspace (defaulting to .navi/artifacts or custom target directory) and attach it to the message.

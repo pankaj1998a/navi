@@ -14,4 +14,3 @@ export function assign(part: Item): Item & { id: PartID } {
     id: PartID.ascending(),
   }
 }
-

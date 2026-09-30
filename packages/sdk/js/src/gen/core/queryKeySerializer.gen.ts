@@ -109,4 +109,3 @@ export const serializeQueryKeyValue = (value: unknown): JsonValue | undefined =>
 
   return undefined
 }
-

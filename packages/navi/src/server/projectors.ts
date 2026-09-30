@@ -1,22 +1,23 @@
-import z from "zod"
 import sessionProjectors from "../session/projectors"
 import { SyncEvent } from "@/sync"
-import { Session } from "@/session"
-import { JsonlStorage } from "@/storage/jsonl"
+import { Session } from "@/session/session"
+import { SessionTable } from "@/session/session.sql"
+import { Database } from "@/storage/db"
+import { eq } from "drizzle-orm"
 
 export function initProjectors() {
   SyncEvent.init({
     projectors: sessionProjectors,
     convertEvent: (type, data) => {
       if (type === "session.updated") {
-        const id = (data as z.infer<typeof Session.Event.Updated.schema>).sessionID
-        const item = JsonlStorage.readItemSync<Session.Info>("sessions", id)
+        const id = (data as SyncEvent.Event<typeof Session.Event.Updated>["data"]).sessionID
+        const row = Database.use((db) => db.select().from(SessionTable).where(eq(SessionTable.id, id)).get())
 
-        if (!item) return data
+        if (!row) return data
 
         return {
           sessionID: id,
-          info: item,
+          info: Session.fromRow(row),
         }
       }
       return data
@@ -25,4 +26,3 @@ export function initProjectors() {
 }
 
 initProjectors()
-

@@ -1,7 +1,7 @@
-import type { TuiPlugin, TuiPluginApi, TuiPluginModule } from "@navi-ai/plugin/tui"
+import type { TuiPlugin, TuiPluginApi } from "@navi-ai/plugin/tui"
+import type { InternalTuiPlugin } from "../../plugin/internal"
 import { createMemo, Show } from "solid-js"
-import { TextAttributes } from "@opentui/core"
-import { Global } from "@/global"
+import { Global } from "@navi-ai/core/global"
 
 const id = "internal:sidebar-footer"
 
@@ -9,7 +9,7 @@ function View(props: { api: TuiPluginApi }) {
   const theme = () => props.api.theme.current
   const has = createMemo(() =>
     props.api.state.provider.some(
-      (item) => item.id !== "Navi" || Object.values(item.models).some((model) => model.cost?.input !== 0),
+      (item) => item.id !== "navi" || Object.values(item.models).some((model) => model.cost?.input !== 0),
     ),
   )
   const done = createMemo(() => props.api.kv.get("dismissed_getting_started", false))
@@ -42,7 +42,9 @@ function View(props: { api: TuiPluginApi }) {
           </text>
           <box flexGrow={1} gap={1}>
             <box flexDirection="row" justifyContent="space-between">
-              <text attributes={TextAttributes.BOLD}>Getting started</text>
+              <text fg={theme().text}>
+                <b>Getting started</b>
+              </text>
               <text fg={theme().textMuted} onMouseDown={() => props.api.kv.set("dismissed_getting_started", true)}>
                 ✕
               </text>
@@ -58,16 +60,17 @@ function View(props: { api: TuiPluginApi }) {
           </box>
         </box>
       </Show>
-      <box flexDirection="row">
-        <text fg={theme().textMuted}>{String(path().parent)}/</text>
-        <text fg={theme().text}>{String(path().name)}</text>
-      </box>
-      <box flexDirection="row" gap={1}>
-        <text fg={theme().success}>•</text>
-        <text fg={theme().textMuted} attributes={TextAttributes.BOLD}>Open</text>
-        <text fg={theme().text} attributes={TextAttributes.BOLD}>Code</text>
-        <text fg={theme().textMuted}>{String(props.api.app.version)}</text>
-      </box>
+      <text>
+        <span style={{ fg: theme().textMuted }}>{path().parent}/</span>
+        <span style={{ fg: theme().text }}>{path().name}</span>
+      </text>
+      <text fg={theme().textMuted}>
+        <span style={{ fg: theme().success }}>•</span> <b>Open</b>
+        <span style={{ fg: theme().text }}>
+          <b>Code</b>
+        </span>{" "}
+        <span>{props.api.app.version}</span>
+      </text>
     </box>
   )
 }
@@ -83,10 +86,9 @@ const tui: TuiPlugin = async (api) => {
   })
 }
 
-const plugin: TuiPluginModule & { id: string } = {
+const plugin: InternalTuiPlugin = {
   id,
   tui,
 }
 
 export default plugin
-

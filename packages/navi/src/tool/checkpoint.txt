@@ -1,0 +1,14 @@
+Safety Checkpoint and Git-Backed Rollback tool.
+
+Allows the agent or user to create named restore points before risky refactors or multi-file edits, and immediately rollback if tests break or unintended changes occur.
+
+Supported actions:
+- "create": Create a new restore point with a descriptive `name` / `message`.
+- "list": View all saved checkpoints with timestamps and descriptions.
+- "restore": Rollback the working tree to the specified checkpoint by `id` or `name`.
+- "drop": Delete a checkpoint by `id`.
+
+Use this tool when:
+- Starting a complex refactoring or multi-file code change
+- Creating an undo point before experimental edits
+- Reverting failed architectural changes cleanly

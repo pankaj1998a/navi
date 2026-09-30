@@ -3,9 +3,9 @@ import { dirname, join, relative, resolve as pathResolve } from "path"
 import { realpathSync } from "fs"
 import * as NFS from "fs/promises"
 import { lookup } from "mime-types"
-import { Effect, FileSystem, Layer, Schema, ServiceMap } from "effect"
+import { Context, Effect, FileSystem, Layer, Schema } from "effect"
 import type { PlatformError } from "effect/PlatformError"
-import { Glob } from "../util/glob"
+import { Glob } from "@navi-ai/core/util/glob"
 
 export namespace AppFileSystem {
   export class FileSystemError extends Schema.TaggedErrorClass<FileSystemError>()("FileSystemError", {
@@ -36,7 +36,7 @@ export namespace AppFileSystem {
     readonly globMatch: (pattern: string, filepath: string) => boolean
   }
 
-  export class Service extends ServiceMap.Service<Service, Interface>()("@navi/FileSystem") {}
+  export class Service extends Context.Service<Service, Interface>()("@navi/FileSystem") {}
 
   export const layer = Layer.effect(
     Service,
@@ -48,12 +48,12 @@ export namespace AppFileSystem {
       })
 
       const isDir = Effect.fn("FileSystem.isDir")(function* (path: string) {
-        const info = yield* fs.stat(path).pipe(Effect.catch(() => Effect.void))
+        const info = yield* fs.stat(path).pipe(Effect.orElseSucceed(() => undefined))
         return info?.type === "Directory"
       })
 
       const isFile = Effect.fn("FileSystem.isFile")(function* (path: string) {
-        const info = yield* fs.stat(path).pipe(Effect.catch(() => Effect.void))
+        const info = yield* fs.stat(path).pipe(Effect.orElseSucceed(() => undefined))
         return info?.type === "File"
       })
 
@@ -149,7 +149,7 @@ export namespace AppFileSystem {
         let current = start
         while (true) {
           const matches = yield* glob(pattern, { cwd: current, absolute: true, include: "file", dot: true }).pipe(
-            Effect.catch(() => Effect.succeed([] as string[])),
+            Effect.orElseSucceed(() => [] as string[]),
           )
           result.push(...matches)
           if (stop === current) break

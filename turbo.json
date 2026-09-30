@@ -1,37 +1,44 @@
 {
-  "$schema": "https://turborepo.com/schema.json",
+  "$schema": "https://v2-8-13.turborepo.dev/schema.json",
+  "globalEnv": ["CI", "NAVI_DISABLE_SHARE"],
+  "globalPassThroughEnv": ["CI", "NAVI_DISABLE_SHARE"],
   "tasks": {
     "typecheck": {},
-    "lint": {},
-    "test": {},
     "build": {
-      "dependsOn": [
-        "^build"
-      ],
-      "outputs": [
-        "dist/**",
-        "*.node"
-      ]
-    },
-    "dev": {
-      "cache": false,
-      "persistent": true
-    },
-    "build:rs": {
-      "dependsOn": [
-        "^build:rs"
-      ],
-      "outputs": [
-        "target/**",
-        "navi-rs/target/**",
-        "*.node"
-      ]
+      "dependsOn": [],
+      "outputs": ["dist/**"]
     },
     "navi#test": {
-      "dependsOn": [
-        "^build"
-      ],
+      "dependsOn": ["^build"],
+      "outputs": [],
+      "passThroughEnv": ["*"]
+    },
+    "test:ci": {
+      "outputs": [".artifacts/unit/junit.xml"],
+      "passThroughEnv": ["*"]
+    },
+    "navi#test:ci": {
+      "dependsOn": ["^build"],
+      "outputs": [".artifacts/unit/junit.xml"],
+      "passThroughEnv": ["*"]
+    },
+    "@navi-ai/app#test": {
+      "dependsOn": ["^build"],
       "outputs": []
+    },
+    "@navi-ai/app#test:ci": {
+      "dependsOn": ["^build"],
+      "outputs": [".artifacts/unit/junit.xml"],
+      "passThroughEnv": ["*"]
+    },
+    "@navi-ai/ui#test": {
+      "dependsOn": ["^build"],
+      "outputs": []
+    },
+    "@navi-ai/ui#test:ci": {
+      "dependsOn": ["^build"],
+      "outputs": [".artifacts/unit/junit.xml"],
+      "passThroughEnv": ["*"]
     }
   }
 }

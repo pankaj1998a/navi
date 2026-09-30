@@ -5,4 +5,3 @@ export namespace Hash {
     return createHash("sha1").update(input).digest("hex")
   }
 }
-

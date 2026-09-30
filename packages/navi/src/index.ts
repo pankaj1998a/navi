@@ -1,80 +1,46 @@
 import yargs from "yargs"
 import { hideBin } from "yargs/helpers"
-import { Log } from "./util/log"
+import { RunCommand } from "./cli/cmd/run"
+import { GenerateCommand } from "./cli/cmd/generate"
+import * as Log from "@navi-ai/core/util/log"
+import { ConsoleCommand } from "./cli/cmd/account"
+import { ProvidersCommand } from "./cli/cmd/providers"
+import { AgentCommand } from "./cli/cmd/agent"
+import { UpgradeCommand } from "./cli/cmd/upgrade"
+import { UninstallCommand } from "./cli/cmd/uninstall"
+import { ModelsCommand } from "./cli/cmd/models"
 import { UI } from "./cli/ui"
 import { Installation } from "./installation"
+import { InstallationVersion } from "@navi-ai/core/installation/version"
+import { NamedError } from "@navi-ai/core/util/error"
+import { FormatError } from "./cli/error"
+import { ServeCommand } from "./cli/cmd/serve"
 import { Filesystem } from "./util/filesystem"
+import { DebugCommand } from "./cli/cmd/debug"
+import { StatsCommand } from "./cli/cmd/stats"
+import { McpCommand } from "./cli/cmd/mcp"
+import { GithubCommand } from "./cli/cmd/github"
+import { ExportCommand } from "./cli/cmd/export"
+import { ImportCommand } from "./cli/cmd/import"
+import { AttachCommand } from "./cli/cmd/tui/attach"
+import { TuiThreadCommand } from "./cli/cmd/tui/thread"
+import { AcpCommand } from "./cli/cmd/acp"
 import { EOL } from "os"
+import { WebCommand } from "./cli/cmd/web"
+import { PrCommand } from "./cli/cmd/pr"
+import { SessionCommand } from "./cli/cmd/session"
+import { DbCommand } from "./cli/cmd/db"
 import path from "path"
-import { Global } from "./global"
+import { Global } from "@navi-ai/core/global"
+import * as JsonMigration from "./storage/json-migration"
 import { Database } from "./storage/db"
 import { errorMessage } from "./util/error"
-import { FormatError } from "./cli/error"
-import { TuiThreadCommand } from "./cli/cmd/tui/thread"
+import { PluginCommand } from "./cli/cmd/plug"
+import { Heap } from "./cli/heap"
+import { drizzle } from "drizzle-orm/bun-sqlite"
+import { ensureProcessMetadata } from "@navi-ai/core/util/navi-process"
 
-const __start = performance.now()
-const argv = hideBin(process.argv)
-
-function isLightweightStartupRequest(args: string[]): boolean {
-  return (
-    args.includes("--help") ||
-    args.includes("-h") ||
-    args.includes("--version") ||
-    args.includes("-v") ||
-    args[0] === "help" ||
-    args[0] === "completion"
-  )
-}
-
-/**
- * Helper to lazy-load command modules. 
- * This prevents loading the entire agent system until a command is actually run.
- */
-const commands: Record<string, () => Promise<any>> = {
-  "./cli/cmd/tui/thread": () => import("./cli/cmd/tui/thread"),
-  "./cli/cmd/acp": () => import("./cli/cmd/acp"),
-  "./cli/cmd/mcp": () => import("./cli/cmd/mcp"),
-  "./cli/cmd/tui/attach": () => import("./cli/cmd/tui/attach"),
-  "./cli/cmd/run": () => import("./cli/cmd/run"),
-  "./cli/cmd/generate": () => import("./cli/cmd/generate"),
-  "./cli/cmd/vibe": () => import("./cli/cmd/vibe"),
-  "./cli/cmd/debug": () => import("./cli/cmd/debug"),
-  "./cli/cmd/account": () => import("./cli/cmd/account"),
-  "./cli/cmd/providers": () => import("./cli/cmd/providers"),
-  "./cli/cmd/agent": () => import("./cli/cmd/agent"),
-  "./cli/cmd/upgrade": () => import("./cli/cmd/upgrade"),
-  "./cli/cmd/uninstall": () => import("./cli/cmd/uninstall"),
-  "./cli/cmd/serve": () => import("./cli/cmd/serve"),
-  "./cli/cmd/web": () => import("./cli/cmd/web"),
-  "./cli/cmd/models": () => import("./cli/cmd/models"),
-  "./cli/cmd/stats": () => import("./cli/cmd/stats"),
-  "./cli/cmd/export": () => import("./cli/cmd/export"),
-  "./cli/cmd/import": () => import("./cli/cmd/import"),
-  "./cli/cmd/github": () => import("./cli/cmd/github"),
-  "./cli/cmd/pr": () => import("./cli/cmd/pr"),
-  "./cli/cmd/session": () => import("./cli/cmd/session"),
-  "./cli/cmd/plug": () => import("./cli/cmd/plug"),
-  "./cli/cmd/db": () => import("./cli/cmd/db"),
-  "./cli/cmd/eval": () => import("./cli/cmd/eval"),
-}
-
-function lazy(cmd: string, describe: string, modulePath: string) {
-  const load = commands[modulePath] || (() => import(modulePath))
-  return {
-    command: cmd,
-    describe: describe,
-    builder: (y: any) => load().then(m => {
-        const key = Object.keys(m).find(k => k.endsWith('Command'))
-        const mod = key ? m[key] : (m.default || m)
-        return mod.builder ? mod.builder(y) : y
-    }),
-    handler: (args: any) => load().then(m => {
-        const key = Object.keys(m).find(k => k.endsWith('Command'))
-        const mod = key ? m[key] : (m.default || m)
-        return mod.handler(args)
-    })
-  }
-}
+const processMetadata = ensureProcessMetadata("main")
 
 process.on("unhandledRejection", (e) => {
   Log.Default.error("rejection", {
@@ -88,13 +54,25 @@ process.on("uncaughtException", (e) => {
   })
 })
 
-const cli = yargs(argv)
+const args = hideBin(process.argv)
+
+function show(out: string) {
+  const text = out.trimStart()
+  if (!text.startsWith("navi ")) {
+    process.stderr.write(UI.logo() + EOL + EOL)
+    process.stderr.write(text)
+    return
+  }
+  process.stderr.write(out)
+}
+
+const cli = yargs(args)
   .parserConfiguration({ "populate--": true })
-  .scriptName("Navi")
+  .scriptName("navi")
   .wrap(100)
   .help("help", "show help")
   .alias("help", "h")
-  .version("version", "show version number", Installation.VERSION)
+  .version("version", "show version number", InstallationVersion)
   .alias("version", "v")
   .option("print-logs", {
     describe: "print logs to stderr",
@@ -119,29 +97,28 @@ const cli = yargs(argv)
       dev: Installation.isLocal(),
       level: (() => {
         if (opts.logLevel) return opts.logLevel as Log.Level
+        if (Installation.isLocal()) return "DEBUG"
         return "INFO"
       })(),
     })
+    
+    Heap.start()
 
     process.env.AGENT = "1"
-    process.env.Navi = "1"
+    process.env.NAVI = "1"
     process.env.NAVI_PID = String(process.pid)
 
-    if (isLightweightStartupRequest(argv)) {
-      return
-    }
-
-    await Global.init()
-
-    Log.Default.debug("Navi", {
-      version: Installation.VERSION,
+    Log.Default.info("navi", {
+      version: InstallationVersion,
       args: process.argv.slice(2),
+      process_role: processMetadata.processRole,
+      run_id: processMetadata.runID,
     })
 
-    const marker = Database.Path
+    const marker = path.join(Global.Path.data, "navi.db")
     if (!(await Filesystem.exists(marker))) {
-      const { JsonMigration } = await import("./storage/json-migration")
       const tty = process.stderr.isTTY
+      process.stderr.write("Performing one time database migration, may take a few minutes..." + EOL)
       const width = 36
       const orange = "\x1b[38;5;214m"
       const muted = "\x1b[0;2m"
@@ -149,8 +126,8 @@ const cli = yargs(argv)
       let last = -1
       if (tty) process.stderr.write("\x1b[?25l")
       try {
-        await JsonMigration.run(Database.Client().$client, {
-          progress: (event) => {
+        await JsonMigration.run(drizzle({ client: Database.Client().$client }), {
+          progress: (event: JsonMigration.Progress) => {
             const percent = Math.floor((event.current / event.total) * 100)
             if (percent === last && event.current !== event.total) return
             last = percent
@@ -172,57 +149,34 @@ const cli = yargs(argv)
           process.stderr.write(`sqlite-migration:done${EOL}`)
         }
       }
-    }
-
-    const jsonlMarker = path.join(Global.Path.data, "jsonl-migration.done")
-    if (await Filesystem.exists(marker) && !(await Filesystem.exists(jsonlMarker))) {
-      const { JsonlMigration } = await import("./storage/sqlite-to-jsonl")
-      try {
-        await JsonlMigration.run(marker)
-        await Filesystem.write(jsonlMarker, "done")
-      } catch (err) {
-        Log.Default.error("jsonl migration failed", { err: errorMessage(err) })
-      }
-    }
-
-    // Initialize Auto-Updater Background Check (backgrounded, no await)
-    import("./util/auto-updater").then(m => m.AutoUpdater.init()).catch(err => {
-      Log.Default.warn("failed to initialize auto-updater", { err: errorMessage(err) })
-    })
-
-    if (Installation.isLocal() && process.env.NAVI_PERF) {
-      console.log(`Total startup (until parse): ${Math.round(performance.now() - __start)}ms`)
+      process.stderr.write("Database migration complete." + EOL)
     }
   })
-  .usage("\n" + UI.logo())
+  .usage("")
   .completion("completion", "generate shell completion script")
+  .command(AcpCommand)
+  .command(McpCommand)
   .command(TuiThreadCommand)
-  .command(lazy("acp", "Agent Client Protocol server mode", "./cli/cmd/acp"))
-  .command(lazy("mcp", "Model Context Protocol server mode", "./cli/cmd/mcp"))
-  .command(lazy("thread", "TUI thread mode", "./cli/cmd/tui/thread"))
-  .command(lazy("attach", "Attach to a running Navi server", "./cli/cmd/tui/attach"))
-  .command(lazy("run [message..]", "run Navi with a message", "./cli/cmd/run"))
-  .command(lazy("generate", "Generate code from a prompt", "./cli/cmd/generate"))
-  .command(lazy("vibe <goal>", "Run VibeMode Production Protocol", "./cli/cmd/vibe"))
-  .command(lazy("debug", "Debug a command", "./cli/cmd/debug"))
-
-  .command(lazy("account", "Manage your Navi account", "./cli/cmd/account"))
-  .command(lazy("providers", "Manage AI providers", "./cli/cmd/providers"))
-  .command(lazy("agent", "Manage agents", "./cli/cmd/agent"))
-  .command(lazy("upgrade", "Upgrade Navi to the latest version", "./cli/cmd/upgrade"))
-  .command(lazy("uninstall", "Uninstall Navi", "./cli/cmd/uninstall"))
-  .command(lazy("serve", "Start the Navi server", "./cli/cmd/serve"))
-  .command(lazy("web", "Start the Navi web UI", "./cli/cmd/web"))
-  .command(lazy("models", "List available models", "./cli/cmd/models"))
-  .command(lazy("stats", "Show token usage and cost statistics", "./cli/cmd/stats"))
-  .command(lazy("export", "Export your Navi data", "./cli/cmd/export"))
-  .command(lazy("import", "Import Navi data", "./cli/cmd/import"))
-  .command(lazy("github", "Manage GitHub integration", "./cli/cmd/github"))
-  .command(lazy("pr", "Manage pull requests", "./cli/cmd/pr"))
-  .command(lazy("session", "Manage sessions", "./cli/cmd/session"))
-  .command(lazy("plug", "Manage plugins", "./cli/cmd/plug"))
-  .command(lazy("db", "Manage the internal database", "./cli/cmd/db"))
-  .command(lazy("eval", "Evaluate prompts", "./cli/cmd/eval"))
+  .command(AttachCommand)
+  .command(RunCommand)
+  .command(GenerateCommand)
+  .command(DebugCommand)
+  .command(ConsoleCommand)
+  .command(ProvidersCommand)
+  .command(AgentCommand)
+  .command(UpgradeCommand)
+  .command(UninstallCommand)
+  .command(ServeCommand)
+  .command(WebCommand)
+  .command(ModelsCommand)
+  .command(StatsCommand)
+  .command(ExportCommand)
+  .command(ImportCommand)
+  .command(GithubCommand)
+  .command(PrCommand)
+  .command(SessionCommand)
+  .command(PluginCommand)
+  .command(DbCommand)
   .fail((msg, err) => {
     if (
       msg?.startsWith("Unknown argument") ||
@@ -230,19 +184,79 @@ const cli = yargs(argv)
       msg?.startsWith("Invalid values:")
     ) {
       if (err) throw err
-      cli.showHelp("log")
+      cli.showHelp(show)
     }
     if (err) throw err
     process.exit(1)
   })
+  .strict()
 
 try {
-  const parse_start = performance.now()
-  await cli.parse()
-  if (Installation.isLocal() && process.env.NAVI_PERF) {
-    console.log(`Total command run (parse to end): ${Math.round(performance.now() - parse_start)}ms`)
+  if (args.includes("-h") || args.includes("--help")) {
+    await cli.parse(args, (err: Error | undefined, _argv: unknown, out: string) => {
+      if (err) throw err
+      if (!out) return
+      show(out)
+    })
+  } else {
+    await cli.parse()
   }
-} catch (err) {
-  process.stderr.write(FormatError(err) + EOL)
-  process.exit(1)
+} catch (e) {
+  let data: Record<string, any> = {}
+  if (e instanceof NamedError) {
+    const obj = e.toObject()
+    Object.assign(data, {
+      ...obj.data,
+    })
+  }
+
+  if (e instanceof Error) {
+    Object.assign(data, {
+      name: e.name,
+      message: e.message,
+      cause: e.cause?.toString(),
+      stack: e.stack,
+    })
+  }
+
+  if (e instanceof ResolveMessage) {
+    Object.assign(data, {
+      name: e.name,
+      message: e.message,
+      code: e.code,
+      specifier: e.specifier,
+      referrer: e.referrer,
+      position: e.position,
+      importKind: e.importKind,
+    })
+  }
+  Log.Default.error("fatal", data)
+  const formatted = FormatError(e)
+  if (formatted) UI.error(formatted)
+  if (formatted === undefined) {
+    UI.error("Unexpected error, check log file at " + Log.file() + " for more details" + EOL)
+    process.stderr.write(errorMessage(e) + EOL)
+  }
+  process.exitCode = 1
+} finally {
+  process.exitCode ??= 0
+  try {
+    const { AppRuntime } = await import("@/effect/app-runtime")
+    await AppRuntime.dispose()
+  } catch {}
+  // Grace: allow scopes/finalizers to flush and the event loop to drain naturally.
+  // Force-exit after 5s only if handles (e.g. docker-based MCP servers that ignore
+  // SIGTERM without `docker run --init`) are still open.
+  const procFields = process as unknown as Record<string, unknown>
+  const getHandles = procFields._getActiveHandles
+  const handles = typeof getHandles === "function" ? (getHandles as () => unknown[]).call(process) : []
+  if (handles.length > 0) {
+    const timer = setTimeout(() => {
+      const fields = process as unknown as Record<string, unknown>
+      const next = fields._getActiveHandles
+      const open = typeof next === "function" ? (next as () => unknown[]).call(process) : []
+      if (open.length > 0) process.exit(process.exitCode ?? 0)
+    }, 5000)
+    timer.unref?.()
+  }
 }

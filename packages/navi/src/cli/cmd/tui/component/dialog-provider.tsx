@@ -10,20 +10,73 @@ import { useTheme } from "../context/theme"
 import { TextAttributes } from "@opentui/core"
 import type { ProviderAuthAuthorization, ProviderAuthMethod } from "@navi-ai/sdk/v2"
 import { DialogModel } from "./dialog-model"
-import { useKeyboard } from "@opentui/solid"
-import { Clipboard } from "@tui/util/clipboard"
+import * as Clipboard from "@tui/util/clipboard"
 import { useToast } from "../ui/toast"
+import { isConsoleManagedProvider } from "@tui/util/provider-origin"
+import { useConnected } from "./use-connected"
+import { useBindings } from "../keymap"
 
 const PROVIDER_PRIORITY: Record<string, number> = {
-  kilocode: 0,
-  kilo: 1,
-  Navi: 2,
-  "Navi-go": 3,
-  openai: 4,
-  "github-copilot": 5,
-  anthropic: 6,
-  google: 7,
-  "qwen-cli": 8,
+  navi: 0,
+  "navi-go": 1,
+  openai: 2,
+  "github-copilot": 3,
+  anthropic: 4,
+  google: 5,
+}
+
+const CUSTOM_PROVIDER_OPTION_VALUE = "__navi_custom_provider__"
+const CUSTOM_PROVIDER_ID = /^[a-z0-9][a-z0-9-_]*$/
+
+type ProviderOptionBase = {
+  title: string
+  value: string
+  description?: string
+  category: string
+}
+
+type ProviderOption =
+  | (ProviderOptionBase & {
+      type: "provider"
+      providerID: string
+    })
+  | (ProviderOptionBase & {
+      type: "custom"
+    })
+
+export function providerOptions(list: { id: string; name: string }[]): ProviderOption[] {
+  return [
+    ...pipe(
+      list,
+      sortBy((x) => PROVIDER_PRIORITY[x.id] ?? 99),
+      map((provider) => ({
+        type: "provider" as const,
+        title: provider.name,
+        value: provider.id,
+        providerID: provider.id,
+        description: {
+          navi: "(Recommended)",
+          anthropic: "(API key)",
+          openai: "(ChatGPT Plus/Pro or API key)",
+          "navi-go": "Low cost subscription for everyone",
+        }[provider.id],
+        category: provider.id in PROVIDER_PRIORITY ? "Popular" : "Providers",
+      })),
+    ),
+    {
+      type: "custom",
+      title: "Other",
+      value: CUSTOM_PROVIDER_OPTION_VALUE,
+      description: "Custom provider",
+      category: "Providers",
+    },
+  ]
+}
+
+export function normalizeCustomProviderID(value: string) {
+  const providerID = value.trim().replace(/^@ai-sdk\//, "")
+  if (!CUSTOM_PROVIDER_ID.test(providerID)) return
+  return providerID
 }
 
 export function createDialogProviderOptions() {
@@ -31,90 +84,139 @@ export function createDialogProviderOptions() {
   const dialog = useDialog()
   const sdk = useSDK()
   const toast = useToast()
+  const { theme } = useTheme()
+  const onboarded = useConnected()
+
+  async function promptCustomProviderID(): Promise<string | undefined> {
+    const value = await DialogPrompt.show(dialog, "Other", {
+      placeholder: "Provider id",
+      description: () => (
+        <text fg={theme.textMuted}>
+          This only stores a credential. Configure the provider in navi.json to use it.
+        </text>
+      ),
+    })
+    if (value === null) return
+
+    const providerID = normalizeCustomProviderID(value)
+    if (providerID) return providerID
+
+    toast.show({
+      variant: "error",
+      message:
+        "Provider ids must start with a lowercase letter or number and only use lowercase letters, numbers, hyphens, and underscores",
+    })
+    return promptCustomProviderID()
+  }
+
   const options = createMemo(() => {
     return pipe(
-      sync.data.provider_next.all,
-      sortBy((x) => PROVIDER_PRIORITY[x.id] ?? 99),
-      map((provider) => ({
-        title: provider.name,
-        value: provider.id,
-        description: {
-          Navi: "(Recommended)",
-          anthropic: "(API key)",
-          openai: "(ChatGPT Plus/Pro or API key)",
-          "Navi-go": "Low cost subscription for everyone",
-          "qwen-cli": "Alibaba Qwen models (OAuth login)",
-          kilocode: "Free & paid models via Kilo Code",
-          kilo: "Gateway to multiple AI providers",
-        }[provider.id],
-        category: provider.id in PROVIDER_PRIORITY ? "Popular" : "Other",
-        async onSelect() {
-          const methods = (sync.data.provider_auth[provider.id] as any[]) ?? [
-            {
-              type: "api",
-              label: "API key",
+      providerOptions(sync.data.provider_next.all),
+      map((provider) => {
+        if (provider.type === "custom") {
+          return {
+            title: provider.title,
+            value: provider.value,
+            description: provider.description,
+            category: provider.category,
+            async onSelect() {
+              const providerID = await promptCustomProviderID()
+              if (!providerID) return
+              return dialog.replace(() => <ApiMethod providerID={providerID} title="API key" custom />)
             },
-          ]
-          let index: number | null = 0
-          if (methods.length > 1) {
-            index = await new Promise<number | null>((resolve) => {
-              dialog.replace(
-                () => (
-                  <DialogSelect
-                    title="Select auth method"
-                    options={methods.map((x, index) => ({
-                      title: x.label,
-                      value: index,
-                    }))}
-                    onSelect={(option) => resolve(option.value)}
-                  />
-                ),
-                () => resolve(null),
-              )
-            })
           }
-          if (index == null) return
-          const method = methods[index]
-          if (method.type === "oauth") {
-            let inputs: Record<string, string> | undefined
-            if (method.prompts?.length) {
-              const value = await PromptsMethod({
-                dialog,
-                prompts: method.prompts,
-              })
-              if (!value) return
-              inputs = value
-            }
+        }
 
-            const result = await (sdk.client.provider.oauth.authorize as any)({
-              providerID: provider.id,
-              method: index,
-              inputs,
-            })
-            if (result.error) {
-              toast.show({
-                variant: "error",
-                message: JSON.stringify(result.error),
+        const providerID = provider.providerID
+        const consoleManaged = isConsoleManagedProvider(sync.data.console_state.consoleManagedProviders, providerID)
+        const connected = sync.data.provider_next.connected.includes(providerID)
+
+        return {
+          title: provider.title,
+          value: provider.value,
+          description: provider.description,
+          footer: consoleManaged ? sync.data.console_state.activeOrgName : undefined,
+          category: provider.category,
+          gutter: connected && onboarded() ? () => <text fg={theme.success}>✓</text> : undefined,
+          async onSelect() {
+            if (consoleManaged) return
+
+            const methods = sync.data.provider_auth[providerID] ?? [
+              {
+                type: "api",
+                label: "API key",
+              },
+            ]
+            let index: number | null = 0
+            if (methods.length > 1) {
+              index = await new Promise<number | null>((resolve) => {
+                dialog.replace(
+                  () => (
+                    <DialogSelect
+                      title="Select auth method"
+                      options={methods.map((x, index) => ({
+                        title: x.label,
+                        value: index,
+                      }))}
+                      onSelect={(option) => resolve(option.value)}
+                    />
+                  ),
+                  () => resolve(null),
+                )
               })
-              dialog.clear()
-              return
             }
-            if (result.data?.method === "code") {
-              dialog.replace(() => (
-                <CodeMethod providerID={provider.id} title={method.label} index={index} authorization={result.data!} />
+            if (index == null) return
+            const method = methods[index]
+            if (!method) return
+            if (method.type === "oauth") {
+              let inputs: Record<string, string> | undefined
+              if (method.prompts?.length) {
+                const value = await PromptsMethod({
+                  dialog,
+                  prompts: method.prompts,
+                })
+                if (!value) return
+                inputs = value
+              }
+
+              const result = await sdk.client.provider.oauth.authorize({
+                providerID,
+                method: index,
+                inputs,
+              })
+              if (result.error) {
+                toast.show({
+                  variant: "error",
+                  message: JSON.stringify(result.error),
+                })
+                dialog.clear()
+                return
+              }
+              if (result.data?.method === "code") {
+                dialog.replace(() => (
+                  <CodeMethod providerID={providerID} title={method.label} index={index} authorization={result.data!} />
+                ))
+              }
+              if (result.data?.method === "auto") {
+                dialog.replace(() => (
+                  <AutoMethod providerID={providerID} title={method.label} index={index} authorization={result.data!} />
+                ))
+              }
+            }
+            if (method.type === "api") {
+              let metadata: Record<string, string> | undefined
+              if (method.prompts?.length) {
+                const value = await PromptsMethod({ dialog, prompts: method.prompts })
+                if (!value) return
+                metadata = value
+              }
+              return dialog.replace(() => (
+                <ApiMethod providerID={providerID} title={method.label} metadata={metadata} />
               ))
             }
-            if (result.data?.method === "auto") {
-              dialog.replace(() => (
-                <AutoMethod providerID={provider.id} title={method.label} index={index} authorization={result.data!} />
-              ))
-            }
-          }
-          if (method.type === "api") {
-            return dialog.replace(() => <ApiMethod providerID={provider.id} title={method.label} />)
-          }
-        },
-      })),
+          },
+        }
+      }),
     )
   })
   return options
@@ -138,14 +240,22 @@ function AutoMethod(props: AutoMethodProps) {
   const sync = useSync()
   const toast = useToast()
 
-  useKeyboard((evt) => {
-    if (evt.name === "c" && !evt.ctrl && !evt.meta) {
-      const code = props.authorization.instructions.match(/[A-Z0-9]{4}-[A-Z0-9]{4,5}/)?.[0] ?? props.authorization.url
-      Clipboard.copy(code)
-        .then(() => toast.show({ message: "Copied to clipboard", variant: "info" }))
-        .catch(toast.error)
-    }
-  })
+  useBindings(() => ({
+    bindings: [
+      {
+        key: "c",
+        desc: "Copy provider code",
+        group: "Dialog",
+        cmd: () => {
+          const code =
+            props.authorization.instructions.match(/[A-Z0-9]{4}-[A-Z0-9]{4,5}/)?.[0] ?? props.authorization.url
+          Clipboard.copy(code)
+            .then(() => toast.show({ message: "Copied to clipboard", variant: "info" }))
+            .catch(toast.error)
+        },
+      },
+    ],
+  }))
 
   onMount(async () => {
     const result = await sdk.client.provider.oauth.callback({
@@ -176,10 +286,9 @@ function AutoMethod(props: AutoMethodProps) {
         <text fg={theme.textMuted}>{props.authorization.instructions}</text>
       </box>
       <text fg={theme.textMuted}>Waiting for authorization...</text>
-      <box flexDirection="row" gap={1}>
-        <text fg={theme.text}>c</text>
-        <text fg={theme.textMuted}>copy</text>
-      </box>
+      <text fg={theme.text}>
+        c <span style={{ fg: theme.textMuted }}>copy</span>
+      </text>
     </box>
   )
 }
@@ -231,11 +340,14 @@ function CodeMethod(props: CodeMethodProps) {
 interface ApiMethodProps {
   providerID: string
   title: string
+  metadata?: Record<string, string>
+  custom?: boolean
 }
 function ApiMethod(props: ApiMethodProps) {
   const dialog = useDialog()
   const sdk = useSDK()
   const sync = useSync()
+  const toast = useToast()
   const { theme } = useTheme()
 
   return (
@@ -244,30 +356,26 @@ function ApiMethod(props: ApiMethodProps) {
       placeholder="API key"
       description={
         {
-          Navi: (
+          navi: (
             <box gap={1}>
               <text fg={theme.textMuted}>
                 Navi Zen gives you access to all the best coding models at the cheapest prices with a single API
                 key.
               </text>
-              <box flexDirection="row" gap={1}>
-                <text fg={theme.text}>Go to</text>
-                <text fg={theme.primary}>https://Navi.ai/zen</text>
-                <text fg={theme.text}>to get a key</text>
-              </box>
+              <text fg={theme.text}>
+                Go to <span style={{ fg: theme.primary }}>https://navi.ai/zen</span> to get a key
+              </text>
             </box>
           ),
-          "Navi-go": (
+          "navi-go": (
             <box gap={1}>
               <text fg={theme.textMuted}>
                 Navi Go is a $10 per month subscription that provides reliable access to popular open coding models
                 with generous usage limits.
               </text>
-              <box flexDirection="row" gap={1}>
-                <text fg={theme.text}>Go to</text>
-                <text fg={theme.primary}>https://Navi.ai/zen</text>
-                <text fg={theme.text}>and enable Navi Go</text>
-              </box>
+              <text fg={theme.text}>
+                Go to <span style={{ fg: theme.primary }}>https://navi.ai/zen</span> and enable Navi Go
+              </text>
             </box>
           ),
         }[props.providerID] ?? undefined
@@ -279,10 +387,19 @@ function ApiMethod(props: ApiMethodProps) {
           auth: {
             type: "api",
             key: value,
+            ...(props.metadata ? { metadata: props.metadata } : {}),
           },
         })
         await sdk.client.instance.dispose()
         await sync.bootstrap()
+        if (props.custom && !sync.data.provider_next.all.some((provider) => provider.id === props.providerID)) {
+          toast.show({
+            variant: "info",
+            message: `Saved credential for ${props.providerID}. Configure it in navi.json to use it.`,
+          })
+          dialog.clear()
+          return
+        }
         dialog.replace(() => <DialogModel providerID={props.providerID} />)
       }}
     />
@@ -291,7 +408,7 @@ function ApiMethod(props: ApiMethodProps) {
 
 interface PromptsMethodProps {
   dialog: ReturnType<typeof useDialog>
-  prompts: any[]
+  prompts: NonNullable<ProviderAuthMethod["prompts"]>[number][]
 }
 async function PromptsMethod(props: PromptsMethodProps) {
   const inputs: Record<string, string> = {}
@@ -309,12 +426,12 @@ async function PromptsMethod(props: PromptsMethodProps) {
           () => (
             <DialogSelect
               title={prompt.message}
-              options={prompt.options.map((x: any) => ({
+              options={prompt.options.map((x) => ({
                 title: x.label,
                 value: x.value,
                 description: x.hint,
               }))}
-              onSelect={(option) => resolve(option.value as any)}
+              onSelect={(option) => resolve(option.value)}
             />
           ),
           () => resolve(null),
@@ -338,4 +455,3 @@ async function PromptsMethod(props: PromptsMethodProps) {
   }
   return inputs
 }
-

@@ -14,7 +14,7 @@
  */
 
 import type { Hooks } from "@navi-ai/plugin"
-import { Log } from "../util/log"
+import { Log } from "@navi-ai/core/util/log"
 
 const log = Log.create({ service: "context-monitor" })
 

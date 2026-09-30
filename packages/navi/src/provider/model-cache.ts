@@ -1,5 +1,5 @@
 import { Global } from "../global"
-import { Log } from "../util/log"
+import * as Log from "@navi-ai/core/util/log"
 import { Provider } from "./provider"
 import path from "path"
 import fs from "fs/promises"

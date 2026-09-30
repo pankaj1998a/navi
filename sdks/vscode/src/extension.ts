@@ -6,11 +6,11 @@ import * as vscode from "vscode"
 const TERMINAL_NAME = "navi"
 
 export function activate(context: vscode.ExtensionContext) {
-  let openNewTerminalDisposable = vscode.commands.registerCommand("navi.openNewTerminal", async () => {
+  const openNewTerminalDisposable = vscode.commands.registerCommand("navi.openNewTerminal", async () => {
     await openTerminal()
   })
 
-  let openTerminalDisposable = vscode.commands.registerCommand("navi.openTerminal", async () => {
+  const openTerminalDisposable = vscode.commands.registerCommand("navi.openTerminal", async () => {
     // An navi terminal already exists => focus it
     const existingTerminal = vscode.window.terminals.find((t) => t.name === TERMINAL_NAME)
     if (existingTerminal) {
@@ -34,13 +34,13 @@ export function activate(context: vscode.ExtensionContext) {
 
     if (terminal.name === TERMINAL_NAME) {
       // @ts-ignore
-      const port = terminal.creationOptions.env?.["_EXTENSION_navi_PORT"]
+      const port = terminal.creationOptions.env?.["_EXTENSION_NAVI_PORT"]
       port ? await appendPrompt(parseInt(port), fileRef) : terminal.sendText(fileRef, false)
       terminal.show()
     }
   })
 
-  context.subscriptions.push(openTerminalDisposable, addFilepathDisposable)
+  context.subscriptions.push(openNewTerminalDisposable, openTerminalDisposable, addFilepathDisposable)
 
   async function openTerminal() {
     // Create a new terminal in split screen
@@ -56,8 +56,8 @@ export function activate(context: vscode.ExtensionContext) {
         preserveFocus: false,
       },
       env: {
-        _EXTENSION_navi_PORT: port.toString(),
-        navi_CALLER: "vscode",
+        _EXTENSION_NAVI_PORT: port.toString(),
+        NAVI_CALLER: "vscode",
       },
     })
 
@@ -78,7 +78,7 @@ export function activate(context: vscode.ExtensionContext) {
         await fetch(`http://localhost:${port}/app`)
         connected = true
         break
-      } catch (e) {}
+      } catch {}
 
       tries--
     } while (tries > 0)

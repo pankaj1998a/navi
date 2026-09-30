@@ -1,8 +1,4 @@
-import {
-  type LanguageModelV2CallOptions,
-  type LanguageModelV2CallWarning,
-  UnsupportedFunctionalityError,
-} from "@ai-sdk/provider"
+import { type LanguageModelV3CallOptions, type SharedV3Warning, UnsupportedFunctionalityError } from "@ai-sdk/provider"
 import { codeInterpreterArgsSchema } from "./tool/code-interpreter"
 import { fileSearchArgsSchema } from "./tool/file-search"
 import { webSearchArgsSchema } from "./tool/web-search"
@@ -15,27 +11,27 @@ export function prepareResponsesTools({
   toolChoice,
   strictJsonSchema,
 }: {
-  tools: LanguageModelV2CallOptions["tools"]
-  toolChoice?: LanguageModelV2CallOptions["toolChoice"]
+  tools: LanguageModelV3CallOptions["tools"]
+  toolChoice?: LanguageModelV3CallOptions["toolChoice"]
   strictJsonSchema: boolean
 }): {
   tools?: Array<OpenAIResponsesTool>
   toolChoice?:
-  | "auto"
-  | "none"
-  | "required"
-  | { type: "file_search" }
-  | { type: "web_search_preview" }
-  | { type: "web_search" }
-  | { type: "function"; name: string }
-  | { type: "code_interpreter" }
-  | { type: "image_generation" }
-  toolWarnings: LanguageModelV2CallWarning[]
+    | "auto"
+    | "none"
+    | "required"
+    | { type: "file_search" }
+    | { type: "web_search_preview" }
+    | { type: "web_search" }
+    | { type: "function"; name: string }
+    | { type: "code_interpreter" }
+    | { type: "image_generation" }
+  toolWarnings: SharedV3Warning[]
 } {
   // when the tools array is empty, change it to undefined to prevent errors:
   tools = tools?.length ? tools : undefined
 
-  const toolWarnings: LanguageModelV2CallWarning[] = []
+  const toolWarnings: SharedV3Warning[] = []
 
   if (tools == null) {
     return { tools: undefined, toolChoice: undefined, toolWarnings }
@@ -46,42 +42,15 @@ export function prepareResponsesTools({
   for (const tool of tools) {
     switch (tool.type) {
       case "function":
-        // Ensure we have valid schema before pushing to openaiTools
-        let parameters = tool.inputSchema
-        const isNoneType = typeof parameters === "object" && parameters !== null && (parameters as any).type === "None"
-
-        if (!parameters || isNoneType) {
-          parameters = {
-            type: "object",
-            properties: {},
-            additionalProperties: false,
-          }
-
-          // Only warn if it's completely missing, not if it's just 'None' (which we fix silently)
-          if (!tool.inputSchema) {
-            toolWarnings.push({
-              type: "other",
-              message: `Invalid schema for function '${tool.name}': schema is missing, using default empty object`,
-            })
-          }
-        }
-
-        // Ensure schema has required type: "object"
-        if (typeof parameters === "object" && parameters !== null && (parameters as any).type !== "object") {
-          parameters = {
-            ...parameters,
-            type: "object",
-          }
-        }
         openaiTools.push({
           type: "function",
           name: tool.name,
           description: tool.description,
-          parameters,
+          parameters: tool.inputSchema,
           strict: strictJsonSchema,
         })
         break
-      case "provider-defined": {
+      case "provider": {
         switch (tool.id) {
           case "openai.file_search": {
             const args = fileSearchArgsSchema.parse(tool.args)
@@ -92,9 +61,9 @@ export function prepareResponsesTools({
               max_num_results: args.maxNumResults,
               ranking_options: args.ranking
                 ? {
-                  ranker: args.ranking.ranker,
-                  score_threshold: args.ranking.scoreThreshold,
-                }
+                    ranker: args.ranking.ranker,
+                    score_threshold: args.ranking.scoreThreshold,
+                  }
                 : undefined,
               filters: args.filters,
             })
@@ -147,9 +116,9 @@ export function prepareResponsesTools({
               input_fidelity: args.inputFidelity,
               input_image_mask: args.inputImageMask
                 ? {
-                  file_id: args.inputImageMask.fileId,
-                  image_url: args.inputImageMask.imageUrl,
-                }
+                    file_id: args.inputImageMask.fileId,
+                    image_url: args.inputImageMask.imageUrl,
+                  }
                 : undefined,
               model: args.model,
               moderation: args.moderation,
@@ -165,7 +134,7 @@ export function prepareResponsesTools({
         break
       }
       default:
-        toolWarnings.push({ type: "unsupported-tool", tool })
+        toolWarnings.push({ type: "unsupported", feature: "tool type" })
         break
     }
   }
@@ -186,10 +155,10 @@ export function prepareResponsesTools({
         tools: openaiTools,
         toolChoice:
           toolChoice.toolName === "code_interpreter" ||
-            toolChoice.toolName === "file_search" ||
-            toolChoice.toolName === "image_generation" ||
-            toolChoice.toolName === "web_search_preview" ||
-            toolChoice.toolName === "web_search"
+          toolChoice.toolName === "file_search" ||
+          toolChoice.toolName === "image_generation" ||
+          toolChoice.toolName === "web_search_preview" ||
+          toolChoice.toolName === "web_search"
             ? { type: toolChoice.toolName }
             : { type: "function", name: toolChoice.toolName },
         toolWarnings,
@@ -202,5 +171,4 @@ export function prepareResponsesTools({
     }
   }
 }
-
 

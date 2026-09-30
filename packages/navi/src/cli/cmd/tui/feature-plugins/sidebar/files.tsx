@@ -1,6 +1,6 @@
-import type { TuiPlugin, TuiPluginApi, TuiPluginModule } from "@navi-ai/plugin/tui"
+import type { TuiPlugin, TuiPluginApi } from "@navi-ai/plugin/tui"
+import type { InternalTuiPlugin } from "../../plugin/internal"
 import { createMemo, For, Show, createSignal } from "solid-js"
-import { TextAttributes } from "@opentui/core"
 
 const id = "internal:sidebar-files"
 
@@ -16,7 +16,9 @@ function View(props: { api: TuiPluginApi; session_id: string }) {
           <Show when={list().length > 2}>
             <text fg={theme().text}>{open() ? "▼" : "▶"}</text>
           </Show>
-            <text fg={theme().text} attributes={TextAttributes.BOLD}>Modified Files</text>
+          <text fg={theme().text}>
+            <b>Modified Files</b>
+          </text>
         </box>
         <Show when={list().length <= 2 || open()}>
           <For each={list()}>
@@ -53,10 +55,9 @@ const tui: TuiPlugin = async (api) => {
   })
 }
 
-const plugin: TuiPluginModule & { id: string } = {
+const plugin: InternalTuiPlugin = {
   id,
   tui,
 }
 
 export default plugin
-

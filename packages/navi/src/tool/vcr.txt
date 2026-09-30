@@ -1,0 +1,11 @@
+VCR (Video Cassette Recorder) session replay tool — mirrors Claude `src/services/vcr.ts`.
+
+Records and replays Navi sessions for debugging, testing, and regression. The full Claude implementation uses fixture management (`withFixture`), request hashing, and `shouldUseVCR()` gating for test fixtures.
+
+Supported actions:
+- "record": start recording the current session's tool calls and LLM turns to a fixture file
+- "replay": replay a previously recorded fixture deterministically
+- "list": list available VCR fixtures for the current workspace
+- "stop": stop an active recording
+
+Fixtures are stored under `.navi/vcr/<session-id>.json` (stub path). This stub does not capture real LLM traffic — it creates/lists placeholder fixture files and returns deterministic outputs so the tool can be discovered and type-checked. Wire to `src/services/vcr.ts` logic when enabling full replay.

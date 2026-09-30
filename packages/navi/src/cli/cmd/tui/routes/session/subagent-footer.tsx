@@ -4,11 +4,10 @@ import { useSync } from "@tui/context/sync"
 import { useTheme } from "@tui/context/theme"
 import { SplitBorder } from "@tui/component/border"
 import type { AssistantMessage } from "@navi-ai/sdk/v2"
-import { useCommandDialog } from "@tui/component/dialog-command"
-import { useKeybind } from "../../context/keybind"
 import { Locale } from "@/util/locale"
 import { useTerminalDimensions } from "@opentui/solid"
-import { TextAttributes } from "@opentui/core"
+import { useCommandPalette } from "../../context/command-palette"
+import { useCommandShortcut } from "../../keymap"
 
 export function SubagentFooter() {
   const route = useRouteData("session")
@@ -20,7 +19,7 @@ export function SubagentFooter() {
     const s = session()
     if (!s) return { label: "Subagent", index: 0, total: 0 }
     const agentMatch = s.title.match(/@(\w+) subagent/)
-    const label = agentMatch ? Locale.titlecase(agentMatch[1]) : "Subagent"
+    const label = agentMatch ? Locale.titlecase(agentMatch[1] ?? "") : "Subagent"
 
     if (!s.parentID) return { label, index: 0, total: 0 }
 
@@ -57,10 +56,12 @@ export function SubagentFooter() {
   })
 
   const { theme } = useTheme()
-  const keybind = useKeybind()
-  const command = useCommandDialog()
+  const command = useCommandPalette()
+  const parentShortcut = useCommandShortcut("session.parent")
+  const previousShortcut = useCommandShortcut("session.child.previous")
+  const nextShortcut = useCommandShortcut("session.child.next")
   const [hover, setHover] = createSignal<"parent" | "prev" | "next" | null>(null)
-  const dimensions = useTerminalDimensions()
+  useTerminalDimensions()
 
   return (
     <box flexShrink={0}>
@@ -77,10 +78,12 @@ export function SubagentFooter() {
       >
         <box flexDirection="row" justifyContent="space-between" gap={1}>
           <box flexDirection="row" gap={1}>
-            <text fg={theme.text} attributes={TextAttributes.BOLD}>{subagentInfo().label}</text>
+            <text fg={theme.text}>
+              <b>{subagentInfo().label}</b>
+            </text>
             <Show when={subagentInfo().total > 0}>
-              <text fg={theme.textMuted}>
-                ({String(subagentInfo().index)} of {String(subagentInfo().total)})
+              <text style={{ fg: theme.textMuted }}>
+                ({subagentInfo().index} of {subagentInfo().total})
               </text>
             </Show>
             <Show when={usage()}>
@@ -95,35 +98,32 @@ export function SubagentFooter() {
             <box
               onMouseOver={() => setHover("parent")}
               onMouseOut={() => setHover(null)}
-              onMouseUp={() => command.trigger("session.parent")}
+              onMouseUp={() => command.run("session.parent")}
               backgroundColor={hover() === "parent" ? theme.backgroundElement : theme.backgroundPanel}
-              flexDirection="row"
-              gap={1}
             >
-              <text fg={theme.text}>Parent</text>
-              <text fg={theme.textMuted}>{keybind.print("session_parent")}</text>
+              <text fg={theme.text}>
+                Parent <span style={{ fg: theme.textMuted }}>{parentShortcut()}</span>
+              </text>
             </box>
             <box
               onMouseOver={() => setHover("prev")}
               onMouseOut={() => setHover(null)}
-              onMouseUp={() => command.trigger("session.child.previous")}
+              onMouseUp={() => command.run("session.child.previous")}
               backgroundColor={hover() === "prev" ? theme.backgroundElement : theme.backgroundPanel}
-              flexDirection="row"
-              gap={1}
             >
-              <text fg={theme.text}>Prev</text>
-              <text fg={theme.textMuted}>{keybind.print("session_child_cycle_reverse")}</text>
+              <text fg={theme.text}>
+                Prev <span style={{ fg: theme.textMuted }}>{previousShortcut()}</span>
+              </text>
             </box>
             <box
               onMouseOver={() => setHover("next")}
               onMouseOut={() => setHover(null)}
-              onMouseUp={() => command.trigger("session.child.next")}
+              onMouseUp={() => command.run("session.child.next")}
               backgroundColor={hover() === "next" ? theme.backgroundElement : theme.backgroundPanel}
-              flexDirection="row"
-              gap={1}
             >
-              <text fg={theme.text}>Next</text>
-              <text fg={theme.textMuted}>{keybind.print("session_child_cycle")}</text>
+              <text fg={theme.text}>
+                Next <span style={{ fg: theme.textMuted }}>{nextShortcut()}</span>
+              </text>
             </box>
           </box>
         </box>
@@ -131,4 +131,3 @@ export function SubagentFooter() {
     </box>
   )
 }
-

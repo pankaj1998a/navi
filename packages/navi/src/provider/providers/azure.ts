@@ -1,8 +1,8 @@
-import { ProviderLoader } from "../loader"
+import type { ProviderLoader } from "../loader"
 import { Env } from "../../env"
 
 export const AzureProvider: ProviderLoader.Info = {
-    async load() {
+    async load(input, dep) {
         return {
             autoload: false,
             async getModel(sdk: any, modelID: string, options?: Record<string, any>) {
@@ -18,8 +18,8 @@ export const AzureProvider: ProviderLoader.Info = {
 }
 
 export const AzureCognitiveServicesProvider: ProviderLoader.Info = {
-    async load() {
-        const resourceName = Env.get("AZURE_COGNITIVE_SERVICES_RESOURCE_NAME")
+    async load(input, dep) {
+        const resourceName = dep.env["AZURE_COGNITIVE_SERVICES_RESOURCE_NAME"]
         return {
             autoload: false,
             async getModel(sdk: any, modelID: string, options?: Record<string, any>) {

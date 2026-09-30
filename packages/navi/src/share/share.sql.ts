@@ -11,4 +11,3 @@ export const SessionShareTable = sqliteTable("session_share", {
   url: text().notNull(),
   ...Timestamps,
 })
-

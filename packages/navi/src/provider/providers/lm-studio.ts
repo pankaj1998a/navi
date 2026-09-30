@@ -1,7 +1,7 @@
-import { ProviderLoader } from "../loader"
+import type { ProviderLoader } from "../loader"
 
 export const LmStudioProvider: ProviderLoader.Info = {
-    async load() {
+    async load(input, dep) {
         return {
             autoload: false,
             options: {},

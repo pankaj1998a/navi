@@ -1,5 +1,6 @@
-import { spawn } from "node:child_process"
+import launch from "cross-spawn"
 import { type Config } from "./gen/types.gen.js"
+import { stop, bindAbort } from "./process.js"
 
 export type ServerOptions = {
   hostname?: string
@@ -31,29 +32,38 @@ export async function createNaviServer(options?: ServerOptions) {
   const args = [`serve`, `--hostname=${options.hostname}`, `--port=${options.port}`]
   if (options.config?.logLevel) args.push(`--log-level=${options.config.logLevel}`)
 
-  const proc = spawn(`Navi`, args, {
-    signal: options.signal,
+  const proc = launch(`navi`, args, {
     env: {
       ...process.env,
       NAVI_CONFIG_CONTENT: JSON.stringify(options.config ?? {}),
     },
   })
+  let clear = () => {}
 
   const url = await new Promise<string>((resolve, reject) => {
     const id = setTimeout(() => {
+      clear()
+      stop(proc)
       reject(new Error(`Timeout waiting for server to start after ${options.timeout}ms`))
     }, options.timeout)
     let output = ""
+    let resolved = false
     proc.stdout?.on("data", (chunk) => {
+      if (resolved) return
       output += chunk.toString()
       const lines = output.split("\n")
       for (const line of lines) {
-        if (line.startsWith("Navi server listening")) {
+        if (line.startsWith("navi server listening")) {
           const match = line.match(/on\s+(https?:\/\/[^\s]+)/)
           if (!match) {
-            throw new Error(`Failed to parse server url from output: ${line}`)
+            clear()
+            stop(proc)
+            clearTimeout(id)
+            reject(new Error(`Failed to parse server url from output: ${line}`))
+            return
           }
           clearTimeout(id)
+          resolved = true
           resolve(match[1]!)
           return
         }
@@ -74,18 +84,17 @@ export async function createNaviServer(options?: ServerOptions) {
       clearTimeout(id)
       reject(error)
     })
-    if (options.signal) {
-      options.signal.addEventListener("abort", () => {
-        clearTimeout(id)
-        reject(new Error("Aborted"))
-      })
-    }
+    clear = bindAbort(proc, options.signal, () => {
+      clearTimeout(id)
+      reject(options.signal?.reason)
+    })
   })
 
   return {
     url,
     close() {
-      proc.kill()
+      clear()
+      stop(proc)
     },
   }
 }
@@ -106,8 +115,7 @@ export function createNaviTui(options?: TuiOptions) {
     args.push(`--agent=${options.agent}`)
   }
 
-  const proc = spawn(`Navi`, args, {
-    signal: options?.signal,
+  const proc = launch(`navi`, args, {
     stdio: "inherit",
     env: {
       ...process.env,
@@ -115,10 +123,12 @@ export function createNaviTui(options?: TuiOptions) {
     },
   })
 
+  const clear = bindAbort(proc, options?.signal)
+
   return {
     close() {
-      proc.kill()
+      clear()
+      stop(proc)
     },
   }
 }
-

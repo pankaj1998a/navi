@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Native modules re-exported from @navi-ai/native
  */

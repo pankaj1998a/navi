@@ -18,7 +18,7 @@ To add a provider you need to:
 ### Credentials
 
 When you add a provider's API keys with the `/connect` command, they are stored
-in `~/.local/share/navi/auth.json`.
+in `~/.local/share/Navi/auth.json`.
 
 ---
 
@@ -33,9 +33,9 @@ config.
 
 You can customize the base URL for any provider by setting the `baseURL` option. This is useful when using proxy services or custom endpoints.
 
-```json title="navi.json" {6}
+```json title="Navi.json" {6}
 {
-  "$schema": "https://navi.ai/config.json",
+  "$schema": "https://Navi.ai/config.json",
   "provider": {
     "anthropic": {
       "options": {
@@ -57,7 +57,39 @@ tested and verified to work well with Navi. [Learn more](/docs/zen).
 If you are new, we recommend starting with Navi Zen.
 :::
 
-1. Run the `/connect` command in the TUI, select navi, and head to [navi.ai/auth](https://navi.ai/auth).
+1. Run the `/connect` command in the TUI, select `Navi Zen`, and head to [Navi.ai/auth](https://Navi.ai/zen).
+
+   ```txt
+   /connect
+   ```
+
+2. Sign in, add your billing details, and copy your API key.
+
+3. Paste your API key.
+
+   ```txt
+   ┌ API key
+   │
+   │
+   └ enter
+   ```
+
+4. Run `/models` in the TUI to see the list of models we recommend.
+
+   ```txt
+   /models
+   ```
+
+It works like any other provider in Navi and is completely optional to use.
+
+---
+
+## Navi Go
+
+Navi Go is a low cost subscription plan that provides reliable access to popular open coding models provided by the Navi team that have been
+tested and verified to work well with Navi.
+
+1. Run the `/connect` command in the TUI, select `Navi Go`, and head to [Navi.ai/auth](https://Navi.ai/zen).
 
    ```txt
    /connect
@@ -95,6 +127,33 @@ Don't see a provider here? Submit a PR.
 
 ---
 
+### 302.AI
+
+1. Head over to the [302.AI console](https://302.ai/), create an account, and generate an API key.
+
+2. Run the `/connect` command and search for **302.AI**.
+
+   ```txt
+   /connect
+   ```
+
+3. Enter your 302.AI API key.
+
+   ```txt
+   ┌ API key
+   │
+   │
+   └ enter
+   ```
+
+4. Run the `/models` command to select a model.
+
+   ```txt
+   /models
+   ```
+
+---
+
 ### Amazon Bedrock
 
 To use Amazon Bedrock with Navi:
@@ -108,19 +167,21 @@ To use Amazon Bedrock with Navi:
 
 2. **Configure authentication** using one of the following methods:
 
+   ***
+
    #### Environment Variables (Quick Start)
 
-   Set one of these environment variables while running navi:
+   Set one of these environment variables while running Navi:
 
    ```bash
    # Option 1: Using AWS access keys
-   AWS_ACCESS_KEY_ID=XXX AWS_SECRET_ACCESS_KEY=YYY navi
+   AWS_ACCESS_KEY_ID=XXX AWS_SECRET_ACCESS_KEY=YYY Navi
 
    # Option 2: Using named AWS profile
-   AWS_PROFILE=my-profile navi
+   AWS_PROFILE=my-profile Navi
 
    # Option 3: Using Bedrock bearer token
-   AWS_BEARER_TOKEN_BEDROCK=XXX navi
+   AWS_BEARER_TOKEN_BEDROCK=XXX Navi
    ```
 
    Or add them to your bash profile:
@@ -130,13 +191,15 @@ To use Amazon Bedrock with Navi:
    export AWS_REGION=us-east-1
    ```
 
+   ***
+
    #### Configuration File (Recommended)
 
-   For project-specific or persistent configuration, use `navi.json`:
+   For project-specific or persistent configuration, use `Navi.json`:
 
-   ```json title="navi.json"
+   ```json title="Navi.json"
    {
-     "$schema": "https://navi.ai/config.json",
+     "$schema": "https://Navi.ai/config.json",
      "provider": {
        "amazon-bedrock": {
          "options": {
@@ -157,13 +220,15 @@ To use Amazon Bedrock with Navi:
    Configuration file options take precedence over environment variables.
    :::
 
+   ***
+
    #### Advanced: VPC Endpoints
 
    If you're using VPC endpoints for Bedrock:
 
-   ```json title="navi.json"
+   ```json title="Navi.json"
    {
-     "$schema": "https://navi.ai/config.json",
+     "$schema": "https://Navi.ai/config.json",
      "provider": {
        "amazon-bedrock": {
          "options": {
@@ -180,16 +245,21 @@ To use Amazon Bedrock with Navi:
    The `endpoint` option is an alias for the generic `baseURL` option, using AWS-specific terminology. If both `endpoint` and `baseURL` are specified, `endpoint` takes precedence.
    :::
 
+   ***
+
    #### Authentication Methods
    - **`AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY`**: Create an IAM user and generate access keys in the AWS Console
    - **`AWS_PROFILE`**: Use named profiles from `~/.aws/credentials`. First configure with `aws configure --profile my-profile` or `aws sso login`
    - **`AWS_BEARER_TOKEN_BEDROCK`**: Generate long-term API keys from the Amazon Bedrock console
+   - **`AWS_WEB_IDENTITY_TOKEN_FILE` / `AWS_ROLE_ARN`**: For EKS IRSA (IAM Roles for Service Accounts) or other Kubernetes environments with OIDC federation. These environment variables are automatically injected by Kubernetes when using service account annotations.
+
+   ***
 
    #### Authentication Precedence
 
    Amazon Bedrock uses the following authentication priority:
    1. **Bearer Token** - `AWS_BEARER_TOKEN_BEDROCK` environment variable or token from `/connect` command
-   2. **AWS Credential Chain** - Profile, access keys, shared credentials, IAM roles, instance metadata
+   2. **AWS Credential Chain** - Profile, access keys, shared credentials, IAM roles, Web Identity Tokens (EKS IRSA), instance metadata
 
    :::note
    When a bearer token is set (via `/connect` or `AWS_BEARER_TOKEN_BEDROCK`), it takes precedence over all AWS credential methods including configured profiles.
@@ -201,11 +271,29 @@ To use Amazon Bedrock with Navi:
    /models
    ```
 
+:::note
+For custom inference profiles, use the model and provider name in the key and set the `id` property to the arn. This ensures correct caching.
+:::
+
+```json title="Navi.json"
+{
+  "$schema": "https://Navi.ai/config.json",
+  "provider": {
+    "amazon-bedrock": {
+      // ...
+      "models": {
+        "anthropic-claude-sonnet-4.5": {
+          "id": "arn:aws:bedrock:us-east-1:xxx:application-inference-profile/yyy"
+        }
+      }
+    }
+  }
+}
+```
+
 ---
 
 ### Anthropic
-
-We recommend signing up for [Claude Pro](https://www.anthropic.com/news/claude-pro) or [Max](https://www.anthropic.com/max).
 
 1. Once you've signed up, run the `/connect` command and select Anthropic.
 
@@ -219,8 +307,6 @@ We recommend signing up for [Claude Pro](https://www.anthropic.com/news/claude-p
    ```txt
    ┌ Select auth method
    │
-   │ Claude Pro/Max
-   │ Create an API Key
    │ Manually enter API Key
    └
    ```
@@ -231,11 +317,58 @@ We recommend signing up for [Claude Pro](https://www.anthropic.com/news/claude-p
    /models
    ```
 
-##### Using API keys
+:::info
+There are plugins that allow you to use your Claude Pro/Max models with
+Navi. Anthropic explicitly prohibits this.
 
-You can also select **Create an API Key** if you don't have a Pro/Max subscription. It'll also open your browser and ask you to login to Anthropic and give you a code you can paste in your terminal.
+Previous versions of Navi came bundled with these plugins but that is no
+longer the case as of 1.3.0
 
-Or if you already have an API key, you can select **Manually enter API Key** and paste it in your terminal.
+Other companies support freedom of choice with developer tooling - you can use
+the following subscriptions in Navi with zero setup:
+
+- ChatGPT Plus
+- Github Copilot
+- Gitlab Duo
+  :::
+
+---
+
+### Atomic Chat
+
+You can configure Navi to use local models through [Atomic Chat](https://atomic.chat), a desktop application that runs local LLMs behind an OpenAI-compatible API server (default endpoint `http://127.0.0.1:1337/v1`).
+
+```json title="Navi.json" "atomic-chat" {5, 6, 8, 10-14}
+{
+  "$schema": "https://Navi.ai/config.json",
+  "provider": {
+    "atomic-chat": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "Atomic Chat (local)",
+      "options": {
+        "baseURL": "http://127.0.0.1:1337/v1"
+      },
+      "models": {
+        "<your-model-id>": {
+          "name": "<your-model-name>"
+        }
+      }
+    }
+  }
+}
+```
+
+In this example:
+
+- `atomic-chat` is the custom provider ID. This can be any string you want.
+- `npm` specifies the package to use for this provider. Here, `@ai-sdk/openai-compatible` is used for any OpenAI-compatible API.
+- `name` is the display name for the provider in the UI.
+- `options.baseURL` is the endpoint for the local server. Change the host and port to match your Atomic Chat setup.
+- `models` is a map of model IDs to their display names. Each ID must match the `id` returned by `GET /v1/models` — run `curl http://127.0.0.1:1337/v1/models` to list the ids currently loaded in Atomic Chat.
+
+:::tip
+If tool calls aren't working well, pick a loaded model with strong tool-calling support (for example, a Qwen-Coder or DeepSeek-Coder variant).
+:::
 
 ---
 
@@ -252,7 +385,7 @@ If you encounter "I'm sorry, but I cannot assist with that request" errors, try 
 2. Go to [Azure AI Foundry](https://ai.azure.com/) and deploy a model.
 
    :::note
-   The deployment name must match the model name for navi to work properly.
+   The deployment name must match the model name for Navi to work properly.
    :::
 
 3. Run the `/connect` command and search for **Azure**.
@@ -273,7 +406,7 @@ If you encounter "I'm sorry, but I cannot assist with that request" errors, try 
 5. Set your resource name as an environment variable:
 
    ```bash
-   AZURE_RESOURCE_NAME=XXX navi
+   AZURE_RESOURCE_NAME=XXX Navi
    ```
 
    Or add it to your bash profile:
@@ -299,7 +432,7 @@ If you encounter "I'm sorry, but I cannot assist with that request" errors, try 
 2. Go to [Azure AI Foundry](https://ai.azure.com/) and deploy a model.
 
    :::note
-   The deployment name must match the model name for navi to work properly.
+   The deployment name must match the model name for Navi to work properly.
    :::
 
 3. Run the `/connect` command and search for **Azure Cognitive Services**.
@@ -320,7 +453,7 @@ If you encounter "I'm sorry, but I cannot assist with that request" errors, try 
 5. Set your resource name as an environment variable:
 
    ```bash
-   AZURE_COGNITIVE_SERVICES_RESOURCE_NAME=XXX navi
+   AZURE_COGNITIVE_SERVICES_RESOURCE_NAME=XXX Navi
    ```
 
    Or add it to your bash profile:
@@ -395,47 +528,52 @@ If you encounter "I'm sorry, but I cannot assist with that request" errors, try 
 
 Cloudflare AI Gateway lets you access models from OpenAI, Anthropic, Workers AI, and more through a unified endpoint. With [Unified Billing](https://developers.cloudflare.com/ai-gateway/features/unified-billing/) you don't need separate API keys for each provider.
 
-1. Head over to the [Cloudflare dashboard](https://dash.cloudflare.com/), navigate to **AI** > **AI Gateway**, and create a new gateway.
+1. Head over to the [Cloudflare dashboard](https://dash.cloudflare.com/), navigate to **AI** > **AI Gateway**, and create a new gateway. Note your **Account ID** and **Gateway ID**.
 
-2. Set your Account ID and Gateway ID as environment variables.
-
-   ```bash title="~/.bash_profile"
-   export CLOUDFLARE_ACCOUNT_ID=your-32-character-account-id
-   export CLOUDFLARE_GATEWAY_ID=your-gateway-id
-   ```
-
-3. Run the `/connect` command and search for **Cloudflare AI Gateway**.
+2. Run the `/connect` command and search for **Cloudflare AI Gateway**.
 
    ```txt
    /connect
    ```
 
-4. Enter your Cloudflare API token.
+3. Enter your **Account ID** when prompted.
 
    ```txt
-   ┌ API key
+   ┌ Enter your Cloudflare Account ID
    │
    │
    └ enter
    ```
 
-   Or set it as an environment variable.
+4. Enter your **Gateway ID** when prompted.
 
-   ```bash title="~/.bash_profile"
-   export CLOUDFLARE_API_TOKEN=your-api-token
+   ```txt
+   ┌ Enter your Cloudflare AI Gateway ID
+   │
+   │
+   └ enter
    ```
 
-5. Run the `/models` command to select a model.
+5. Enter your **Cloudflare API token**.
+
+   ```txt
+   ┌ Gateway API token
+   │
+   │
+   └ enter
+   ```
+
+6. Run the `/models` command to select a model.
 
    ```txt
    /models
    ```
 
-   You can also add models through your navi config.
+   You can also add models through your Navi config.
 
-   ```json title="navi.json"
+   ```json title="Navi.json"
    {
-     "$schema": "https://navi.ai/config.json",
+     "$schema": "https://Navi.ai/config.json",
      "provider": {
        "cloudflare-ai-gateway": {
          "models": {
@@ -445,6 +583,59 @@ Cloudflare AI Gateway lets you access models from OpenAI, Anthropic, Workers AI,
        }
      }
    }
+   ```
+
+   Alternatively, you can set environment variables instead of using `/connect`.
+
+   ```bash title="~/.bash_profile"
+   export CLOUDFLARE_ACCOUNT_ID=your-32-character-account-id
+   export CLOUDFLARE_GATEWAY_ID=your-gateway-id
+   export CLOUDFLARE_API_TOKEN=your-api-token
+   ```
+
+---
+
+### Cloudflare Workers AI
+
+Cloudflare Workers AI lets you run AI models on Cloudflare's global network directly via REST API, with no separate provider accounts needed for supported models.
+
+1. Head over to the [Cloudflare dashboard](https://dash.cloudflare.com/), navigate to **Workers AI**, and select **Use REST API** to get your **Account ID** and create an API token.
+
+2. Run the `/connect` command and search for **Cloudflare Workers AI**.
+
+   ```txt
+   /connect
+   ```
+
+3. Enter your **Account ID** when prompted.
+
+   ```txt
+   ┌ Enter your Cloudflare Account ID
+   │
+   │
+   └ enter
+   ```
+
+4. Enter your **Cloudflare API key**.
+
+   ```txt
+   ┌ API key
+   │
+   │
+   └ enter
+   ```
+
+5. Run the `/models` command to select a model.
+
+   ```txt
+   /models
+   ```
+
+   Alternatively, you can set environment variables instead of using `/connect`.
+
+   ```bash title="~/.bash_profile"
+   export CLOUDFLARE_ACCOUNT_ID=your-32-character-account-id
+   export CLOUDFLARE_API_KEY=your-api-token
    ```
 
 ---
@@ -495,7 +686,7 @@ Cloudflare AI Gateway lets you access models from OpenAI, Anthropic, Workers AI,
    └ enter
    ```
 
-4. Run the `/models` command to select a DeepSeek model like _DeepSeek Reasoner_.
+4. Run the `/models` command to select a DeepSeek model like _DeepSeek V4 Pro_.
 
    ```txt
    /models
@@ -514,6 +705,33 @@ Cloudflare AI Gateway lets you access models from OpenAI, Anthropic, Workers AI,
    ```
 
 3. Enter your Deep Infra API key.
+
+   ```txt
+   ┌ API key
+   │
+   │
+   └ enter
+   ```
+
+4. Run the `/models` command to select a model.
+
+   ```txt
+   /models
+   ```
+
+---
+
+### FrogBot
+
+1. Head over to the [FrogBot dashboard](https://app.frogbot.ai/signup), create an account, and generate an API key.
+
+2. Run the `/connect` command and search for **FrogBot**.
+
+   ```txt
+   /connect
+   ```
+
+3. Enter your FrogBot API key.
 
    ```txt
    ┌ API key
@@ -557,15 +775,187 @@ Cloudflare AI Gateway lets you access models from OpenAI, Anthropic, Workers AI,
 
 ---
 
+### GitLab Duo
+
+:::caution[Experimental]
+GitLab Duo support in Navi is experimental. Features, configuration, and
+behavior may change in future releases.
+:::
+
+Navi integrates with the [GitLab Duo Agent Platform](https://docs.gitlab.com/user/duo_agent_platform/),
+providing AI-powered agentic chat with native tool calling capabilities.
+
+:::note[License requirements]
+GitLab Duo Agent Platform requires a **Premium** or **Ultimate** GitLab
+subscription. It is available on GitLab.com and GitLab Self-Managed.
+See [GitLab Duo Agent Platform prerequisites](https://docs.gitlab.com/user/duo_agent_platform/#prerequisites)
+for full requirements.
+:::
+
+1. Run the `/connect` command and select GitLab.
+
+   ```txt
+   /connect
+   ```
+
+2. Choose your authentication method:
+
+   ```txt
+   ┌ Select auth method
+   │
+   │ OAuth (Recommended)
+   │ Personal Access Token
+   └
+   ```
+
+   #### Using OAuth (Recommended)
+
+   Select **OAuth** and your browser will open for authorization.
+
+   #### Using Personal Access Token
+   1. Go to [GitLab User Settings > Access Tokens](https://gitlab.com/-/user_settings/personal_access_tokens)
+   2. Click **Add new token**
+   3. Name: `Navi`, Scopes: `api`
+   4. Copy the token (starts with `glpat-`)
+   5. Enter it in the terminal
+
+3. Run the `/models` command to see available models.
+
+   ```txt
+   /models
+   ```
+
+   Three Claude-based models are available:
+   - **duo-chat-haiku-4-5** (Default) - Fast responses for quick tasks
+   - **duo-chat-sonnet-4-5** - Balanced performance for most workflows
+   - **duo-chat-opus-4-5** - Most capable for complex analysis
+
+:::note
+You can also specify 'GITLAB_TOKEN' environment variable if you don't want
+to store token in Navi auth storage.
+:::
+
+##### Self-Hosted GitLab
+
+:::note[compliance note]
+Navi uses a small model for some AI tasks like generating the session title.
+It is configured to use gpt-5-nano by default, hosted by Zen. To lock Navi
+to only use your own GitLab-hosted instance, add the following to your
+`Navi.json` file. It is also recommended to disable session sharing.
+
+```json
+{
+  "$schema": "https://Navi.ai/config.json",
+  "small_model": "gitlab/duo-chat-haiku-4-5",
+  "share": "disabled"
+}
+```
+
+:::
+
+For self-hosted GitLab instances:
+
+```bash
+export GITLAB_INSTANCE_URL=https://gitlab.company.com
+export GITLAB_TOKEN=glpat-...
+```
+
+If your instance runs a custom AI Gateway:
+
+```bash
+GITLAB_AI_GATEWAY_URL=https://ai-gateway.company.com
+```
+
+Or add to your bash profile:
+
+```bash title="~/.bash_profile"
+export GITLAB_INSTANCE_URL=https://gitlab.company.com
+export GITLAB_AI_GATEWAY_URL=https://ai-gateway.company.com
+export GITLAB_TOKEN=glpat-...
+```
+
+:::note
+Your GitLab administrator must:
+
+1. [Turn on GitLab Duo](https://docs.gitlab.com/user/duo_agent_platform/turn_on_off/#turn-gitlab-duo-on-or-off)
+   for the user, group, or instance
+2. [Turn on the Agent Platform](https://docs.gitlab.com/user/duo_agent_platform/turn_on_off/#turn-gitlab-duo-agent-platform-on-or-off)
+   (GitLab 18.8+) or [enable beta and experimental features](https://docs.gitlab.com/user/duo_agent_platform/turn_on_off/#turn-on-beta-and-experimental-features)
+   (GitLab 18.7 and earlier)
+3. For Self-Managed, [configure your instance](https://docs.gitlab.com/administration/gitlab_duo/configure/gitlab_self_managed/)
+   :::
+
+##### OAuth for Self-Hosted instances
+
+In order to make Oauth working for your self-hosted instance, you need to create
+a new application (Settings → Applications) with the
+callback URL `http://127.0.0.1:8080/callback` and following scopes:
+
+- api (Access the API on your behalf)
+- read_user (Read your personal information)
+- read_repository (Allows read-only access to the repository)
+
+Then expose application ID as environment variable:
+
+```bash
+export GITLAB_OAUTH_CLIENT_ID=your_application_id_here
+```
+
+More documentation on [Navi-gitlab-auth](https://www.npmjs.com/package/Navi-gitlab-auth) homepage.
+
+##### Configuration
+
+Customize through `Navi.json`:
+
+```json title="Navi.json"
+{
+  "$schema": "https://Navi.ai/config.json",
+  "provider": {
+    "gitlab": {
+      "options": {
+        "instanceUrl": "https://gitlab.com"
+      }
+    }
+  }
+}
+```
+
+##### GitLab Duo Agent Platform (DAP) Workflow Models
+
+DAP workflow models provide an alternative execution path that routes tool calls
+through GitLab's Duo Workflow Service (DWS) instead of the standard agentic chat.
+When a `duo-workflow-*` model is selected, Navi will:
+
+1. Discover available models from your GitLab namespace
+2. Present a selection picker if multiple models are available
+3. Cache the selected model to disk for fast subsequent startups
+4. Route tool execution requests through Navi's permission-gated tool system
+
+Available DAP workflow models follow the `duo-workflow-*` naming convention and
+are dynamically discovered from your GitLab instance.
+
+##### GitLab API Tools (Optional, but highly recommended)
+
+To access GitLab tools (merge requests, issues, pipelines, CI/CD, etc.):
+
+```json title="Navi.json"
+{
+  "$schema": "https://Navi.ai/config.json",
+  "plugin": ["Navi-gitlab-plugin"]
+}
+```
+
+This plugin provides comprehensive GitLab repository management capabilities including MR reviews, issue tracking, pipeline monitoring, and more.
+
+---
+
 ### GitHub Copilot
 
-To use your GitHub Copilot subscription with navi:
+To use your GitHub Copilot subscription with Navi:
 
 :::note
 Some models might need a [Pro+
 subscription](https://github.com/features/copilot/plans) to use.
-
-Some models need to be manually enabled in your [GitHub Copilot settings](https://docs.github.com/en/copilot/how-tos/use-ai-models/configure-access-to-ai-models#setup-for-individual-use).
 :::
 
 1. Run the `/connect` command and search for GitHub Copilot.
@@ -612,10 +1002,10 @@ To use Google Vertex AI with Navi:
      - `GOOGLE_APPLICATION_CREDENTIALS`: Path to your service account JSON key file
      - Authenticate using gcloud CLI: `gcloud auth application-default login`
 
-   Set them while running navi.
+   Set them while running Navi.
 
    ```bash
-   GOOGLE_APPLICATION_CREDENTIALS=/path/to/service-account.json GOOGLE_CLOUD_PROJECT=your-project-id navi
+   GOOGLE_APPLICATION_CREDENTIALS=/path/to/service-account.json GOOGLE_CLOUD_PROJECT=your-project-id Navi
    ```
 
    Or add them to your bash profile.
@@ -725,13 +1115,13 @@ For more providers and advanced features like caching and rate limiting, check t
 
 #### Optional Configs
 
-In the event you see a feature or model from Helicone that isn't configured automatically through navi, you can always configure it yourself.
+In the event you see a feature or model from Helicone that isn't configured automatically through Navi, you can always configure it yourself.
 
 Here's [Helicone's Model Directory](https://helicone.ai/models), you'll need this to grab the IDs of the models you want to add.
 
-```jsonc title="~/.config/navi/navi.jsonc"
+```jsonc title="~/.config/Navi/Navi.jsonc"
 {
-  "$schema": "https://navi.ai/config.json",
+  "$schema": "https://Navi.ai/config.json",
   "provider": {
     "helicone": {
       "npm": "@ai-sdk/openai-compatible",
@@ -757,9 +1147,9 @@ Here's [Helicone's Model Directory](https://helicone.ai/models), you'll need thi
 
 Helicone supports custom headers for features like caching, user tracking, and session management. Add them to your provider config using `options.headers`:
 
-```jsonc title="~/.config/navi/navi.jsonc"
+```jsonc title="~/.config/Navi/Navi.jsonc"
 {
-  "$schema": "https://navi.ai/config.json",
+  "$schema": "https://Navi.ai/config.json",
   "provider": {
     "helicone": {
       "npm": "@ai-sdk/openai-compatible",
@@ -768,7 +1158,7 @@ Helicone supports custom headers for features like caching, user tracking, and s
         "baseURL": "https://ai-gateway.helicone.ai",
         "headers": {
           "Helicone-Cache-Enabled": "true",
-          "Helicone-User-Id": "navi",
+          "Helicone-User-Id": "Navi",
         },
       },
     },
@@ -778,17 +1168,17 @@ Helicone supports custom headers for features like caching, user tracking, and s
 
 ##### Session tracking
 
-Helicone's [Sessions](https://docs.helicone.ai/features/sessions) feature lets you group related LLM requests together. Use the [navi-helicone-session](https://github.com/H2Shami/navi-helicone-session) plugin to automatically log each Navi conversation as a session in Helicone.
+Helicone's [Sessions](https://docs.helicone.ai/features/sessions) feature lets you group related LLM requests together. Use the [Navi-helicone-session](https://github.com/H2Shami/Navi-helicone-session) plugin to automatically log each Navi conversation as a session in Helicone.
 
 ```bash
-npm install -g navi-helicone-session
+npm install -g Navi-helicone-session
 ```
 
 Add it to your config.
 
-```json title="navi.json"
+```json title="Navi.json"
 {
-  "plugin": ["navi-helicone-session"]
+  "plugin": ["Navi-helicone-session"]
 }
 ```
 
@@ -809,11 +1199,11 @@ See the [Helicone Header Directory](https://docs.helicone.ai/helicone-headers/he
 
 ### llama.cpp
 
-You can configure navi to use local models through [llama.cpp's](https://github.com/ggml-org/llama.cpp) llama-server utility
+You can configure Navi to use local models through [llama.cpp's](https://github.com/ggml-org/llama.cpp) llama-server utility
 
-```json title="navi.json" "llama.cpp" {5, 6, 8, 10-15}
+```json title="Navi.json" "llama.cpp" {5, 6, 8, 10-15}
 {
-  "$schema": "https://navi.ai/config.json",
+  "$schema": "https://Navi.ai/config.json",
   "provider": {
     "llama.cpp": {
       "npm": "@ai-sdk/openai-compatible",
@@ -876,11 +1266,11 @@ IO.NET offers 17 models optimized for various use cases:
 
 ### LM Studio
 
-You can configure navi to use local models through LM Studio.
+You can configure Navi to use local models through LM Studio.
 
-```json title="navi.json" "lmstudio" {5, 6, 8, 10-14}
+```json title="Navi.json" "lmstudio" {5, 6, 8, 10-14}
 {
-  "$schema": "https://navi.ai/config.json",
+  "$schema": "https://Navi.ai/config.json",
   "provider": {
     "lmstudio": {
       "npm": "@ai-sdk/openai-compatible",
@@ -964,6 +1354,60 @@ To use Kimi K2 from Moonshot AI:
 
 ---
 
+### NVIDIA
+
+NVIDIA provides access to Nemotron models and many other open models through [build.nvidia.com](https://build.nvidia.com) for free.
+
+1. Head over to [build.nvidia.com](https://build.nvidia.com), create an account, and generate an API key.
+
+2. Run the `/connect` command and search for **NVIDIA**.
+
+   ```txt
+   /connect
+   ```
+
+3. Enter your NVIDIA API key.
+
+   ```txt
+   ┌ API key
+   │
+   │
+   └ enter
+   ```
+
+4. Run the `/models` command to select a model like nemotron-3-super-120b-a12b.
+
+   ```txt
+   /models
+   ```
+
+#### On-Prem / NIM
+
+You can also use NVIDIA models locally via [NVIDIA NIM](https://docs.nvidia.com/nim/) by setting a custom base URL.
+
+```json title="Navi.json" {6}
+{
+  "$schema": "https://Navi.ai/config.json",
+  "provider": {
+    "nvidia": {
+      "options": {
+        "baseURL": "http://localhost:8000/v1"
+      }
+    }
+  }
+}
+```
+
+#### Environment Variable
+
+Alternatively, set your API key as an environment variable.
+
+```bash frame="none"
+export NVIDIA_API_KEY=nvapi-your-key-here
+```
+
+---
+
 ### Nebius Token Factory
 
 1. Head over to the [Nebius Token Factory console](https://tokenfactory.nebius.com/), create an account, and click **Add Key**.
@@ -993,11 +1437,15 @@ To use Kimi K2 from Moonshot AI:
 
 ### Ollama
 
-You can configure navi to use local models through Ollama.
+You can configure Navi to use local models through Ollama.
 
-```json title="navi.json" "ollama" {5, 6, 8, 10-14}
+:::tip
+Ollama can automatically configure itself for Navi. See the [Ollama integration docs](https://docs.ollama.com/integrations/Navi) for details.
+:::
+
+```json title="Navi.json" "ollama" {5, 6, 8, 10-14}
 {
-  "$schema": "https://navi.ai/config.json",
+  "$schema": "https://Navi.ai/config.json",
   "provider": {
     "ollama": {
       "npm": "@ai-sdk/openai-compatible",
@@ -1099,20 +1547,6 @@ We recommend signing up for [ChatGPT Plus or Pro](https://chatgpt.com/pricing).
 
 If you already have an API key, you can select **Manually enter API Key** and paste it in your terminal.
 
-##### Current OpenAI model guidance
-
-OpenAI now recommends the GPT-5.4 family for most coding and agentic work:
-
-- `gpt-5.4` for the strongest general-purpose coding and agentic tasks
-- `gpt-5.4-pro` for harder problems that benefit from more compute
-- `gpt-5.4-mini` for faster, lower-cost interactive work
-- `gpt-5.4-nano` for lightweight classification and subagent tasks
-- `gpt-5.2-codex` and `gpt-5.1-codex` for coding-focused workflows where your account exposes them
-- `gpt-4.1` when you want a strong non-reasoning model
-- `gpt-oss-120b` and `gpt-oss-20b` for open-weight workflows where your provider exposes them
-
-Navi loads the live OpenAI model list at runtime from OpenAI's models API, so the `/models` picker stays aligned with new releases without manual updates as long as your OpenAI credentials are valid.
-
 ---
 
 ### Navi Zen
@@ -1169,11 +1603,11 @@ Navi Zen is a list of tested and verified models provided by the Navi team. [Lea
    /models
    ```
 
-   You can also add additional models through your navi config.
+   You can also add additional models through your Navi config.
 
-   ```json title="navi.json" {6}
+   ```json title="Navi.json" {6}
    {
-     "$schema": "https://navi.ai/config.json",
+     "$schema": "https://Navi.ai/config.json",
      "provider": {
        "openrouter": {
          "models": {
@@ -1184,11 +1618,11 @@ Navi Zen is a list of tested and verified models provided by the Navi team. [Lea
    }
    ```
 
-5. You can also customize them through your navi config. Here's an example of specifying a provider
+5. You can also customize them through your Navi config. Here's an example of specifying a provider
 
-   ```json title="navi.json"
+   ```json title="Navi.json"
    {
-     "$schema": "https://navi.ai/config.json",
+     "$schema": "https://Navi.ai/config.json",
      "provider": {
        "openrouter": {
          "models": {
@@ -1199,6 +1633,74 @@ Navi Zen is a list of tested and verified models provided by the Navi team. [Lea
                  "allow_fallbacks": false
                }
              }
+           }
+         }
+       }
+     }
+   }
+   ```
+
+---
+
+### LLM Gateway
+
+1. Head over to the [LLM Gateway dashboard](https://llmgateway.io/dashboard), click **Create API Key**, and copy the key.
+
+2. Run the `/connect` command and search for LLM Gateway.
+
+   ```txt
+   /connect
+   ```
+
+3. Enter the API key for the provider.
+
+   ```txt
+   ┌ API key
+   │
+   │
+   └ enter
+   ```
+
+4. Many LLM Gateway models are preloaded by default, run the `/models` command to select the one you want.
+
+   ```txt
+   /models
+   ```
+
+   You can also add additional models through your Navi config.
+
+   ```json title="Navi.json" {6}
+   {
+     "$schema": "https://Navi.ai/config.json",
+     "provider": {
+       "llmgateway": {
+         "models": {
+           "somecoolnewmodel": {}
+         }
+       }
+     }
+   }
+   ```
+
+5. You can also customize them through your Navi config. Here's an example of specifying a provider
+
+   ```json title="Navi.json"
+   {
+     "$schema": "https://Navi.ai/config.json",
+     "provider": {
+       "llmgateway": {
+         "models": {
+           "glm-4.7": {
+             "name": "GLM 4.7"
+           },
+           "gpt-5.2": {
+             "name": "GPT-5.2"
+           },
+           "gemini-2.5-pro": {
+             "name": "Gemini 2.5 Pro"
+           },
+           "claude-3-5-sonnet-20241022": {
+             "name": "Claude 3.5 Sonnet"
            }
          }
        }
@@ -1236,7 +1738,7 @@ SAP AI Core provides access to 40+ models from OpenAI, Anthropic, Google, Amazon
    Or set the `AICORE_SERVICE_KEY` environment variable:
 
    ```bash
-   AICORE_SERVICE_KEY='{"clientid":"...","clientsecret":"...","url":"...","serviceurls":{"AI_API_URL":"..."}}' navi
+   AICORE_SERVICE_KEY='{"clientid":"...","clientsecret":"...","url":"...","serviceurls":{"AI_API_URL":"..."}}' Navi
    ```
 
    Or add it to your bash profile:
@@ -1248,7 +1750,7 @@ SAP AI Core provides access to 40+ models from OpenAI, Anthropic, Google, Amazon
 4. Optionally set deployment ID and resource group:
 
    ```bash
-   AICORE_DEPLOYMENT_ID=your-deployment-id AICORE_RESOURCE_GROUP=your-resource-group navi
+   AICORE_DEPLOYMENT_ID=your-deployment-id AICORE_RESOURCE_GROUP=your-resource-group Navi
    ```
 
    :::note
@@ -1256,6 +1758,39 @@ SAP AI Core provides access to 40+ models from OpenAI, Anthropic, Google, Amazon
    :::
 
 5. Run the `/models` command to select from 40+ available models.
+
+   ```txt
+   /models
+   ```
+
+---
+
+### STACKIT
+
+STACKIT AI Model Serving provides fully managed sovereign hosting environment for AI models, focusing on LLMs like Llama, Mistral, and Qwen, with maximum data sovereignty on European infrastructure.
+
+1. Head over to [STACKIT Portal](https://portal.stackit.cloud), navigate to **AI Model Serving**, and create an auth token for your project.
+
+   :::tip
+   You need a STACKIT customer account, user account, and project before creating auth tokens.
+   :::
+
+2. Run the `/connect` command and search for **STACKIT**.
+
+   ```txt
+   /connect
+   ```
+
+3. Enter your STACKIT AI Model Serving auth token.
+
+   ```txt
+   ┌ API key
+   │
+   │
+   └ enter
+   ```
+
+4. Run the `/models` command to select from available models like _Qwen3-VL 235B_ or _Llama 3.3 70B_.
 
    ```txt
    /models
@@ -1292,7 +1827,7 @@ SAP AI Core provides access to 40+ models from OpenAI, Anthropic, Google, Amazon
 
 ### Scaleway
 
-To use [Scaleway Generative APIs](https://www.scaleway.com/en/docs/generative-apis/) with navi:
+To use [Scaleway Generative APIs](https://www.scaleway.com/en/docs/generative-apis/) with Navi:
 
 1. Head over to the [Scaleway Console IAM settings](https://console.scaleway.com/iam/api-keys) to generate a new API key.
 
@@ -1400,11 +1935,11 @@ Vercel AI Gateway lets you access models from OpenAI, Anthropic, Google, xAI, an
    /models
    ```
 
-You can also customize models through your navi config. Here's an example of specifying provider routing order.
+You can also customize models through your Navi config. Here's an example of specifying provider routing order.
 
-```json title="navi.json"
+```json title="Navi.json"
 {
-  "$schema": "https://navi.ai/config.json",
+  "$schema": "https://Navi.ai/config.json",
   "provider": {
     "vercel": {
       "models": {
@@ -1510,11 +2045,11 @@ Some useful routing options:
    /models
    ```
 
-   You can also add additional models through your navi config.
+   You can also add additional models through your Navi config.
 
-   ```json title="navi.json" {6}
+   ```json title="Navi.json" {6}
    {
-     "$schema": "https://navi.ai/config.json",
+     "$schema": "https://Navi.ai/config.json",
      "provider": {
        "zenmux": {
          "models": {
@@ -1532,7 +2067,7 @@ Some useful routing options:
 To add any **OpenAI-compatible** provider that's not listed in the `/connect` command:
 
 :::tip
-You can use any OpenAI-compatible provider with navi. Most modern AI providers offer OpenAI-compatible APIs.
+You can use any OpenAI-compatible provider with Navi. Most modern AI providers offer OpenAI-compatible APIs.
 :::
 
 1. Run the `/connect` command and scroll down to **Other**.
@@ -1571,18 +2106,18 @@ You can use any OpenAI-compatible provider with navi. Most modern AI providers o
 
    ┌  Add credential
    │
-   ▲  This only stores a credential for myprovider - you will need to configure it in navi.json, check the docs for examples.
+   ▲  This only stores a credential for myprovider - you will need to configure it in Navi.json, check the docs for examples.
    │
    ◇  Enter your API key
    │  sk-...
    └
    ```
 
-4. Create or update your `navi.json` file in your project directory:
+4. Create or update your `Navi.json` file in your project directory:
 
-   ```json title="navi.json" ""myprovider"" {5-15}
+   ```json title="Navi.json" ""myprovider"" {5-15}
    {
-     "$schema": "https://navi.ai/config.json",
+     "$schema": "https://Navi.ai/config.json",
      "provider": {
        "myprovider": {
          "npm": "@ai-sdk/openai-compatible",
@@ -1601,7 +2136,7 @@ You can use any OpenAI-compatible provider with navi. Most modern AI providers o
    ```
 
    Here are the configuration options:
-   - **npm**: AI SDK package to use, `@ai-sdk/openai-compatible` for OpenAI-compatible providers
+   - **npm**: AI SDK package to use, `@ai-sdk/openai-compatible` for OpenAI-compatible providers (for `/v1/chat/completions`). If your provider/model uses `/v1/responses`, use `@ai-sdk/openai`.
    - **name**: Display name in UI.
    - **models**: Available models.
    - **options.baseURL**: API endpoint URL.
@@ -1618,9 +2153,9 @@ You can use any OpenAI-compatible provider with navi. Most modern AI providers o
 
 Here's an example setting the `apiKey`, `headers`, and model `limit` options.
 
-```json title="navi.json" {9,11,17-20}
+```json title="Navi.json" {9,11,17-20}
 {
-  "$schema": "https://navi.ai/config.json",
+  "$schema": "https://Navi.ai/config.json",
   "provider": {
     "myprovider": {
       "npm": "@ai-sdk/openai-compatible",
@@ -1661,12 +2196,12 @@ The `limit` fields allow Navi to understand how much context you have left. Stan
 
 If you are having trouble with configuring a provider, check the following:
 
-1. **Check the auth setup**: Run `navi auth list` to see if the credentials
+1. **Check the auth setup**: Run `Navi auth list` to see if the credentials
    for the provider are added to your config.
 
    This doesn't apply to providers like Amazon Bedrock, that rely on environment variables for their auth.
 
-2. For custom providers, check the navi config and:
-   - Make sure the provider ID used in the `/connect` command matches the ID in your navi config.
-   - The right npm package is used for the provider. For example, use `@ai-sdk/cerebras` for Cerebras. And for all other OpenAI-compatible providers, use `@ai-sdk/openai-compatible`.
+2. For custom providers, check the Navi config and:
+   - Make sure the provider ID used in the `/connect` command matches the ID in your Navi config.
+   - The right npm package is used for the provider. For example, use `@ai-sdk/cerebras` for Cerebras. And for all other OpenAI-compatible providers, use `@ai-sdk/openai-compatible` (for `/v1/chat/completions`); if a model uses `/v1/responses`, use `@ai-sdk/openai`. For mixed setups under one provider, you can override per model via `provider.npm`.
    - Check correct API endpoint is used in the `options.baseURL` field.

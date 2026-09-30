@@ -1,0 +1,17 @@
+Vim Mode keybindings tool — mirrors Claude `src/vim` (motions, operators, textObjects, transitions).
+
+Provides native Vim keybinding support stub for the Navi TUI. Supports modes: normal, insert, visual, visual-line, visual-block, command.
+
+Usage:
+- action "enable":  enable vim mode for the current session
+- action "disable": disable vim mode
+- action "status":  report current vim mode and active keybindings
+- action "keybind": resolve a key sequence to its vim motion/operator (e.g. "dw", "ciw", "gg")
+
+Keybinding families (from Claude):
+- motions: h/j/k/l, w/b/e, 0/^/$, gg/G, f/F/t/T, % and paragraph motions
+- operators: d/c/y, >/<, gc, gU/gu
+- textObjects: iw/aw, i"/a", i(/a(, i{/a{, it/at
+- transitions: normal<->insert (i/a/o), visual (v/V/Ctrl-v), command (:)
+
+This is a stub — it validates key sequences and reports mode without driving a real TUI. The full implementation will hook into Ink/OpenTUI key handling.

@@ -1,23 +1,16 @@
-import { ProviderLoader } from "../loader"
+import type { ProviderLoader } from "../loader"
 import { Auth } from "../../auth"
 import { Config } from "../../config/config"
 import { Env } from "../../env"
 import { iife } from "../../util/iife"
 
 export const SapAiCoreProvider: ProviderLoader.Info = {
-  async load() {
-    const auth = await Auth.get("sap-ai-core")
-    const envServiceKey = iife(() => {
-      const envAICoreServiceKey = Env.get("AICORE_SERVICE_KEY")
-      if (envAICoreServiceKey) return envAICoreServiceKey
-      if (auth?.type === "api") {
-        Env.set("AICORE_SERVICE_KEY", auth.key)
-        return auth.key
-      }
-      return undefined
-    })
-    const deploymentId = Env.get("AICORE_DEPLOYMENT_ID")
-    const resourceGroup = Env.get("AICORE_RESOURCE_GROUP")
+  async load(input, dep) {
+    const auth = await dep.auth("sap-ai-core")
+    const envAICoreServiceKey = dep.env["AICORE_SERVICE_KEY"]
+    const envServiceKey = envAICoreServiceKey ?? (auth?.type === "api" ? auth.key : undefined)
+    const deploymentId = dep.env["AICORE_DEPLOYMENT_ID"]
+    const resourceGroup = dep.env["AICORE_RESOURCE_GROUP"]
 
     return {
       autoload: !!envServiceKey,
@@ -30,13 +23,13 @@ export const SapAiCoreProvider: ProviderLoader.Info = {
 }
 
 export const ZenmuxProvider: ProviderLoader.Info = {
-  async load(input) {
+  async load(input, dep) {
     if (!input) return { autoload: false, options: {} }
     const hasKey = await (async () => {
-      const env = Env.all()
+      const env = dep.env
       if (input.env.some((item) => env[item])) return true
-      if (await Auth.get(input.id)) return true
-      const config = await Config.get()
+      if (await dep.auth(input.id)) return true
+      const config = dep.config
       if (config.provider?.["zenmux"]?.options?.apiKey) return true
       return false
     })()
@@ -65,7 +58,7 @@ export const ZenmuxProvider: ProviderLoader.Info = {
 }
 
 export const CerebrasProvider: ProviderLoader.Info = {
-  async load() {
+  async load(input, dep) {
     return {
       autoload: false,
       options: {

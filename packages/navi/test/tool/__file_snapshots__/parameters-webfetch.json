@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "url": {
+      "description": "The URL to fetch content from",
+      "type": "string"
+    },
+    "format": {
+      "description": "The format to return the content in (text, markdown, or html). Defaults to markdown.",
+      "default": "markdown",
+      "type": "string",
+      "enum": [
+        "text",
+        "markdown",
+        "html"
+      ]
+    },
+    "timeout": {
+      "description": "Optional timeout in seconds (max 120)",
+      "type": "number"
+    }
+  },
+  "required": [
+    "url"
+  ]
+}

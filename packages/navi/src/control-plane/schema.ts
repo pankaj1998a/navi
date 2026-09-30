@@ -1,18 +1,16 @@
 import { Schema } from "effect"
-import z from "zod"
 
-import { withStatics } from "@/util/schema"
 import { Identifier } from "@/id/id"
+import { zod } from "@navi-ai/core/effect-zod"
+import { withStatics } from "@navi-ai/core/schema"
 
-const workspaceIdSchema = Schema.String.pipe(Schema.brand("WorkspaceID"))
+const workspaceIdSchema = Schema.String.check(Schema.isStartsWith("wrk")).pipe(Schema.brand("WorkspaceID"))
 
 export type WorkspaceID = typeof workspaceIdSchema.Type
 
 export const WorkspaceID = workspaceIdSchema.pipe(
   withStatics((schema: typeof workspaceIdSchema) => ({
-    make: (id: string) => schema.makeUnsafe(id),
-    ascending: (id?: string) => schema.makeUnsafe(Identifier.ascending("workspace", id)),
-    zod: Identifier.schema("workspace").pipe(z.custom<WorkspaceID>()),
+    ascending: (id?: string) => schema.make(Identifier.ascending("workspace", id)),
+    zod: zod(schema),
   })),
 )
-

@@ -1,2 +1,0 @@
-V:\pankaj\navi\packages\core\src\session\prompt\trinity.txt
-V:\pankaj\navi\packages\navi\src\session\prompt\trinity.txt

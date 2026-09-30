@@ -1,22 +1,23 @@
-import { ProviderLoader } from "../loader"
+import type { ProviderLoader } from "../loader"
+import { ModelID, ProviderID } from "../schema"
 import { Env } from "../../env"
 import { Auth } from "../../auth"
 import { Config } from "../../config/config"
-import { Log } from "../../util/log"
+import * as Log from "@navi-ai/core/util/log"
 
 const log = Log.create({ service: "cline-provider" })
 
 const CLINE_BASE_URL = "https://api.cline.bot/api/v1"
 
 export const ClineProvider: ProviderLoader.Info = {
-    async load(input) {
+    async load(input, dep) {
         const inputId = input?.id ?? "cline"
         const inputEnv = input?.env ?? []
         const inputModels = input?.models ?? {}
 
-        const auth = await Auth.get(inputId)
-        const env = Env.all()
-        const config = await Config.get()
+        const auth = await dep.auth(inputId)
+        const env = dep.env
+        const config = dep.config
 
         const apiKey = (() => {
             const envKey = inputEnv.map((item) => env[item]).find(Boolean)
@@ -63,8 +64,8 @@ export const ClineProvider: ProviderLoader.Info = {
                             const isImage = model.id.includes("vision") || model.id.includes("gpt-4o") || model.id.includes("claude-3") || model.architecture?.input_modalities?.includes("image") || false
                             const isReasoning = model.id.includes("reasoning") || model.id.includes("o1") || model.id.includes("o3") || model.supported_parameters?.includes("reasoning") || false
                             fetched[modelId] = {
-                                id: modelId,
-                                providerID: "cline",
+                                id: ModelID.make(modelId),
+                                providerID: ProviderID.make("cline"),
                                 name: model.name || modelId,
                                 api: {
                                     id: modelId,

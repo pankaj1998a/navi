@@ -17,19 +17,19 @@ console.log("🚀 Starting navi server...")
 const navi = await createNavi({
   port: 0,
 })
-console.log("✅ navi server ready")
+console.log("✅ Navi server ready")
 
 const sessions = new Map<string, { client: any; server: any; sessionId: string; channel: string; thread: string }>()
-;(async () => {
+void (async () => {
   const events = await navi.client.event.subscribe()
   for await (const event of events.stream) {
     if (event.type === "message.part.updated") {
       const part = event.properties.part
       if (part.type === "tool") {
         // Find the session for this tool update
-        for (const [sessionKey, session] of sessions.entries()) {
+        for (const [_sessionKey, session] of sessions.entries()) {
           if (session.sessionId === part.sessionID) {
-            handleToolUpdate(part, session.channel, session.thread)
+            void handleToolUpdate(part, session.channel, session.thread)
             break
           }
         }
@@ -95,7 +95,7 @@ app.message(async ({ message, say }) => {
 
     const shareResult = await client.session.share({ path: { id: createResult.data.id } })
     if (!shareResult.error && shareResult.data) {
-      const sessionUrl = shareResult.data.share?.url!
+      const sessionUrl = shareResult.data.share?.url
       console.log("🔗 Session shared:", sessionUrl)
       await app.client.chat.postMessage({ channel, thread_ts: thread, text: sessionUrl })
     }
@@ -107,7 +107,7 @@ app.message(async ({ message, say }) => {
     body: { parts: [{ type: "text", text: message.text }] },
   })
 
-  console.log("📤 navi response:", JSON.stringify(result, null, 2))
+  console.log("📤 Navi response:", JSON.stringify(result, null, 2))
 
   if (result.error) {
     console.error("❌ Failed to send message:", result.error)

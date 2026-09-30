@@ -7,12 +7,12 @@ ENV BUN_RUNTIME_TRANSPILER_CACHE_PATH=${BUN_RUNTIME_TRANSPILER_CACHE_PATH}
 RUN apk add libgcc libstdc++ ripgrep
 
 FROM base AS build-amd64
-COPY dist/navi-linux-x64-baseline-musl/bin/navi /usr/local/bin/navi
+COPY dist/opencode-linux-x64-baseline-musl/bin/opencode /usr/local/bin/opencode
 
 FROM base AS build-arm64
-COPY dist/navi-linux-arm64-musl/bin/navi /usr/local/bin/navi
+COPY dist/opencode-linux-arm64-musl/bin/opencode /usr/local/bin/opencode
 
 ARG TARGETARCH
 FROM build-${TARGETARCH}
-RUN navi --version
-ENTRYPOINT ["navi"]
+RUN opencode --version
+ENTRYPOINT ["opencode"]

@@ -3,6 +3,7 @@ import { sqliteTable, text, integer } from "drizzle-orm/sqlite-core"
 export const EventSequenceTable = sqliteTable("event_sequence", {
   aggregate_id: text().notNull().primaryKey(),
   seq: integer().notNull(),
+  owner_id: text(),
 })
 
 export const EventTable = sqliteTable("event", {
@@ -14,4 +15,3 @@ export const EventTable = sqliteTable("event", {
   type: text().notNull(),
   data: text({ mode: "json" }).$type<Record<string, unknown>>().notNull(),
 })
-

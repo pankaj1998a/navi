@@ -1,6 +1,6 @@
-import type { TuiPlugin, TuiPluginApi, TuiPluginModule } from "@navi-ai/plugin/tui"
+import type { TuiPlugin, TuiPluginApi } from "@navi-ai/plugin/tui"
+import type { InternalTuiPlugin } from "../../plugin/internal"
 import { createMemo, For, Match, Show, Switch, createSignal } from "solid-js"
-import { TextAttributes } from "@opentui/core"
 
 const id = "internal:sidebar-mcp"
 
@@ -33,15 +33,15 @@ function View(props: { api: TuiPluginApi }) {
           <Show when={list().length > 2}>
             <text fg={theme().text}>{open() ? "▼" : "▶"}</text>
           </Show>
-          <box gap={0} flexDirection="row">
-            <text fg={theme().text} attributes={TextAttributes.BOLD}>MCP</text>
+          <text fg={theme().text}>
+            <b>MCP</b>
             <Show when={!open()}>
-              <text fg={theme().textMuted}>
+              <span style={{ fg: theme().textMuted }}>
                 {" "}
-                ({String(on())} active{bad() > 0 ? `, ${String(bad())} error${bad() > 1 ? "s" : ""}` : ""})
-              </text>
+                ({on()} active{bad() > 0 ? `, ${bad()} error${bad() > 1 ? "s" : ""}` : ""})
+              </span>
             </Show>
-          </box>
+          </text>
         </box>
         <Show when={list().length <= 2 || open()}>
           <For each={list()}>
@@ -49,23 +49,25 @@ function View(props: { api: TuiPluginApi }) {
               <box flexDirection="row" gap={1}>
                 <text
                   flexShrink={0}
-                  fg={dot(item.status)}
+                  style={{
+                    fg: dot(item.status),
+                  }}
                 >
                   •
                 </text>
                 <text fg={theme().text} wrapMode="word">
                   {item.name}{" "}
-                  <text fg={theme().textMuted}>
+                  <span style={{ fg: theme().textMuted }}>
                     <Switch fallback={item.status}>
                       <Match when={item.status === "connected"}>Connected</Match>
                       <Match when={item.status === "failed"}>
-                        <text attributes={TextAttributes.ITALIC}>{item.error}</text>
+                        <i>{item.error}</i>
                       </Match>
                       <Match when={item.status === "disabled"}>Disabled</Match>
                       <Match when={item.status === "needs_auth"}>Needs auth</Match>
                       <Match when={item.status === "needs_client_registration"}>Needs client ID</Match>
                     </Switch>
-                  </text>
+                  </span>
                 </text>
               </box>
             )}
@@ -87,10 +89,9 @@ const tui: TuiPlugin = async (api) => {
   })
 }
 
-const plugin: TuiPluginModule & { id: string } = {
+const plugin: InternalTuiPlugin = {
   id,
   tui,
 }
 
 export default plugin
-

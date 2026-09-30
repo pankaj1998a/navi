@@ -1,7 +1,8 @@
-import { createnaviClient, createnaviServer } from "@navi-ai/sdk"
+import { createNaviClient, createNaviServer } from "@navi-ai/sdk"
+import { pathToFileURL } from "bun"
 
-const server = await createnaviServer()
-const client = createnaviClient({ baseUrl: server.url })
+const server = await createNaviServer()
+const client = createNaviClient({ baseUrl: server.url })
 
 const input = await Array.fromAsync(new Bun.Glob("packages/core/*.ts").scan())
 
@@ -17,7 +18,7 @@ for await (const file of input) {
           {
             type: "file",
             mime: "text/plain",
-            url: `file://${file}`,
+            url: pathToFileURL(file).href,
           },
           {
             type: "text",
@@ -41,7 +42,7 @@ await Promise.all(
           {
             type: "file",
             mime: "text/plain",
-            url: `file://${file}`,
+            url: pathToFileURL(file).href,
           },
           {
             type: "text",

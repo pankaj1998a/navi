@@ -1,20 +1,20 @@
-import { ProviderLoader } from "../loader"
+import type { ProviderLoader } from "../loader"
 import { Env } from "../../env"
 import { Auth } from "../../auth"
 import { Config } from "../../config/config"
-import { Log } from "../../util/log"
+import * as Log from "@navi-ai/core/util/log"
 
 const log = Log.create({ service: "openrouter-provider" })
 
 export const OpenrouterProvider: ProviderLoader.Info = {
-    async load(input) {
+    async load(input, dep) {
         const inputId = input?.id ?? "openrouter"
         const inputEnv = input?.env ?? ["OPENROUTER_API_KEY"]
         const inputModels = input?.models ?? {}
 
-        const auth = await Auth.get(inputId)
-        const env = Env.all()
-        const config = await Config.get()
+        const auth = await dep.auth(inputId)
+        const env = dep.env
+        const config = dep.config
 
         const apiKey = (() => {
             const envKey = inputEnv.map((item) => env[item]).find(Boolean)
@@ -115,7 +115,7 @@ export const OpenrouterProvider: ProviderLoader.Info = {
                             options: {},
                             headers: {},
                             release_date: new Date().toISOString(),
-                            isFree: inputPrice === 0 && outputPrice === 0,
+
                             variants: {},
                         }
                     }
@@ -161,7 +161,7 @@ export const OpenrouterProvider: ProviderLoader.Info = {
 }
 
 export const VercelProvider: ProviderLoader.Info = {
-    async load() {
+    async load(input, dep) {
         return {
             autoload: false,
             options: {
@@ -175,14 +175,14 @@ export const VercelProvider: ProviderLoader.Info = {
 }
 
 export const AihubmixProvider: ProviderLoader.Info = {
-    async load(input) {
+    async load(input, dep) {
         const inputId = input?.id ?? "aihubmix"
         const inputEnv = input?.env ?? ["AIHUBMIX_API_KEY"]
         const inputModels = input?.models ?? {}
 
-        const auth = await Auth.get(inputId)
-        const env = Env.all()
-        const config = await Config.get()
+        const auth = await dep.auth(inputId)
+        const env = dep.env
+        const config = dep.config
 
         const apiKey = (() => {
             const envKey = inputEnv.map((item) => env[item]).find(Boolean)
@@ -280,7 +280,7 @@ export const AihubmixProvider: ProviderLoader.Info = {
                             options: {},
                             headers: {},
                             release_date: new Date().toISOString(),
-                            isFree: inputPrice === 0 && outputPrice === 0,
+
                             variants: {},
                         }
                     }

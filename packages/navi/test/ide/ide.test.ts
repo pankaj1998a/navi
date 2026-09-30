@@ -2,7 +2,7 @@ import { describe, expect, test, afterEach } from "bun:test"
 import { Ide } from "../../src/ide"
 
 describe("ide", () => {
-  const original = structuredClone(process.env)
+  const original = { ...process.env }
 
   afterEach(() => {
     Object.keys(process.env).forEach((key) => {
@@ -62,20 +62,20 @@ describe("ide", () => {
     expect(Ide.ide()).toBe("unknown")
   })
 
-  test("should recognize vscode-insiders navi_CALLER", () => {
-    process.env["navi_CALLER"] = "vscode-insiders"
+  test("should recognize vscode-insiders NAVI_CALLER", () => {
+    process.env["NAVI_CALLER"] = "vscode-insiders"
 
     expect(Ide.alreadyInstalled()).toBe(true)
   })
 
-  test("should recognize vscode navi_CALLER", () => {
-    process.env["navi_CALLER"] = "vscode"
+  test("should recognize vscode NAVI_CALLER", () => {
+    process.env["NAVI_CALLER"] = "vscode"
 
     expect(Ide.alreadyInstalled()).toBe(true)
   })
 
-  test("should return false for unknown navi_CALLER", () => {
-    process.env["navi_CALLER"] = "unknown"
+  test("should return false for unknown NAVI_CALLER", () => {
+    process.env["NAVI_CALLER"] = "unknown"
 
     expect(Ide.alreadyInstalled()).toBe(false)
   })

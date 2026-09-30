@@ -1,4 +1,5 @@
-import { SearchProvider } from "../tool/search-pipeline";
+import type { SearchProvider } from "../tool/search-pipeline";
+export type { SearchProvider };
 
 export interface SearchQuery {
   text: string;

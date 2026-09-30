@@ -1,8 +1,8 @@
-import { ProviderLoader } from "../loader"
+import type { ProviderLoader } from "../loader"
 import { Env } from "../../env"
 import { Auth } from "../../auth"
 import { Config } from "../../config/config"
-import { Log } from "../../util/log"
+import * as Log from "@navi-ai/core/util/log"
 import { Provider } from "../provider"
 import { ModelID, ProviderID } from "../schema"
 
@@ -16,7 +16,7 @@ const FETCH_HEADERS = {
 
 const BASE_URL = "https://api.kilo.ai/api/openrouter/"
 
-async function fetchKilocodeModels(apiKey?: string): Promise<Record<string, Provider.Model>> {
+async function fetchKilocodeModels(apiKey?: string, providerIdParam: string = "kilocode"): Promise<Record<string, Provider.Model>> {
     try {
         const headers: Record<string, string> = { ...FETCH_HEADERS }
         if (apiKey && apiKey !== "public") {
@@ -45,7 +45,7 @@ async function fetchKilocodeModels(apiKey?: string): Promise<Record<string, Prov
             const modelID = ModelID.make(model.id)
             models[modelID] = {
                 id: modelID,
-                providerID: ProviderID.make("kilocode"),
+                providerID: ProviderID.make(providerIdParam),
                 name: model.name,
                 api: {
                     id: model.id,
@@ -93,14 +93,14 @@ async function fetchKilocodeModels(apiKey?: string): Promise<Record<string, Prov
 }
 
 export const KilocodeProvider: ProviderLoader.Info = {
-    async load(input) {
+    async load(input, dep) {
         const inputId = input?.id ?? "kilocode"
         const inputEnv = input?.env ?? []
         const inputModels = input?.models ?? {}
 
-        const auth = await Auth.get(inputId)
-        const env = Env.all()
-        const config = await Config.get()
+        const auth = await dep.auth(inputId)
+        const env = dep.env
+        const config = dep.config
 
         const apiKey = (() => {
             const envKey = inputEnv.map((item) => env[item]).find(Boolean)
@@ -119,7 +119,7 @@ export const KilocodeProvider: ProviderLoader.Info = {
         log.info("loading", { hasKey, inputId })
 
         let models = { ...inputModels }
-        const latest = await fetchKilocodeModels(apiKey)
+        const latest = await fetchKilocodeModels(apiKey, inputId)
         if (Object.keys(latest).length > 0) {
             models = { ...models, ...latest }
         }
@@ -146,7 +146,7 @@ export const KilocodeProvider: ProviderLoader.Info = {
                 headers: FETCH_HEADERS,
             },
             discoverModels: async () => {
-                const latest = await fetchKilocodeModels(apiKey)
+                const latest = await fetchKilocodeModels(apiKey, inputId)
                 return latest as any
             },
             models,

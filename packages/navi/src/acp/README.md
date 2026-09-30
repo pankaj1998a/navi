@@ -1,6 +1,6 @@
 # ACP (Agent Client Protocol) Implementation
 
-This directory contains a clean, protocol-compliant implementation of the [Agent Client Protocol](https://agentclientprotocol.com/) for Navi.
+This directory contains a clean, protocol-compliant implementation of the [Agent Client Protocol](https://agentclientprotocol.com/) for navi.
 
 ## Architecture
 
@@ -21,7 +21,7 @@ The implementation follows a clean separation of concerns:
 
 - **`session.ts`** - Session state management
   - Creates and tracks ACP sessions
-  - Maps ACP sessions to internal Navi sessions
+  - Maps ACP sessions to internal navi sessions
   - Maintains working directory context
   - Handles MCP server configurations
 
@@ -38,10 +38,10 @@ The implementation follows a clean separation of concerns:
 
 ```bash
 # Start the ACP server in the current directory
-Navi acp
+navi acp
 
 # Start in a specific directory
-Navi acp --cwd /path/to/project
+navi acp --cwd /path/to/project
 ```
 
 ### Question Tool Opt-In
@@ -49,7 +49,7 @@ Navi acp --cwd /path/to/project
 ACP excludes `QuestionTool` by default.
 
 ```bash
-NAVI_ENABLE_QUESTION_TOOL=1 Navi acp
+NAVI_ENABLE_QUESTION_TOOL=1 navi acp
 ```
 
 Enable this only for ACP clients that support interactive question prompts.
@@ -70,7 +70,7 @@ Add to your Zed configuration (`~/.config/zed/settings.json`):
 {
   "agent_servers": {
     "Navi": {
-      "command": "Navi",
+      "command": "navi",
       "args": ["acp"]
     }
   }
@@ -124,7 +124,7 @@ This implementation follows the ACP specification v1:
 - **Session Persistence**: Save and restore full conversation history
 - **Mode Support**: Implement different operational modes (ask, code, etc.)
 - **Enhanced Permissions**: More sophisticated permission handling
-- **Terminal Integration**: Full terminal support via Navi's bash tool
+- **Terminal Integration**: Full terminal support via navi's bash tool
 
 ## Testing
 
@@ -133,7 +133,7 @@ This implementation follows the ACP specification v1:
 bun test test/acp.test.ts
 
 # Test manually with stdio
-echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":1}}' | Navi acp
+echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":1}}' | navi acp
 ```
 
 ## Design Decisions
@@ -160,7 +160,7 @@ This makes the codebase maintainable and testable.
 
 ### Mapping to Navi
 
-ACP sessions map cleanly to Navi's internal session model:
+ACP sessions map cleanly to navi's internal session model:
 
 - ACP `session/new` → creates internal Session
 - ACP `session/prompt` → uses SessionPrompt.prompt()

@@ -1,4 +1,4 @@
-import { Log } from "../util/log"
+import * as Log from "@navi-ai/core/util/log"
 
 const log = Log.create({ service: "search-pipeline" })
 

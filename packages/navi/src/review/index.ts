@@ -2,7 +2,7 @@ import { Instance } from "@/project/instance"
 import { $ } from "bun"
 import path from "path"
 import z from "zod"
-import { Log } from "@/util/log"
+import { Log } from "@navi-ai/core/util/log"
 
 const log = Log.create({ service: "review" })
 

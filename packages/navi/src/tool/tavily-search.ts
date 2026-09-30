@@ -1,61 +1,59 @@
-import z from "zod"
-import { Tool } from "./tool"
+import { Effect, Schema } from "effect"
+import * as Tool from "./tool"
+import { searchService } from "../search/service"
 
-/**
- * TavilySearchTool — AI-optimized web search.
- */
-export const TavilySearchTool = Tool.define("tavily_search", {
-  description: `Search the web using Tavily Search API. Optimized for AI insights.
-Supports search depth (basic/advanced), topic filtering (news/finance/general), and AI answers.`,
-
-  parameters: z.object({
-    query: z.string().describe("Search query string."),
-    search_depth: z.enum(["basic", "advanced"]).optional().default("basic").describe("Search depth."),
-    topic: z.enum(["general", "news", "finance"]).optional().default("general").describe("Search topic."),
-    max_results: z.number().min(1).max(20).optional().default(5).describe("Number of results to return."),
-    include_answer: z.boolean().optional().default(false).describe("Include AI answer summary."),
+export const Parameters = Schema.Struct({
+  query: Schema.String.annotate({ description: "Search query" }),
+  search_depth: Schema.optional(Schema.Literals(["basic", "advanced"])).annotate({
+    description: "Search depth (default: basic)",
   }),
-
-  async execute(params, _ctx) {
-    const apiKey = process.env.TAVILY_API_KEY
-    if (!apiKey) {
-      throw new Error("TAVILY_API_KEY environment variable is not set.")
-    }
-
-    const response = await fetch("https://api.tavily.com/search", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        api_key: apiKey,
-        query: params.query,
-        search_depth: params.search_depth,
-        topic: params.topic,
-        max_results: params.max_results,
-        include_answer: params.include_answer,
-      }),
-    })
-
-    if (!response.ok) {
-      const error = await response.text()
-      throw new Error(`Tavily API error: ${error}`)
-    }
-
-    const data = await response.json() as any
-
-    let output = `Tavily Search Results for: ${params.query}\n\n`
-    if (data.answer) {
-      output += `**Answer**: ${data.answer}\n\n`
-    }
-
-    data.results.forEach((result: any, index: number) => {
-      output += `${index + 1}. [${result.title}](${result.url})\n`
-      output += `   ${result.content.substring(0, 300)}...\n\n`
-    })
-
-    return {
-      title: `Tavily Search: ${params.query}`,
-      output,
-      metadata: { resultsCount: data.results.length },
-    }
-  },
+  topic: Schema.optional(Schema.Literals(["general", "news", "finance"])).annotate({
+    description: "Search topic (default: general)",
+  }),
+  max_results: Schema.optional(Schema.Number).annotate({
+    description: "Maximum number of results (default: 8)",
+  }),
+  include_answer: Schema.optional(Schema.Boolean).annotate({
+    description: "Include AI-generated answer (default: false)",
+  }),
 })
+
+export const TavilySearchTool = Tool.define(
+  "tavily_search",
+  Effect.gen(function* () {
+    return {
+      description: "AI-optimized web search via Tavily API.",
+      parameters: Parameters,
+      execute: (params: Schema.Schema.Type<typeof Parameters>, ctx: Tool.Context) =>
+        Effect.gen(function* () {
+          yield* ctx.ask({
+            permission: "websearch",
+            patterns: [params.query],
+            always: ["*"],
+            metadata: { query: params.query, provider: "tavily" },
+          })
+
+          const results = yield* Effect.promise(() =>
+            searchService.search({ text: params.query, limit: params.max_results ?? 8 }, "tavily"),
+          )
+
+          const lines: string[] = [`# Tavily Search Results: "${params.query}"`, ""]
+          results.forEach((r, i) => {
+            lines.push(`${i + 1}. **${r.title}**`)
+            lines.push(`   URL: ${r.url}`)
+            if (r.snippet) lines.push(`   ${r.snippet}`)
+            lines.push("")
+          })
+
+          return {
+            output: lines.join("\n"),
+            title: `Tavily: ${params.query}`,
+            metadata: {
+              query: params.query,
+              numResults: results.length,
+            },
+          }
+        }).pipe(Effect.orDie),
+    }
+  }),
+)

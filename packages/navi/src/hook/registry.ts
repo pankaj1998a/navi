@@ -19,7 +19,7 @@
  */
 
 import path from "path"
-import { Log } from "../util/log"
+import { Log } from "@navi-ai/core/util/log"
 import { Global } from "../global"
 import { Instance } from "../project/instance"
 import type { HookEvent, HookConfig, Hook, HookInput, FunctionHook } from "./types"

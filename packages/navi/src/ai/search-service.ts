@@ -1,5 +1,5 @@
 import { IndexService } from "../codebase/index-service"
-import { Log } from "../util/log"
+import { Log } from "@navi-ai/core/util/log"
 
 /**
  * High-precision Search Service

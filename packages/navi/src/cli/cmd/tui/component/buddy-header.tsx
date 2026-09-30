@@ -21,26 +21,25 @@ export function BuddyHeader() {
   const local = useLocal()
   const kv = useKV()
   const buddy = createMemo(() => Buddy.get(kv.get("buddy_species", undefined) as Buddy.Species))
-  
+
   const [tipIndex, setTipIndex] = createSignal(0)
   const [blink, setBlink] = createSignal(false)
 
-  // Tip cycler
   onMount(() => {
     const tipInterval = setInterval(() => {
-        setTipIndex((prev) => (prev + 1) % (buddy().tips.length || 1))
+      setTipIndex((prev) => (prev + 1) % (buddy().tips.length || 1))
     }, 30000)
-    
+
     const blinkInterval = setInterval(() => {
-        if (Math.random() > 0.7) {
-            setBlink(true)
-            setTimeout(() => setBlink(false), 200)
-        }
+      if (Math.random() > 0.7) {
+        setBlink(true)
+        setTimeout(() => setBlink(false), 200)
+      }
     }, 3000)
 
     onCleanup(() => {
-        clearInterval(tipInterval)
-        clearInterval(blinkInterval)
+      clearInterval(tipInterval)
+      clearInterval(blinkInterval)
     })
   })
 
@@ -52,48 +51,52 @@ export function BuddyHeader() {
   const displayIcon = createMemo(() => {
     const status = currentStatus()
     const b = buddy()
-    
+
     if (status === "working") return b.reactions.working
     if (status === "compacting") return b.reactions.thinking
-    
-    // Check for success/error if we can detect it from last message
+
     if (route.data.type === "session") {
-        const messages = sync.data.message[(route.data as any).sessionID] ?? []
-        const last = messages.at(-1)
-        if (last && last.role === "assistant" && last.time.completed) {
-            return b.reactions.success
-        }
+      const messages = sync.data.message[(route.data as any).sessionID] ?? []
+      const last = messages.at(-1)
+      if (last && last.role === "assistant" && last.time.completed) {
+        return b.reactions.success
+      }
     }
 
-    // Idle / Blinking
     return blink() ? b.reactions.thinking : b.reactions.idle
   })
 
   const displayMessage = createMemo(() => {
-     const status = currentStatus()
-     if (status === "working") return "I'm working on it..."
-     if (status === "compacting") return "Just tidying up the session..."
-     
-     return buddy().tips[tipIndex()] || buddy().greeting
+    const status = currentStatus()
+    if (status === "working") return "I'm working on it..."
+    if (status === "compacting") return "Just tidying up the session..."
+
+    const b = buddy()
+    const metadata = [
+      b.rarity !== "common" ? b.rarity : "",
+      b.shiny ? "shiny" : "",
+    ].filter(Boolean).join(" ")
+
+    const prefix = metadata ? `[${metadata}] ` : ""
+    return prefix + (b.tips[tipIndex()] || b.greeting)
   })
 
   const usage = createMemo(() => {
     if (route.data.type !== "session") return
     const messages = sync.data.message[route.data.sessionID] ?? []
-    
-    // Total session usage
+
     let totalTokens = 0
     let totalCost = 0
-    
+
     for (const msg of messages) {
-        if (msg.role === "assistant") {
-            totalTokens += (msg.tokens.input + msg.tokens.output + msg.tokens.reasoning + msg.tokens.cache.read + msg.tokens.cache.write)
-            totalCost += msg.cost
-        }
+      if (msg.role === "assistant") {
+        totalTokens += (msg.tokens.input + msg.tokens.output + msg.tokens.reasoning + msg.tokens.cache.read + msg.tokens.cache.write)
+        totalCost += msg.cost
+      }
     }
 
     const last = messages.findLast((item): item is AssistantMessage => item.role === "assistant" && item.tokens.output > 0)
-    
+
     return {
       totalTokens: Locale.number(totalTokens),
       lastTokens: last ? Locale.number(last.tokens.input + last.tokens.output) : undefined,
@@ -130,14 +133,22 @@ export function BuddyHeader() {
       paddingBottom={1}
       backgroundColor={theme.backgroundElement}
     >
-      {/* Top Row: Mascot and Message */}
       <box flexDirection="row" justifyContent="space-between" marginBottom={0}>
         <box flexDirection="row" gap={2}>
           <text fg={currentStatus() === "working" ? theme.primary : theme.text} attributes={TextAttributes.BOLD}>{String(displayIcon())}</text>
           <text fg={theme.text} wrapMode="none" maxWidth={80}>{String(displayMessage())}</text>
         </box>
+        <Show when={currentModel()}>
+          <text fg={theme.textMuted} wrapMode="none">
+            {String(currentModel())}{sessionInfo() ? " " + sessionInfo() : ""}
+          </text>
+        </Show>
       </box>
-
+      <Show when={totalTokens()}>
+        <box flexDirection="row" gap={1} marginTop={0}>
+          <text fg={theme.textMuted}>{totalTokens()}{usageSuffix()}</text>
+        </box>
+      </Show>
     </box>
   )
 }

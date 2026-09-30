@@ -9,4 +9,3 @@ export const withTransientReadRetry = <E, R>(client: HttpClient.HttpClient.With<
       schedule: Schedule.exponential(200).pipe(Schedule.jittered),
     }),
   )
-

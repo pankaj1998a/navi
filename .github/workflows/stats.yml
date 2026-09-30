@@ -9,8 +9,8 @@ concurrency: ${{ github.workflow }}-${{ github.ref }}
 
 jobs:
   stats:
-    if: github.repository == 'pankaj1998a/navi'
-    runs-on: ubuntu-latest
+    if: github.repository == 'anomalyco/navi'
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     permissions:
       contents: write
 

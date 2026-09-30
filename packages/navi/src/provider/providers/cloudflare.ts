@@ -1,19 +1,21 @@
-import { ProviderLoader } from "../loader"
-import { Env } from "../../env"
-import { Auth } from "../../auth"
+import type { ProviderLoader } from "../loader"
 import { iife } from "../../util/iife"
+import * as Log from "@navi-ai/core/util/log"
+
+const log = Log.create({ service: "cloudflare-provider" })
 
 export const CloudflareAiGatewayProvider: ProviderLoader.Info = {
-    async load(input) {
-        const accountId = Env.get("CLOUDFLARE_ACCOUNT_ID")
-        const gateway = Env.get("CLOUDFLARE_GATEWAY_ID")
+    async load(input, dep) {
+        const env = dep.env
+        const accountId = env["CLOUDFLARE_ACCOUNT_ID"]
+        const gateway = env["CLOUDFLARE_GATEWAY_ID"]
 
         if (!accountId || !gateway) return { autoload: false }
 
         const apiToken = await (async () => {
-            const envToken = Env.get("CLOUDFLARE_API_TOKEN")
+            const envToken = env["CLOUDFLARE_API_TOKEN"]
             if (envToken) return envToken
-            const auth = await Auth.get(input.id)
+            const auth = await dep.auth(input.id)
             if (auth?.type === "api") return auth.key
             return undefined
         })()
@@ -30,7 +32,7 @@ export const CloudflareAiGatewayProvider: ProviderLoader.Info = {
                     "HTTP-Referer": "https://navi.ai/",
                     "X-Title": "navi",
                 },
-                fetch: async (input: RequestInfo | URL, init?: RequestInit) => {
+                fetch: async (input: any, init?: RequestInit) => {
                     const headers = new Headers(init?.headers)
                     headers.delete("Authorization")
 
@@ -43,7 +45,7 @@ export const CloudflareAiGatewayProvider: ProviderLoader.Info = {
                                 init = { ...init, body: JSON.stringify(body) }
                             }
                         } catch (e) {
-                            console.error("[Cloudflare] Failed to parse request body for max_completion_tokens fix", e)
+                            log.debug("[Cloudflare] Failed to parse request body for max_completion_tokens fix", { error: String(e) })
                         }
                     }
 

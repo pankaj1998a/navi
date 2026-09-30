@@ -16,8 +16,8 @@
 
 import type { Hooks, PluginInput } from "@navi-ai/plugin"
 import type { Message } from "../session/message"
-import { Log } from "../util/log"
-import { existsSync, readFileSync, writeFileSync, mkdirSync, unlinkSync } from "node:fs"
+import { Log } from "@navi-ai/core/util/log"
+import { existsSync, readFileSync, mkdirSync, unlinkSync, writeFileSync, renameSync } from "node:fs"
 import { join } from "node:path"
 
 const log = Log.create({ service: "ralph-loop" })
@@ -79,12 +79,14 @@ function readState(directory: string): RalphLoopState | null {
 }
 
 /**
- * Write Ralph Loop state to disk
+ * Write Ralph Loop state to disk (atomic tmp+rename so readers never see partial JSON)
  */
 function writeState(directory: string, state: RalphLoopState): boolean {
     try {
         const statePath = getStateFilePath(directory)
-        writeFileSync(statePath, JSON.stringify(state, null, 2))
+        const tmp = `${statePath}.${process.pid}.tmp`
+        writeFileSync(tmp, JSON.stringify(state, null, 2))
+        renameSync(tmp, statePath)
         return true
     } catch (err) {
         log.error("Failed to write state", { error: err })
@@ -249,7 +251,7 @@ export function createRalphLoopHook(options: RalphLoopOptions & { input: PluginI
                 
                 if (messages && Array.isArray(messages)) {
                     // Check for completion promise in the most recent assistant message
-                    const assistantMessages = (messages as Message.Info[]).filter(m => m.role === 'assistant')
+                    const assistantMessages = messages.filter(m => m.info.role === 'assistant')
                     const lastAiMessage = assistantMessages[assistantMessages.length - 1]
                     
                     if (lastAiMessage) {
@@ -295,6 +297,11 @@ export function createRalphLoopHook(options: RalphLoopOptions & { input: PluginI
 
             // Inject continuation prompt
             try {
+                // Add a small delay to prevent tight loops and high CPU usage
+                const delayMs = Math.min(2000 + (state.iteration * 500), 10000)
+                log.info(`Throttling loop: waiting ${delayMs}ms before continuation`, { sessionID, iteration: newIteration })
+                await new Promise(resolve => setTimeout(resolve, delayMs))
+
                 await input.client.session.prompt({
                     path: { id: sessionID },
                     body: {
@@ -338,12 +345,13 @@ export function createRalphLoopHook(options: RalphLoopOptions & { input: PluginI
                 return
             }
 
-            // Mark session as recovering on error
+            // Mark session as recovering on error (throttled 5s window, unref'd so it never holds the loop open)
             if (sessionID) {
                 recoveringSessions.add(sessionID)
-                setTimeout(() => {
+                const timer = setTimeout(() => {
                     recoveringSessions.delete(sessionID)
                 }, 5000)
+                timer.unref?.()
             }
         }
     }

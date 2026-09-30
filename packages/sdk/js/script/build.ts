@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
-
 import { fileURLToPath } from "url"
+
 const dir = fileURLToPath(new URL("..", import.meta.url))
 process.chdir(dir)
 
@@ -9,10 +9,9 @@ import path from "path"
 
 import { createClient } from "@hey-api/openapi-ts"
 
-// await $`bun dev generate > ${dir}/openapi.json`.cwd(path.resolve(dir, "../../navi"))
-// await $`cp ../openapi.json ${dir}/openapi.json`
-import fs from "fs"
-fs.copyFileSync(path.resolve(dir, "../openapi.json"), path.join(dir, "openapi.json"))
+const navi = path.resolve(dir, "../../navi")
+
+await $`bun dev generate > ${dir}/openapi.json`.cwd(navi)
 
 await createClient({
   input: "./openapi.json",
@@ -41,7 +40,8 @@ await createClient({
   ],
 })
 
-await $`bun x prettier --write src/v2`
-await fs.promises.rm("dist", { recursive: true, force: true })
-await $`bun x tsc`
-await fs.promises.unlink("openapi.json")
+await $`bun prettier --write src/gen`
+await $`bun prettier --write src/v2`
+await $`rm -rf dist`
+await $`bun tsc`
+await $`rm openapi.json`

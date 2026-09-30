@@ -32,4 +32,3 @@ export namespace Glob {
     return minimatch(filepath, pattern, { dot: true })
   }
 }
-

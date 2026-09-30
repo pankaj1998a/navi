@@ -1,5 +1,10 @@
-import { Log } from "../util/log"
-import { SymbolInfo } from "../util/symbol-cache"
+import { Log } from "@navi-ai/core/util/log"
+
+export interface SymbolInfo {
+  file: string
+  name: string
+  type: string
+}
 
 const log = Log.create({ service: "vector-store" })
 

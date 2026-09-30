@@ -1,4 +1,4 @@
-import { For, createMemo } from "solid-js"
+import { createMemo, For } from "solid-js"
 import { DEFAULT_THEMES, useTheme } from "@tui/context/theme"
 
 const themeCount = Object.keys(DEFAULT_THEMES).length
@@ -16,7 +16,7 @@ function parse(tip: string): TipPart[] {
       if (start > acc.index) {
         acc.parts.push({ text: tip.slice(acc.index, start), highlight: false })
       }
-      acc.parts.push({ text: match[1], highlight: true })
+      acc.parts.push({ text: match[1] ?? "", highlight: true })
       acc.index = start + match[0].length
       return acc
     },
@@ -30,24 +30,23 @@ function parse(tip: string): TipPart[] {
   return parts
 }
 
-export function Tips() {
-  const theme = () => useTheme().theme
-  const parts = createMemo(() => parse(TIPS[Math.floor(Math.random() * TIPS.length)]))
+const NO_MODELS_TIP = "Run {highlight}/connect{/highlight} to add an AI provider and start coding"
+
+export function Tips(props: { connected?: boolean }) {
+  const theme = useTheme().theme
+  const randomTip = TIPS[Math.floor(Math.random() * TIPS.length)] ?? NO_MODELS_TIP
+  const parts = createMemo(() => parse(props.connected === false ? NO_MODELS_TIP : randomTip))
 
   return (
     <box flexDirection="row" maxWidth="100%">
-      <text flexShrink={0} fg={String(theme().warning)}>
-        {"● Tip "}
+      <text flexShrink={0} style={{ fg: theme.warning }}>
+        ● Tip{" "}
       </text>
-      <box flexDirection="row" flexShrink={1} flexWrap="wrap">
+      <text flexShrink={1}>
         <For each={parts()}>
-          {(part) => (
-            <text fg={part.highlight ? String(theme().text) : String(theme().textMuted)}>
-              {String(part.text)}
-            </text>
-          )}
+          {(part) => <span style={{ fg: part.highlight ? theme.text : theme.textMuted }}>{part.text}</span>}
         </For>
-      </box>
+      </text>
     </box>
   )
 }
@@ -58,8 +57,8 @@ const TIPS = [
   "Press {highlight}Tab{/highlight} to cycle between Build and Plan agents",
   "Use {highlight}/undo{/highlight} to revert the last message and file changes",
   "Use {highlight}/redo{/highlight} to restore previously undone messages and file changes",
-  "Run {highlight}/share{/highlight} to create a public link to your conversation at Navi.ai",
-  "Drag and drop images into the terminal to add them as context",
+  "Run {highlight}/share{/highlight} to create a public link to your conversation at navi.ai",
+  "Drag and drop images or PDFs into the terminal to add them as context",
   "Press {highlight}Ctrl+V{/highlight} to paste images from your clipboard into the prompt",
   "Press {highlight}Ctrl+X E{/highlight} or {highlight}/editor{/highlight} to compose messages in your external editor",
   "Run {highlight}/init{/highlight} to auto-generate project rules based on your codebase",
@@ -84,19 +83,19 @@ const TIPS = [
   "Switch to {highlight}Plan{/highlight} agent to get suggestions without making actual changes",
   "Use {highlight}@agent-name{/highlight} in prompts to invoke specialized subagents",
   "Press {highlight}Ctrl+X Right/Left{/highlight} to cycle through parent and child sessions",
-  "Create {highlight}Navi.json{/highlight} for server settings and {highlight}tui.json{/highlight} for TUI settings",
-  "Place TUI settings in {highlight}~/.config/Navi/tui.json{/highlight} for global config",
+  "Create {highlight}navi.json{/highlight} for server settings and {highlight}tui.json{/highlight} for TUI settings",
+  "Place TUI settings in {highlight}~/.config/navi/tui.json{/highlight} for global config",
   "Add {highlight}$schema{/highlight} to your config for autocomplete in your editor",
   "Configure {highlight}model{/highlight} in config to set your default model",
   "Override any keybind in {highlight}tui.json{/highlight} via the {highlight}keybinds{/highlight} section",
   "Set any keybind to {highlight}none{/highlight} to disable it completely",
   "Configure local or remote MCP servers in the {highlight}mcp{/highlight} config section",
   "Navi auto-handles OAuth for remote MCP servers requiring auth",
-  "Add {highlight}.md{/highlight} files to {highlight}.Navi/command/{/highlight} to define reusable custom prompts",
+  "Add {highlight}.md{/highlight} files to {highlight}.navi/command/{/highlight} to define reusable custom prompts",
   "Use {highlight}$ARGUMENTS{/highlight}, {highlight}$1{/highlight}, {highlight}$2{/highlight} in custom commands for dynamic input",
   "Use backticks in commands to inject shell output (e.g., {highlight}`git status`{/highlight})",
-  "Add {highlight}.md{/highlight} files to {highlight}.Navi/agent/{/highlight} for specialized AI personas",
-  "Configure per-agent permissions for {highlight}edit{/highlight}, {highlight}bash{/highlight}, and {highlight}webfetch{/highlight} tools",
+  "Add {highlight}.md{/highlight} files to {highlight}.navi/agent/{/highlight} for specialized AI personas",
+  "Configure per-agent permissions for {highlight}edit{/highlight}, {highlight}bash{/highlight}, and {highlight}websearch/webscrape{/highlight} tools",
   'Use patterns like {highlight}"git *": "allow"{/highlight} for granular bash permissions',
   'Set {highlight}"rm -rf *": "deny"{/highlight} to block destructive commands',
   'Configure {highlight}"git push": "ask"{/highlight} to require approval before pushing',
@@ -104,26 +103,26 @@ const TIPS = [
   'Set {highlight}"formatter": false{/highlight} in config to disable all auto-formatting',
   "Define custom formatter commands with file extensions in config",
   "Navi uses LSP servers for intelligent code analysis",
-  "Create {highlight}.ts{/highlight} files in {highlight}.Navi/tools/{/highlight} to define new LLM tools",
+  "Create {highlight}.ts{/highlight} files in {highlight}.navi/tools/{/highlight} to define new LLM tools",
   "Tool definitions can invoke scripts written in Python, Go, etc",
-  "Add {highlight}.ts{/highlight} files to {highlight}.Navi/plugin/{/highlight} for event hooks",
+  "Add {highlight}.ts{/highlight} files to {highlight}.navi/plugin/{/highlight} for event hooks",
   "Use plugins to send OS notifications when sessions complete",
   "Create a plugin to prevent Navi from reading sensitive files",
-  "Use {highlight}Navi run{/highlight} for non-interactive scripting",
-  "Use {highlight}Navi --continue{/highlight} to resume the last session",
-  "Use {highlight}Navi run -f file.ts{/highlight} to attach files via CLI",
+  "Use {highlight}navi run{/highlight} for non-interactive scripting",
+  "Use {highlight}navi --continue{/highlight} to resume the last session",
+  "Use {highlight}navi run -f file.ts{/highlight} to attach files via CLI",
   "Use {highlight}--format json{/highlight} for machine-readable output in scripts",
-  "Run {highlight}Navi serve{/highlight} for headless API access to Navi",
-  "Use {highlight}Navi run --attach{/highlight} to connect to a running server",
-  "Run {highlight}Navi upgrade{/highlight} to update to the latest version",
-  "Run {highlight}Navi auth list{/highlight} to see all configured providers",
-  "Run {highlight}Navi agent create{/highlight} for guided agent creation",
-  "Use {highlight}/Navi{/highlight} in GitHub issues/PRs to trigger AI actions",
-  "Run {highlight}Navi github install{/highlight} to set up the GitHub workflow",
-  "Comment {highlight}/Navi fix this{/highlight} on issues to auto-create PRs",
-  "Comment {highlight}/oc{/highlight} on PR code lines for targeted code reviews",
+  "Run {highlight}navi serve{/highlight} for headless API access to Navi",
+  "Use {highlight}navi run --attach{/highlight} to connect to a running server",
+  "Run {highlight}navi upgrade{/highlight} to update to the latest version",
+  "Run {highlight}navi auth list{/highlight} to see all configured providers",
+  "Run {highlight}navi agent create{/highlight} for guided agent creation",
+  "Use {highlight}/navi{/highlight} in GitHub issues/PRs to trigger AI actions",
+  "Run {highlight}navi github install{/highlight} to set up the GitHub workflow",
+  "Comment {highlight}/navi fix this{/highlight} on issues to auto-create PRs",
+  "Comment {highlight}/navi{/highlight} on PR code lines for targeted code reviews",
   'Use {highlight}"theme": "system"{/highlight} to match your terminal\'s colors',
-  "Create JSON theme files in {highlight}.Navi/themes/{/highlight} directory",
+  "Create JSON theme files in {highlight}.navi/themes/{/highlight} directory",
   "Themes support dark/light variants for both modes",
   "Reference ANSI colors 0-255 in custom themes",
   "Use {highlight}{env:VAR_NAME}{/highlight} syntax to reference environment variables in config",
@@ -139,19 +138,20 @@ const TIPS = [
   "Run {highlight}/unshare{/highlight} to remove a session from public access",
   "Permission {highlight}doom_loop{/highlight} prevents infinite tool call loops",
   "Permission {highlight}external_directory{/highlight} protects files outside project",
-  "Run {highlight}Navi debug config{/highlight} to troubleshoot configuration",
+  "Run {highlight}navi debug config{/highlight} to troubleshoot configuration",
   "Use {highlight}--print-logs{/highlight} flag to see detailed logs in stderr",
   "Press {highlight}Ctrl+X G{/highlight} or {highlight}/timeline{/highlight} to jump to specific messages",
   "Press {highlight}Ctrl+X H{/highlight} to toggle code block visibility in messages",
   "Press {highlight}Ctrl+X S{/highlight} or {highlight}/status{/highlight} to see system status info",
   "Enable {highlight}scroll_acceleration{/highlight} in {highlight}tui.json{/highlight} for smooth macOS-style scrolling",
   "Toggle username display in chat via command palette ({highlight}Ctrl+P{/highlight})",
-  "Run {highlight}docker run -it --rm ghcr.io/anomalyco/Navi{/highlight} for containerized use",
+  "Run {highlight}docker run -it --rm ghcr.io/anomalyco/navi{/highlight} for containerized use",
   "Use {highlight}/connect{/highlight} with Navi Zen for curated, tested models",
   "Commit your project's {highlight}AGENTS.md{/highlight} file to Git for team sharing",
   "Use {highlight}/review{/highlight} to review uncommitted changes, branches, or PRs",
   "Run {highlight}/help{/highlight} or {highlight}Ctrl+X H{/highlight} to show the help dialog",
   "Use {highlight}/rename{/highlight} to rename the current session",
-  "Press {highlight}Ctrl+Z{/highlight} to suspend the terminal and return to your shell",
+  ...(process.platform === "win32"
+    ? ["Press {highlight}Ctrl+Z{/highlight} to undo changes in your prompt"]
+    : ["Press {highlight}Ctrl+Z{/highlight} to suspend the terminal and return to your shell"]),
 ]
-

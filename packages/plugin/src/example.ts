@@ -1,7 +1,7 @@
 import { Plugin } from "./index.js"
 import { tool } from "./tool.js"
 
-export const ExamplePlugin: Plugin = async (ctx) => {
+export const ExamplePlugin: Plugin = async (_ctx) => {
   return {
     tool: {
       mytool: tool({
@@ -16,4 +16,3 @@ export const ExamplePlugin: Plugin = async (ctx) => {
     },
   }
 }
-

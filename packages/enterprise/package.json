@@ -1,6 +1,6 @@
 {
   "name": "@navi-ai/enterprise",
-  "version": "1.1.17",
+  "version": "1.14.46",
   "private": true,
   "type": "module",
   "license": "MIT",
@@ -8,12 +8,12 @@
     "typecheck": "tsgo --noEmit",
     "dev": "vite dev",
     "build": "vite build",
-    "build:cloudflare": "navi_DEPLOYMENT_TARGET=cloudflare vite build",
+    "build:cloudflare": "NAVI_DEPLOYMENT_TARGET=cloudflare vite build",
     "start": "vite start",
     "shell-prod": "sst shell --target Teams --stage production"
   },
   "dependencies": {
-    "@navi-ai/util": "workspace:*",
+    "@navi-ai/core": "workspace:*",
     "@navi-ai/ui": "workspace:*",
     "aws4fetch": "^1.0.20",
     "@pierre/diffs": "catalog:",
@@ -32,6 +32,7 @@
     "@cloudflare/workers-types": "catalog:",
     "@tailwindcss/vite": "catalog:",
     "@typescript/native-preview": "catalog:",
+    "@types/bun": "catalog:",
     "@types/luxon": "catalog:",
     "tailwindcss": "catalog:",
     "typescript": "catalog:",

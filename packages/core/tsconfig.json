@@ -1,19 +1,8 @@
 {
-  "extends": "../../packages/navi/tsconfig.json",
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "extends": "@tsconfig/bun/tsconfig.json",
   "compilerOptions": {
-    "baseUrl": ".",
-    "paths": {
-      "@/*": ["./src/*", "../navi/src/*"],
-      "navi-ai-agent/*": ["src/*"],
-      "@navi-ai/util/*": ["../util/src/*"],
-      "@navi-ai/sdk/*": ["../sdk/js/src/*"],
-      "@navi-ai/native": ["../native/src/index.ts"]
-    }
-  },
-  "include": [
-    "src/**/*",
-    "../util/src/**/*",
-    "../sdk/js/src/**/*",
-    "../native/src/**/*"
-  ]
+    "types": ["bun"],
+    "noUncheckedIndexedAccess": false
+  }
 }

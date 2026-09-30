@@ -8,7 +8,8 @@ import http from "node:http"
 import crypto from "node:crypto"
 import type net from "node:net"
 import { URL, URLSearchParams } from "node:url"
-import { Log } from "../../util/log"
+import * as Log from "@navi-ai/core/util/log"
+import { Env } from "../../env"
 
 const log = Log.create({ service: "oauth-flow" })
 

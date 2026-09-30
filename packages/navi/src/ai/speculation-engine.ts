@@ -1,4 +1,4 @@
-import { Log } from "../util/log"
+import { Log } from "@navi-ai/core/util/log"
 import { IndexService } from "../codebase/index-service"
 import { Instance } from "../project/instance"
 import { Bus } from "../bus"

@@ -1,0 +1,13 @@
+Architecture Map and Dependency Graph Generator.
+
+Analyzes source code files and directories to build dependency trees and generate clean Mermaid diagrams (`graph TD`) of module interactions.
+
+Parameters:
+- `path`: (Optional) Directory or entry file to analyze (defaults to workspace root or `src/`).
+- `depth`: (Optional) Maximum directory/import depth to traverse (default 2).
+- `format`: (Optional) "mermaid" (default) or "table" or "json".
+
+Use this tool when:
+- Designing new architecture or features in planning mode
+- Understanding upstream and downstream dependencies before refactoring
+- Generating visual component maps for documentation and walkthroughs

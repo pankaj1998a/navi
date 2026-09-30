@@ -1,6 +1,6 @@
 import { RequestError, type McpServer } from "@agentclientprotocol/sdk"
 import type { ACPSessionState } from "./types"
-import { Log } from "@/util/log"
+import * as Log from "@navi-ai/core/util/log"
 import type { NaviClient } from "@navi-ai/sdk/v2"
 
 const log = Log.create({ service: "acp-session-manager" })
@@ -13,8 +13,8 @@ export class ACPSessionManager {
     this.sdk = sdk
   }
 
-  tryGet(sessionID: string): ACPSessionState | undefined {
-    return this.sessions.get(sessionID)
+  tryGet(sessionId: string): ACPSessionState | undefined {
+    return this.sessions.get(sessionId)
   }
 
   async create(cwd: string, mcpServers: McpServer[], model?: ACPSessionState["model"]): Promise<ACPSessionState> {
@@ -27,11 +27,11 @@ export class ACPSessionManager {
       )
       .then((x) => x.data!)
 
-    const sessionID = session.id
+    const sessionId = session.id
     const resolvedModel = model
 
     const state: ACPSessionState = {
-      id: sessionID,
+      id: sessionId,
       cwd,
       mcpServers,
       createdAt: new Date(),
@@ -39,12 +39,12 @@ export class ACPSessionManager {
     }
     log.info("creating_session", { state })
 
-    this.sessions.set(sessionID, state)
+    this.sessions.set(sessionId, state)
     return state
   }
 
   async load(
-    sessionID: string,
+    sessionId: string,
     cwd: string,
     mcpServers: McpServer[],
     model?: ACPSessionState["model"],
@@ -52,7 +52,7 @@ export class ACPSessionManager {
     const session = await this.sdk.session
       .get(
         {
-          sessionID: sessionID,
+          sessionID: sessionId,
           directory: cwd,
         },
         { throwOnError: true },
@@ -62,7 +62,7 @@ export class ACPSessionManager {
     const resolvedModel = model
 
     const state: ACPSessionState = {
-      id: sessionID,
+      id: sessionId,
       cwd,
       mcpServers,
       createdAt: new Date(session.time.created),
@@ -70,48 +70,53 @@ export class ACPSessionManager {
     }
     log.info("loading_session", { state })
 
-    this.sessions.set(sessionID, state)
+    this.sessions.set(sessionId, state)
     return state
   }
 
-  get(sessionID: string): ACPSessionState {
-    const session = this.sessions.get(sessionID)
+  get(sessionId: string): ACPSessionState {
+    const session = this.sessions.get(sessionId)
     if (!session) {
-      log.error("session not found", { sessionID })
-      throw RequestError.invalidParams(JSON.stringify({ error: `Session not found: ${sessionID}` }))
+      log.error("session not found", { sessionId })
+      throw RequestError.invalidParams(JSON.stringify({ error: `Session not found: ${sessionId}` }))
     }
     return session
   }
 
-  getModel(sessionID: string) {
-    const session = this.get(sessionID)
+  getModel(sessionId: string) {
+    const session = this.get(sessionId)
     return session.model
   }
 
-  setModel(sessionID: string, model: ACPSessionState["model"]) {
-    const session = this.get(sessionID)
+  setModel(sessionId: string, model: ACPSessionState["model"]) {
+    const session = this.get(sessionId)
     session.model = model
-    this.sessions.set(sessionID, session)
+    this.sessions.set(sessionId, session)
     return session
   }
 
-  getVariant(sessionID: string) {
-    const session = this.get(sessionID)
+  getVariant(sessionId: string) {
+    const session = this.get(sessionId)
     return session.variant
   }
 
-  setVariant(sessionID: string, variant?: string) {
-    const session = this.get(sessionID)
+  setVariant(sessionId: string, variant?: string) {
+    const session = this.get(sessionId)
     session.variant = variant
-    this.sessions.set(sessionID, session)
+    this.sessions.set(sessionId, session)
     return session
   }
 
-  setMode(sessionID: string, modeId: string) {
-    const session = this.get(sessionID)
+  setMode(sessionId: string, modeId: string) {
+    const session = this.get(sessionId)
     session.modeId = modeId
-    this.sessions.set(sessionID, session)
+    this.sessions.set(sessionId, session)
+    return session
+  }
+
+  remove(sessionId: string): ACPSessionState | undefined {
+    const session = this.sessions.get(sessionId)
+    this.sessions.delete(sessionId)
     return session
   }
 }
-

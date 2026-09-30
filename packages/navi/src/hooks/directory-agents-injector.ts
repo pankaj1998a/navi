@@ -15,8 +15,9 @@
  */
 
 import type { Hooks } from "@navi-ai/plugin"
-import { Log } from "../util/log"
-import { existsSync, readFileSync, realpathSync } from "node:fs"
+import { Log } from "@navi-ai/core/util/log"
+import { existsSync, realpathSync } from "node:fs"
+import fsp from "node:fs/promises"
 import { dirname, join, resolve } from "node:path"
 
 const log = Log.create({ service: "directory-agents-injector" })
@@ -57,35 +58,6 @@ function findProjectRoot(startDir: string): string | null {
     return null
 }
 
-/**
- * Find context files walking up from a directory
- */
-function findContextFilesUp(startDir: string, projectRoot: string | null): string[] {
-    const found: string[] = []
-    let current = startDir
-
-    while (true) {
-        // Check for context files
-        for (const filename of CONTEXT_FILES) {
-            const path = join(current, filename)
-            if (existsSync(path)) {
-                found.push(path)
-                break // Only inject one file per directory
-            }
-        }
-
-        // Stop at project root or if we've left the project
-        if (!projectRoot || current === projectRoot) break
-        const parent = dirname(current)
-        if (parent === current) break
-        if (!parent.startsWith(projectRoot)) break
-        current = parent
-    }
-
-    // Reverse so we inject from root to leaf
-    return found.reverse()
-}
-
 export interface DirectoryAgentsInjectorOptions {
     enabled?: boolean
     includeReadme?: boolean
@@ -119,7 +91,11 @@ export function createDirectoryAgentsInjectorHook(options?: DirectoryAgentsInjec
     ): Promise<void> {
         // Resolve the file path
         const resolved = filePath.startsWith("/") ? filePath : resolve(cwd, filePath)
-        if (!existsSync(resolved)) return
+        try {
+            await fsp.stat(resolved)
+        } catch {
+            return
+        }
 
         const dir = dirname(resolved)
         const projectRoot = findProjectRoot(dir)
@@ -134,10 +110,13 @@ export function createDirectoryAgentsInjectorHook(options?: DirectoryAgentsInjec
             if (!cache.has(current)) {
                 for (const filename of contextFiles) {
                     const path = join(current, filename)
-                    if (existsSync(path)) {
+                    try {
+                        await fsp.stat(path)
                         contextPaths.push(path)
                         cache.add(current)
                         break
+                    } catch {
+                        // missing — try next
                     }
                 }
             }
@@ -153,7 +132,7 @@ export function createDirectoryAgentsInjectorHook(options?: DirectoryAgentsInjec
         const reversedPaths = contextPaths.reverse()
         for (const contextPath of reversedPaths) {
             try {
-                let content = readFileSync(contextPath, "utf-8")
+                let content = await fsp.readFile(contextPath, "utf-8")
 
                 // Truncate if too large
                 if (content.length > maxContentSize) {

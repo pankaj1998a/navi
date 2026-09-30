@@ -6,14 +6,69 @@
 import * as chromeLauncher from "chrome-launcher"
 import puppeteer, { type Browser, type Page } from "puppeteer-core"
 import TurndownService from "turndown"
-import { Log } from "../util/log"
+import * as Log from "@navi-ai/core/util/log"
 
 const log = Log.create({ service: "browser-engine" })
 
 const BROWSER_TIMEOUT = 60_000
 const NAVIGATION_TIMEOUT = 30_000
+const MAX_CONTENT_BYTES = 5 * 1024 * 1024
 const USER_AGENT =
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+
+function isPrivateIPv4(host: string): boolean {
+  const parts = host.split(".").map((p) => Number(p))
+  if (parts.length !== 4 || parts.some((n) => !Number.isInteger(n) || n < 0 || n > 255)) return false
+  const [a, b] = parts
+  if (a === 10) return true
+  if (a === 127) return true
+  if (a === 0) return true
+  if (a === 169 && b === 254) return true
+  if (a === 192 && b === 168) return true
+  if (a === 172 && b !== undefined && b >= 16 && b <= 31) return true
+  if (a === 192 && b === 0 && parts[2] === 2) return true
+  if (a === 198 && (b === 51 || b === 18)) return true
+  if (a === 203 && b === 0 && parts[2] === 113) return true
+  return false
+}
+
+export function assertSafeUrl(raw: string): URL {
+  let parsed: URL
+  try {
+    parsed = new URL(raw)
+  } catch {
+    log.error("blocked unsafe URL (parse failed)", { url: raw.slice(0, 200) })
+    throw new Error(`Blocked unsafe URL: unparseable`)
+  }
+  const protocol = parsed.protocol.toLowerCase()
+  if (protocol !== "http:" && protocol !== "https:") {
+    log.error("blocked unsafe URL protocol", { protocol })
+    throw new Error(`Blocked unsafe URL protocol: ${protocol}`)
+  }
+  const host = parsed.hostname.toLowerCase().replace(/^\[|\]$/g, "")
+  if (
+    host === "localhost" ||
+    host === "0.0.0.0" ||
+    host === "::" ||
+    host === "::1" ||
+    host === "metadata.google.internal" ||
+    host === "instance-data" ||
+    host.endsWith(".local") ||
+    host.endsWith(".internal") ||
+    host.endsWith(".localhost") ||
+    host === "169.254.169.254" ||
+    isPrivateIPv4(host)
+  ) {
+    log.error("blocked private/internal URL", { host })
+    throw new Error(`Blocked private/internal URL host: ${parsed.hostname}`)
+  }
+  return parsed
+}
+
+function capContent(content: string): string {
+  if (content.length > MAX_CONTENT_BYTES) return content.slice(0, MAX_CONTENT_BYTES)
+  return content
+}
 
 // ─── Browser singleton ──────────────────────────────────────────────────────
 
@@ -245,7 +300,9 @@ export async function webSearch(query: string, numResults: number = 8): Promise<
 
         return bingResults.slice(0, numResults)
     } finally {
-        await page.close().catch(() => { })
+        await page.close().catch((e) => {
+            log.debug("page.close failed", { error: String(e) })
+        })
     }
 }
 
@@ -270,23 +327,21 @@ export async function webFetch(
     timeoutMs = 30_000,
     opts?: { preferBrowser?: boolean },
 ): Promise<FetchResult> {
+    assertSafeUrl(url)
     if (!opts?.preferBrowser) {
     // ── Fast path: plain HTTP fetch ──
         try {
-            const controller = new AbortController()
-            const timer = setTimeout(() => controller.abort(), timeoutMs)
             const response = await fetch(url, {
-                signal: controller.signal,
+                signal: AbortSignal.timeout(timeoutMs),
                 headers: { "User-Agent": USER_AGENT, Accept: "text/html,*/*" },
             })
-            clearTimeout(timer)
 
             if (response.ok) {
-                const html = await response.text()
+                const html = capContent(await response.text())
                 // Heuristic: if body text is thin, the page is JS-rendered
                 const bodyText = htmlToText(html)
                 if (bodyText.length > 200) {
-                    return { url, title: extractTitle(html), content: convert(html, format), statusCode: response.status }
+                    return { url, title: extractTitle(html), content: capContent(convert(html, format)), statusCode: response.status }
                 }
             }
         } catch {
@@ -299,25 +354,27 @@ export async function webFetch(
     const browser = await getBrowser()
     const page = await openPage(browser)
     try {
-        const response = await page.goto(url, { waitUntil: "networkidle2" })
+        const response = await page.goto(url, { waitUntil: "networkidle2", timeout: NAVIGATION_TIMEOUT })
         // Wait a bit for late-loading JS
         await new Promise((r) => setTimeout(r, 800))
-        const html = await page.content()
+        const html = capContent(await page.content())
         const title = await page.title()
         return {
             url,
             title,
-            content: convert(html, format),
+            content: capContent(convert(html, format)),
             statusCode: response?.status() ?? 200,
         }
     } finally {
-        await page.close().catch(() => { })
+        await page.close().catch((e) => {
+            log.debug("page.close failed", { error: String(e) })
+        })
     }
 }
 
 function extractTitle(html: string): string {
     const m = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)
-    return m ? htmlToText(m[1]) : ""
+    return m ? htmlToText(m[1] ?? "") : ""
 }
 
 function convert(html: string, format: FetchFormat): string {
@@ -355,7 +412,7 @@ export async function webCrawl(startUrl: string, opts: CrawlOptions = {}): Promi
         excludePattern,
     } = opts
 
-    const origin = new URL(startUrl).origin
+    const origin = assertSafeUrl(startUrl).origin
     const visited = new Set<string>()
     const queue: Array<{ url: string; depth: number }> = [{ url: startUrl, depth: 0 }]
     const results: CrawledPage[] = []
@@ -364,21 +421,26 @@ export async function webCrawl(startUrl: string, opts: CrawlOptions = {}): Promi
 
     while (queue.length > 0 && results.length < maxPages) {
         const item = queue.shift()!
-        const normalised = item.url.split("#")[0] // strip fragments
+        const normalised = item.url.split("#")[0] ?? "" // strip fragments
         if (visited.has(normalised)) continue
         visited.add(normalised)
 
         if (item.depth > maxDepth) continue
         if (excludePattern?.test(normalised)) continue
         if (includePattern && !includePattern.test(normalised)) continue
+        try {
+            assertSafeUrl(normalised)
+        } catch {
+            continue
+        }
 
         const page = await openPage(browser)
         try {
             log.info("crawling", { url: normalised, depth: item.depth })
-            await page.goto(normalised, { waitUntil: "domcontentloaded" })
+            await page.goto(normalised, { waitUntil: "domcontentloaded", timeout: NAVIGATION_TIMEOUT })
             await new Promise((r) => setTimeout(r, 500))
 
-            const html = await page.content()
+            const html = capContent(await page.content())
             const title = await page.title()
 
             // Extract all links from the page
@@ -391,19 +453,19 @@ export async function webCrawl(startUrl: string, opts: CrawlOptions = {}): Promi
             const links: string[] = []
             for (const raw of rawLinks) {
                 try {
-                    const u = new URL(raw)
+                    const u = assertSafeUrl(raw)
                     if (sameDomain && u.origin !== origin) continue
-                    const normalized = u.href.split("#")[0]
+                    const normalized = u.href.split("#")[0] ?? ""
                     if (!visited.has(normalized)) links.push(normalized)
                 } catch {
-                    // ignore invalid URLs
+                    // ignore invalid/unsafe URLs
                 }
             }
 
             results.push({
                 url: normalised,
                 title,
-                content: convert(html, format),
+                content: capContent(convert(html, format)),
                 links: [...new Set(links)].slice(0, 50),
                 depth: item.depth,
             })
@@ -419,7 +481,9 @@ export async function webCrawl(startUrl: string, opts: CrawlOptions = {}): Promi
         } catch (err) {
             log.warn("crawl page error", { url: normalised, error: String(err) })
         } finally {
-            await page.close().catch(() => { })
+            await page.close().catch((e) => {
+            log.debug("page.close failed", { error: String(e) })
+        })
         }
     }
 
@@ -445,11 +509,12 @@ export interface ScrapeResult {
  * Automatically falls back to a full browser render for JS pages.
  */
 export async function webScrape(url: string, fields: ScrapeField[]): Promise<ScrapeResult> {
+    assertSafeUrl(url)
     const browser = await getBrowser()
     const page = await openPage(browser)
 
     try {
-        await page.goto(url, { waitUntil: "networkidle2" })
+        await page.goto(url, { waitUntil: "networkidle2", timeout: NAVIGATION_TIMEOUT })
         await new Promise((r) => setTimeout(r, 800))
 
         const data: Record<string, string | string[]> = {}
@@ -483,17 +548,20 @@ export async function webScrape(url: string, fields: ScrapeField[]): Promise<Scr
 
         return { url, data }
     } finally {
-        await page.close().catch(() => { })
+        await page.close().catch((e) => {
+            log.debug("page.close failed", { error: String(e) })
+        })
     }
 }
 
 /** Auto-scrape: extract common page data without needing explicit selectors. */
 export async function autoScrape(url: string): Promise<ScrapeResult> {
+    assertSafeUrl(url)
     const browser = await getBrowser()
     const page = await openPage(browser)
 
     try {
-        await page.goto(url, { waitUntil: "networkidle2" })
+        await page.goto(url, { waitUntil: "networkidle2", timeout: NAVIGATION_TIMEOUT })
         await new Promise((r) => setTimeout(r, 800))
 
         const data = await page.evaluate(() => {
@@ -528,7 +596,9 @@ export async function autoScrape(url: string): Promise<ScrapeResult> {
 
         return { url, data: data as Record<string, unknown> }
     } finally {
-        await page.close().catch(() => { })
+        await page.close().catch((e) => {
+            log.debug("page.close failed", { error: String(e) })
+        })
     }
 }
 

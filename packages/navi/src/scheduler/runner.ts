@@ -10,7 +10,7 @@
  */
 
 import path from "path"
-import { Log } from "../util/log"
+import { Log } from "@navi-ai/core/util/log"
 import { Global } from "../global"
 import { parseCronExpression, computeNextCronRun, cronToHuman, type CronFields } from "./cron"
 

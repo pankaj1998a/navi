@@ -1,22 +1,36 @@
 import path from "path"
 import { fileURLToPath, pathToFileURL } from "url"
+import npa from "npm-package-arg"
 import semver from "semver"
-import { BunProc } from "@/bun"
 import { Filesystem } from "@/util/filesystem"
 import { isRecord } from "@/util/record"
+import { Npm } from "@navi-ai/core/npm"
 
 // Old npm package names for plugins that are now built-in
-export const DEPRECATED_PLUGIN_PACKAGES = ["Navi-openai-codex-auth", "Navi-copilot-auth"]
+export const DEPRECATED_PLUGIN_PACKAGES = ["navi-openai-codex-auth", "navi-copilot-auth"]
 
 export function isDeprecatedPlugin(spec: string) {
   return DEPRECATED_PLUGIN_PACKAGES.some((pkg) => spec.includes(pkg))
 }
 
+function parse(spec: string) {
+  try {
+    return npa(spec)
+  } catch {}
+}
+
 export function parsePluginSpecifier(spec: string) {
-  const lastAt = spec.lastIndexOf("@")
-  const pkg = lastAt > 0 ? spec.substring(0, lastAt) : spec
-  const version = lastAt > 0 ? spec.substring(lastAt + 1) : "latest"
-  return { pkg, version }
+  const hit = parse(spec)
+  if (hit?.type === "alias" && !hit.name) {
+    const sub = (hit as npa.AliasResult).subSpec
+    if (sub?.name) {
+      const version = !sub.rawSpec || sub.rawSpec === "*" ? "latest" : sub.rawSpec
+      return { pkg: sub.name, version }
+    }
+  }
+  if (!hit?.name) return { pkg: spec, version: "" }
+  if (hit.raw === hit.name) return { pkg: hit.name, version: "latest" }
+  return { pkg: hit.name, version: hit.rawSpec }
 }
 
 export type PluginSource = "file" | "npm"
@@ -50,6 +64,10 @@ function resolveExportPath(raw: string, dir: string) {
   return path.resolve(dir, raw)
 }
 
+function isAbsolutePath(raw: string) {
+  return path.isAbsolute(raw) || /^[A-Za-z]:[\\/]/.test(raw)
+}
+
 function extractExportValue(value: unknown): string | undefined {
   if (typeof value === "string") return value
   if (!isRecord(value)) return undefined
@@ -68,14 +86,18 @@ function packageMain(pkg: PluginPackage) {
   return next
 }
 
-function resolvePackagePath(spec: string, raw: string, kind: PluginKind, pkg: PluginPackage) {
+function resolvePackageFile(spec: string, raw: string, kind: string, pkg: PluginPackage) {
   const resolved = resolveExportPath(raw, pkg.dir)
   const root = Filesystem.resolve(pkg.dir)
   const next = Filesystem.resolve(resolved)
   if (!Filesystem.contains(root, next)) {
     throw new Error(`Plugin ${spec} resolved ${kind} entry outside plugin directory`)
   }
-  return pathToFileURL(next).href
+  return next
+}
+
+function resolvePackagePath(spec: string, raw: string, kind: PluginKind, pkg: PluginPackage) {
+  return pathToFileURL(resolvePackageFile(spec, raw, kind, pkg)).href
 }
 
 function resolvePackageEntrypoint(spec: string, kind: PluginKind, pkg: PluginPackage) {
@@ -106,7 +128,7 @@ async function resolveDirectoryIndex(dir: string) {
 async function resolveTargetDirectory(target: string) {
   const file = targetPath(target)
   if (!file) return
-  const stat = await Filesystem.stat(file)
+  const stat = await Filesystem.statAsync(file)
   if (!stat?.isDirectory()) return
   return file
 }
@@ -147,13 +169,13 @@ async function resolvePluginEntrypoint(spec: string, target: string, kind: Plugi
 }
 
 export function isPathPluginSpec(spec: string) {
-  return spec.startsWith("file://") || spec.startsWith(".") || path.isAbsolute(spec) || /^[A-Za-z]:[\\/]/.test(spec)
+  return spec.startsWith("file://") || spec.startsWith(".") || isAbsolutePath(spec)
 }
 
 export async function resolvePathPluginTarget(spec: string) {
   const raw = spec.startsWith("file://") ? fileURLToPath(spec) : spec
   const file = path.isAbsolute(raw) || /^[A-Za-z]:[\\/]/.test(raw) ? raw : path.resolve(raw)
-  const stat = await Filesystem.stat(file)
+  const stat = await Filesystem.statAsync(file)
   if (!stat?.isDirectory()) {
     if (spec.startsWith("file://")) return spec
     return pathToFileURL(file).href
@@ -169,27 +191,30 @@ export async function resolvePathPluginTarget(spec: string) {
   throw new Error(`Plugin directory ${file} is missing package.json or index file`)
 }
 
-export async function checkPluginCompatibility(target: string, NaviVersion: string, pkg?: PluginPackage) {
-  if (!semver.valid(NaviVersion) || semver.major(NaviVersion) === 0) return
+export async function checkPluginCompatibility(target: string, naviVersion: string, pkg?: PluginPackage) {
+  if (!semver.valid(naviVersion) || semver.major(naviVersion) === 0) return
   const hit = pkg ?? (await readPluginPackage(target).catch(() => undefined))
   if (!hit) return
   const engines = hit.json.engines
   if (!isRecord(engines)) return
-  const range = engines.Navi
+  const range = engines.navi
   if (typeof range !== "string") return
-  if (!semver.satisfies(NaviVersion, range)) {
-    throw new Error(`Plugin requires Navi ${range} but running ${NaviVersion}`)
+  if (!semver.satisfies(naviVersion, range)) {
+    throw new Error(`Plugin requires navi ${range} but running ${naviVersion}`)
   }
 }
 
-export async function resolvePluginTarget(spec: string, parsed = parsePluginSpecifier(spec)) {
+export async function resolvePluginTarget(spec: string) {
   if (isPathPluginSpec(spec)) return resolvePathPluginTarget(spec)
-  return BunProc.install(parsed.pkg, parsed.version, { ignoreScripts: true })
+  const hit = parse(spec)
+  const pkg = hit?.name && hit.raw === hit.name ? `${hit.name}@latest` : spec
+  const result = await Npm.add(pkg)
+  return result.directory
 }
 
 export async function readPluginPackage(target: string): Promise<PluginPackage> {
   const file = target.startsWith("file://") ? fileURLToPath(target) : target
-  const stat = await Filesystem.stat(file)
+  const stat = await Filesystem.statAsync(file)
   const dir = stat?.isDirectory() ? file : path.dirname(file)
   const pkg = path.join(dir, "package.json")
   const json = await Filesystem.readJson<Record<string, unknown>>(pkg)
@@ -208,6 +233,32 @@ export async function createPluginEntry(spec: string, target: string, kind: Plug
     pkg,
     entry,
   }
+}
+
+export function readPackageThemes(spec: string, pkg: PluginPackage) {
+  const field = pkg.json["navi-themes"] ?? pkg.json["oc-themes"]
+  if (field === undefined) return []
+  if (!Array.isArray(field)) {
+    throw new TypeError(`Plugin ${spec} has invalid navi-themes field`)
+  }
+
+  const list = field.map((item) => {
+    if (typeof item !== "string") {
+      throw new TypeError(`Plugin ${spec} has invalid navi-themes entry`)
+    }
+
+    const raw = item.trim()
+    if (!raw) {
+      throw new TypeError(`Plugin ${spec} has empty navi-themes entry`)
+    }
+    if (raw.startsWith("file://") || isAbsolutePath(raw)) {
+      throw new TypeError(`Plugin ${spec} navi-themes entry must be relative: ${item}`)
+    }
+
+    return resolvePackageFile(spec, raw, "navi-themes", pkg)
+  })
+
+  return Array.from(new Set(list))
 }
 
 export function readPluginId(id: unknown, spec: string) {
@@ -270,4 +321,3 @@ export async function resolvePluginId(
   }
   return hit.json.name.trim()
 }
-

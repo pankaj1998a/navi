@@ -1,7 +1,7 @@
 id = "navi"
 name = "Navi"
 description = "The open source coding agent."
-version = "1.1.17"
+version = "1.14.46"
 schema_version = 1
 authors = ["Anomaly"]
 repository = "https://github.com/anomalyco/navi"
@@ -11,26 +11,26 @@ name = "Navi"
 icon = "./icons/navi.svg"
 
 [agent_servers.navi.targets.darwin-aarch64]
-archive = "https://github.com/anomalyco/navi/releases/download/v1.1.17/navi-darwin-arm64.zip"
+archive = "https://github.com/anomalyco/navi/releases/download/v1.14.46/navi-darwin-arm64.zip"
 cmd = "./navi"
 args = ["acp"]
 
 [agent_servers.navi.targets.darwin-x86_64]
-archive = "https://github.com/anomalyco/navi/releases/download/v1.1.17/navi-darwin-x64.zip"
+archive = "https://github.com/anomalyco/navi/releases/download/v1.14.46/navi-darwin-x64.zip"
 cmd = "./navi"
 args = ["acp"]
 
 [agent_servers.navi.targets.linux-aarch64]
-archive = "https://github.com/anomalyco/navi/releases/download/v1.1.17/navi-linux-arm64.tar.gz"
+archive = "https://github.com/anomalyco/navi/releases/download/v1.14.46/navi-linux-arm64.tar.gz"
 cmd = "./navi"
 args = ["acp"]
 
 [agent_servers.navi.targets.linux-x86_64]
-archive = "https://github.com/anomalyco/navi/releases/download/v1.1.17/navi-linux-x64.tar.gz"
+archive = "https://github.com/anomalyco/navi/releases/download/v1.14.46/navi-linux-x64.tar.gz"
 cmd = "./navi"
 args = ["acp"]
 
 [agent_servers.navi.targets.windows-x86_64]
-archive = "https://github.com/anomalyco/navi/releases/download/v1.1.17/navi-windows-x64.zip"
+archive = "https://github.com/anomalyco/navi/releases/download/v1.14.46/navi-windows-x64.zip"
 cmd = "./navi.exe"
 args = ["acp"]

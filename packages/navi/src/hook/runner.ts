@@ -14,7 +14,7 @@
  */
 
 import { spawn } from "child_process"
-import { Log } from "../util/log"
+import { Log } from "@navi-ai/core/util/log"
 import type {
   HookEvent,
   HookInput,

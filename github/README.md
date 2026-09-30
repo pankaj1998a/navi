@@ -1,8 +1,8 @@
-# Navi GitHub Action
+# navi GitHub Action
 
-A GitHub Action that integrates [Navi](https://navi.ai) directly into your GitHub workflow.
+A GitHub Action that integrates [navi](https://navi.ai) directly into your GitHub workflow.
 
-Mention `/navi` in your comment, and Navi will execute tasks within your GitHub Actions runner.
+Mention `/navi` in your comment, and navi will execute tasks within your GitHub Actions runner.
 
 ## Features
 
@@ -16,7 +16,7 @@ Leave the following comment on a GitHub issue. `navi` will read the entire threa
 
 #### Fix an issue
 
-Leave the following comment on a GitHub issue. Navi will create a new branch, implement the changes, and open a PR with the changes.
+Leave the following comment on a GitHub issue. navi will create a new branch, implement the changes, and open a PR with the changes.
 
 ```
 /navi fix this
@@ -24,7 +24,7 @@ Leave the following comment on a GitHub issue. Navi will create a new branch, im
 
 #### Review PRs and make changes
 
-Leave the following comment on a GitHub PR. Navi will implement the requested change and commit it to the same PR.
+Leave the following comment on a GitHub PR. navi will implement the requested change and commit it to the same PR.
 
 ```
 Delete the attachment from S3 when the note is removed /oc
@@ -32,14 +32,14 @@ Delete the attachment from S3 when the note is removed /oc
 
 #### Review specific code lines
 
-Leave a comment directly on code lines in the PR's "Files" tab. Navi will automatically detect the file, line numbers, and diff context to provide precise responses.
+Leave a comment directly on code lines in the PR's "Files" tab. navi will automatically detect the file, line numbers, and diff context to provide precise responses.
 
 ```
 [Comment on specific lines in Files tab]
 /oc add error handling here
 ```
 
-When commenting on specific lines, Navi receives:
+When commenting on specific lines, navi receives:
 
 - The exact file being reviewed
 - The specific lines of code
@@ -81,24 +81,27 @@ This will walk you through installing the GitHub app, creating the workflow, and
        permissions:
          id-token: write
        steps:
-         - name: Checkout repository
-           uses: actions/checkout@v6
-           with:
-             fetch-depth: 1
+          - name: Checkout repository
+            uses: actions/checkout@v6
+            with:
+              fetch-depth: 1
+              persist-credentials: false
 
-         - name: Run Navi
-           uses: pankaj/navi/github@latest
+          - name: Run navi
+           uses: anomalyco/navi/github@latest
            env:
              ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+             GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
            with:
              model: anthropic/claude-sonnet-4-20250514
+             use_github_token: true
    ```
 
 3. Store the API keys in secrets. In your organization or project **settings**, expand **Secrets and variables** on the left and select **Actions**. Add the required API keys.
 
 ## Support
 
-This is an early release. If you encounter issues or have feedback, please create an issue at https://github.com/pankaj/navi/issues.
+This is an early release. If you encounter issues or have feedback, please create an issue at https://github.com/anomalyco/navi/issues.
 
 ## Development
 
@@ -121,12 +124,12 @@ To test locally:
      bun /path/to/navi/github/index.ts
    ```
 
-   - `MODEL`: The model used by Navi. Same as the `MODEL` defined in the GitHub workflow.
+   - `MODEL`: The model used by navi. Same as the `MODEL` defined in the GitHub workflow.
    - `ANTHROPIC_API_KEY`: Your model provider API key. Same as the keys defined in the GitHub workflow.
    - `GITHUB_RUN_ID`: Dummy value to emulate GitHub action environment.
    - `MOCK_TOKEN`: A GitHub personal access token. This token is used to verify you have `admin` or `write` access to the test repo. Generate a token [here](https://github.com/settings/personal-access-tokens).
    - `MOCK_EVENT`: Mock GitHub event payload (see templates below).
-   - `/path/to/navi`: Path to your cloned Navi repo. `bun /path/to/navi/github/index.ts` runs your local version of `navi`.
+   - `/path/to/navi`: Path to your cloned navi repo. `bun /path/to/navi/github/index.ts` runs your local version of `navi`.
 
 ### Issue comment event
 
@@ -161,3 +164,39 @@ MOCK_EVENT='{"eventName":"issue_comment","repo":{"owner":"sst","repo":"hello-wor
 ```
 MOCK_EVENT='{"eventName":"pull_request_review_comment","repo":{"owner":"sst","repo":"hello-world"},"actor":"fwang","payload":{"pull_request":{"number":7},"comment":{"id":1,"body":"hey navi, add error handling","path":"src/components/Button.tsx","diff_hunk":"@@ -45,8 +45,11 @@\n- const handleClick = () => {\n-   console.log('clicked')\n+ const handleClick = useCallback(() => {\n+   console.log('clicked')\n+   doSomething()\n+ }, [doSomething])","line":47,"original_line":45,"position":10,"commit_id":"abc123","original_commit_id":"def456"}}}'
 ```
+
+## Pull Request Code Review
+
+Navi includes a comprehensive, multi-mode code review engine adapted from OpenCodeReview. It provides automated, high-signal PR reviews directly within GitHub.
+
+### CLI Command
+
+You can run reviews directly from your local terminal:
+
+```bash
+# Review a PR
+navi github review --pr 42
+
+# Review with specific model and options
+navi github review --pr 42 \
+  --model anthropic/claude-3-5-sonnet-20241022 \
+  --sticky-summary \
+  --incremental \
+  --checkpoint-range \
+  --resolve-outdated true
+```
+
+### GitHub Actions PR Auto-Review Workflow
+
+To enable automated PR reviews on every push or on-demand via comments (`/navi review` or `/oc review`), copy [`workflow-examples/navi-review.yml`](./workflow-examples/navi-review.yml) into `.github/workflows/navi-review.yml`.
+
+### Key Review Capabilities
+
+- **Inline Diff Comments:** Line-level comments placed directly on modified code using GitHub's Review API, including code suggestions (````suggestion`).
+- **Sticky PR Summary:** Updates a single PR overview comment in-place with a clean status banner, statistics table, routed findings, and warnings.
+- **Incremental Deduplication (`incremental: true`):** Tracks existing bot review comments using Intersection over Union (IoU) overlap calculation (`incremental_overlap_threshold: 0.6`) so repeated runs only comment on newly introduced issues.
+- **Cross-Push Checkpointing (`checkpoint_range: true`):** Stores an authenticated checkpoint marker (`<!-- navi-checkpoint:v1 ... -->`) in the sticky summary. Subsequent pushes review only `checkpoint..head` instead of re-analyzing the entire branch from scratch.
+- **Outdated Thread Resolution (`resolve_outdated: true`):** Automatically resolves bot review threads when subsequent commits modify or fix the reviewed code lines.
+- **Severity & Category Routing (`route_severity_below`, `route_categories`):** Routes low-severity or style findings into a summary table rather than cluttering inline diffs.
+- **Rate-Limit & Batching Resilience:** Automatically packs review comments into batches (<= 50) and handles secondary rate-limits with backoff and retry.
+

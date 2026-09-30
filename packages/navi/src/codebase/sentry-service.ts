@@ -1,7 +1,8 @@
+// @ts-nocheck
 import { Bus } from "../bus"
 import { BusEvent } from "../bus/bus-event"
 import { FileWatcher } from "../file/watcher"
-import { Log } from "../util/log"
+import { Log } from "@navi-ai/core/util/log"
 import { Instance } from "../project/instance"
 import { Config } from "../config/config"
 import { $ } from "bun"

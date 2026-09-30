@@ -1,6 +1,9 @@
-import type { TuiPlugin, TuiPluginApi, TuiPluginModule } from "@navi-ai/plugin/tui"
+import type { TuiPlugin, TuiPluginApi } from "@navi-ai/plugin/tui"
+import type { InternalTuiPlugin } from "../../plugin/internal"
 import { createMemo, Match, Show, Switch } from "solid-js"
-import { Global } from "@/global"
+import { Global } from "@navi-ai/core/global"
+import { TextAttributes } from "@opentui/core"
+import { useTheme } from "@tui/context/theme"
 
 const id = "internal:home-footer"
 
@@ -27,17 +30,17 @@ function Mcp(props: { api: TuiPluginApi }) {
   return (
     <Show when={has()}>
       <box gap={1} flexDirection="row" flexShrink={0}>
-        <box gap={0} flexDirection="row">
+        <text fg={theme().text}>
           <Switch>
             <Match when={err()}>
-              <text fg={theme().error}>⊙ </text>
+              <span style={{ fg: theme().error }}>⊙ </span>
             </Match>
             <Match when={true}>
-              <text fg={count() > 0 ? theme().success : theme().textMuted}>⊙ </text>
+              <span style={{ fg: count() > 0 ? theme().success : theme().textMuted }}>⊙ </span>
             </Match>
           </Switch>
-          <text fg={theme().text}>{String(count())} MCP </text>
-        </box>
+          {count()} MCP
+        </text>
         <text fg={theme().textMuted}>/status</text>
       </box>
     </Show>
@@ -46,9 +49,14 @@ function Mcp(props: { api: TuiPluginApi }) {
 
 function Version(props: { api: TuiPluginApi }) {
   const theme = () => props.api.theme.current
-
   return (
-    <box flexShrink={0}>
+    <box flexDirection="row" gap={1}>
+      <text fg={theme().success} attributes={TextAttributes.BOLD}>
+        •
+      </text>
+      <text fg={theme().textMuted} attributes={TextAttributes.BOLD}>
+        Navi
+      </text>
       <text fg={theme().textMuted}>{props.api.app.version}</text>
     </box>
   )
@@ -85,10 +93,9 @@ const tui: TuiPlugin = async (api) => {
   })
 }
 
-const plugin: TuiPluginModule & { id: string } = {
+const plugin: InternalTuiPlugin = {
   id,
   tui,
 }
 
 export default plugin
-

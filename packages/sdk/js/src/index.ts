@@ -19,4 +19,3 @@ export async function createNavi(options?: ServerOptions) {
     server,
   }
 }
-

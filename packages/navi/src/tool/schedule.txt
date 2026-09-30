@@ -1,0 +1,14 @@
+Schedule background tasks, recurring cron jobs, or delayed commands.
+
+Supports the following actions:
+- "create": Schedule a new recurring cron job or one-shot delay command
+  - Requires `name`, `command`, and either `expression` (standard 5-field cron syntax: `min hour dom month dow`, e.g. `*/5 * * * *`) or `delaySeconds` (for one-shot execution).
+- "list": View all scheduled jobs, their status, last run, and next run times.
+- "remove": Delete a scheduled job by `id`.
+- "run_now": Trigger immediate execution of a scheduled job by `id`.
+- "toggle": Enable or disable a job by `id` (using `enabled: boolean`).
+
+Use this tool when:
+- Setting up recurring health checks, tests, or monitors
+- Scheduling periodic backups, reports, or sync tasks
+- Running automated background jobs
