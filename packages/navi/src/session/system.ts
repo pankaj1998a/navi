@@ -68,10 +68,17 @@ export const layer = Layer.effect(
         const list = yield* skill.available(agent)
 
         return [
-          "Skills provide specialized instructions and workflows for specific tasks.",
-          "Use the skill tool to load a skill when a task matches its description.",
-          // the agents seem to ingest the information about skills a bit better if we present a more verbose
-          // version of them here and a less verbose version in tool description, rather than vice versa.
+          "## Built-in Skills & Coding Quality Discipline",
+          "Skills provide specialized instructions, proven workflows, and engineering quality disciplines.",
+          "IMPORTANT: Proactively use the skill tool to load relevant skills whenever a task matches their capability (e.g. security-audit, skill-upper, frontend-design, etc.).",
+          "",
+          "### Default Engineering Quality Standards During Coding:",
+          "- **Security & Boundary Defense (`security-audit`)**: Enforce strict trust boundaries, validate untrusted inputs, avoid injection vulnerabilities, and never log or expose credentials.",
+          "- **Code Review Rigor (`code-review`)**: Avoid silent error swallowing, handle edge cases, maintain type safety, and keep changes surgical and focused.",
+          "- **Test-Driven Verification (`skill-up`)**: Always verify code changes with existing tests or typechecks, add regression guards for resolved bugs, and iterate until verifiable criteria pass.",
+          "- **Simplicity First**: Write clean, idiomatic, minimal code that directly solves the request without speculative complexity.",
+          "",
+          "### Available Skills:",
           Skill.fmt(list, { verbose: true }),
         ].join("\n")
       }),
