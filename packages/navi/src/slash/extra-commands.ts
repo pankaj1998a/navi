@@ -99,6 +99,7 @@ export const EXTRA_COMMANDS = [
   "/teleport",
   "/share",
   "/context-epoch",
+  "/security-audit",
 ] as const
 
 export type ExtraCommand = (typeof EXTRA_COMMANDS)[number]
@@ -146,6 +147,7 @@ export const EXTRA_COMMAND_DESCRIPTIONS: Record<string, string> = {
   "/flash": "Flash session",
   "/torch": "Torch experimental",
   "/bughunter": "Bug hunter",
+  "/security-audit": "Conduct a security audit using Cloudflare's vulnerability discovery methodology",
 }
 
 /**

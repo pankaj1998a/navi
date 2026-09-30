@@ -197,5 +197,21 @@ Phases:
 5. Add regression test cases to permanently safeguard the fixes.`,
     hints: ["$ARGUMENTS"],
   },
+  {
+    name: "security-audit",
+    description:
+      "Conduct a security audit on the codebase or target directory following Cloudflare's vulnerability discovery methodology.",
+    agent: "security-auditor",
+    template: `Perform a defensive security audit using Cloudflare's vulnerability discovery harness methodology.
+Target / scope: $ARGUMENTS
+
+Workflow:
+1. Determine operating mode (guidance mode for focused questions, full audit mode for comprehensive reviews).
+2. Map architecture, trust boundaries, and input surfaces into a coverage ledger.
+3. Conduct coverage-led hunting waves across systematic attack classes.
+4. Adversarially validate candidate findings with fresh verifiers to eliminate false positives.
+5. Produce structured findings (confirmed, needs_validation, rejected) with verifiable source evidence and smallest effective fixes.`,
+    hints: ["$ARGUMENTS"],
+  },
 ]
 

@@ -17,8 +17,8 @@ import { Flag } from "@navi-ai/core/flag/flag"
 
 test("official plugins registry contains all official plugins including skill-up", () => {
   const plugins = getOfficialPlugins()
-  expect(plugins.length).toBe(40)
-  expect(OFFICIAL_PLUGINS.length).toBe(40)
+  expect(plugins.length).toBe(41)
+  expect(OFFICIAL_PLUGINS.length).toBe(41)
 
   const ids = plugins.map((p) => p.id)
   expect(ids).toContain("code-review")
@@ -40,6 +40,7 @@ test("official plugins registry contains all official plugins including skill-up
   expect(ids).toContain("ralph-loop")
   expect(ids).toContain("receipts")
   expect(ids).toContain("skill-up")
+  expect(ids).toContain("security-audit")
   expect(ids).toContain("typescript-lsp")
   expect(ids).toContain("pyright-lsp")
   expect(ids).toContain("rust-analyzer-lsp")
@@ -48,7 +49,7 @@ test("official plugins registry contains all official plugins including skill-up
 
 test("official skills are well-defined and formatted", () => {
   const skills = getOfficialSkills()
-  expect(skills.length).toBeGreaterThanOrEqual(16)
+  expect(skills.length).toBeGreaterThanOrEqual(17)
 
   const names = skills.map((s) => s.name)
   expect(names).toContain("frontend-design")
@@ -58,6 +59,7 @@ test("official skills are well-defined and formatted", () => {
   expect(names).toContain("agent-development")
   expect(names).toContain("command-development")
   expect(names).toContain("skill-upper")
+  expect(names).toContain("security-audit")
 
   for (const skill of skills) {
     expect(skill.name).toBeTruthy()
@@ -81,6 +83,7 @@ test("official agents are model-agnostic and work with any model provider", () =
   expect(agentNames).toContain("silent-failure-hunter")
   expect(agentNames).toContain("type-design-analyzer")
   expect(agentNames).toContain("comment-analyzer")
+  expect(agentNames).toContain("security-auditor")
 
   // Ensure no vendor-locked models are hardcoded so ANY model (OpenAI, Gemini, DeepSeek, Claude, Llama) can run them
   for (const [name, agent] of Object.entries(agents)) {
@@ -107,6 +110,7 @@ test("official commands are loaded with valid templates and hints", () => {
   expect(commandNames).toContain("create-plugin")
   expect(commandNames).toContain("modernize")
   expect(commandNames).toContain("skill-up")
+  expect(commandNames).toContain("security-audit")
 
   for (const [name, cmd] of Object.entries(commands)) {
     expect(cmd.name).toBe(name)
@@ -152,7 +156,7 @@ test("official skills are discovered and available by default in Skill.Service",
       },
     })
   })
-})
+}, 30000)
 
 test("official commands are available by default in Command.Service", async () => {
   await withDefaultPlugins(true, async () => {

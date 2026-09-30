@@ -459,4 +459,16 @@ export const OFFICIAL_PLUGINS: OfficialPluginManifest[] = [
     skills: ["skill-upper"],
     commands: ["skill-up"],
   },
+  {
+    id: "security-audit",
+    name: "Security Audit (Cloudflare)",
+    description: "Defensive security audit and vulnerability discovery harness by Cloudflare: reconnaissance, coverage ledger, adversarial validation, structured findings, and verified reporting",
+    version: "1.0.0",
+    author: { name: "Cloudflare", url: "https://github.com/cloudflare/security-audit-skill" },
+    category: "security",
+    skills: ["security-audit"],
+    agents: ["security-auditor"],
+    commands: ["security-audit"],
+  },
 ]
+

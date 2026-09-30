@@ -425,5 +425,72 @@ Use this skill to evaluate, verify, and iteratively improve Agent Skills and age
    - Update \`SKILL.md\` to eliminate ambiguities and prevent regressions.
    - Add permanent regression cases for identified bugs and rerun until all cases pass.`,
   },
+  {
+    name: "security-audit",
+    description:
+      "Cloudflare security guidance and vulnerability audit for codebases, APIs, services, and libraries. Supports guidance mode (focused queries/remediation) and full audit mode (reconnaissance, coverage-led hunting, adversarial validation, structured findings.json, and REPORT.md).",
+    content: `---
+name: security-audit
+description: Security guidance and vulnerability review for codebases, APIs, services, CLI tools, libraries, and daemons. Use for security questions, focused reviews, vulnerability research, security audits, or pen tests. Run the complete workflow only for explicit codebase audit or pen-test requests, full/comprehensive/end-to-end reviews, or requested report artifacts.
+---
+
+# Security Audit (Cloudflare Vulnerability Discovery Harness)
+
+Find vulnerabilities that violate a real trust boundary, then give owners the source evidence, safe reproduction, priority, and smallest effective fix. This is a defensive, source-first workflow. A candidate without a concrete affected principal, resource, or security outcome is not a confirmed finding.
+
+## Operating Modes
+
+This skill is guidance by default. Loading it does not authorize the complete audit workflow or file creation.
+
+- **Guidance mode**: For security questions, focused reviews, methodology, triage, or investigation of specific findings, use only the relevant parts of this skill. Do not automatically run all six phases, create an output directory, or write audit artifacts.
+- **Full audit mode**: Use the complete workflow when the user explicitly asks to audit or pen-test a codebase, asks for a full/comprehensive/end-to-end security review, or requests report artifacts. Run all six phases and write structured output.
+
+## Universal Execution Safety
+
+1. **Read-only source**: Target source inspection is read-only. Never modify target files during an audit.
+2. **Local sandboxed execution**: Run target-controlled tests or fixtures only with no external network, sanitized environment, and within scratch boundaries.
+3. **Dummy credentials**: Use dummy principals, mock tokens, and fixtures. Never probe deployed endpoints, external services, or production infrastructure.
+4. **No weaponization**: Stop at the minimum boundary result (wrong return value, unauthorized record, sanitizer finding). Do not write exploits, persistence, or payload delivery tools.
+
+## The 6-Phase Audit Workflow
+
+1. **Phase 1: Reconnaissance**
+   - Map architecture, trust boundaries, entrypoints, and input surfaces into \`architecture.md\`.
+   - Seed the initial deterministic coverage ledger in \`coverage-ledger.json\`.
+   - Units are structured as \`surface\` × \`boundary\` × \`attack_class\` × \`subsystem\`.
+
+2. **Phase 2: Coverage-Led Hunting Waves**
+   - Assign isolated hunter subagents to coverage ledger units.
+   - Hunters follow systematic attack classes: Injection, Auth Bypass, IDOR, SSRF, Deserialization, Memory Safety, LLM/Agent hijacking, Logic Flaws.
+   - Run coverage critics between waves to detect blind spots and unexamined code paths.
+
+3. **Phase 3: Candidate Validation**
+   - Adversarial validation: The agent that validates a candidate is never the agent that found it.
+   - Every candidate is given to a fresh verifier that actively tries to disprove the finding.
+   - A candidate survives only with a complete source trace and verified boundary violation.
+
+4. **Phase 4: Structured Output**
+   - Write all records to \`findings.json\` matching \`report-schema.json\`:
+     - \`confirmed\`: Complete source trace, bounded observed result, and validated impact.
+     - \`needs_validation\`: Plausible hypothesis blocked by missing deployment fact or sandbox limitation.
+     - \`rejected\`: Disproved candidate with reason for rejection.
+   - Validate findings and coverage with \`validate-findings.cjs\` and \`validate-coverage-ledger.cjs\`.
+
+5. **Phase 5: Independent Record Verification**
+   - A fresh agent independently verifies final source line references and claims to prevent hallucinations.
+
+6. **Phase 6: Target-Neutral Reporting**
+   - Generate \`REPORT.md\` (executive summary, methodology, coverage statement, confirmed findings table).
+   - Generate \`FINDINGS-DETAIL.md\` (deep dive with source code snippets, affected boundaries, and smallest effective source fix).
+   - Generate \`NEEDS-VALIDATION.md\` (blocked leads with exact owner validation plan).
+
+## Severity Calibration
+
+- **Critical**: Unauthenticated RCE, arbitrary account takeover, or full database exfiltration.
+- **High**: Complete defeat of explicit security control (auth bypass, cross-tenant read/write, stored XSS).
+- **Medium**: Boundary violation with limited blast radius or narrow preconditions.
+- **Low**: Information disclosure of non-secret internals or defense-in-depth weakening.
+- **Needs Validation**: No severity assigned (blocked lead, never an under-confident bug).`,
+  },
 ]
 
