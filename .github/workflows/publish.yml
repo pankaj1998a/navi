@@ -95,14 +95,14 @@ jobs:
           GH_REPO: ${{ needs.version.outputs.repo }}
           GH_TOKEN: ${{ steps.committer.outputs.token }}
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: navi-cli
           path: |
             packages/navi/dist/navi-darwin*
             packages/navi/dist/navi-linux*
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: navi-cli-windows
           path: packages/navi/dist/navi-windows*
@@ -201,7 +201,7 @@ jobs:
             --clobber `
             --repo "${{ needs.version.outputs.repo }}"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: navi-cli-signed-windows
           path: |
@@ -388,12 +388,12 @@ jobs:
             }
           }
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: navi-desktop-${{ matrix.settings.target }}
           path: packages/desktop/dist/*
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: needs.version.outputs.release
         with:
           name: latest-yml-${{ matrix.settings.target }}
