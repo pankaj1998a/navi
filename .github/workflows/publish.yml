@@ -251,7 +251,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - uses: apple-actions/import-codesign-certs@v2
+      - uses: apple-actions/import-codesign-certs@v7
         if: runner.os == 'macOS'
         with:
           keychain: build
