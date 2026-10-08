@@ -1,0 +1,11 @@
+Interact with the Agentation visual feedback server (http://localhost:4747).
+Inspect pending annotations, review React component names and source locations (file:line) highlighted by users in the browser, and mark issues as acknowledged or resolved.
+Actions:
+- "pending": retrieve all pending UI annotations and user comments
+- "status": check if the Agentation annotation server is running
+- "resolve": mark an annotation ID as resolved after fixing the issue
+- "acknowledge": mark an annotation ID as acknowledged/in-progress
+- "dismiss": dismiss an annotation with an optional reason
+- "reply": post a reply to an annotation thread
+- "sessions": list active annotation sessions
+- "watch": wait/poll for incoming annotations (returns immediately once feedback appears)

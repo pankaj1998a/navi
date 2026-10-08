@@ -432,9 +432,14 @@ async function addMcpToConfig(name: string, mcpConfig: ConfigMCP.Info, configPat
 }
 
 export const McpAddCommand = effectCmd({
-  command: "add",
-  describe: "add an MCP server",
-  handler: Effect.fn("Cli.mcp.add")(function* () {
+  command: "add [preset]",
+  describe: "add an MCP server (supports presets like 'agentation')",
+  builder: (yargs) =>
+    yargs.positional("preset", {
+      describe: "Optional preset name (e.g. 'agentation')",
+      type: "string",
+    }),
+  handler: Effect.fn("Cli.mcp.add")(function* (args: { preset?: string }) {
     const maybeCtx = yield* InstanceRef
     if (!maybeCtx) return yield* Effect.die("InstanceRef not provided")
     const ctx = maybeCtx
@@ -471,6 +476,20 @@ export const McpAddCommand = effectCmd({
         if (prompts.isCancel(scopeResult)) throw new UI.CancelledError()
         if (typeof scopeResult !== "string") throw new UI.CancelledError()
         configPath = scopeResult
+      }
+
+      if (args.preset?.toLowerCase() === "agentation") {
+        const mcpConfig: ConfigMCP.Info = {
+          type: "local",
+          command: ["npx", "-y", "agentation-mcp", "server", "--mcp-only"],
+        }
+        await addMcpToConfig("agentation", mcpConfig, configPath)
+        prompts.log.success(`Agentation MCP preset added to ${configPath}`)
+        prompts.log.info("To start the Agentation server in your terminal, run:")
+        prompts.log.info("  npx -y agentation-mcp server")
+        prompts.log.info("And embed <Agentation endpoint=\"http://localhost:4747\" /> in your frontend app.")
+        prompts.outro("Agentation MCP configured successfully")
+        return
       }
 
       const name = await prompts.text({
