@@ -21,6 +21,8 @@ import PROMPT_BRIDGE from "./prompt/bridge.txt"
 import PROMPT_DEBUGGER from "./prompt/debugger.txt"
 import PROMPT_SECURITY from "./prompt/security.txt"
 import PROMPT_OPTIMIZER from "./prompt/optimizer.txt"
+import PROMPT_KARPATHY_LOOP from "./prompt/karpathy-loop.txt"
+import PROMPT_VISUAL_REVIEWER from "./prompt/visual-reviewer.txt"
 import { Permission } from "@/permission"
 import { mergeDeep, pipe, sortBy, values } from "remeda"
 import { Global } from "@navi-ai/core/global"
@@ -435,6 +437,25 @@ export const layer = Layer.effect(
             native: true,
             color: "green",
           },
+          "visual-reviewer": {
+            name: "visual-reviewer",
+            description: "Elite frontend UI design critic and visual quality specialist. Inspects running web applications, analyzes typography, layout rhythm, color contrast, and eliminates generic AI slop using live browser tools.",
+            permission: Permission.merge(
+              defaults,
+              Permission.fromConfig({
+                question: "allow",
+                browser: "allow",
+                edit: "deny",
+                write: "deny",
+              }),
+              user,
+            ),
+            prompt: PROMPT_VISUAL_REVIEWER,
+            options: {},
+            mode: "subagent",
+            native: true,
+            color: "purple",
+          },
           researcher: {
             name: "researcher",
             description: "Deep research orchestrator for evidence-backed investigations, external documentation analysis, and structured codebase lookup.",
@@ -565,6 +586,24 @@ export const layer = Layer.effect(
             mode: "subagent",
             native: true,
             color: "blue",
+          },
+          "karpathy-loop": {
+            name: "karpathy-loop",
+            description: "Autonomous Karpathy experiment loop: iteratively hypothesizes changes, runs deterministic benchmark/test evaluations, commits on improvement, and reverts on regression.",
+            permission: Permission.merge(
+              defaults,
+              Permission.fromConfig({
+                question: "allow",
+                test_runner: "allow",
+                checkpoint: "allow",
+              }),
+              user,
+            ),
+            prompt: PROMPT_KARPATHY_LOOP,
+            options: {},
+            mode: "subagent",
+            native: true,
+            color: "cyan",
           },
         }
 

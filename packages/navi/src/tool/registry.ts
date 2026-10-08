@@ -48,6 +48,9 @@ import { TestRunnerTool } from "./test-runner"
 import { BrowserTool } from "./browser"
 import { ArchMapTool } from "./arch-map"
 import { CheckpointTool } from "./checkpoint"
+import { TrashTool } from "./trash"
+import { GithubUploadTool } from "./github-upload"
+import { AgentationTool } from "./agentation"
 import { Glob } from "@navi-ai/core/util/glob"
 import path from "path"
 import { pathToFileURL } from "url"
@@ -160,6 +163,9 @@ export const layer: Layer.Layer<
     const browsertool = yield* BrowserTool
     const archmap = yield* ArchMapTool
     const checkpointtool = yield* CheckpointTool
+    const trashtool = yield* TrashTool
+    const githubupload = yield* GithubUploadTool
+    const agentationtool = yield* AgentationTool
 
     const state = yield* InstanceState.make<State>(
       Effect.fn("ToolRegistry.state")(function* (ctx) {
@@ -274,6 +280,9 @@ export const layer: Layer.Layer<
           browser: Tool.init(browsertool),
           arch_map: Tool.init(archmap),
           checkpoint: Tool.init(checkpointtool),
+          trash: Tool.init(trashtool),
+          github_upload: Tool.init(githubupload),
+          agentation: Tool.init(agentationtool),
         })
 
         return {
@@ -309,6 +318,9 @@ export const layer: Layer.Layer<
             tool.browser,
             tool.arch_map,
             tool.checkpoint,
+            tool.trash,
+            tool.github_upload,
+            tool.agentation,
             ...(Flag.NAVI_EXPERIMENTAL_LSP_TOOL ? [tool.lsp] : []),
             ...(Flag.NAVI_EXPERIMENTAL_PLAN_MODE && Flag.NAVI_CLIENT === "cli" ? [tool.plan] : []),
           ],

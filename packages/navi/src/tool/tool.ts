@@ -4,6 +4,7 @@ import type { Permission } from "../permission"
 import type { SessionID, MessageID } from "../session/schema"
 import * as Truncate from "./truncate"
 import { Agent } from "@/agent/agent"
+import { scrubSecrets } from "@/util/secret-scrubber"
 
 interface Metadata {
   [key: string]: any
@@ -112,12 +113,14 @@ function wrap<Parameters extends Schema.Decoder<unknown>, Result extends Metadat
             return result
           }
           const agent = yield* agents.get(ctx.agent)
-          const truncated = yield* truncate.output(result.output, {}, agent)
+          const scrubbed = scrubSecrets(result.output)
+          const truncated = yield* truncate.output(scrubbed.text, {}, agent)
           return {
             ...result,
             output: truncated.content,
             metadata: {
               ...result.metadata,
+              ...(scrubbed.scrubbedCount > 0 ? { scrubbedSecrets: scrubbed.scrubbedCount } : {}),
               truncated: truncated.truncated,
               ...(truncated.truncated && { outputPath: truncated.outputPath }),
             },

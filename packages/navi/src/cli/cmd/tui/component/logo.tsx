@@ -623,7 +623,7 @@ export function Logo(props: { shape?: LogoShape; ink?: RGBA; idle?: boolean } = 
       raf = requestAnimationFrame(loop)
       return
     }
-    timer = setInterval(tick, 16)
+    timer = setInterval(tick, props.idle ? 60 : 16)
   }
 
   onCleanup(() => {

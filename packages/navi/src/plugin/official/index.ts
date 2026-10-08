@@ -72,9 +72,8 @@ export function getOfficialCommands(): Record<string, CommandInfo> {
 
 export const OfficialPluginsPlugin: PluginInstance = async (_input) => {
   return {
-    async config(cfg) {
+    async config(_cfg) {
       // Expose official plugins in runtime config if not explicitly disabled
-      return cfg
     },
   }
 }

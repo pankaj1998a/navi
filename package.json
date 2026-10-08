@@ -17,6 +17,12 @@
     "upgrade-opentui": "bun run script/upgrade-opentui.ts",
     "postinstall": "bun run --cwd packages/navi fix-node-pty",
     "prepare": "husky",
+    "validate-skills": "bun run --cwd packages/navi validate-skills",
+    "skills:sync": "bun run --cwd packages/navi skills:sync",
+    "browser": "bun run --cwd packages/navi browser",
+    "structure": "bun run --cwd packages/navi structure",
+    "agentation": "bun run --cwd packages/navi agentation",
+    "trash": "bun run --cwd packages/navi trash",
     "test": "echo 'do not run tests from root' && exit 1"
   },
   "workspaces": {

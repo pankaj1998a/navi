@@ -41,6 +41,9 @@ export const Parameters = Schema.Struct({
   fail_fast: Schema.optional(Schema.Boolean).annotate({
     description: "If true, immediately abort sibling tasks under the parent session upon failure (defaults to true for data errors)",
   }),
+  stall_timeout_seconds: Schema.optional(Schema.Number).annotate({
+    description: "Optional idle watchdog timeout in seconds (default: 60s). Aborts subagent if no progress or tool activity occurs for this duration.",
+  }),
   format: Schema.optional(Schema.Literals(["text", "json"])).annotate({
     description: "Preferred return format for the subagent result ('text' or 'json')",
   }),
@@ -53,7 +56,7 @@ export const TaskTool = Tool.define(
     const config = yield* Config.Service
     const sessions = yield* Session.Service
     const git = yield* Git.Service
-    const subagentSemaphore = yield* Semaphore.make(2)
+    const subagentSemaphore = yield* Semaphore.make(4)
 
     const run = Effect.fn("TaskTool.execute")(function* (
       params: Schema.Schema.Type<typeof Parameters>,
@@ -178,6 +181,17 @@ export const TaskTool = Tool.define(
         }, params.timeout_seconds * 1000)
       }
 
+      // Zero-token stall watchdog: aborts subagent if it hangs without completing within stallSeconds (default 60s)
+      const stallSeconds =
+        params.stall_timeout_seconds && params.stall_timeout_seconds > 0
+          ? params.stall_timeout_seconds
+          : (params.timeout_seconds ? Math.max(params.timeout_seconds, 60) : 60)
+      let isStalled = false
+      let stallTimer: ReturnType<typeof setTimeout> | undefined = setTimeout(() => {
+        isStalled = true
+        timeoutController.abort()
+      }, stallSeconds * 1000)
+
       function onTimeoutAbort() {
         runCancel.fork(cancel)
       }
@@ -216,7 +230,7 @@ export const TaskTool = Tool.define(
             if (Exit.isFailure(resultExit)) {
               status = "failed"
               const err = Cause.squash(resultExit.cause)
-              const errMsg = err instanceof Error ? err.message : String(err)
+              let errMsg = err instanceof Error ? err.message : String(err)
 
               let category = "tool_failure"
               const lower = errMsg.toLowerCase()
@@ -234,6 +248,10 @@ export const TaskTool = Tool.define(
                 category = "data_error"
               } else if (lower.includes("rate limit") || lower.includes("too many requests")) {
                 category = "rate_limit"
+              } else if (isStalled) {
+                category = "stall_detected"
+                errMsg = `Subagent stalled: no progress or activity detected for ${stallSeconds} seconds (runtime watchdog tripped)`
+                status = "failed"
               } else if (lower.includes("abort") || lower.includes("cancel") || timeoutController.signal.aborted) {
                 category = "aborted"
                 status = "aborted"
@@ -276,11 +294,33 @@ export const TaskTool = Tool.define(
             // Collect execution telemetry from child parts
             const toolStats: Record<string, number> = {}
             const touchedFiles = new Set<string>()
+            const toolCalls: Array<{ tool: string; inputStr: string }> = []
+            let doomLoopDetected = false
+
             for (const part of resultParts) {
               if (part.type === "tool") {
                 const toolName = (part as any).tool ?? "unknown"
                 toolStats[toolName] = (toolStats[toolName] ?? 0) + 1
                 const toolInput = (part as any).state?.input
+                const inputStr = JSON.stringify(toolInput ?? {})
+                toolCalls.push({ tool: toolName, inputStr })
+
+                const len = toolCalls.length
+                const last1 = toolCalls[len - 1]
+                const last2 = toolCalls[len - 2]
+                const last3 = toolCalls[len - 3]
+                if (
+                  last1 &&
+                  last2 &&
+                  last3 &&
+                  last1.tool === last2.tool &&
+                  last2.tool === last3.tool &&
+                  last1.inputStr === last2.inputStr &&
+                  last2.inputStr === last3.inputStr
+                ) {
+                  doomLoopDetected = true
+                }
+
                 if (toolInput && typeof toolInput === "object") {
                   if (typeof toolInput.path === "string") touchedFiles.add(toolInput.path)
                   if (typeof toolInput.filePath === "string") touchedFiles.add(toolInput.filePath)
@@ -290,6 +330,15 @@ export const TaskTool = Tool.define(
                   }
                 }
               }
+            }
+
+            if (doomLoopDetected && status !== "failed") {
+              status = "failed"
+              error = {
+                category: "doom_loop",
+                message: "Subagent aborted: repetitive doom loop detected (called the same tool with identical inputs 3 times in a row).",
+              }
+              textOutput = `Subagent task failed: Doom loop detected. ${error.message}`
             }
 
             // Release references to heavy parts array so GC can reclaim prompt buffers immediately
@@ -309,8 +358,14 @@ export const TaskTool = Tool.define(
               },
             })
 
-            // If subagent failed with a data error or fail_fast was enabled, immediately cancel sibling tasks under parent session
-            if (status === "failed" && (error?.category === "data_error" || params.fail_fast !== false)) {
+            // If subagent failed with a data error, stall, doom loop, or fail_fast was enabled, immediately cancel sibling tasks under parent session
+            if (
+              status === "failed" &&
+              (error?.category === "data_error" ||
+                error?.category === "stall_detected" ||
+                error?.category === "doom_loop" ||
+                params.fail_fast !== false)
+            ) {
               yield* ops.cancelChildren(ctx.sessionID).pipe(Effect.ignore)
             }
 
@@ -392,6 +447,7 @@ export const TaskTool = Tool.define(
             Effect.ensuring(
               Effect.sync(() => {
                 if (timer) clearTimeout(timer)
+                if (stallTimer) clearTimeout(stallTimer)
                 ctx.abort.removeEventListener("abort", onAbort)
                 timeoutController.signal.removeEventListener("abort", onTimeoutAbort)
               }),

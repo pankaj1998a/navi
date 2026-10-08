@@ -14,7 +14,16 @@
     "fix-node-pty": "bun run script/fix-node-pty.ts",
     "dev": "bun run --conditions=browser ./src/index.ts",
     "dev:temporary": "bun run --conditions=browser ./src/temporary.ts",
-    "db": "bun drizzle-kit"
+    "db": "bun drizzle-kit",
+    "validate-skills": "bun run script/validate-skills.ts",
+    "docs:list": "bun run script/docs-list.ts",
+    "browser": "bun run src/index.ts browser",
+    "structure": "bun run src/index.ts structure",
+    "agentation": "bun run src/index.ts agentation",
+    "trash": "bun run src/index.ts trash",
+    "github:upload": "bun run src/index.ts github upload",
+    "project:map": "bun run skills/project-structure/map.ts",
+    "skills:sync": "bun run script/sync-skills.ts"
   },
   "bin": {
     "navi": "./bin/navi"

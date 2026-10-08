@@ -27,6 +27,10 @@ import { TuiThreadCommand } from "./cli/cmd/tui/thread"
 import { AcpCommand } from "./cli/cmd/acp"
 import { EOL } from "os"
 import { WebCommand } from "./cli/cmd/web"
+import { BrowserCommand } from "./cli/cmd/browser"
+import { StructureCommand } from "./cli/cmd/structure"
+import { AgentationCommand } from "./cli/cmd/agentation"
+import { TrashCommand } from "./cli/cmd/trash"
 import { PrCommand } from "./cli/cmd/pr"
 import { SessionCommand } from "./cli/cmd/session"
 import { DbCommand } from "./cli/cmd/db"
@@ -168,6 +172,10 @@ const cli = yargs(args)
   .command(UninstallCommand)
   .command(ServeCommand)
   .command(WebCommand)
+  .command(BrowserCommand)
+  .command(StructureCommand)
+  .command(AgentationCommand)
+  .command(TrashCommand)
   .command(ModelsCommand)
   .command(StatsCommand)
   .command(ExportCommand)

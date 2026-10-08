@@ -492,5 +492,218 @@ This skill is guidance by default. Loading it does not authorize the complete au
 - **Low**: Information disclosure of non-secret internals or defense-in-depth weakening.
 - **Needs Validation**: No severity assigned (blocked lead, never an under-confident bug).`,
   },
+  {
+    name: "diagnosing-bugs",
+    description:
+      "Disciplined 6-phase diagnosis loop for bugs, crashes, and performance regressions. Use when diagnosing or debugging issues, or when something is broken, throwing, or slow.",
+    content: `---
+name: diagnosing-bugs
+description: Disciplined diagnosis loop for bugs, crashes, and performance regressions. Use when the user says "diagnose"/"debug this", or reports something broken, throwing, failing, or slow.
+---
+
+# Diagnosing Bugs
+
+A disciplined 6-phase protocol for isolating and fixing bugs.
+
+## Phase 1: Build a Feedback Loop (MANDATORY GATE)
+Never read code or formulate hypotheses before this loop exists.
+- Build a fast, deterministic, agent-runnable command that goes RED on this specific symptom (e.g. failing test, curl command, CLI runner, throwaway harness).
+- Execute the command and observe the failure.
+- If impossible to construct, stop and ask the user for fixtures, credentials, or environment access.
+
+## Phase 2: Reproduce & Minimise
+- Verify the loop reproduces the user's exact symptom, not an adjacent issue.
+- Minimise inputs, callers, and configs one at a time. Stop when every remaining element is load-bearing.
+
+## Phase 3: Hypothesise
+- Formulate 3–5 ranked, falsifiable hypotheses.
+- Format: "If <X> is the cause, then <changing Y> will make the bug disappear / <changing Z> will make it worse."
+- Present ranked hypotheses to the user before testing.
+
+## Phase 4: Targeted Instrumentation
+- Test one hypothesis at a time.
+- Tag every debug log with a unique prefix (e.g. \`[DEBUG-a4f2]\`) so cleanup is a single grep.
+- For performance issues, establish baseline measurements (timers, profiler) before editing code.
+
+## Phase 5: Fix + Regression Test
+- Write a regression test at the public seam where the bug pattern manifests.
+- Watch it go RED.
+- Apply the minimal fix to turn it GREEN.
+- Re-run Phase 1 loop against the un-minimised repro.
+
+## Phase 6: Cleanup
+- Ensure original repro and regression test pass.
+- Remove ALL \`[DEBUG-...]\` logs and throwaway harnesses.
+- Record the verified root cause in the commit/summary.`,
+  },
+  {
+    name: "tdd",
+    description:
+      "Test-driven development with a disciplined red-green-refactor loop. Use when writing code test-first, doing TDD, or implementing features with unit/integration tests.",
+    content: `---
+name: tdd
+description: Test-driven development with a red-green-refactor loop. Builds features or fixes bugs one vertical slice at a time.
+---
+
+# Test-Driven Development
+
+## Seams: Where Tests Live
+- Tests verify behavior through public seams, never private internals.
+- Agree the public seam with the user before writing tests.
+- Code can change entirely; tests shouldn't. If a test breaks when refactoring internal details while behavior is unchanged, the test is coupled to implementation.
+
+## Vertical Slicing (Tracer Bullets)
+- Do NOT write all tests first (horizontal slicing). Horizontal slicing tests imagined behavior.
+- Work in vertical slices: one test at a seam -> minimal implementation to pass -> repeat. Each slice responds to what the previous cycle proved.
+
+## Anti-Patterns
+- **Tautological assertions**: Assertions that recompute expected values the same way the code does (\`expect(add(a, b)).toBe(a + b)\`). Assertions must come from an independent truth.
+- **Implementation-coupled**: Mocking internal collaborators or asserting private methods.
+
+## The Loop
+1. **Red**: Write a single failing test at the agreed seam. Run it to verify failure.
+2. **Green**: Write only enough code to pass. No speculative features.
+3. **Refactor**: Clean up duplication, polish types, re-run tests to confirm safety.`,
+  },
+  {
+    name: "codebase-design",
+    description:
+      "Shared vocabulary and principles for designing deep modules with small interfaces, clean seams, and high testability. Use when designing, refactoring, or evaluating module architecture.",
+    content: `---
+name: codebase-design
+description: Shared vocabulary for designing deep modules. Use when designing or improving module interfaces, deciding where seams go, making code more testable, or reducing architectural friction.
+---
+
+# Codebase Design
+
+Design **deep modules**: a lot of behavior behind a small interface, placed at a clean seam, testable through that interface.
+
+## Vocabulary
+- **Module**: Anything with an interface and an implementation (function, class, package, or subsystem).
+- **Interface**: Everything a caller must know to use the module correctly (signature, invariants, error modes).
+- **Implementation**: Internal mechanics hidden inside the module.
+- **Depth**: Leverage at the interface. High depth = small interface + large capability. Shallow module = large interface + thin pass-through implementation.
+- **Seam**: The location where a module's interface lives and behavior can be observed or altered without editing in place.
+- **Leverage**: Caller benefit: more capability per unit of interface learned.
+- **Locality**: Maintainer benefit: changes and verification concentrate in one place rather than scattering across callers.
+
+## Principles
+- **The Deletion Test**: Imagine deleting the module. If complexity vanishes, it was a pass-through wrapper (shallow). If complexity scatters across callers, it was earning its keep (deep).
+- **The interface is the test surface**: Callers and tests cross the same seam. If you must test past the interface, the module is the wrong shape.
+- **Accept dependencies, don't create them**: Pass collaborators into functions/constructors rather than instantiating inside.
+- **Return results, don't produce side effects**: Pure functions and immutable transforms make testing effortless.`,
+  },
+  {
+    name: "code-review",
+    description:
+      "Two-axis review of code changes along Standards (repo conventions + Fowler code smells) and Spec (fidelity vs. scope creep). Use when reviewing diffs, PRs, or working branches.",
+    content: `---
+name: code-review
+description: Review changes since a fixed point along two axes: Standards (conventions + Fowler smells) and Spec (originating requirements + scope creep).
+---
+
+# Two-Axis Code Review
+
+A change can pass standards but fail the spec (wrong behavior written cleanly), or pass the spec but fail standards (working code with severe tech debt). Review both axes independently to prevent masking.
+
+## Axis 1: Standards & Fowler Smell Baseline
+Check repository conventions (\`AGENTS.md\`, \`CLAUDE.md\`) plus the Fowler smell baseline:
+- **Mysterious Name**: Names that do not clearly convey intent or contents.
+- **Duplicated Code**: Identical logic repeated across files or hunks.
+- **Feature Envy**: Method reaching into another module's internal data.
+- **Data Clumps**: Fields or parameters that always travel together (wants a type).
+- **Primitive Obsession**: Raw strings/numbers used instead of typed domain concepts.
+- **Speculative Generality**: Unrequested hooks, abstractions, or configurability.
+- **Shotgun Surgery**: One change forcing edits scattered across many files.
+- **Divergent Change**: One file edited for multiple unrelated reasons.
+
+## Axis 2: Spec Fidelity & Scope Creep
+- **Missing Requirements**: Unimplemented requirements from the original request/spec.
+- **Scope Creep**: Unrequested modifications, speculative features, or dead code.
+- **Edge Cases**: Unhandled error conditions or contract mismatches.
+
+## Structured Report
+Report findings under \`## Standards\` and \`## Spec\`, followed by a verdict (\`APPROVED\`, \`REVISE NEEDED\`, or \`BLOCKED\`).`,
+  },
+  {
+    name: "grilling",
+    description:
+      "Relentless requirements and design interrogation to eliminate assumptions before implementing. Use when stress-testing a plan, scoping a complex feature, or asking clarifying questions.",
+    content: `---
+name: grilling
+description: Grill the user relentlessly about a plan, decision, or architecture. Use when stress-testing thinking, scoping complex features, or clarifying requirements before writing code.
+---
+
+# Grilling: Design Tree Interrogation
+
+Interview the user systematically until reaching a complete, shared understanding.
+
+## Design Tree & The Frontier
+- Map the problem as a **Design Tree**: every major decision branches into dependent decisions.
+- The **Frontier** is the set of questions whose prerequisites are already settled.
+- Work the tree in **rounds**: Ask the whole frontier in one batch with clear numbers and recommended options:
+
+\`\`\`markdown
+❓ **Q1 - <Question Title>**: <Context and choices>
+➡️ **Recommended**: <Your recommended answer and rationale>
+
+---
+
+❓ **Q2 - <Question Title>**: <Context and choices>
+➡️ **Recommended**: <Your recommended answer and rationale>
+\`\`\`
+
+## Rules of Grilling
+- **Finding facts is the agent's job**: Never ask the user for information you can discover using search, read, bash, or subagents.
+- **Making decisions is the user's job**: Put explicit choices to the user with recommendations.
+- **The frontier is empty when done**: Conclude only when all branches are settled and no assumptions remain silent.`,
+  },
+  {
+    name: "to-spec",
+    description:
+      "Synthesize conversation, requirements, and decisions into a formal engineering specification. Use when converting discussion into an actionable plan or spec document.",
+    content: `---
+name: to-spec
+description: Turn conversation context and decisions into an engineering specification without asking further questions.
+---
+
+# To-Spec: Specification Synthesizer
+
+Synthesize the current conversation and codebase knowledge into an actionable specification.
+
+## Spec Format
+
+\`\`\`markdown
+# Spec: <Feature or System Name>
+
+## 1. Problem Statement
+The user's problem from their perspective, with context on why existing solutions fall short.
+
+## 2. Solution Overview
+High-level architectural approach and user-facing outcome.
+
+## 3. User Stories
+Exhaustive, numbered user stories:
+1. As an <actor>, I want <capability>, so that <benefit>.
+
+## 4. Seams & Public Interfaces
+The exact public boundaries where this feature will be invoked and tested. Avoid coupling to private internals.
+
+## 5. Implementation Decisions
+- Modules to create or modify
+- Interface contracts and schemas
+- State management and lifecycle
+
+## 6. Testing Decisions
+- Seam-level integration and unit tests
+- Independent sources of truth for assertions
+- Edge cases and regression guards
+
+## 7. Out of Scope
+Explicitly declared non-goals and deferred capabilities.
+\`\`\``,
+  },
 ]
+
+
 

@@ -213,5 +213,69 @@ Workflow:
 5. Produce structured findings (confirmed, needs_validation, rejected) with verifiable source evidence and smallest effective fixes.`,
     hints: ["$ARGUMENTS"],
   },
+  {
+    name: "diagnose",
+    description:
+      "Execute the disciplined 6-phase bug diagnosis loop (feedback loop first -> minimise -> ranked hypotheses -> instrument -> fix -> cleanup)",
+    agent: "debugger",
+    template: `Diagnose and isolate the reported bug using the disciplined 6-phase protocol: $ARGUMENTS
+
+Follow these steps strictly:
+1. **Phase 1: Build a Feedback Loop First (HARD GATE)**: Construct a fast, deterministic, agent-runnable command (test, curl, script) that fails on this specific bug. Execute it to see it go RED. Do NOT jump to reading code or guessing fixes until this command exists.
+2. **Phase 2: Reproduce & Minimise**: Shrink the repro to the smallest scenario where every remaining element is load-bearing.
+3. **Phase 3: Ranked Falsifiable Hypotheses**: Formulate 3-5 ranked, falsifiable hypotheses ("If X is the cause, then changing Y makes it pass"). Present them clearly.
+4. **Phase 4: Targeted Instrumentation**: Test one hypothesis at a time. Tag every log with a unique prefix (e.g. \`[DEBUG-xxxx]\`).
+5. **Phase 5: Fix + Regression Test**: Write a regression test at the public seam. Turn it GREEN with the minimal fix. Re-run Phase 1 loop.
+6. **Phase 6: Cleanup**: Remove all \`[DEBUG-xxxx]\` tags and verify all tests pass cleanly.`,
+    hints: ["$ARGUMENTS"],
+    subtask: true,
+  },
+  {
+    name: "grill",
+    description:
+      "Relentless requirements and design interrogation to eliminate assumptions before implementing",
+    template: `Grill through the design decisions and requirements for: $ARGUMENTS
+
+Protocol:
+1. Map the problem into a Design Tree of dependent choices.
+2. Identify the Frontier (questions whose prerequisites are settled).
+3. Present the Frontier in numbered rounds (Q1, Q2) with your recommended answers.
+4. Do NOT ask for facts you can look up yourself using tools. Only ask the user to decide on trade-offs.
+5. Conclude when the frontier is empty and all assumptions are explicit.`,
+    hints: ["$ARGUMENTS"],
+  },
+  {
+    name: "to-spec",
+    description:
+      "Synthesize current conversation context and requirements into a complete engineering specification",
+    template: `Synthesize the current conversation and codebase knowledge into a formal engineering specification for: $ARGUMENTS
+
+Produce a structured spec document with:
+1. **Problem Statement**: User's perspective and current deficiencies.
+2. **Solution Overview**: High-level approach and user-facing capabilities.
+3. **User Stories**: Long, numbered list covering all user scenarios.
+4. **Seams & Public Interfaces**: Clear public boundaries where testing and integration occur.
+5. **Implementation Decisions**: Module boundaries, contracts, schemas, and state invariants.
+6. **Testing Decisions**: Vertical slice test strategy and independent truth sources.
+7. **Out of Scope**: Explicitly declared non-goals.`,
+    hints: ["$ARGUMENTS"],
+  },
+  {
+    name: "codebase-design",
+    description:
+      "Evaluate module depth, seams, leverage, and locality across the codebase or a target module",
+    agent: "architect",
+    template: `Analyze module design, interfaces, and seams for: $ARGUMENTS
+
+Assess according to deep-module engineering principles:
+1. **Depth**: Identify shallow modules (thin pass-throughs with wide interfaces) vs deep modules (small interfaces, rich behavior).
+2. **The Deletion Test**: If deleting a module causes complexity to vanish, it was a pass-through. If complexity scatters across callers, it was earning its keep.
+3. **Seams & Testability**: Are modules testable through public interfaces without reaching into internals?
+4. **Leverage & Locality**: Do callers get high leverage? Are bug fixes and invariants concentrated in one place?
+5. Propose concrete refactoring opportunities to deepen shallow modules.`,
+    hints: ["$ARGUMENTS"],
+    subtask: true,
+  },
 ]
+
 

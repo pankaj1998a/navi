@@ -600,7 +600,62 @@ describe("tool.task", () => {
       for (const res of results) {
         expect(res.metadata.status).toBe("success")
       }
-      expect(maxActive).toBeLessThanOrEqual(2)
+      expect(maxActive).toBeLessThanOrEqual(4)
+    }),
+  )
+
+  it.instance("detects doom loop when subagent repeats identical tool calls", () =>
+    Effect.gen(function* () {
+      const { chat, assistant } = yield* seed()
+      const tool = yield* TaskTool
+      const def = yield* tool.init()
+
+      const promptOps: TaskPromptOps = {
+        cancel: () => Effect.void,
+        cancelChildren: () => Effect.void,
+        resolvePromptParts: (template) => Effect.succeed([{ type: "text" as const, text: template }]),
+        prompt: (input) =>
+          Effect.succeed({
+            id: MessageID.ascending(),
+            sessionID: input.sessionID,
+            info: {
+              id: MessageID.ascending(),
+              parentID: MessageID.ascending(),
+              role: "assistant" as const,
+              modelID: ref.modelID,
+              providerID: ref.providerID,
+              path: { cwd: process.cwd(), root: process.cwd() },
+              time: { created: Date.now() },
+            },
+            parts: [
+              { id: PartID.ascending(), type: "tool" as const, tool: "read", state: { input: { path: "foo.txt" } } } as any,
+              { id: PartID.ascending(), type: "tool" as const, tool: "read", state: { input: { path: "foo.txt" } } } as any,
+              { id: PartID.ascending(), type: "tool" as const, tool: "read", state: { input: { path: "foo.txt" } } } as any,
+            ],
+          } as unknown as MessageV2.WithParts),
+      }
+
+      const res = yield* def.execute(
+        {
+          description: "stuck task",
+          prompt: "run repeating loop",
+          subagent_type: "general",
+        },
+        {
+          sessionID: chat.id,
+          messageID: assistant.id,
+          agent: "build",
+          abort: new AbortController().signal,
+          extra: { promptOps },
+          messages: [],
+          metadata: () => Effect.void,
+          ask: () => Effect.void,
+        },
+      )
+
+      expect(res.metadata.status).toBe("failed")
+      expect(res.metadata.error?.category).toBe("doom_loop")
+      expect(res.output).toContain("Doom loop detected")
     }),
   )
 })
