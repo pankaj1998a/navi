@@ -1,0 +1,3 @@
+Upload an image or video asset to GitHub user-attachments CDN (https://uploads.github.com/user-attachments/assets).
+Returns the permanent markdown embed tag (![alt](url)) or raw video URL.
+Use this to attach UI proof screenshots, test recordings, or visual diffs to GitHub issues, PRs, or comments without third-party image hosts.

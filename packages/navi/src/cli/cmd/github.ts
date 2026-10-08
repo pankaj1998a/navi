@@ -1,4 +1,5 @@
 import path from "path"
+import fs from "fs"
 import { exec } from "child_process"
 import { Filesystem } from "@/util/filesystem"
 import * as prompts from "@clack/prompts"
@@ -288,10 +289,151 @@ export function computeConfigFingerprint(provider: string, model: string, varian
     .slice(0, 16)
 }
 
+export const GithubUploadCommand = effectCmd({
+  command: "upload <file>",
+  describe: "upload an image or video proof to GitHub CDN as user-attachment",
+  builder: (yargs) =>
+    yargs
+      .positional("file", {
+        type: "string",
+        describe: "path to image/video file to upload",
+        demandOption: true,
+      })
+      .option("repo", {
+        type: "string",
+        describe: "target repository (owner/repo). Defaults to git origin",
+      })
+      .option("token", {
+        type: "string",
+        describe: "GitHub personal access token (defaults to GITHUB_TOKEN or gh auth token)",
+      }),
+  handler: Effect.fn("Cli.github.upload")(function* (args: { file: string; repo?: string; token?: string }) {
+    const ctx = yield* InstanceRef
+    const gitSvc = yield* Git.Service
+
+    const filePath = path.resolve(args.file)
+    if (!fs.existsSync(filePath)) {
+      return yield* Effect.die(`File not found: ${filePath}`)
+    }
+
+    let owner = ""
+    let repo = ""
+    if (args.repo) {
+      const parts = args.repo.split("/")
+      owner = parts[0] || ""
+      repo = parts[1] || ""
+    } else if (ctx) {
+      try {
+        const remoteRes = yield* gitSvc.run(["remote", "get-url", "origin"], { cwd: ctx.worktree })
+        const parsed = parseGitHubRemote(remoteRes.text().trim())
+        if (parsed) {
+          owner = parsed.owner
+          repo = parsed.repo
+        }
+      } catch {
+        // ignore
+      }
+    }
+
+    if (!owner || !repo) {
+      if (process.env["GITHUB_REPOSITORY"]) {
+        const parts = process.env["GITHUB_REPOSITORY"].split("/")
+        owner = parts[0] || ""
+        repo = parts[1] || ""
+      }
+    }
+
+    if (!owner || !repo) {
+      return yield* Effect.die("Unable to determine target GitHub repository (use --repo owner/repo)")
+    }
+
+    let token = args.token || process.env["GITHUB_TOKEN"] || ""
+    if (!token) {
+      try {
+        const ghTokenRes = yield* gitSvc.run(["gh", "auth", "token"], { cwd: ctx?.worktree ?? process.cwd() })
+        token = ghTokenRes.text().trim()
+      } catch {
+        // fallback
+      }
+    }
+
+    if (!token) {
+      return yield* Effect.die("No GitHub token available. Set GITHUB_TOKEN or log in with 'gh auth login'")
+    }
+
+    const ext = path.extname(filePath).toLowerCase()
+    const mimeMap: Record<string, string> = {
+      ".png": "image/png",
+      ".jpg": "image/jpeg",
+      ".jpeg": "image/jpeg",
+      ".webp": "image/webp",
+      ".gif": "image/gif",
+      ".svg": "image/svg+xml",
+      ".mp4": "video/mp4",
+      ".webm": "video/webm",
+      ".mov": "video/quicktime",
+    }
+    const contentType = mimeMap[ext] || "application/octet-stream"
+    const fileName = path.basename(filePath)
+
+    // 1. Get repository ID via GitHub API
+    const repoRes = yield* Effect.promise(() =>
+      fetch(`https://api.github.com/repos/${owner}/${repo}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: "application/vnd.github+json",
+          "User-Agent": "Navi-Agent",
+        },
+      }),
+    )
+    if (!repoRes.ok) {
+      return yield* Effect.die(`Failed to fetch repo info: ${repoRes.statusText}`)
+    }
+    const repoInfo = (yield* Effect.promise(() => repoRes.json())) as { id: number }
+    const repoId = repoInfo.id
+
+    // 2. Upload to uploads.github.com/user-attachments/assets
+    const fileBuffer = fs.readFileSync(filePath)
+    const uploadUrl = `https://uploads.github.com/user-attachments/assets?name=${encodeURIComponent(fileName)}&content_type=${encodeURIComponent(contentType)}&repository_id=${repoId}`
+    const uploadRes = yield* Effect.promise(() =>
+      fetch(uploadUrl, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: "application/json",
+          "Content-Type": contentType,
+          "User-Agent": "Navi-Agent",
+        },
+        body: fileBuffer,
+      }),
+    )
+
+    if (!uploadRes.ok) {
+      const errText = yield* Effect.promise(() => uploadRes.text())
+      return yield* Effect.die(`GitHub asset upload failed (${uploadRes.status}): ${errText}`)
+    }
+
+    const uploadData = (yield* Effect.promise(() => uploadRes.json())) as { url: string }
+    const assetUrl = uploadData.url
+
+    const isVideo = contentType.startsWith("video/")
+    const markdown = isVideo ? assetUrl : `![${fileName}](${assetUrl})`
+
+    UI.println(UI.Style.TEXT_SUCCESS_BOLD + "✓ Uploaded asset to GitHub CDN:" + UI.Style.TEXT_NORMAL)
+    process.stdout.write(markdown + "\n")
+  }),
+})
+
 export const GithubCommand = cmd({
   command: "github",
   describe: "manage GitHub agent",
-  builder: (yargs) => yargs.command(GithubInstallCommand).command(GithubRunCommand).command(GithubReviewCommand).demandCommand(),
+  builder: (yargs) =>
+    yargs
+      .command(GithubInstallCommand)
+      .command(GithubRunCommand)
+      .command(GithubReviewCommand)
+      .command(GithubUploadCommand)
+      .demandCommand(),
   async handler() {},
 })
 
