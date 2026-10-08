@@ -1,0 +1,3 @@
+Safely move files or directories to the system Trash or Recycle Bin instead of permanently deleting them.
+Use this tool whenever files or directories should be deleted or cleaned up.
+Accidental deletions can be easily restored from the Trash/Recycle Bin.
