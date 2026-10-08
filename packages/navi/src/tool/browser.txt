@@ -3,12 +3,25 @@ Interactive browser automation tool for web testing, UI verification, DOM inspec
 Supports the following actions:
 - "navigate": Open a URL in the browser (e.g. `http://localhost:3000` or a public URL)
 - "click": Click an element by CSS selector or text content (e.g. `button#submit`, `a[href='/about']`, or text "Sign In")
+- "mouse_click": Coordinate-based click at `{ coordinate: { x, y } }` (ideal for canvas, overlay toolbars, and shadow DOM elements)
+- "box": Get bounding box `{ x, y, width, height, center }` of a CSS selector
+- "pick": Inspect element by selector or coordinate to extract CSS hierarchy (`body > main > button`), tag, ID, class, box, and HTML
+- "console": Retrieve recent browser console logs and JavaScript errors
+- "network": Retrieve recent HTTP/XHR network requests, responses with latency/status code, and failed requests
+- "press_key": Dispatch a keyboard key press (`key: "Enter"`, `"Tab"`, `"Escape"`, `"ArrowDown"`, `"ArrowUp"`)
+- "scroll": Scroll viewport by delta (`{ scrollDelta: { x, y } }`) or scroll an element into view (`selector`)
+- "viewport": Resize viewport (`{ viewportSize: { width: 375, height: 812, isMobile: true } }`)
+- "cookies": Retrieve session cookies as JSON
+- "tabs": List all open browser tabs in the active session
+- "new_tab": Open a new tab (`url` optional)
+- "switch_tab": Switch active tab by index (`tabIndex`)
+- "close_tab": Close a tab by index (`tabIndex` optional, defaults to active tab)
 - "type": Type text into an input field (selector and text required)
 - "screenshot": Capture a screenshot of the current page or specific element (saved to .navi/artifacts and returned as image attachment)
 - "content": Extract the page content (as structured markdown or text)
 - "evaluate": Execute custom JavaScript inside the browser page context
 - "wait": Wait for a specific CSS selector or duration in milliseconds
-- "close": Close the active browser session
+- "close": Close the active browser session and free all tabs
 
 Use this tool when:
 - Testing and verifying local web applications (dev servers)

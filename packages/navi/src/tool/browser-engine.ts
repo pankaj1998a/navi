@@ -32,7 +32,7 @@ function isPrivateIPv4(host: string): boolean {
   return false
 }
 
-export function assertSafeUrl(raw: string): URL {
+export function assertSafeUrl(raw: string, opts?: { allowLocalhost?: boolean }): URL {
   let parsed: URL
   try {
     parsed = new URL(raw)
@@ -46,6 +46,20 @@ export function assertSafeUrl(raw: string): URL {
     throw new Error(`Blocked unsafe URL protocol: ${protocol}`)
   }
   const host = parsed.hostname.toLowerCase().replace(/^\[|\]$/g, "")
+  const isLoopback =
+    host === "localhost" ||
+    host === "127.0.0.1" ||
+    host === "::1" ||
+    host.endsWith(".localhost")
+
+  const allowLocalhost =
+    opts?.allowLocalhost ??
+    (process.env.NAVI_ALLOW_LOCALHOST_FETCH === "1" || process.env.NODE_ENV === "development")
+
+  if (allowLocalhost && isLoopback) {
+    return parsed
+  }
+
   if (
     host === "localhost" ||
     host === "0.0.0.0" ||
