@@ -15,6 +15,10 @@ pre-commit:
     - name: whitespace (staged)
       run: git diff --cached --check
 
+    - name: validate-skills
+      glob: 'packages/navi/skills/**/SKILL.md'
+      run: bun run --cwd packages/navi validate-skills
+
 pre-push:
   jobs:
     - name: typecheck
