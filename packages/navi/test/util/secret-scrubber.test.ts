@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test"
-import { scrubSecrets } from "../../src/util/secret-scrubber"
+import { scrubSecrets, scrubSecretsInObject } from "../../src/util/secret-scrubber"
 
 describe("secret-scrubber", () => {
   it("scrubs OpenAI API keys", () => {
@@ -15,6 +15,47 @@ describe("secret-scrubber", () => {
     const result = scrubSecrets(text)
     expect(result.scrubbedCount).toBe(1)
     expect(result.text).toContain("[REDACTED ANTHROPIC KEY]")
+  })
+
+  it("scrubs xAI Grok API keys", () => {
+    const text = "Grok key: xai-1234567890abcdef1234567890abcdef"
+    const result = scrubSecrets(text)
+    expect(result.scrubbedCount).toBe(1)
+    expect(result.text).toContain("[REDACTED XAI KEY]")
+    expect(result.text).not.toContain("xai-123456")
+  })
+
+  it("scrubs Google API keys", () => {
+    const text = "Gemini key: AIzaSyA1234567890abcdefghijk-ABCDEFG123"
+    const result = scrubSecrets(text)
+    expect(result.scrubbedCount).toBe(1)
+    expect(result.text).toContain("[REDACTED GOOGLE KEY]")
+  })
+
+  it("scrubs GitLab and Slack tokens", () => {
+    const text = "Gitlab glpat-abcdef1234567890 and Slack xoxb-1234567890-abcdefghij"
+    const result = scrubSecrets(text)
+    expect(result.scrubbedCount).toBe(2)
+    expect(result.text).toContain("[REDACTED GITLAB TOKEN]")
+    expect(result.text).toContain("[REDACTED SLACK TOKEN]")
+  })
+
+  it("scrubs bare JWTs", () => {
+    const jwt = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4ifQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c"
+    const text = `Auth JWT: ${jwt}`
+    const result = scrubSecrets(text)
+    expect(result.scrubbedCount).toBe(1)
+    expect(result.text).toContain("[REDACTED JWT]")
+    expect(result.text).not.toContain("eyJhbGci")
+  })
+
+  it("scrubs sensitive URL query parameters", () => {
+    const url = "https://api.example.com/v1/webhook?access_token=super_secret_token_123&user=pankaj&api_key=my_key_456"
+    const result = scrubSecrets(url)
+    expect(result.scrubbedCount).toBe(2)
+    expect(result.text).toContain("access_token=redacted")
+    expect(result.text).toContain("api_key=redacted")
+    expect(result.text).toContain("user=pankaj")
   })
 
   it("scrubs AWS Access Keys", () => {
@@ -38,6 +79,20 @@ MIIEowIBAAKCAQEA0Z3v...
     const result = scrubSecrets(text)
     expect(result.scrubbedCount).toBe(1)
     expect(result.text).toBe("[REDACTED PRIVATE KEY]")
+  })
+
+  it("recursively scrubs secrets in objects", () => {
+    const data = {
+      config: {
+        apiKey: "xai-1234567890abcdef1234567890abcdef",
+        url: "https://service.com?token=secret123",
+      },
+      tags: ["clean", "ghp_1234567890abcdefghijklmnopqrstuvwxyz123456"],
+    }
+    const scrubbed = scrubSecretsInObject(data)
+    expect(scrubbed.config.apiKey).toBe("[REDACTED XAI KEY]")
+    expect(scrubbed.config.url).toContain("token=redacted")
+    expect(scrubbed.tags[1]).toBe("[REDACTED GITHUB TOKEN]")
   })
 
   it("leaves clean text untouched", () => {

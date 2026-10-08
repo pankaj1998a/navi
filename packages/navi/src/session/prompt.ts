@@ -1564,19 +1564,41 @@ NOTE: At any point in time through this workflow you should feel free to ask the
               yield* summary.summarize({ sessionID, messageID: lastUser.id }).pipe(Effect.ignore, Effect.forkIn(scope))
 
             if (step > 1 && lastFinished) {
+              const eligibleFollowups: { msg: MessageV2.WithParts; part: MessageV2.TextPart }[] = []
               for (const m of msgs) {
                 if (m.info.role !== "user" || m.info.id <= lastFinished.id) continue
                 for (const p of m.parts) {
                   if (p.type !== "text" || p.ignored || p.synthetic) continue
                   if (!p.text.trim()) continue
-                  p.text = [
-                    "<system-reminder>",
-                    "The user sent the following message:",
-                    p.text,
-                    "",
-                    "Please address this message and continue with your tasks.",
-                    "</system-reminder>",
-                  ].join("\n")
+                  eligibleFollowups.push({ msg: m, part: p })
+                }
+              }
+
+              if (eligibleFollowups.length === 1) {
+                const target = eligibleFollowups[0]!.part
+                target.text = [
+                  "<system-reminder>",
+                  "The user sent the following message:",
+                  target.text,
+                  "",
+                  "Please address this message and continue with your tasks.",
+                  "</system-reminder>",
+                ].join("\n")
+              } else if (eligibleFollowups.length > 1) {
+                // Grok Build prompt queue combination: merge into single consolidated instruction
+                const combined = eligibleFollowups.map((e) => e.part.text.trim()).join("\n\n")
+                const first = eligibleFollowups[0]!.part
+                first.text = [
+                  "<system-reminder>",
+                  `The user sent ${eligibleFollowups.length} follow-up instructions:`,
+                  combined,
+                  "",
+                  "Please address all of the user's instructions above in order and continue with your tasks.",
+                  "</system-reminder>",
+                ].join("\n")
+                // Mark subsequent merged parts as ignored to avoid duplicate token consumption
+                for (let i = 1; i < eligibleFollowups.length; i++) {
+                  eligibleFollowups[i]!.part.ignored = true
                 }
               }
             }

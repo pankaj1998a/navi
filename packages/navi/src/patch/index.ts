@@ -4,6 +4,7 @@ import * as fs from "fs/promises"
 import { readFileSync } from "fs"
 import * as Log from "@navi-ai/core/util/log"
 import * as Bom from "../util/bom"
+import { applyPatchNative } from "../native/native-runner"
 
 const log = Log.create({ service: "patch" })
 
@@ -615,6 +616,18 @@ export async function applyHunksToFiles(hunks: Hunk[]): Promise<AffectedPaths> {
 
 // Main patch application function
 export async function applyPatch(patchText: string): Promise<AffectedPaths> {
+  const native = applyPatchNative(process.cwd(), patchText)
+  if (native) {
+    if (!native.success) {
+      throw new Error(native.error ?? "Failed to apply patch via native codex engine")
+    }
+    return {
+      added: native.added_files,
+      modified: native.modified_files,
+      deleted: native.deleted_files,
+    }
+  }
+
   const { hunks } = parsePatch(patchText)
   return applyHunksToFiles(hunks)
 }

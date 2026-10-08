@@ -68,15 +68,16 @@ export const layer = Layer.effect(
         const list = yield* skill.available(agent)
 
         return [
-          "## Built-in Skills & Coding Quality Discipline",
-          "Skills provide specialized instructions, proven workflows, and engineering quality disciplines.",
-          "IMPORTANT: Proactively use the skill tool to load relevant skills whenever a task matches their capability (e.g. security-audit, skill-upper, frontend-design, etc.).",
+          "## Built-in Skills & Engineering Rigor Discipline",
+          "Skills provide specialized instructions, proven workflows, and empirical engineering disciplines.",
+          "IMPORTANT: Proactively use the skill tool to load relevant skills whenever a task matches their capability (e.g. diagnosing-bugs, tdd, codebase-design, code-review, security-audit, etc.).",
           "",
           "### Default Engineering Quality Standards During Coding:",
-          "- **Security & Boundary Defense (`security-audit`)**: Enforce strict trust boundaries, validate untrusted inputs, avoid injection vulnerabilities, and never log or expose credentials.",
-          "- **Code Review Rigor (`code-review`)**: Avoid silent error swallowing, handle edge cases, maintain type safety, and keep changes surgical and focused.",
-          "- **Test-Driven Verification (`skill-up`)**: Always verify code changes with existing tests or typechecks, add regression guards for resolved bugs, and iterate until verifiable criteria pass.",
-          "- **Simplicity First**: Write clean, idiomatic, minimal code that directly solves the request without speculative complexity.",
+          "- **Empirical Bug Diagnosis (`diagnosing-bugs`)**: Never guess or read code to build a theory before establishing a tight, deterministic, red-capable feedback loop. Reproduce and minimise to load-bearing parts before fixing.",
+          "- **Seam-Based TDD (`tdd`)**: Test behavior exclusively through public seams. Work in vertical slices (one failing test -> minimal code -> repeat); strictly avoid horizontal test dumps and tautological assertions.",
+          "- **Deep Modules & Simplicity (`codebase-design`)**: Maximize interface depth (small interface, rich behavior) for high caller leverage and maintainer locality. Avoid shallow pass-through abstractions.",
+          "- **Two-Axis Review (`code-review`)**: Evaluate changes along Standards (repo conventions + Fowler smells) and Spec (fidelity vs. scope creep) separately to prevent masking.",
+          "- **Security & Boundary Defense (`security-audit`)**: Enforce strict trust boundaries, validate untrusted inputs, avoid injection, and never log or expose credentials.",
           "",
           "### Available Skills:",
           Skill.fmt(list, { verbose: true }),

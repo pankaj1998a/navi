@@ -22,6 +22,7 @@ import { serviceUse } from "@/effect/service-use"
 import { fn } from "@/util/fn"
 import { EventV2 } from "@/v2/event"
 import { SessionEvent } from "@/v2/session-event"
+import { archiveSegment } from "./segmented-compaction"
 
 const log = Log.create({ service: "session.compaction" })
 
@@ -490,6 +491,21 @@ export const layer: Layer.Layer<
         yield* session.updatePart({
           ...compactionPart,
           tail_start_id: selected.tail_start_id,
+        })
+      }
+
+      if (result === "continue") {
+        const currentMessages = yield* session
+          .messages({ sessionID: input.sessionID })
+          .pipe(Effect.catchCause(() => Effect.succeed([] as MessageV2.WithParts[])))
+        const assistantMsg = currentMessages.find((m) => m.info.id === processor.message.id)
+        const summaryStr = (assistantMsg ? summaryText(assistantMsg) : undefined) ?? "Compacted session segment"
+        archiveSegment({
+          worktree: ctx.worktree,
+          sessionID: input.sessionID,
+          messages: selected.head,
+          summary: summaryStr,
+          detail: (cfg.compaction as any)?.detail,
         })
       }
 

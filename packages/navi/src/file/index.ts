@@ -14,6 +14,7 @@ import { containsPath } from "../project/instance-context"
 import * as Log from "@navi-ai/core/util/log"
 import { Protected } from "./protected"
 import { Ripgrep } from "./ripgrep"
+import { countLinesNative } from "@/native/native-runner"
 import { zod } from "@navi-ai/core/effect-zod"
 import { NonNegativeInt, type DeepMutable, withStatics } from "@navi-ai/core/schema"
 
@@ -459,8 +460,19 @@ export const layer = Layer.effect(
 
       if (untrackedOutput.trim()) {
         for (const file of untrackedOutput.trim().split("\n")) {
+          const fullPath = path.join(ctx.directory, file)
+          const nativeCount = countLinesNative(fullPath)
+          if (nativeCount !== null) {
+            changed.push({
+              path: file,
+              added: nativeCount,
+              removed: 0,
+              status: "added",
+            })
+            continue
+          }
           const content = yield* appFs
-            .readFileString(path.join(ctx.directory, file))
+            .readFileString(fullPath)
             .pipe(Effect.catch(() => Effect.succeed<string | undefined>(undefined)))
           if (content === undefined) continue
           changed.push({
