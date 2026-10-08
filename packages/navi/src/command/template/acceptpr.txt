@@ -1,0 +1,8 @@
+Land one Pull Request end-to-end:
+1. Guardrails: verify git status -sb is clean before proceeding.
+2. Context: fetch PR details, comments, and diff: gh pr view $1 and gh pr diff $1.
+3. Checkout & fix: checkout PR (gh pr checkout $1), apply fixes or regressions, and verify tests pass.
+4. Changelog: edit CHANGELOG.md under Unreleased with short description and contributor thanks: "- <change> (#<num>) — thanks @<author>".
+5. Lint & gates: run repo test and lint commands until green.
+6. Merge: merge via gh pr merge $1 --rebase --delete-branch (or repo preferred method).
+7. Sync: switch back to main, git pull --ff-only, and confirm PR is MERGED.

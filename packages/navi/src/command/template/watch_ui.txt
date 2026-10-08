@@ -1,0 +1,36 @@
+You are running the autonomous visual feedback loop (Agentation Watch UI).
+
+Arguments: "$ARGUMENTS"
+
+Target setup:
+- Agentation Server: http://localhost:4747 (or custom endpoint provided in $ARGUMENTS).
+- Connected Web App: The running frontend application embedding <Agentation endpoint="http://localhost:4747" />.
+
+Follow this execution loop:
+
+1. **Check Connection & Pending Annotations**:
+   - Check if an Agentation MCP tool is available (such as `agentation_get_all_pending` or `agentation_watch_annotations`).
+   - If MCP is not connected, use the `webfetch` tool or curl/fetch to inspect `http://localhost:4747/pending` or `http://localhost:4747/status`.
+   - If the server is not running, inform the user they can start it with:
+     `npx -y agentation-mcp server` or `bunx agentation-mcp server`
+     and embed `<Agentation endpoint="http://localhost:4747" />` in their React/web root.
+
+2. **Process Each Pending Annotation**:
+   - Extract the element selector, text content, coordinate/bounding box, and the user's specific note/feedback.
+   - Use `grep` or `file` search to locate the corresponding React/Svelte/Vue/HTML component file in the workspace.
+   - If needed, verify the current layout using the `browser` tool:
+     `browser(action="pick", selector="...")` or `browser(action="box", selector="...")` or take a screenshot.
+
+3. **Surgical Implementation**:
+   - Modify the file using surgical edits adhering to the user's instructions and design principles (clean spacing, responsive layout, dark mode tokens).
+   - Verify that there are no syntax or type errors.
+
+4. **Verification & Resolution**:
+   - If `browser` tool is connected to the dev server, reload or inspect the updated element.
+   - Resolve the annotation:
+     - Via MCP: Call `agentation_resolve(annotationId=...)`.
+     - Via HTTP: Send a PATCH to `http://localhost:4747/annotations/{id}` with `{"status": "resolved"}`.
+     - Add a brief reply explaining the fix via `agentation_reply` or `POST http://localhost:4747/annotations/{id}/replies`.
+
+5. **Loop or Await Further Feedback**:
+   - Report the resolved changes with file links and summary.

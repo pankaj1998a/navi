@@ -1,0 +1,6 @@
+Rehydrate context and onboard onto active task:
+1. Overview: read project conventions, README, and AGENTS.md.
+2. Repository state: inspect git status -sb and latest commit history.
+3. CI / PR status: check gh pr view or gh run list for any failing checks.
+4. Active services: check running background tasks, ports, or processes.
+5. Plan: define top 2-3 immediate actions as clear steps and execute.

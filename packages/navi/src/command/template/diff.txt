@@ -1,0 +1,11 @@
+Inspect and summarize the current git status and diff.
+
+Arguments: "$ARGUMENTS"
+
+Instructions:
+1. Run `git status -s` using the shell/bash tool to view staged and unstaged files.
+2. Run `git diff` (or `git diff --cached` if arguments specify staged) to get the exact changes.
+3. Present a structured summary of:
+   - Modified, added, and deleted files
+   - High-level synopsis of changes by file
+   - Full or syntax-highlighted diff for quick review

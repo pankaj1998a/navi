@@ -1,0 +1,36 @@
+You are configuring and launching Agentation visual feedback for this project.
+
+Arguments: "$ARGUMENTS"
+
+Tasks to perform:
+1. **Detect Web Framework**:
+   - Inspect package.json to identify the UI framework (React, Next.js, Vite, Vue, Svelte, etc.).
+
+2. **Agentation MCP & Server Setup**:
+   - Explain how to start the Agentation server:
+     `npx -y agentation-mcp server`
+   - Show how to register the MCP in `navi.json` or config:
+     ```json
+     {
+       "mcp": {
+         "agentation": {
+           "type": "local",
+           "command": ["npx", "-y", "agentation-mcp", "server", "--mcp-only"]
+         }
+       }
+     }
+     ```
+
+3. **Browser Toolbar Component**:
+   - Explain how to install and mount the toolbar in their application root (e.g. `App.tsx` or `layout.tsx`):
+     ```bash
+     npm install agentation
+     ```
+     ```tsx
+     import { Agentation } from "agentation"
+     // In your dev layout:
+     {process.env.NODE_ENV === "development" && <Agentation endpoint="http://localhost:4747" />}
+     ```
+
+4. **Run Live Visual Review**:
+   - If requested, switch to `/watch-ui` or call the `visual-reviewer` subagent to continuously process annotations.

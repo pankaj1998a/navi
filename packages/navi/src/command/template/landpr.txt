@@ -1,0 +1,9 @@
+Land Pull Request end-to-end via temporary branch rebase:
+1. Input: PR number or URL ($1).
+2. Context: gh pr view $1 to inspect author, base branch, head branch, and PR details.
+3. Base sync: checkout base branch (main), git pull --ff-only, create branch temp/landpr-<num>.
+4. Rebase: checkout PR branch, rebase onto temp branch.
+5. Fix & test: apply necessary fixes, verify full test gate (lint, build, test).
+6. Changelog: add entry to CHANGELOG.md with PR number and thanks to author.
+7. Push & merge: push rebased branch and merge via gh pr merge $1 --rebase (or --squash).
+8. Verify & cleanup: verify GitHub state is MERGED (never CLOSED), return to main, delete temp branch.

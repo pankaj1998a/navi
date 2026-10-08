@@ -1,0 +1,7 @@
+Package the current state for the next agent or future session:
+1. Scope & Status: what was accomplished, what is in-progress, and any blocking items.
+2. Git status: git status -sb summary and unpushed commits.
+3. Active processes: list running servers, test watches, or background tasks.
+4. Validation: what tests or gates were executed and their pass/fail results.
+5. Immediate next steps: ordered bulleted list for the next agent.
+6. Known risks: fragile code, environmental dependencies, or flaky tests.

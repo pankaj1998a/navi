@@ -1,0 +1,11 @@
+Inspect and report the token usage and cost accounting for this session.
+
+Use the `cost_tracker` tool:
+1. Run `cost_tracker` with action="status" to check active pricing configuration.
+2. If the user provided arguments ($ARGUMENTS):
+   - If estimating text tokens, run action="estimate" with text="$ARGUMENTS".
+   - If calculating specific token count cost, run action="cost".
+3. Provide a clear summary:
+   - Estimated prompt tokens and completion tokens
+   - Estimated USD cost
+   - Active provider and model pricing tier

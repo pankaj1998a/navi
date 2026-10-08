@@ -1,0 +1,12 @@
+Write a brief catch-up recap for a user returning to this task.
+
+Target word count: 40-60 words total (strictly never more than 80 words).
+
+Provide a structured, bounded catch-up:
+1. **Goal**: The broader active goal and user intent.
+2. **Progress & Outcomes**: Concrete delivered work and verified results (prefer concrete results over descriptions of investigating or discussing).
+3. **Blockers & Caveats**: Any material blocker, limitation, unrun validation, or pending deployment.
+4. **Next Action**: An agreed immediate next step, an unanswered question for the user, or an explicit remedy.
+
+Input Context / Request: "$ARGUMENTS"
+Keep the output concise, factual, and strictly under 80 words.

@@ -17,6 +17,25 @@ import PROMPT_TELEPORT from "./template/teleport.txt"
 import PROMPT_GITHUB_PR_REVIEW from "./template/github_pr_review.txt"
 import PROMPT_GITHUB_ISSUE_TRIAGE from "./template/github_issue_triage.txt"
 import PROMPT_RELEASE_NOTES from "./template/release_notes.txt"
+import PROMPT_KARPATHY_LOOP from "./template/karpathy_loop.txt"
+import PROMPT_GOAL from "./template/goal.txt"
+import PROMPT_GRILL_ME from "./template/grill_me.txt"
+import PROMPT_LEARN from "./template/learn.txt"
+import PROMPT_SCHEDULE from "./template/schedule.txt"
+import PROMPT_COST from "./template/cost.txt"
+import PROMPT_CHECKPOINT from "./template/checkpoint.txt"
+import PROMPT_DIFF from "./template/diff.txt"
+import PROMPT_DOCTOR from "./template/doctor.txt"
+import PROMPT_RECAP from "./template/recap.txt"
+import PROMPT_WATCH_UI from "./template/watch_ui.txt"
+import PROMPT_AGENTATION from "./template/agentation.txt"
+import PROMPT_ACCEPTPR from "./template/acceptpr.txt"
+import PROMPT_LANDPR from "./template/landpr.txt"
+import PROMPT_FIXISSUE from "./template/fixissue.txt"
+import PROMPT_HANDOFF from "./template/handoff.txt"
+import PROMPT_PICKUP from "./template/pickup.txt"
+import PROMPT_RAISE from "./template/raise.txt"
+import PROMPT_SECTRIAGE from "./template/sectriage.txt"
 
 type State = {
   commands: Record<string, Info>
@@ -152,6 +171,199 @@ export const layer = Layer.effect(
           return PROMPT_RELEASE_NOTES
         },
         hints: hints(PROMPT_RELEASE_NOTES),
+      }
+      commands["loop"] = {
+        name: "loop",
+        description: "Autonomous Karpathy experiment loop: hypothesize -> edit -> eval -> commit/revert",
+        source: "command",
+        agent: "karpathy-loop",
+        get template() {
+          return PROMPT_KARPATHY_LOOP
+        },
+        hints: hints(PROMPT_KARPATHY_LOOP),
+      }
+      commands["karpathy-loop"] = {
+        name: "karpathy-loop",
+        description: "Autonomous Karpathy experiment loop: hypothesize -> edit -> eval -> commit/revert",
+        source: "command",
+        agent: "karpathy-loop",
+        get template() {
+          return PROMPT_KARPATHY_LOOP
+        },
+        hints: hints(PROMPT_KARPATHY_LOOP),
+      }
+      commands["goal"] = {
+        name: "goal",
+        description: "High-perseverance autonomous goal execution until completion",
+        source: "command",
+        get template() {
+          return PROMPT_GOAL
+        },
+        hints: hints(PROMPT_GOAL),
+      }
+      commands["grill-me"] = {
+        name: "grill-me",
+        description: "Stress-test assumptions and interview on technical tradeoffs before coding",
+        source: "command",
+        get template() {
+          return PROMPT_GRILL_ME
+        },
+        hints: hints(PROMPT_GRILL_ME),
+      }
+      commands["learn"] = {
+        name: "learn",
+        description: "Extract persistent guidelines or corrections into AGENTS.md / rules",
+        source: "command",
+        get template() {
+          return PROMPT_LEARN
+        },
+        hints: hints(PROMPT_LEARN),
+      }
+      commands["schedule"] = {
+        name: "schedule",
+        description: "Inspect, configure, or create scheduled background tasks and cron jobs",
+        source: "command",
+        get template() {
+          return PROMPT_SCHEDULE
+        },
+        hints: hints(PROMPT_SCHEDULE),
+      }
+      commands["cost"] = {
+        name: "cost",
+        description: "Show token usage, cost accounting, and model pricing",
+        source: "command",
+        get template() {
+          return PROMPT_COST
+        },
+        hints: hints(PROMPT_COST),
+      }
+      commands["checkpoint"] = {
+        name: "checkpoint",
+        description: "Create, list, or restore workspace snapshot checkpoints",
+        source: "command",
+        get template() {
+          return PROMPT_CHECKPOINT
+        },
+        hints: hints(PROMPT_CHECKPOINT),
+      }
+      commands["rewind"] = {
+        name: "rewind",
+        description: "Rewind workspace to a previous checkpoint",
+        source: "command",
+        get template() {
+          return PROMPT_CHECKPOINT
+        },
+        hints: hints(PROMPT_CHECKPOINT),
+      }
+      commands["diff"] = {
+        name: "diff",
+        description: "Show git status and uncommitted changes",
+        source: "command",
+        get template() {
+          return PROMPT_DIFF
+        },
+        hints: hints(PROMPT_DIFF),
+      }
+      commands["doctor"] = {
+        name: "doctor",
+        description: "Run environment and workspace health diagnostics",
+        source: "command",
+        get template() {
+          return PROMPT_DOCTOR
+        },
+        hints: hints(PROMPT_DOCTOR),
+      }
+      commands["recap"] = {
+        name: "recap",
+        description: "Generate a bounded 40-60 word session catch-up and next action (Codex pattern)",
+        source: "command",
+        get template() {
+          return PROMPT_RECAP
+        },
+        hints: hints(PROMPT_RECAP),
+      }
+      commands["watch-ui"] = {
+        name: "watch-ui",
+        description: "Autonomous visual feedback loop: watch pending UI annotations and resolve them",
+        source: "command",
+        agent: "visual-reviewer",
+        get template() {
+          return PROMPT_WATCH_UI
+        },
+        hints: hints(PROMPT_WATCH_UI),
+      }
+      commands["agentation"] = {
+        name: "agentation",
+        description: "Agentation visual feedback setup and toolbar assistant",
+        source: "command",
+        agent: "visual-reviewer",
+        get template() {
+          return PROMPT_AGENTATION
+        },
+        hints: hints(PROMPT_AGENTATION),
+      }
+      commands["acceptpr"] = {
+        name: "acceptpr",
+        description: "Land one PR end-to-end (changelog + thanks, lint, merge, back to main)",
+        source: "command",
+        get template() {
+          return PROMPT_ACCEPTPR
+        },
+        hints: hints(PROMPT_ACCEPTPR),
+      }
+      commands["landpr"] = {
+        name: "landpr",
+        description: "Land PR via temp-branch rebase, full gate, merge, and verification",
+        source: "command",
+        get template() {
+          return PROMPT_LANDPR
+        },
+        hints: hints(PROMPT_LANDPR),
+      }
+      commands["fixissue"] = {
+        name: "fixissue",
+        description: "Fix an issue end-to-end (tests, changelog, commit, push, comment, close)",
+        source: "command",
+        get template() {
+          return PROMPT_FIXISSUE
+        },
+        hints: hints(PROMPT_FIXISSUE),
+      }
+      commands["handoff"] = {
+        name: "handoff",
+        description: "Capture current session state for the next agent",
+        source: "command",
+        get template() {
+          return PROMPT_HANDOFF
+        },
+        hints: hints(PROMPT_HANDOFF),
+      }
+      commands["pickup"] = {
+        name: "pickup",
+        description: "Rehydrate context and onboard onto active task",
+        source: "command",
+        get template() {
+          return PROMPT_PICKUP
+        },
+        hints: hints(PROMPT_PICKUP),
+      }
+      commands["raise"] = {
+        name: "raise",
+        description: "Open next patch Unreleased section in CHANGELOG.md",
+        source: "command",
+        get template() {
+          return PROMPT_RAISE
+        },
+        hints: hints(PROMPT_RAISE),
+      }
+      commands["sectriage"] = {
+        name: "sectriage",
+        description: "Triage GitHub Security Advisory (GHSA) end-to-end",
+        source: "command",
+        get template() {
+          return PROMPT_SECTRIAGE
+        },
+        hints: hints(PROMPT_SECTRIAGE),
       }
 
       if (!Flag.NAVI_DISABLE_DEFAULT_PLUGINS) {

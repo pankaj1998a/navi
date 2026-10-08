@@ -1,0 +1,39 @@
+You are running the autonomous Karpathy Experiment Loop on this repository.
+
+Goal / Objective: "$ARGUMENTS"
+
+Follow this exact autonomous loop workflow:
+
+1. **Pre-flight & Safety Snapshot**:
+   - Parse $ARGUMENTS for:
+     - Target Goal (e.g. "optimize bundler speed", "fix flaky test suite", "reduce memory leak in event bus")
+     - Evaluation Command (e.g. `bun test`, `npm run bench`, or a specific test file)
+     - Target Metric (e.g. duration in ms, test pass count, memory MB)
+   - If an evaluation command is not explicitly given, identify the relevant test runner (`bun test`, `vitest`, etc.) or benchmark in this codebase.
+   - **Safety Snapshot**: Create a checkpoint before beginning using the `checkpoint` tool (`action="create"`, `name="pre-loop-baseline"`) or verify a clean git status.
+   - Ensure the test/benchmark file is treated as immutable ground truth (Rule of Immobility: never change test assertions to fake a pass).
+
+2. **Measure Baseline**:
+   - Run the evaluation command to record the baseline metric $M_0$.
+   - Output: `Baseline Metric M0: [value]`.
+
+3. **Iterative Autonomous Loop**:
+   Loop through 3 to 10 experimental iterations:
+   - **Hypothesis**: Formulate 1 crisp, high-impact hypothesis.
+   - **Edit**: Surgically modify the target code.
+   - **Evaluate**: Run the evaluation command under a strict time budget.
+   - **Verify & Commit/Revert**:
+     - If improved: Run `git commit -am "loop: <hypothesis> (<metric>)"`.
+     - If failed or regressed: Revert cleanly using `git reset --hard HEAD` and `git clean -fd`.
+   - **Visual Progress**: Update the run log with an ASCII bar chart representation:
+     ```text
+     Baseline: ████████████ [value]
+     Iter 1:   █████████    [value] (-12%) [KEPT]
+     ```
+
+4. **Final Summary & Verification**:
+   - Display the complete table of experiments (kept vs reverted).
+   - Display overall improvement ($M_0 \to M_{final}$).
+   - Summarize the verified commits created.
+
+Begin Phase 1 now.

@@ -1,0 +1,10 @@
+Manage snapshot checkpoints of the workspace.
+
+User Input: "$ARGUMENTS"
+
+Instructions:
+1. If the input is empty or says "list", use the `checkpoint` tool with action="list" to display existing checkpoints with their IDs, names, and timestamps.
+2. If the input starts with "create" or specifies a name, use the `checkpoint` tool with action="create" and name="$ARGUMENTS".
+3. If the input starts with "restore" or "rewind" or specifies an ID, use the `checkpoint` tool with action="restore" and id="...".
+4. If the input starts with "drop" or "delete", use action="drop".
+5. Confirm the action and output the current status.

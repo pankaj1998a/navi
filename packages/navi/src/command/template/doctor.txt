@@ -1,0 +1,14 @@
+Run a comprehensive diagnostics check on the Navi development environment and workspace.
+
+Instructions:
+1. **Runtime & Environment**:
+   - Check Bun version (`bun --version`) and Node version (`node --version`).
+   - Check OS and architecture.
+2. **Git Repository Health**:
+   - Verify inside git worktree (`git rev-parse --is-inside-work-tree`).
+   - Check current branch, remote, and whether working directory is clean.
+3. **Configuration & Tools**:
+   - Check if `navi.json`, `AGENTS.md`, or `.navi/` directory exists.
+   - Verify provider environment variables (e.g. `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GEMINI_API_KEY`) without printing secrets.
+4. **Present Diagnostics Table**:
+   Display a clean, formatted report indicating `[PASS]`, `[WARN]`, or `[FAIL]` for each check with clear remediation steps for any issues.

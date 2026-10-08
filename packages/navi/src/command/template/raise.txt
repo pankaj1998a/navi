@@ -1,0 +1,7 @@
+Open the next patch Unreleased section in CHANGELOG.md:
+1. Verify git status is clean on default branch (main).
+2. Inspect top section of CHANGELOG.md. If already "## X.Y.Z — Unreleased", stop (nothing to do).
+3. If top section is dated/released ("## X.Y.Z — 2026-XX-XX"), bump patch version: "## X.Y.(Z+1) — Unreleased".
+4. Insert new section at top of CHANGELOG.md.
+5. Commit and push only CHANGELOG.md: git commit -m "docs(changelog): start X.Y.(Z+1) cycle".
+6. Verify CI run succeeds on main.

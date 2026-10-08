@@ -48,6 +48,13 @@ export const EXTRA_COMMANDS = [
   "/tasks",
   "/skills",
   "/plugin",
+  "/loop",
+  "/karpathy-loop",
+  "/autoresearch",
+  "/goal",
+  "/grill-me",
+  "/learn",
+  "/recap",
   // Experimental
   "/voice",
   "/vim",
@@ -100,6 +107,15 @@ export const EXTRA_COMMANDS = [
   "/share",
   "/context-epoch",
   "/security-audit",
+  "/watch-ui",
+  "/agentation",
+  "/acceptpr",
+  "/landpr",
+  "/fixissue",
+  "/handoff",
+  "/pickup",
+  "/raise",
+  "/sectriage",
 ] as const
 
 export type ExtraCommand = (typeof EXTRA_COMMANDS)[number]
@@ -148,6 +164,21 @@ export const EXTRA_COMMAND_DESCRIPTIONS: Record<string, string> = {
   "/torch": "Torch experimental",
   "/bughunter": "Bug hunter",
   "/security-audit": "Conduct a security audit using Cloudflare's vulnerability discovery methodology",
+  "/loop": "Run autonomous Karpathy experiment loop (hypothesize -> edit -> eval -> commit/revert)",
+  "/karpathy-loop": "Run autonomous Karpathy experiment loop on target metric",
+  "/goal": "Execute high-perseverance autonomous goal until complete",
+  "/grill-me": "Interview on requirements, edge cases, and architectural tradeoffs before coding",
+  "/learn": "Extract guidelines or corrections into AGENTS.md / rules",
+  "/recap": "Bounded 40-60 word session catch-up and next action (Codex pattern)",
+  "/watch-ui": "Watch for visual annotations from the running app via Agentation MCP and automatically remediate code",
+  "/agentation": "Manage Agentation visual feedback toolbar connection and watch mode",
+  "/acceptpr": "Land one PR end-to-end (changelog + thanks, lint, merge, back to main)",
+  "/landpr": "Land PR via temp-branch rebase, full gate, merge, and verification",
+  "/fixissue": "Fix an issue end-to-end (tests, changelog, commit, push, comment, close)",
+  "/handoff": "Capture current session state for the next agent",
+  "/pickup": "Rehydrate context and onboard onto active task",
+  "/raise": "Open next patch Unreleased section in CHANGELOG.md",
+  "/sectriage": "Triage GitHub Security Advisory (GHSA) end-to-end",
 }
 
 /**

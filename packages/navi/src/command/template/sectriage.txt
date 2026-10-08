@@ -1,0 +1,7 @@
+Triage GitHub Security Advisory (GHSA) end-to-end:
+1. Input: GHSA identifier or advisory URL ($1).
+2. Fetch advisory metadata: gh api repos/:owner/:repo/security-advisories/$1.
+3. Review vulnerable version range and existing PR/patch branches.
+4. Implement and verify fix locally with full test suite.
+5. Update CHANGELOG.md without disclosing confidential vulnerability details.
+6. Commit fix and update advisory patched_versions via gh api.

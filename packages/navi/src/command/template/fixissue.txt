@@ -1,0 +1,8 @@
+Fix an issue end-to-end with tests and follow-through:
+1. Identify issue: gh issue view $1 (or ask if missing) to understand problem and user expectations.
+2. Investigate & reproduce: locate root cause, write a reproducing unit/integration test.
+3. Fix & refactor: make surgical code changes to resolve the root cause cleanly.
+4. Verify: run full test suite to guarantee no regressions.
+5. Changelog: add an entry to CHANGELOG.md documenting the bug fix.
+6. Commit & push: commit with descriptive message referencing the issue.
+7. Close: comment on the issue with summary of resolution and close it.
