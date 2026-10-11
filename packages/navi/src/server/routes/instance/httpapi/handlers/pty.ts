@@ -102,11 +102,14 @@ export const ptyConnectRoute = HttpRouter.use((router) =>
         const query = yield* HttpServerRequest.schemaSearchParams(CursorQuery)
         const request = yield* HttpServerRequest.HttpServerRequest
         const ticket = new URL(request.url, "http://localhost").searchParams.get(PTY_CONNECT_TICKET_QUERY)
+        const hasAuthHeader = !!request.headers.authorization
         if (ticket) {
           const valid = validOrigin(request, cors)
             ? yield* tickets.consume({ ticket, ptyID: params.ptyID, ...(yield* PtyTicket.scope) })
             : false
           if (!valid) return HttpServerResponse.empty({ status: 403 })
+        } else if (!hasAuthHeader) {
+          return HttpServerResponse.empty({ status: 401 })
         }
         const parsedCursor = query.cursor === undefined ? undefined : Number(query.cursor)
         const cursor =

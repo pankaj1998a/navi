@@ -1,6 +1,9 @@
 import { Effect, Layer, ManagedRuntime } from "effect"
 import { attach } from "./run-service"
 import * as Observability from "@navi-ai/core/effect/observability"
+import * as Log from "@navi-ai/core/util/log"
+
+const log = Log.create({ service: "app.runtime" })
 
 import { AppFileSystem } from "@navi-ai/core/filesystem"
 import { Bus } from "@/bus"
@@ -122,12 +125,16 @@ const wrap = (effect: Parameters<typeof rt.runSync>[0]) => {
   let next = attach(effect as never)
   try {
     const inst = Instance.current
-    next = Effect.provideService(next, InstanceRef, inst)
-  } catch (e) {}
+    if (inst) next = Effect.provideService(next, InstanceRef, inst)
+  } catch (e) {
+    log.debug("no current instance context in wrap", { error: String(e) })
+  }
   try {
     const ws = WorkspaceContext.workspaceID
-    next = Effect.provideService(next, WorkspaceRef, ws)
-  } catch (e) {}
+    if (ws) next = Effect.provideService(next, WorkspaceRef, ws)
+  } catch (e) {
+    log.debug("no workspace ID in wrap", { error: String(e) })
+  }
   return next as never
 }
 

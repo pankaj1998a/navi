@@ -95,7 +95,8 @@ export const BrowserCommand = effectCmd({
       const result = yield* Effect.promise(() =>
         page.evaluate((expr) => {
           try {
-            return eval(expr)
+            const fn = new Function("'use strict'; return (" + expr + ")")
+            return fn()
           } catch (e: any) {
             return { error: e.message }
           }

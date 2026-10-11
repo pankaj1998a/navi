@@ -175,22 +175,14 @@ export const TaskTool = Tool.define(
 
       const timeoutController = new AbortController()
       let timer: ReturnType<typeof setTimeout> | undefined
-      if (params.timeout_seconds && params.timeout_seconds > 0) {
-        timer = setTimeout(() => {
-          timeoutController.abort()
-        }, params.timeout_seconds * 1000)
-      }
+      let stallTimer: ReturnType<typeof setTimeout> | undefined
+      let isStalled = false
 
-      // Zero-token stall watchdog: aborts subagent if it hangs without completing within stallSeconds (default 60s)
+      // Zero-token stall watchdog: aborts subagent if it hangs without completing within stallSeconds (default 180s)
       const stallSeconds =
         params.stall_timeout_seconds && params.stall_timeout_seconds > 0
           ? params.stall_timeout_seconds
-          : (params.timeout_seconds ? Math.max(params.timeout_seconds, 60) : 60)
-      let isStalled = false
-      let stallTimer: ReturnType<typeof setTimeout> | undefined = setTimeout(() => {
-        isStalled = true
-        timeoutController.abort()
-      }, stallSeconds * 1000)
+          : (params.timeout_seconds ? Math.max(params.timeout_seconds, 180) : 180)
 
       function onTimeoutAbort() {
         runCancel.fork(cancel)
@@ -200,6 +192,15 @@ export const TaskTool = Tool.define(
         Effect.sync(() => {
           ctx.abort.addEventListener("abort", onAbort)
           timeoutController.signal.addEventListener("abort", onTimeoutAbort)
+          if (params.timeout_seconds && params.timeout_seconds > 0) {
+            timer = setTimeout(() => {
+              timeoutController.abort()
+            }, params.timeout_seconds * 1000)
+          }
+          stallTimer = setTimeout(() => {
+            isStalled = true
+            timeoutController.abort()
+          }, stallSeconds * 1000)
         }),
         () =>
           Effect.gen(function* () {

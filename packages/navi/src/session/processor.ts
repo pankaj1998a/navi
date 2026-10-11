@@ -703,7 +703,11 @@ export const layer: Layer.Layer<
 
         yield* Effect.forEach(
           Object.values(ctx.toolcalls),
-          (call) => Deferred.await(call.done).pipe(Effect.timeout("250 millis"), Effect.ignore),
+          (call) =>
+            Deferred.await(call.done).pipe(
+              Effect.timeout(aborted ? "500 millis" : "30 seconds"),
+              Effect.ignore,
+            ),
           { concurrency: "unbounded" },
         )
 

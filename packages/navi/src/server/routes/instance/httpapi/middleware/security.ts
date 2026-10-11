@@ -128,9 +128,13 @@ export const csrfLayer = HttpRouter.middleware(
           const originHost = new URL(origin).host
           // Same-host is always allowed
           if (host && originHost === host) return yield* effect
-          // Allow localhost-style same as CORS allowlist
-          if (originHost.startsWith("localhost:") || originHost.startsWith("127.0.0.1:")) {
-            return yield* effect
+          // Allow localhost only if on the exact same port to prevent cross-port CSRF
+          if (host && (originHost.startsWith("localhost:") || originHost.startsWith("127.0.0.1:"))) {
+            const hostPort = host.includes(":") ? host.split(":")[1] : "80"
+            const originPort = originHost.includes(":") ? originHost.split(":")[1] : "80"
+            if (hostPort === originPort) {
+              return yield* effect
+            }
           }
         } catch {
            return HttpServerResponse.jsonUnsafe({ error: "CSRF origin invalid" }, { status: 403 })

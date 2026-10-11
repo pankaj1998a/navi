@@ -22,13 +22,27 @@ import { sep, resolve, isAbsolute, relative } from "node:path"
 export const ShellPolicy = {
   bash: {
     allow: ["*"] as const,
-    deny: [] as string[],
-    ask: [] as string[],
+    deny: [
+      "rm -rf /",
+      "rm -rf /*",
+      "rm -rf ~",
+      "rm -rf ~/*",
+      ":(){ :|:& };:",
+      "mkfs*",
+      "dd if=/dev/zero*",
+      "dd if=/dev/urandom*",
+    ] as string[],
+    ask: ["sudo *", "su *", "chmod -R 777 *"] as string[],
   },
   pwsh: {
     allow: ["*"] as const,
-    deny: [] as string[],
-    ask: ["*.ps1"] as const,
+    deny: [
+      "Remove-Item -Recurse -Force C:\\*",
+      "Remove-Item -Recurse -Force /",
+      "format *",
+      "diskpart*",
+    ] as string[],
+    ask: ["*.ps1", "Set-ExecutionPolicy *"] as string[],
   },
 } as const
 

@@ -167,7 +167,7 @@ export function confineSync(
   if (process.platform === "win32") {
     if (!WindowsAclBackend.isAvailable()) {
       throw new SandboxUnavailableError(
-        "Windows native restricted-token and Job Object sandbox backend is not available on this host. Run with danger-full-access or unblock Windows sandbox.",
+        "Windows native restricted-token and Job Object sandbox backend is not available on this host. Use workspace path containment and command safety checks, or run in an isolated container.",
       )
     }
     return WindowsAclBackend.confine(command, args, policy, env)
@@ -203,7 +203,7 @@ export const SECRET_PATTERNS: Array<{ name: string; regex: RegExp }> = [
   { name: "AWS Access Key", regex: /AKIA[0-9A-Z]{16}/g },
   { name: "Bearer Token", regex: /Bearer\s+[a-zA-Z0-9_\-.]{24,}/gi },
   { name: "JWT Token", regex: /eyJ[a-zA-Z0-9_-]{10,}\.eyJ[a-zA-Z0-9_-]{10,}\.[a-zA-Z0-9_-]{10,}/g },
-  { name: "Generic Secret Key", regex: /(?:api[_-]?key|client[_-]?secret|auth[_-]?token|secret[_-]?key)\s*[:=]\s*["']?[a-zA-Z0-9_\-]{20,}["']?/gi },
+  { name: "Generic Secret Key", regex: /(?:api[_-]?key|client[_-]?secret|auth[_-]?token|secret[_-]?key|x-access-token|access[_-]?token)\s*[:=]\s*["']?[a-zA-Z0-9_\-]{20,}["']?/gi },
   { name: "Private Key", regex: /-----BEGIN (?:RSA |EC |DSA |OPENSSH )?PRIVATE KEY-----[\s\S]*?-----END (?:RSA |EC |DSA |OPENSSH )?PRIVATE KEY-----/g },
 ]
 
@@ -215,9 +215,22 @@ export const SecretScrubber = {
     }
 
     // Entropy-based detection for high-randomness tokens (hex, base64, random keys >= 24 chars)
-    result = result.replace(/\b[A-Za-z0-9+/=_-]{24,}\b/g, (token) => {
+    result = result.replace(/\b[A-Za-z0-9+/=_-]{24,}\b/g, (token, offset, fullText) => {
       // Don't redact already redacted tokens or standard words
       if (token.startsWith("[REDACTED_") || token.endsWith("]")) return token
+      
+      // Preserve standard git commit SHAs in git context (commit, tree, parent, refs)
+      const prefix = fullText.slice(Math.max(0, offset - 30), offset).toLowerCase()
+      const isGitContext =
+        prefix.includes("commit ") ||
+        prefix.includes("tree ") ||
+        prefix.includes("parent ") ||
+        prefix.includes("refs/") ||
+        prefix.includes("git ")
+      if (/^[0-9a-f]{32,64}$/i.test(token) && isGitContext) {
+        return token
+      }
+
       const entropy = shannonEntropy(token)
       // High Shannon entropy (> 3.7 bits/symbol for 24+ chars) indicates cryptographic randomness
       if (entropy >= 3.7) {
@@ -252,6 +265,9 @@ const SENSITIVE_PATH_PATTERNS = [
   /[\\/]\.aws(?:[\\/]|$)/i,
   /[\\/]\.gnupg(?:[\\/]|$)/i,
   /[\\/]\.kube(?:[\\/]|$)/i,
+  /[\\/]\.env(?:\.[\w.-]+)?$/i,
+  /\.(?:pem|key|pfx|p12|pkcs12)$/i,
+  /[\\/](?:Google[\\/]Chrome|Microsoft[\\/]Edge|Mozilla[\\/]Firefox)[\\/].*?[\\/](?:Cookies|Login Data|key4\.db)/i,
   /[\\/]etc[\\/](?:shadow|passwd|sudoers)/i,
   /^[a-zA-Z]:[\\/]Windows[\\/]System32[\\/]config/i,
 ]
@@ -299,6 +315,7 @@ const DESTRUCTIVE_COMMAND_PATTERNS = [
   /%\0\|%\0/,
   /\bchmod\s+-[a-zA-Z]*R[a-zA-Z]*\s+[07]{3,4}\s+(?:\/|~\/)/i,
   /\bchown\s+-[a-zA-Z]*R[a-zA-Z]*\s+.*?\s+(?:\/|~\/)/i,
+  /\b(?:powershell|pwsh)(?:\.exe)?\s+.*?(?:-[eE](?:nc(?:odedcommand)?)?)\s+[a-zA-Z0-9+/=]{20,}/i,
 ]
 
 export const DestructiveCommandGuard = {

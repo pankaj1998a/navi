@@ -1,6 +1,6 @@
 import { Provider } from "@/provider/provider"
 import * as Log from "@navi-ai/core/util/log"
-import { Context, Effect, Layer, Record } from "effect"
+import { Context, Effect, Exit, Layer, Record } from "effect"
 import * as Stream from "effect/Stream"
 import { streamText, wrapLanguageModel, type ModelMessage, type Tool, tool, jsonSchema } from "ai"
 import { mergeDeep } from "remeda"
@@ -428,7 +428,7 @@ const live: Layer.Layer<
           Effect.gen(function* () {
             const ctrl = yield* Effect.acquireRelease(
               Effect.sync(() => new AbortController()),
-              (ctrl) => Effect.sync(() => ctrl.abort()),
+              (ctrl, exit) => (Exit.hasInterrupts(exit) ? Effect.sync(() => ctrl.abort()) : Effect.void),
             )
 
             const result = yield* run({ ...input, abort: ctrl.signal })

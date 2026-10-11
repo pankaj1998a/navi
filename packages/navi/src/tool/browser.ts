@@ -869,9 +869,13 @@ export const BrowserTool = Tool.define(
               if (!trusted) {
                 yield* ctx.ask({
                   permission: "browser.evaluate",
-                  patterns: [scriptToRun.slice(0, 200)],
+                  patterns: [
+                    scriptToRun.length > 200
+                      ? `${scriptToRun.slice(0, 200)}... [hash:${scriptHash}]`
+                      : scriptToRun,
+                  ],
                   always: [],
-                  metadata: { action: "evaluate", scriptHash },
+                  metadata: { action: "evaluate", scriptHash, length: scriptToRun.length },
                 })
               }
               log.info("browser evaluate", { scriptHash, length: scriptToRun.length })
@@ -879,8 +883,8 @@ export const BrowserTool = Tool.define(
               const result = yield* Effect.promise(() =>
                 Promise.race([
                   page.evaluate((code) => {
-                    // eslint-disable-next-line no-eval
-                    return eval(code)
+                    const fn = new Function("'use strict'; return (" + code + ")")
+                    return fn()
                   }, scriptToRun),
                   new Promise<never>((_resolve, reject) =>
                     setTimeout(() => reject(new Error(`Evaluate timed out after ${EVALUATE_TIMEOUT_MS}ms`)), EVALUATE_TIMEOUT_MS),
