@@ -4,11 +4,14 @@ use std::path::PathBuf;
 mod seek_sequence;
 mod patch;
 mod sanitizer;
+mod structure;
+mod compactor;
+mod binary_inspect;
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
     if args.len() < 2 {
-        eprintln!("Usage: navi-native <apply-patch|scrub|line-count> [args...]");
+        eprintln!("Usage: navi-native <apply-patch|scrub|line-count|structure|bpe-tokens|compact|inspect-binary> [args...]");
         std::process::exit(1);
     }
 
@@ -64,6 +67,80 @@ fn main() {
                 }
                 Err(e) => {
                     eprintln!("Failed to open file: {}", e);
+                    std::process::exit(1);
+                }
+            }
+        }
+        "structure" => {
+            let target_dir = if args.len() >= 3 && !args[2].starts_with("--") {
+                PathBuf::from(&args[2])
+            } else {
+                std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."))
+            };
+
+            let as_json = args.iter().any(|a| a == "--json");
+            let include_tests = args.iter().any(|a| a == "--include-tests");
+
+            let res = structure::scan_directory(&target_dir, include_tests);
+            if as_json {
+                println!("{}", serde_json::to_string(&res).unwrap());
+            } else {
+                print!("{}", structure::render_dense_text(&res));
+            }
+        }
+        "bpe-tokens" => {
+            let input = if args.len() >= 3 && args[2] != "--stdin" {
+                args[2].clone()
+            } else {
+                let mut buf = String::new();
+                if let Err(e) = io::stdin().read_to_string(&mut buf) {
+                    eprintln!("Failed to read stdin: {}", e);
+                    std::process::exit(1);
+                }
+                buf
+            };
+            let count = compactor::count_tokens(&input);
+            println!("{}", count);
+        }
+        "compact" => {
+            let max_tokens = if args.len() >= 3 {
+                args[2].parse::<usize>().unwrap_or(8000)
+            } else {
+                8000
+            };
+
+            let mut input = String::new();
+            if let Err(e) = io::stdin().read_to_string(&mut input) {
+                eprintln!("Failed to read stdin: {}", e);
+                std::process::exit(1);
+            }
+
+            match serde_json::from_str::<compactor::CompactRequest>(&input) {
+                Ok(mut req) => {
+                    if req.max_tokens == 0 {
+                        req.max_tokens = max_tokens;
+                    }
+                    let res = compactor::compact_messages(&req);
+                    println!("{}", serde_json::to_string(&res).unwrap());
+                }
+                Err(err) => {
+                    eprintln!("Failed to parse CompactRequest JSON: {}", err);
+                    std::process::exit(1);
+                }
+            }
+        }
+        "inspect-binary" => {
+            if args.len() < 3 {
+                eprintln!("Usage: navi-native inspect-binary <file-path>");
+                std::process::exit(1);
+            }
+            let path = PathBuf::from(&args[2]);
+            match binary_inspect::inspect_binary(&path) {
+                Ok(res) => {
+                    println!("{}", serde_json::to_string(&res).unwrap());
+                }
+                Err(e) => {
+                    eprintln!("Binary inspection error: {}", e);
                     std::process::exit(1);
                 }
             }

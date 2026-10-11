@@ -4,6 +4,7 @@ import { UI } from "../ui"
 import path from "path"
 import fs from "fs"
 import { spawn } from "child_process"
+import { isNativeAvailable, scanStructureNative } from "@/native/native-runner"
 
 export const StructureCommand = effectCmd({
   command: "structure [target]",
@@ -55,24 +56,42 @@ export const StructureCommand = effectCmd({
     const mode = args.mode || "dense"
     const mapScript = path.resolve(import.meta.dir, "../../../skills/project-structure/map.ts")
 
-    if (!fs.existsSync(mapScript)) {
-      UI.println(UI.Style.TEXT_DANGER_BOLD + "❌ Error: map.ts script not found at " + mapScript)
-      return
-    }
-
     const outFile = args.out ? path.resolve(args.out) : path.join(process.cwd(), "project-structure-map.txt")
-
-    const cliArgs = [mapScript, targetDir, "--mode", mode, "--out", outFile]
-    if (args.include) cliArgs.push("--include", args.include)
-    if (args["include-tests"]) cliArgs.push("--include-tests")
-    if (args.members) cliArgs.push("--members")
-    if (args["public-only"]) cliArgs.push("--public-only")
 
     UI.println(
       UI.Style.TEXT_INFO_BOLD +
         `🔍 Analyzing project structure for ${path.basename(targetDir)} (mode: ${mode})...` +
         UI.Style.TEXT_NORMAL,
     )
+
+    // Ultra-fast Rust native path when standard dense mode is requested
+    if (mode === "dense" && !args.include && !args.members && !args["public-only"] && isNativeAvailable()) {
+      const nativeOutput = scanStructureNative(targetDir, { includeTests: args["include-tests"] })
+      if (nativeOutput) {
+        fs.writeFileSync(outFile, nativeOutput, "utf-8")
+        UI.println(
+          UI.Style.TEXT_SUCCESS_BOLD +
+            `✓ Native symbol map generated (Rust accelerated)` +
+            UI.Style.TEXT_NORMAL,
+        )
+        UI.println(UI.Style.TEXT_DIM + `  Output saved to: ${outFile}` + UI.Style.TEXT_NORMAL)
+        if (args.stdout) {
+          process.stdout.write("\n" + nativeOutput + "\n")
+        }
+        return
+      }
+    }
+
+    if (!fs.existsSync(mapScript)) {
+      UI.println(UI.Style.TEXT_DANGER_BOLD + "❌ Error: map.ts script not found at " + mapScript)
+      return
+    }
+
+    const cliArgs = [mapScript, targetDir, "--mode", mode, "--out", outFile]
+    if (args.include) cliArgs.push("--include", args.include)
+    if (args["include-tests"]) cliArgs.push("--include-tests")
+    if (args.members) cliArgs.push("--members")
+    if (args["public-only"]) cliArgs.push("--public-only")
 
     const result = yield* Effect.promise<string>(() =>
       new Promise((resolve, reject) => {

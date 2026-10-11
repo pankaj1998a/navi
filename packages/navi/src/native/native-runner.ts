@@ -118,3 +118,140 @@ export function countLinesNative(filePath: string): number | null {
     return null
   }
 }
+
+export interface NativeBinaryResult {
+  file: string
+  format: string
+  architecture: string
+  bits: number
+  endian: string
+  kind: string
+  entry_point?: string
+  sections_count?: number
+  notes: string[]
+}
+
+export interface NativeMessagePart {
+  type: string
+  text?: string
+  tool?: string
+  status?: string
+}
+
+export interface NativeCompactMessage {
+  role: string
+  parts: NativeMessagePart[]
+}
+
+export interface NativeCompactRequest {
+  messages: NativeCompactMessage[]
+  max_tokens: number
+  preserve_recent?: number
+}
+
+export interface NativeCompactResponse {
+  original_tokens: number
+  compacted_tokens: number
+  pruned_turns: number
+  messages: NativeCompactMessage[]
+}
+
+/**
+ * Fast BPE token counting in Rust (approximates cl100k without large memory heap).
+ */
+export function countTokensNative(text: string): number | null {
+  const bin = getNativeBinaryPath()
+  if (!bin) return null
+
+  try {
+    const res = spawnSync(bin, ["bpe-tokens", "--stdin"], {
+      input: text,
+      encoding: "utf-8",
+      maxBuffer: 50 * 1024 * 1024,
+    })
+
+    if (res.status === 0 && res.stdout) {
+      const count = parseInt(res.stdout.trim(), 10)
+      return isNaN(count) ? null : count
+    }
+    return null
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Fast context-compaction & message pruning in Rust.
+ */
+export function compactMessagesNative(req: NativeCompactRequest): NativeCompactResponse | null {
+  const bin = getNativeBinaryPath()
+  if (!bin) return null
+
+  try {
+    const res = spawnSync(bin, ["compact", String(req.max_tokens)], {
+      input: JSON.stringify(req),
+      encoding: "utf-8",
+      maxBuffer: 50 * 1024 * 1024,
+    })
+
+    if (res.status === 0 && res.stdout) {
+      return JSON.parse(res.stdout.trim()) as NativeCompactResponse
+    }
+    return null
+  } catch {
+    return null
+  }
+}
+
+/**
+ * High-performance binary executable/archive header inspector in Rust.
+ * Analyzes ELF, PE32+, Mach-O, WASM, APK/ZIP, and ASAR headers in microseconds.
+ */
+export function inspectBinaryNative(filePath: string): NativeBinaryResult | null {
+  const bin = getNativeBinaryPath()
+  if (!bin) return null
+
+  try {
+    const res = spawnSync(bin, ["inspect-binary", filePath], {
+      encoding: "utf-8",
+    })
+
+    if (res.status === 0 && res.stdout) {
+      return JSON.parse(res.stdout.trim()) as NativeBinaryResult
+    }
+    return null
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Fast multi-language AST structure extractor in Rust.
+ * Extracts symbols and project topology across TS/JS, Rust, Python, Go, and Swift.
+ */
+export function scanStructureNative(
+  targetDir: string,
+  options?: { json?: boolean; includeTests?: boolean },
+): string | null {
+  const bin = getNativeBinaryPath()
+  if (!bin) return null
+
+  try {
+    const args = ["structure", targetDir]
+    if (options?.json) args.push("--json")
+    if (options?.includeTests) args.push("--include-tests")
+
+    const res = spawnSync(bin, args, {
+      encoding: "utf-8",
+      maxBuffer: 50 * 1024 * 1024,
+    })
+
+    if (res.status === 0 && res.stdout) {
+      return res.stdout
+    }
+    return null
+  } catch {
+    return null
+  }
+}
+

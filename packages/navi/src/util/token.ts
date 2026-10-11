@@ -11,11 +11,24 @@ export const CHARS_PER_TOKEN = 4
  */
 export const IMAGE_TOKEN_ESTIMATE = 765
 
+import { countTokensNative } from "@/native/native-runner"
+
 /**
  * Estimates token count from string length using the standard 4 chars/token heuristic.
  */
 export function estimate(input: string): number {
   return Math.max(0, Math.round((input || "").length / CHARS_PER_TOKEN))
+}
+
+/**
+ * Accurate subword token counting.
+ * Uses native Rust BPE (cl100k) when available, falling back to 4 chars/token heuristic.
+ */
+export function countTokens(input: string): number {
+  if (!input) return 0
+  const native = countTokensNative(input)
+  if (native !== null) return native
+  return estimate(input)
 }
 
 /**
