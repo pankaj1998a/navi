@@ -709,7 +709,7 @@ export const layer: Layer.Layer<
               Effect.timeout(aborted ? "500 millis" : "30 seconds"),
               Effect.ignore,
             ),
-          { concurrency: "unbounded" },
+          { concurrency: 16 },
         )
 
         for (const toolCallID of Object.keys(ctx.toolcalls)) {
@@ -768,18 +768,24 @@ export const layer: Layer.Layer<
 
         return yield* Effect.gen(function* () {
           // ── Budget enforcement ──────────────────────────────────────────────
-          // Walk ancestor chain to find the root session that holds budget caps.
+          // Walk ancestor chain to find topmost root and collect active budget caps.
           yield* Effect.gen(function* () {
-            // Find the root session ID (topmost ancestor)
             let rootID = ctx.sessionID
+            let costLimit: number | undefined
+            let tokenLimit: number | undefined
             const visited = new Set<string>()
+
             while (true) {
               if (visited.has(rootID)) break
               visited.add(rootID)
               const row = yield* Effect.sync(() =>
                 Database.use((db) =>
                   db
-                    .select({ parent_id: SessionTable.parent_id, max_cost: SessionTable.max_cost, max_tokens: SessionTable.max_tokens })
+                    .select({
+                      parent_id: SessionTable.parent_id,
+                      max_cost: SessionTable.max_cost,
+                      max_tokens: SessionTable.max_tokens,
+                    })
                     .from(SessionTable)
                     .where(eq(SessionTable.id, rootID))
                     .get(),
@@ -787,39 +793,60 @@ export const layer: Layer.Layer<
               )
               if (!row) break
               if (row.max_cost !== null && row.max_cost !== undefined) {
-                const usage = yield* Session.getTreeUsage(rootID as SessionID)
                 const limit = parseFloat(row.max_cost)
-                if (usage.cost > limit) {
-                  const err = new MessageV2.BudgetExceededError({
-                    message: `Session tree cost limit of $${limit} exceeded (actual: $${usage.cost.toFixed(6)})`,
-                    limitValue: limit,
-                    actualValue: usage.cost,
-                    budgetType: "cost",
-                  })
-                  yield* halt(err)
-                  ctx.blocked = true
-                  return
+                if (!isNaN(limit)) {
+                  costLimit = costLimit !== undefined ? Math.min(costLimit, limit) : limit
                 }
               }
               if (row.max_tokens !== null && row.max_tokens !== undefined) {
-                const usage = yield* Session.getTreeUsage(rootID as SessionID)
                 const limit = row.max_tokens
-                if (usage.tokens > limit) {
-                  const err = new MessageV2.BudgetExceededError({
-                    message: `Session tree token limit of ${limit} exceeded (actual: ${usage.tokens})`,
-                    limitValue: limit,
-                    actualValue: usage.tokens,
-                    budgetType: "tokens",
-                  })
-                  yield* halt(err)
-                  ctx.blocked = true
-                  return
+                if (!isNaN(limit)) {
+                  tokenLimit = tokenLimit !== undefined ? Math.min(tokenLimit, limit) : limit
                 }
               }
               if (!row.parent_id) break
               rootID = row.parent_id as SessionID
             }
-          }).pipe(Effect.catch((_e) => Effect.void))
+
+            // Default safety cap against runaway bankrupt loops if uncapped ($25 safety default)
+            const DEFAULT_SAFETY_MAX_COST = 25.0
+            const effectiveCostLimit = costLimit ?? DEFAULT_SAFETY_MAX_COST
+
+            // Compute tree usage ONCE across the tree
+            const usage = yield* Session.getTreeUsage(rootID as SessionID)
+
+            if (usage.cost > effectiveCostLimit) {
+              const err = new MessageV2.BudgetExceededError({
+                message: `Session tree cost limit of $${effectiveCostLimit} exceeded (actual: $${usage.cost.toFixed(6)})`,
+                limitValue: effectiveCostLimit,
+                actualValue: usage.cost,
+                budgetType: "cost",
+              })
+              yield* halt(err)
+              ctx.blocked = true
+              return
+            }
+
+            if (tokenLimit !== undefined && usage.tokens > tokenLimit) {
+              const err = new MessageV2.BudgetExceededError({
+                message: `Session tree token limit of ${tokenLimit} exceeded (actual: ${usage.tokens})`,
+                limitValue: tokenLimit,
+                actualValue: usage.tokens,
+                budgetType: "tokens",
+              })
+              yield* halt(err)
+              ctx.blocked = true
+              return
+            }
+          }).pipe(
+            Effect.catch((err: unknown) => {
+              if (err instanceof Error && err.name === "BudgetExceededError") {
+                return halt(err)
+              }
+              slog.warn("budget enforcement check warning", { error: String(err) })
+              return Effect.void
+            }),
+          )
           // ── End budget enforcement ──────────────────────────────────────────
 
           yield* Effect.gen(function* () {

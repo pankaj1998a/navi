@@ -241,11 +241,18 @@ export const layer: Layer.Layer<
                 const result = yield* Effect.promise(() => def.execute(args as any, pluginCtx))
                 const output = typeof result === "string" ? result : result.output
                 const metadata = typeof result === "string" ? {} : (result.metadata ?? {})
+                const { wrapUntrustedContent, sanitizeUntrustedText } = yield* Effect.promise(() =>
+                  import("@/util/untrusted-content"),
+                )
+                const cleanOutput =
+                  id.includes(":") || id.startsWith("mcp_") || id.startsWith("web")
+                    ? wrapUntrustedContent(output, id)
+                    : sanitizeUntrustedText(output)
                 const info = yield* agents.get(toolCtx.agent)
-                const out = yield* truncate.output(output, {}, info)
+                const out = yield* truncate.output(cleanOutput, {}, info)
                 return {
                   title: "",
-                  output: out.truncated ? out.content : output,
+                  output: out.truncated ? out.content : cleanOutput,
                   metadata: {
                     ...metadata,
                     truncated: out.truncated,

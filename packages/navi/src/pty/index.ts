@@ -197,8 +197,9 @@ export const layer = Layer.effect(
 
       const cwd = input.cwd || s.dir
       const shell = yield* plugin.trigger("shell.env", { cwd }, { env: {} })
+      const { sanitizeChildProcessEnv } = yield* Effect.promise(() => import("@/util/sanitize-env"))
       const env = {
-        ...process.env,
+        ...sanitizeChildProcessEnv(process.env),
         ...input.env,
         ...shell.env,
         TERM: "xterm-256color",

@@ -270,6 +270,9 @@ const SENSITIVE_PATH_PATTERNS = [
   /[\\/](?:Google[\\/]Chrome|Microsoft[\\/]Edge|Mozilla[\\/]Firefox)[\\/].*?[\\/](?:Cookies|Login Data|key4\.db)/i,
   /[\\/]etc[\\/](?:shadow|passwd|sudoers)/i,
   /^[a-zA-Z]:[\\/]Windows[\\/]System32[\\/]config/i,
+  /[\\/]auth\.json$/i,
+  /[\\/]navi(?:-[^\\/]+)?\.db(?:-(?:wal|shm))?$/i,
+  /[\\/]\.navi[\\/](?:auth\.json|navi.*\.db)/i,
 ]
 
 export const SandboxPathGuard = {

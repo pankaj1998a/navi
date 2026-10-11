@@ -8,10 +8,14 @@ export const CorsConfig = Context.Reference<CorsOptions | undefined>("@navi/Serv
   defaultValue: () => undefined,
 })
 
-export function isAllowedCorsOrigin(input: string | undefined, opts?: CorsOptions) {
+export function isAllowedCorsOrigin(input: string | undefined, opts?: CorsOptions, host?: string) {
   if (!input) return true
-  if (input.startsWith("http://localhost:")) return true
-  if (input.startsWith("http://127.0.0.1:")) return true
+  if (host && (input.startsWith("http://localhost:") || input.startsWith("http://127.0.0.1:"))) {
+    return sameHost(input, host) || (opts?.cors?.includes(input) ?? false)
+  }
+  if (input.startsWith("http://localhost:") || input.startsWith("http://127.0.0.1:")) {
+    return opts?.cors ? (opts.cors.includes(input) ?? false) : true
+  }
   if (input.startsWith("oc://renderer")) return true
   if (input === "tauri://localhost" || input === "http://tauri.localhost" || input === "https://tauri.localhost")
     return true
@@ -22,7 +26,7 @@ export function isAllowedCorsOrigin(input: string | undefined, opts?: CorsOption
 export function isAllowedRequestOrigin(input: string | undefined, host: string | undefined, opts?: CorsOptions) {
   if (!input) return true
   if (host && sameHost(input, host)) return true
-  return isAllowedCorsOrigin(input, opts)
+  return isAllowedCorsOrigin(input, opts, host)
 }
 
 function sameHost(origin: string, host: string) {

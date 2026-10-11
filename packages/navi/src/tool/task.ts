@@ -7,9 +7,10 @@ import { Agent } from "../agent/agent"
 import { deriveSubagentSessionPermission } from "../agent/subagent-permissions"
 import type { SessionPrompt } from "../session/prompt"
 import { Config } from "@/config/config"
-import { Cause, Effect, Exit, Schema, Semaphore } from "effect"
+import { Cause, Effect, Exit, Option, Schema, Semaphore } from "effect"
 import { EffectBridge } from "@/effect/bridge"
 import { Git } from "@/git"
+import { Bus } from "@/bus"
 
 export interface TaskPromptOps {
   cancel(sessionID: SessionID): Effect.Effect<void>
@@ -56,7 +57,10 @@ export const TaskTool = Tool.define(
     const config = yield* Config.Service
     const sessions = yield* Session.Service
     const git = yield* Git.Service
+    const bus = yield* Effect.serviceOption(Bus.Service)
     const subagentSemaphore = yield* Semaphore.make(4)
+
+    const MAX_SUBAGENT_DEPTH = 5
 
     const run = Effect.fn("TaskTool.execute")(function* (
       params: Schema.Schema.Type<typeof Parameters>,
@@ -91,7 +95,23 @@ export const TaskTool = Tool.define(
         ? yield* agent.get(parent.agent).pipe(Effect.catchCause(() => Effect.succeed(undefined)))
         : undefined
 
-      const depth = parent.parentID ? 2 : 1
+      let depth = 1
+      let currentSession: Session.Info | undefined = parent
+      const visited = new Set<string>()
+      while (currentSession?.parentID && !visited.has(currentSession.id)) {
+        visited.add(currentSession.id)
+        depth++
+        const nextParentID: SessionID = currentSession.parentID
+        currentSession = yield* sessions
+          .get(nextParentID)
+          .pipe(Effect.catchCause(() => Effect.succeed(undefined)))
+      }
+
+      if (depth > MAX_SUBAGENT_DEPTH) {
+        return yield* Effect.fail(
+          new Error(`Subagent recursion depth limit exceeded (max: ${MAX_SUBAGENT_DEPTH}, current depth: ${depth})`),
+        )
+      }
 
       const nextSession =
         session ??
@@ -188,6 +208,16 @@ export const TaskTool = Tool.define(
         runCancel.fork(cancel)
       }
 
+      function resetStallTimer() {
+        if (stallTimer) clearTimeout(stallTimer)
+        stallTimer = setTimeout(() => {
+          isStalled = true
+          timeoutController.abort()
+        }, stallSeconds * 1000)
+      }
+
+      let unsub: (() => void) | undefined
+
       const executeTask = Effect.acquireUseRelease(
         Effect.sync(() => {
           ctx.abort.addEventListener("abort", onAbort)
@@ -197,13 +227,17 @@ export const TaskTool = Tool.define(
               timeoutController.abort()
             }, params.timeout_seconds * 1000)
           }
-          stallTimer = setTimeout(() => {
-            isStalled = true
-            timeoutController.abort()
-          }, stallSeconds * 1000)
+          resetStallTimer()
         }),
         () =>
           Effect.gen(function* () {
+            if (Option.isSome(bus)) {
+              unsub = yield* bus.value.subscribeCallback(MessageV2.Event.PartUpdated, (evt) => {
+                if (evt.properties.part?.sessionID === nextSession.id) {
+                  resetStallTimer()
+                }
+              })
+            }
             const parts = yield* ops.resolvePromptParts(params.prompt)
             const resultExit = yield* Effect.exit(
               ops.prompt({
@@ -214,9 +248,12 @@ export const TaskTool = Tool.define(
                   providerID: model.providerID,
                 },
                 agent: next.name,
+                maxSteps: params.max_steps,
                 tools: {
                   ...(next.permission.some((rule) => rule.permission === "todowrite") ? {} : { todowrite: false }),
-                  ...(next.permission.some((rule) => rule.permission === id) ? {} : { task: false }),
+                  ...(next.permission.some((rule) => rule.permission === id) && depth < MAX_SUBAGENT_DEPTH
+                    ? {}
+                    : { task: false }),
                   ...Object.fromEntries((cfg.experimental?.primary_tools ?? []).map((item) => [item, false])),
                 },
                 parts,
@@ -447,6 +484,11 @@ export const TaskTool = Tool.define(
           }).pipe(
             Effect.ensuring(
               Effect.sync(() => {
+                if (unsub) {
+                  try {
+                    unsub()
+                  } catch {}
+                }
                 if (timer) clearTimeout(timer)
                 if (stallTimer) clearTimeout(stallTimer)
                 ctx.abort.removeEventListener("abort", onAbort)

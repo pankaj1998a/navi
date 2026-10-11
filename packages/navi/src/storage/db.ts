@@ -9,7 +9,7 @@ import * as Log from "@navi-ai/core/util/log"
 import { NamedError } from "@navi-ai/core/util/error"
 import z from "zod"
 import path from "path"
-import { readFileSync, readdirSync, existsSync } from "fs"
+import { readFileSync, readdirSync, existsSync, chmodSync } from "fs"
 import { Flag } from "@navi-ai/core/flag/flag"
 import { InstallationChannel } from "@navi-ai/core/installation/version"
 import { InstanceState } from "../effect/instance-state"
@@ -107,6 +107,12 @@ export const Client = lazy(() => {
   db.run("PRAGMA cache_size = -64000")
   db.run("PRAGMA foreign_keys = ON")
   db.run("PRAGMA wal_checkpoint(PASSIVE)")
+
+  if (Path !== ":memory:" && existsSync(Path) && process.platform !== "win32") {
+    try {
+      chmodSync(Path, 0o600)
+    } catch {}
+  }
 
   // Apply schema migrations
   const entries =

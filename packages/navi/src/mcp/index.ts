@@ -13,6 +13,7 @@ import {
 import { Config } from "@/config/config"
 import { ConfigMCP } from "../config/mcp"
 import * as Log from "@navi-ai/core/util/log"
+import { sanitizeChildProcessEnv } from "@/util/sanitize-env"
 import { NamedError } from "@navi-ai/core/util/error"
 import z from "zod/v4"
 import { Installation } from "../installation"
@@ -432,7 +433,7 @@ export const layer = Layer.effect(
         args,
         cwd,
         env: {
-          ...process.env,
+          ...sanitizeChildProcessEnv(process.env),
           ...(cmd === "navi" ? { BUN_BE_BUN: "1" } : {}),
           ...mcp.environment,
         },

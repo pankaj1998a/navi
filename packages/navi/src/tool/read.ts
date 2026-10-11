@@ -166,6 +166,8 @@ export const ReadTool = Tool.define(
       if (process.platform === "win32") {
         filepath = AppFileSystem.normalizePath(filepath)
       }
+      const { SandboxPathGuard } = yield* Effect.promise(() => import("@/sandbox"))
+      SandboxPathGuard.assertPathAllowed(filepath, { mode: "workspace-write", workspaceRoot: instance.worktree }, false)
       yield* reference.ensure(filepath)
       const title = path.relative(instance.worktree, filepath)
 

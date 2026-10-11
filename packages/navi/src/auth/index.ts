@@ -57,11 +57,20 @@ export const layer = Layer.effect(
     const fsys = yield* AppFileSystem.Service
     const decode = Schema.decodeUnknownOption(Info)
 
+    let cachedAuthEnv: Record<string, Info> | undefined
+
     const all = Effect.fn("Auth.all")(function* () {
+      if (cachedAuthEnv) {
+        return cachedAuthEnv
+      }
       if (process.env.NAVI_AUTH_CONTENT) {
         try {
-          return JSON.parse(process.env.NAVI_AUTH_CONTENT) as Record<string, Info>
+          const parsed = JSON.parse(process.env.NAVI_AUTH_CONTENT) as Record<string, Info>
+          cachedAuthEnv = parsed
+          delete process.env.NAVI_AUTH_CONTENT
+          return parsed
         } catch (cause) {
+          delete process.env.NAVI_AUTH_CONTENT
           Log.Default.error("invalid NAVI_AUTH_CONTENT JSON", { error: String(cause) })
           yield* new AuthError({ message: "Invalid NAVI_AUTH_CONTENT JSON", cause })
         }

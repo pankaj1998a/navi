@@ -33,6 +33,9 @@ export const WebScrapeTool = Tool.define(
       parameters: Parameters,
       execute: (params: Schema.Schema.Type<typeof Parameters>, ctx: Tool.Context) =>
         Effect.gen(function* () {
+          const { assertSafeExternalUrl } = yield* Effect.promise(() => import("@/util/ssrf"))
+          yield* Effect.promise(() => assertSafeExternalUrl(params.url))
+
           yield* ctx.ask({
             permission: "webfetch",
             patterns: [params.url],

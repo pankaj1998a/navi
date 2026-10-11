@@ -1400,7 +1400,7 @@ NOTE: At any point in time through this workflow you should feel free to ask the
       }
 
       if (input.noReply === true) return message
-      return yield* loop({ sessionID: input.sessionID })
+      return yield* loop({ sessionID: input.sessionID, maxSteps: input.maxSteps })
     })
 
     const lastAssistant = Effect.fnUntraced(function* (sessionID: SessionID) {
@@ -1412,8 +1412,9 @@ NOTE: At any point in time through this workflow you should feel free to ask the
       throw new Error("Impossible")
     })
 
-    const runLoop: (sessionID: SessionID) => Effect.Effect<MessageV2.WithParts> = Effect.fn("SessionPrompt.run")(
-      function* (sessionID: SessionID) {
+    const runLoop: (sessionID: SessionID, maxStepsLimit?: number) => Effect.Effect<MessageV2.WithParts> = Effect.fn(
+      "SessionPrompt.run",
+    )(function* (sessionID: SessionID, maxStepsLimit?: number) {
         const ctx = yield* InstanceState.context
         if (!ctx) return yield* Effect.die("InstanceState.context unavailable")
         const slog = elog.with({ sessionID })
@@ -1510,7 +1511,11 @@ NOTE: At any point in time through this workflow you should feel free to ask the
             yield* bus.publish(Session.Event.Error, { sessionID, error: error.toObject() })
             throw error
           }
-          const maxSteps = agent.steps ?? Infinity
+          const maxSteps = maxStepsLimit ?? agent.steps ?? Infinity
+          if (step > maxSteps) {
+            yield* slog.info("max steps limit reached, terminating prompt loop", { step, maxSteps })
+            break
+          }
           const isLastStep = step >= maxSteps
           msgs = yield* insertReminders({ messages: msgs, agent, session })
 
@@ -1670,7 +1675,11 @@ NOTE: At any point in time through this workflow you should feel free to ask the
     const loop: (input: LoopInput) => Effect.Effect<MessageV2.WithParts> = Effect.fn("SessionPrompt.loop")(function* (
       input: LoopInput,
     ) {
-      return yield* state.ensureRunning(input.sessionID, lastAssistant(input.sessionID), runLoop(input.sessionID))
+      return yield* state.ensureRunning(
+        input.sessionID,
+        lastAssistant(input.sessionID),
+        runLoop(input.sessionID, input.maxSteps),
+      )
     })
 
     const shell: (input: ShellInput) => Effect.Effect<MessageV2.WithParts> = Effect.fn("SessionPrompt.shell")(
@@ -1862,6 +1871,7 @@ export const PromptInput = Schema.Struct({
       "@deprecated tools and permissions have been merged, you can set permissions on the session itself now",
   }),
   format: Schema.optional(MessageV2.Format),
+  maxSteps: Schema.optional(Schema.Number),
   system: Schema.optional(Schema.String),
   variant: Schema.optional(Schema.String),
   parts: Schema.Array(
@@ -1877,6 +1887,7 @@ export type PromptInput = Schema.Schema.Type<typeof PromptInput>
 
 export class LoopInput extends Schema.Class<LoopInput>("SessionPrompt.LoopInput")({
   sessionID: SessionID,
+  maxSteps: Schema.optional(Schema.Number),
 }) {
   static readonly zod = zod(this)
 }

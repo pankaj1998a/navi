@@ -34,14 +34,29 @@ export const layer: Layer.Layer<Service, never, AppFileSystem.Service | Path.Pat
       const http = HttpClient.filterStatusOk(withTransientReadRetry(yield* HttpClient.HttpClient))
       const cache = path.join(Global.Path.cache, "skills")
 
-      const download = Effect.fn("Discovery.download")(function* (url: string, dest: string) {
-        if (yield* fs.exists(dest).pipe(Effect.orDie)) return true
-
+      const download = Effect.fn("Discovery.download")(function* (url: string, dest: string, expectedHash?: string) {
         return yield* HttpClientRequest.get(url).pipe(
           http.execute,
           Effect.flatMap((res) => res.arrayBuffer),
-          Effect.flatMap((body) => fs.writeWithDirs(dest, new Uint8Array(body))),
-          Effect.as(true),
+          Effect.flatMap((body) =>
+            Effect.gen(function* () {
+              const uint8 = new Uint8Array(body)
+              if (expectedHash) {
+                const digest = yield* Effect.promise(async () => {
+                  const hashBuf = await crypto.subtle.digest("SHA-256", uint8)
+                  return Array.from(new Uint8Array(hashBuf))
+                    .map((b) => b.toString(16).padStart(2, "0"))
+                    .join("")
+                })
+                if (digest.toLowerCase() !== expectedHash.toLowerCase()) {
+                  log.error("checksum mismatch for skill file", { url, expectedHash, actualHash: digest })
+                  return false
+                }
+              }
+              yield* fs.writeWithDirs(dest, uint8)
+              return true
+            }),
+          ),
           Effect.catch((err) =>
             Effect.sync(() => {
               log.error("failed to download", { url, err })
@@ -51,10 +66,37 @@ export const layer: Layer.Layer<Service, never, AppFileSystem.Service | Path.Pat
         )
       })
 
+      const ALLOWED_SKILL_EXTENSIONS = new Set([
+        ".md",
+        ".txt",
+        ".json",
+        ".yaml",
+        ".yml",
+        ".png",
+        ".jpg",
+        ".jpeg",
+        ".svg",
+      ])
+      const SAFE_SKILL_NAME_RE = /^[a-zA-Z0-9_-]+$/
+
       const pull = Effect.fn("Discovery.pull")(function* (url: string) {
+        if (!url.startsWith("https://")) {
+          log.error("skill pull rejected: URL must use secure https:// scheme", { url })
+          return []
+        }
+
         const base = url.endsWith("/") ? url : `${url}/`
         const index = new URL("index.json", base).href
         const host = base.slice(0, -1)
+
+        const { assertSafeExternalUrl } = yield* Effect.promise(() => import("@/util/ssrf"))
+        const ssrfCheck = yield* Effect.promise(() =>
+          assertSafeExternalUrl(index).then(() => true).catch((e) => {
+            log.error("skill pull SSRF check failed", { url: index, error: String(e) })
+            return false
+          }),
+        )
+        if (!ssrfCheck) return []
 
         log.info("fetching index", { url: index })
 
@@ -72,7 +114,13 @@ export const layer: Layer.Layer<Service, never, AppFileSystem.Service | Path.Pat
 
         if (!data) return []
 
+        const { isPathContained } = yield* Effect.promise(() => import("@/sandbox"))
+
         const list = data.skills.filter((skill) => {
+          if (!SAFE_SKILL_NAME_RE.test(skill.name)) {
+            log.warn("rejected unsafe skill name with special characters or path traversal", { name: skill.name })
+            return false
+          }
           if (!skill.files.includes("SKILL.md")) {
             log.warn("skill entry missing SKILL.md", { url: index, skill: skill.name })
             return false
@@ -86,8 +134,23 @@ export const layer: Layer.Layer<Service, never, AppFileSystem.Service | Path.Pat
             Effect.gen(function* () {
               const root = path.join(cache, skill.name)
 
+              // Filter only allowed file extensions and prevent path traversal
+              const safeFiles = skill.files.filter((file) => {
+                const ext = path.extname(file).toLowerCase()
+                if (!ALLOWED_SKILL_EXTENSIONS.has(ext)) {
+                  log.warn("rejected untrusted file extension in skill package", { skill: skill.name, file, ext })
+                  return false
+                }
+                const resolvedFile = path.resolve(root, file)
+                if (!isPathContained(root, resolvedFile)) {
+                  log.warn("rejected directory traversal file path in skill package", { skill: skill.name, file })
+                  return false
+                }
+                return true
+              })
+
               yield* Effect.forEach(
-                skill.files,
+                safeFiles,
                 (file) => download(new URL(file, `${host}/${skill.name}/`).href, path.join(root, file)),
                 {
                   concurrency: fileConcurrency,

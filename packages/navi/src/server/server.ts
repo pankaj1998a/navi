@@ -10,6 +10,7 @@ import { disposeMiddleware } from "./routes/instance/httpapi/lifecycle"
 import { WebSocketTracker } from "./routes/instance/httpapi/websocket-tracker"
 import { PublicApi } from "./routes/instance/httpapi/public"
 import type { CorsOptions } from "./cors"
+import { Flag } from "@navi-ai/core/flag/flag"
 
 // @ts-ignore This global is needed to prevent ai-sdk from logging warnings to stdout https://github.com/vercel/ai/blob/2dc67e0ef538307f21368db32d5a12345d98831b/packages/ai/src/logger/log-warnings.ts#L85
 globalThis.AI_SDK_LOG_WARNINGS = false
@@ -58,6 +59,20 @@ export let url: URL
 
 export async function listen(opts: ListenOptions): Promise<Listener> {
   log.info("server backend", { "navi.server.runtime": HttpApiServer.name })
+
+  const isLoopback =
+    opts.hostname === "127.0.0.1" ||
+    opts.hostname === "localhost" ||
+    opts.hostname === "::1"
+
+  if (!isLoopback && !Flag.NAVI_SERVER_PASSWORD && !process.env.NAVI_SERVER_PASSWORD) {
+    const generated = crypto.randomUUID()
+    Flag.NAVI_SERVER_PASSWORD = generated
+    process.env.NAVI_SERVER_PASSWORD = generated
+    log.warn(
+      `Server bound to non-loopback host (${opts.hostname}) without password; generated ephemeral security password: ${generated}`,
+    )
+  }
 
   const buildLayer = (port: number) =>
     HttpRouter.serve(ExperimentalHttpApiServer.createRoutes(opts), {

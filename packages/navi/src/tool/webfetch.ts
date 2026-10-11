@@ -34,6 +34,9 @@ export const WebFetchTool = Tool.define(
             throw new Error("URL must start with http:// or https://")
           }
 
+          const { assertSafeExternalUrl } = yield* Effect.promise(() => import("@/util/ssrf"))
+          yield* Effect.promise(() => assertSafeExternalUrl(params.url))
+
           yield* ctx.ask({
             permission: "webfetch",
             patterns: [params.url],
@@ -123,31 +126,34 @@ export const WebFetchTool = Tool.define(
 
           const content = new TextDecoder().decode(arrayBuffer)
 
+          const { wrapUntrustedContent } = yield* Effect.promise(() => import("@/util/untrusted-content"))
+          const formatOutput = (raw: string) => wrapUntrustedContent(raw, params.url)
+
           // Handle content based on requested format and actual content type
           switch (params.format) {
             case "markdown":
               if (contentType.includes("text/html")) {
                 const markdown = convertHTMLToMarkdown(content)
                 return {
-                  output: markdown,
+                  output: formatOutput(markdown),
                   title,
                   metadata: {},
                 }
               }
-              return { output: content, title, metadata: {} }
+              return { output: formatOutput(content), title, metadata: {} }
 
             case "text":
               if (contentType.includes("text/html")) {
                 const text = yield* Effect.promise(() => extractTextFromHTML(content))
-                return { output: text, title, metadata: {} }
+                return { output: formatOutput(text), title, metadata: {} }
               }
-              return { output: content, title, metadata: {} }
+              return { output: formatOutput(content), title, metadata: {} }
 
             case "html":
-              return { output: content, title, metadata: {} }
+              return { output: formatOutput(content), title, metadata: {} }
 
             default:
-              return { output: content, title, metadata: {} }
+              return { output: formatOutput(content), title, metadata: {} }
           }
         }).pipe(Effect.orDie),
     }

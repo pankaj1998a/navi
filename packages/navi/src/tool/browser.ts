@@ -294,6 +294,8 @@ export const BrowserTool = Tool.define(
             case "navigate": {
               if (!params.url) throw new Error("Parameter 'url' is required for action 'navigate'")
               const targetUrl = params.url
+              const { assertSafeExternalUrl } = yield* Effect.promise(() => import("@/util/ssrf"))
+              yield* Effect.promise(() => assertSafeExternalUrl(targetUrl))
               log.info("navigating browser", { url: targetUrl })
               const navResult = yield* Effect.promise(async () => {
                 await page.goto(targetUrl, { waitUntil: "domcontentloaded", timeout: 30_000 })
@@ -719,6 +721,8 @@ export const BrowserTool = Tool.define(
                 sessionState.pages.push(p)
                 sessionState.activePageIndex = sessionState.pages.length - 1
                 if (params.url) {
+                  const { assertSafeExternalUrl } = await import("@/util/ssrf")
+                  await assertSafeExternalUrl(params.url)
                   await p.goto(params.url, { waitUntil: "domcontentloaded", timeout: 30_000 })
                 }
                 return p
