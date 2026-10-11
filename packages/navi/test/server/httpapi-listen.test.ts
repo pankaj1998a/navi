@@ -38,9 +38,9 @@ async function startListener() {
 }
 
 async function startNoAuthListener() {
-  Flag.NAVI_SERVER_PASSWORD = undefined
+  Flag.NAVI_SERVER_PASSWORD = ""
   Flag.NAVI_SERVER_USERNAME = auth.username
-  delete process.env.NAVI_SERVER_PASSWORD
+  process.env.NAVI_SERVER_PASSWORD = ""
   process.env.NAVI_SERVER_USERNAME = auth.username
   return Server.listen({ hostname: "127.0.0.1", port: 0 })
 }

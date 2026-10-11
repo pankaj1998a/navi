@@ -7,6 +7,7 @@
 const INJECTION_PATTERNS: Array<{ regex: RegExp; replacement: string }> = [
   // Closing tag breakout attempt
   { regex: /<\/\s*untrusted_external_content\s*>/gi, replacement: "[ESCAPED_UNTRUSTED_TAG]" },
+  { regex: /<\/\s*skill(?:_content)?\s*>/gi, replacement: "[ESCAPED_SKILL_TAG]" },
   // System prompt boundary overrides
   { regex: /<\/?system(?:-reminder)?>/gi, replacement: "[ESCAPED_SYSTEM_TAG]" },
   { regex: /\[\/?(?:SYSTEM|SYS)\]/gi, replacement: "[ESCAPED_SYS_BRACKET]" },

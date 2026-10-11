@@ -60,17 +60,17 @@ export let url: URL
 export async function listen(opts: ListenOptions): Promise<Listener> {
   log.info("server backend", { "navi.server.runtime": HttpApiServer.name })
 
-  const isLoopback =
-    opts.hostname === "127.0.0.1" ||
-    opts.hostname === "localhost" ||
-    opts.hostname === "::1"
+  const isExplicitlyDisabled =
+    Flag.NAVI_SERVER_PASSWORD === "" ||
+    process.env.NAVI_SERVER_PASSWORD === "" ||
+    process.env.NAVI_DISABLE_SERVER_AUTH === "1"
 
-  if (!isLoopback && !Flag.NAVI_SERVER_PASSWORD && !process.env.NAVI_SERVER_PASSWORD) {
+  if (!isExplicitlyDisabled && !Flag.NAVI_SERVER_PASSWORD && !process.env.NAVI_SERVER_PASSWORD) {
     const generated = crypto.randomUUID()
     Flag.NAVI_SERVER_PASSWORD = generated
     process.env.NAVI_SERVER_PASSWORD = generated
-    log.warn(
-      `Server bound to non-loopback host (${opts.hostname}) without password; generated ephemeral security password: ${generated}`,
+    log.info(
+      `Server bound to ${opts.hostname} without password; generated ephemeral security password: ${generated}`,
     )
   }
 

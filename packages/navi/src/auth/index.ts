@@ -42,6 +42,56 @@ export class AuthError extends Schema.TaggedErrorClass<AuthError>()("AuthError",
   cause: Schema.optional(Schema.Defect),
 }) {}
 
+import { encryptSecret, decryptSecret, protectFilePermissions } from "@/util/file-security"
+
+function encryptAuthInfo(info: Info): Info {
+  if (info.type === "oauth") {
+    return new Oauth({
+      ...info,
+      refresh: encryptSecret(info.refresh),
+      access: encryptSecret(info.access),
+    })
+  }
+  if (info.type === "api") {
+    return new Api({
+      ...info,
+      key: encryptSecret(info.key),
+    })
+  }
+  if (info.type === "wellknown") {
+    return new WellKnown({
+      ...info,
+      key: encryptSecret(info.key),
+      token: encryptSecret(info.token),
+    })
+  }
+  return info
+}
+
+function decryptAuthInfo(info: Info): Info {
+  if (info.type === "oauth") {
+    return new Oauth({
+      ...info,
+      refresh: decryptSecret(info.refresh),
+      access: decryptSecret(info.access),
+    })
+  }
+  if (info.type === "api") {
+    return new Api({
+      ...info,
+      key: decryptSecret(info.key),
+    })
+  }
+  if (info.type === "wellknown") {
+    return new WellKnown({
+      ...info,
+      key: decryptSecret(info.key),
+      token: decryptSecret(info.token),
+    })
+  }
+  return info
+}
+
 export interface Interface {
   readonly get: (providerID: string) => Effect.Effect<Info | undefined, AuthError>
   readonly all: () => Effect.Effect<Record<string, Info>, AuthError>
@@ -66,9 +116,10 @@ export const layer = Layer.effect(
       if (process.env.NAVI_AUTH_CONTENT) {
         try {
           const parsed = JSON.parse(process.env.NAVI_AUTH_CONTENT) as Record<string, Info>
-          cachedAuthEnv = parsed
+          const decrypted = Record.map(parsed, (info) => decryptAuthInfo(info))
+          cachedAuthEnv = decrypted
           delete process.env.NAVI_AUTH_CONTENT
-          return parsed
+          return decrypted
         } catch (cause) {
           delete process.env.NAVI_AUTH_CONTENT
           Log.Default.error("invalid NAVI_AUTH_CONTENT JSON", { error: String(cause) })
@@ -77,7 +128,9 @@ export const layer = Layer.effect(
       }
 
       const data = (yield* fsys.readJson(file).pipe(Effect.orElseSucceed(() => ({})))) as Record<string, unknown>
-      return Record.filterMap(data, (value) => Result.fromOption(decode(value), () => undefined))
+      protectFilePermissions(file)
+      const parsed = Record.filterMap(data, (value) => Result.fromOption(decode(value), () => undefined))
+      return Record.map(parsed, (info) => decryptAuthInfo(info))
     })
 
     const get = Effect.fn("Auth.get")(function* (providerID: string) {
@@ -89,9 +142,12 @@ export const layer = Layer.effect(
       const data = yield* all()
       if (norm !== key) delete data[key]
       delete data[norm + "/"]
+      data[norm] = info
+      const diskData = Record.map(data, (v) => encryptAuthInfo(v))
       yield* fsys
-        .writeJson(file, { ...data, [norm]: info }, 0o600)
+        .writeJson(file, diskData, 0o600)
         .pipe(Effect.mapError(fail("Failed to write auth data")))
+      protectFilePermissions(file)
     })
 
     const remove = Effect.fn("Auth.remove")(function* (key: string) {
@@ -99,7 +155,9 @@ export const layer = Layer.effect(
       const data = yield* all()
       delete data[key]
       delete data[norm]
-      yield* fsys.writeJson(file, data, 0o600).pipe(Effect.mapError(fail("Failed to write auth data")))
+      const diskData = Record.map(data, (v) => encryptAuthInfo(v))
+      yield* fsys.writeJson(file, diskData, 0o600).pipe(Effect.mapError(fail("Failed to write auth data")))
+      protectFilePermissions(file)
     })
 
     return Service.of({ get, all, set, remove })

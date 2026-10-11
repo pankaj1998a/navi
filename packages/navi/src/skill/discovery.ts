@@ -12,6 +12,7 @@ const fileConcurrency = 8
 class IndexSkill extends Schema.Class<IndexSkill>("IndexSkill")({
   name: Schema.String,
   files: Schema.Array(Schema.String),
+  checksums: Schema.Record(Schema.String, Schema.String),
 }) {}
 
 class Index extends Schema.Class<Index>("Index")({
@@ -115,6 +116,9 @@ export const layer: Layer.Layer<Service, never, AppFileSystem.Service | Path.Pat
         if (!data) return []
 
         const { isPathContained } = yield* Effect.promise(() => import("@/sandbox"))
+        const { sanitizeUntrustedText, wrapUntrustedContent } = yield* Effect.promise(
+          () => import("@/util/untrusted-content"),
+        )
 
         const list = data.skills.filter((skill) => {
           if (!SAFE_SKILL_NAME_RE.test(skill.name)) {
@@ -149,13 +153,57 @@ export const layer: Layer.Layer<Service, never, AppFileSystem.Service | Path.Pat
                 return true
               })
 
-              yield* Effect.forEach(
+              const downloadResults = yield* Effect.forEach(
                 safeFiles,
-                (file) => download(new URL(file, `${host}/${skill.name}/`).href, path.join(root, file)),
-                {
-                  concurrency: fileConcurrency,
-                },
+                (file) =>
+                  Effect.gen(function* () {
+                    const expectedHash = skill.checksums[file]
+                    if (!expectedHash) {
+                      log.error("missing checksum for skill file in index", { skill: skill.name, file })
+                      return false
+                    }
+                    return yield* download(
+                      new URL(file, `${host}/${skill.name}/`).href,
+                      path.join(root, file),
+                      expectedHash,
+                    )
+                  }),
+                { concurrency: fileConcurrency },
               )
+
+              if (downloadResults.some((ok) => !ok)) {
+                log.error("aborted skill installation: missing or failed checksum verification", {
+                  skill: skill.name,
+                })
+                return null
+              }
+
+              // Neutralize prompt-injection vectors in markdown and text files
+              for (const file of safeFiles) {
+                const ext = path.extname(file).toLowerCase()
+                if (ext === ".md" || ext === ".txt") {
+                  const filePath = path.join(root, file)
+                  if (yield* fs.exists(filePath).pipe(Effect.orDie)) {
+                    const rawText = yield* fs.readFileString(filePath).pipe(Effect.orDie)
+                    if (file === "SKILL.md") {
+                      const match = /^---\r?\n([\s\S]*?)\r?\n---\r?\n([\s\S]*)$/.exec(rawText)
+                      if (match && match[1] !== undefined && match[2] !== undefined) {
+                        const frontmatter = sanitizeUntrustedText(match[1])
+                        const body = match[2]
+                        const wrappedBody = wrapUntrustedContent(body, `remote-skill:${skill.name}`)
+                        const sanitizedFull = `---\n${frontmatter}\n---\n\n${wrappedBody}`
+                        yield* fs.writeWithDirs(filePath, sanitizedFull).pipe(Effect.orDie)
+                      } else {
+                        const wrapped = wrapUntrustedContent(rawText, `remote-skill:${skill.name}`)
+                        yield* fs.writeWithDirs(filePath, wrapped).pipe(Effect.orDie)
+                      }
+                    } else {
+                      const sanitized = sanitizeUntrustedText(rawText)
+                      yield* fs.writeWithDirs(filePath, sanitized).pipe(Effect.orDie)
+                    }
+                  }
+                }
+              }
 
               const md = path.join(root, "SKILL.md")
               return (yield* fs.exists(md).pipe(Effect.orDie)) ? root : null
@@ -166,7 +214,7 @@ export const layer: Layer.Layer<Service, never, AppFileSystem.Service | Path.Pat
         return dirs.filter((dir): dir is string => dir !== null)
       })
 
-      return Service.of({ pull })
+      return Service.of({ pull: (url: string) => pull(url).pipe(Effect.orDie) })
     }),
   )
 

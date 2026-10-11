@@ -863,49 +863,9 @@ export const BrowserTool = Tool.define(
             }
 
             case "evaluate": {
-              if (!params.script) throw new Error("Parameter 'script' is required for action 'evaluate'")
-              const scriptToRun = params.script
-              if (scriptToRun.length > EVALUATE_MAX_LENGTH) {
-                throw new Error(`Parameter 'script' exceeds maximum length of ${EVALUATE_MAX_LENGTH}`)
-              }
-              const scriptHash = Hash.fast(scriptToRun)
-              const trusted = process.env.NAVI_BROWSER_ALLOW_EVAL === "1" || process.env.NAVI_TRUST_BROWSER_EVAL === "1"
-              if (!trusted) {
-                yield* ctx.ask({
-                  permission: "browser.evaluate",
-                  patterns: [
-                    scriptToRun.length > 200
-                      ? `${scriptToRun.slice(0, 200)}... [hash:${scriptHash}]`
-                      : scriptToRun,
-                  ],
-                  always: [],
-                  metadata: { action: "evaluate", scriptHash, length: scriptToRun.length },
-                })
-              }
-              log.info("browser evaluate", { scriptHash, length: scriptToRun.length })
-
-              const result = yield* Effect.promise(() =>
-                Promise.race([
-                  page.evaluate((code) => {
-                    const fn = new Function("'use strict'; return (" + code + ")")
-                    return fn()
-                  }, scriptToRun),
-                  new Promise<never>((_resolve, reject) =>
-                    setTimeout(() => reject(new Error(`Evaluate timed out after ${EVALUATE_TIMEOUT_MS}ms`)), EVALUATE_TIMEOUT_MS),
-                  ),
-                ]).catch((e: unknown) => {
-                  log.error("browser evaluate failed", { scriptHash, error: String(e) })
-                  throw e
-                }),
+              throw new Error(
+                "Action 'evaluate' is permanently disabled for cybersecurity reasons: arbitrary JavaScript execution in browser context is prohibited.",
               )
-
-              const stringified = typeof result === "object" ? safeStringify(result) : String(result)
-
-              return {
-                title: "JavaScript Evaluated",
-                output: `Result of script evaluation:\n\`\`\`json\n${stringified}\n\`\`\``,
-                metadata: { action: "evaluate" } as Record<string, unknown>,
-              }
             }
 
             case "wait": {

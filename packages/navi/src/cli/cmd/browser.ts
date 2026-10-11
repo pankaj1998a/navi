@@ -87,23 +87,9 @@ export const BrowserCommand = effectCmd({
     }
 
     if (action === "eval") {
-      const code = args.script ?? target
-      if (!code) return yield* fail("JavaScript code to evaluate is required.")
-      const browser = yield* Effect.promise(() => getBrowser())
-      const pages = yield* Effect.promise(() => browser.pages())
-      const page = pages[0] ?? (yield* Effect.promise(() => browser.newPage()))
-      const result = yield* Effect.promise(() =>
-        page.evaluate((expr) => {
-          try {
-            const fn = new Function("'use strict'; return (" + expr + ")")
-            return fn()
-          } catch (e: any) {
-            return { error: e.message }
-          }
-        }, code),
+      return yield* fail(
+        "The 'eval' command is permanently disabled for cybersecurity reasons: arbitrary JavaScript evaluation is prohibited.",
       )
-      process.stdout.write(JSON.stringify(result, null, 2) + "\n")
-      return
     }
 
     if (action === "console") {

@@ -15,6 +15,7 @@ import { InstallationChannel } from "@navi-ai/core/installation/version"
 import { InstanceState } from "../effect/instance-state"
 import { iife } from "../util/iife"
 import { init } from "#db"
+import { protectFilePermissions } from "../util/file-security"
 
 declare const NAVI_MIGRATIONS: { sql: string; timestamp: number; name: string }[] | undefined
 
@@ -108,10 +109,10 @@ export const Client = lazy(() => {
   db.run("PRAGMA foreign_keys = ON")
   db.run("PRAGMA wal_checkpoint(PASSIVE)")
 
-  if (Path !== ":memory:" && existsSync(Path) && process.platform !== "win32") {
-    try {
-      chmodSync(Path, 0o600)
-    } catch {}
+  if (Path !== ":memory:" && existsSync(Path)) {
+    protectFilePermissions(Path)
+    if (existsSync(Path + "-wal")) protectFilePermissions(Path + "-wal")
+    if (existsSync(Path + "-shm")) protectFilePermissions(Path + "-shm")
   }
 
   // Apply schema migrations
