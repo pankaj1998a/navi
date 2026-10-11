@@ -130,12 +130,12 @@ export const RoocodeProvider: ProviderLoader.Info = {
         const modelCount = Object.keys(models).length
         const autoload = hasKey || modelCount > 0
 
-        log.info("done", { autoload, modelCount, fetchedModels, hasKey, "Auth Details": auth, apiKey: !!apiKey })
+        log.info("done", { autoload, modelCount, fetchedModels, hasKey, authType: auth?.type, apiKey: !!apiKey })
 
         return {
             autoload,
             options: {
-                apiKey: apiKey || "public",
+                apiKey: apiKey || undefined,
                 baseURL: ROOCODE_BASE_URL,
                 headers: {
                     "HTTP-Referer": "https://roocode.com",

@@ -111,16 +111,20 @@ export const csrfLayer = HttpRouter.middleware(
         return yield* effect
       }
 
-      // Fallback to Hono-style Origin + Sec-Fetch-Site validation
+      // Fallback to Origin + Sec-Fetch-Site + Referer validation
       const origin = request.headers["origin"]
       const secFetchSite = request.headers["sec-fetch-site"]?.toLowerCase()
       const host = request.headers["host"]
+      const referer = request.headers["referer"]
+      const hasAuth = !!request.headers["authorization"]
+      const isCustomClient = !!request.headers["x-requested-with"] || !!request.headers["x-navi-client"]
 
-      // If both headers missing, allow (old browsers, same-origin navigation without fetch metadata)
-      // but require Origin check when present.
       if (secFetchSite) {
         if (secFetchSite === "same-origin") return yield* effect
-        // For same-site/cross-site/none, fall through to Origin check
+        if (secFetchSite === "cross-site") {
+          return HttpServerResponse.jsonUnsafe({ error: "CSRF cross-site request forbidden" }, { status: 403 })
+        }
+        // For same-site/none, fall through to Origin / Referer check
       }
 
       if (origin) {
@@ -137,13 +141,36 @@ export const csrfLayer = HttpRouter.middleware(
             }
           }
         } catch {
-           return HttpServerResponse.jsonUnsafe({ error: "CSRF origin invalid" }, { status: 403 })
+          return HttpServerResponse.jsonUnsafe({ error: "CSRF origin invalid" }, { status: 403 })
         }
-        // If Origin present but not same-host, block form submissions
-        if (isFormContentType(contentType) || !contentType) {
-          // Only block when content-type is form-capable or missing (form default)
-           return HttpServerResponse.jsonUnsafe({ error: "CSRF origin mismatch" }, { status: 403 })
+        // Origin present but mismatch
+        return HttpServerResponse.jsonUnsafe({ error: "CSRF origin mismatch" }, { status: 403 })
+      }
+
+      // Check Referer when Origin is absent
+      if (referer) {
+        try {
+          const refererHost = new URL(referer).host
+          if (host && refererHost === host) return yield* effect
+          if (host && (refererHost.startsWith("localhost:") || refererHost.startsWith("127.0.0.1:"))) {
+            const hostPort = host.includes(":") ? host.split(":")[1] : "80"
+            const refPort = refererHost.includes(":") ? refererHost.split(":")[1] : "80"
+            if (hostPort === refPort) return yield* effect
+          }
+        } catch {
+          return HttpServerResponse.jsonUnsafe({ error: "CSRF referer invalid" }, { status: 403 })
         }
+        return HttpServerResponse.jsonUnsafe({ error: "CSRF referer mismatch" }, { status: 403 })
+      }
+
+      // When Origin, Sec-Fetch-Site, and Referer are ALL missing:
+      // Disallow unauthenticated form posts and require custom anti-CSRF client header or Authorization
+      if (isFormContentType(contentType) || !contentType) {
+        return HttpServerResponse.jsonUnsafe({ error: "CSRF verification missing origin headers" }, { status: 403 })
+      }
+
+      if (!hasAuth && !isCustomClient) {
+        return HttpServerResponse.jsonUnsafe({ error: "CSRF verification required for state-changing operations" }, { status: 403 })
       }
 
       return yield* effect

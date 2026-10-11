@@ -11,18 +11,13 @@ export const HEADER = "x-navi-sync"
 export type State = Record<string, number>
 const log = Log.create({ service: "fence" })
 
-// Bound unbounded loads: cap ids per query and chunk large inArray lists (SQLite ~999 vars).
-const FENCE_MAX_IDS = 2000
+// Chunk large inArray lists to respect SQLite variable limits (~999 vars).
 const FENCE_CHUNK = 500
 
 export function load(ids?: string[]) {
-  if (ids && ids.length > FENCE_MAX_IDS) {
-    log.warn("fence load truncated", { ids: ids.length, max: FENCE_MAX_IDS })
-    ids = ids.slice(0, FENCE_MAX_IDS)
-  }
   const rows = Database.use((db) => {
     if (!ids?.length) {
-      return db.select().from(EventSequenceTable).limit(FENCE_MAX_IDS).all()
+      return db.select().from(EventSequenceTable).all()
     }
 
     const out: (typeof EventSequenceTable.$inferSelect)[] = []
@@ -57,11 +52,15 @@ export function parse(headers: Headers) {
 
   try {
     data = JSON.parse(raw)
-  } catch {
-    return
+  } catch (err) {
+    log.error("Failed to parse x-navi-sync header; rejecting malformed sync fence", { raw, error: String(err) })
+    throw new Error(`Malformed '${HEADER}' header: invalid JSON`)
   }
 
-  if (!data || typeof data !== "object") return
+  if (!data || typeof data !== "object") {
+    log.error("Invalid x-navi-sync header shape; expected object", { raw })
+    throw new Error(`Malformed '${HEADER}' header: expected object mapping ID to sequence`)
+  }
 
   return Object.fromEntries(
     Object.entries(data).filter(([id, seq]) => {

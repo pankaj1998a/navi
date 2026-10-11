@@ -272,33 +272,26 @@ export const layer: Layer.Layer<
           case "reasoning-end": {
             const reasoningEntry = ctx.reasoningMap[value.id]
             if (!reasoningEntry) return
-            // TODO(v2): Temporary dual-write while migrating session messages to v2 events.
+            // oxlint-disable-next-line no-self-assign -- reactivity trigger
+            reasoningEntry.text = reasoningEntry.text
+            reasoningEntry.time = { ...reasoningEntry.time, end: Date.now() }
+            if (value.providerMetadata) reasoningEntry.metadata = value.providerMetadata
+            yield* session.updatePart(reasoningEntry)
+            // TODO(v2): Dual-write committed after primary v1 update succeeds
             EventV2.run(SessionEvent.Reasoning.Ended.Sync, {
               sessionID: ctx.sessionID,
               reasoningID: value.id,
               text: reasoningEntry.text,
               timestamp: DateTime.makeUnsafe(Date.now()),
             })
-            // oxlint-disable-next-line no-self-assign -- reactivity trigger
-            reasoningEntry.text = reasoningEntry.text
-            reasoningEntry.time = { ...reasoningEntry.time, end: Date.now() }
-            if (value.providerMetadata) reasoningEntry.metadata = value.providerMetadata
-            yield* session.updatePart(reasoningEntry)
             delete ctx.reasoningMap[value.id]
             return
           }
 
-          case "tool-input-start":
+          case "tool-input-start": {
             if (ctx.assistantMessage.summary) {
               throw new Error(`Tool call not allowed while generating summary: ${value.toolName}`)
             }
-            // TODO(v2): Temporary dual-write while migrating session messages to v2 events.
-            EventV2.run(SessionEvent.Tool.Input.Started.Sync, {
-              sessionID: ctx.sessionID,
-              callID: value.id,
-              name: value.toolName,
-              timestamp: DateTime.makeUnsafe(Date.now()),
-            })
             const part = yield* session.updatePart({
               id: ctx.toolcalls[value.id]?.partID ?? PartID.ascending(),
               messageID: ctx.assistantMessage.id,
@@ -309,6 +302,13 @@ export const layer: Layer.Layer<
               state: { status: "pending", input: {}, raw: "" },
               metadata: value.providerExecuted ? { providerExecuted: true } : undefined,
             } satisfies MessageV2.ToolPart)
+            // TODO(v2): Dual-write committed after primary v1 updatePart succeeds
+            EventV2.run(SessionEvent.Tool.Input.Started.Sync, {
+              sessionID: ctx.sessionID,
+              callID: value.id,
+              name: value.toolName,
+              timestamp: DateTime.makeUnsafe(Date.now()),
+            })
             ctx.toolcalls[value.id] = {
               done: yield* Deferred.make<void>(),
               partID: part.id,
@@ -316,6 +316,7 @@ export const layer: Layer.Layer<
               sessionID: part.sessionID,
             }
             return
+          }
 
           case "tool-input-delta":
             return
@@ -440,7 +441,8 @@ export const layer: Layer.Layer<
                   : `${baseOutput}\n\n[${omitted} image${omitted === 1 ? "" : "s"} omitted: could not be resized below the inline image size limit.]`,
               attachments: attachments?.length ? attachments : undefined,
             }
-            // TODO(v2): Temporary dual-write while migrating session messages to v2 events.
+            yield* completeToolCall(value.toolCallId, output)
+            // TODO(v2): Dual-write committed after primary completeToolCall succeeds
             EventV2.run(SessionEvent.Tool.Success.Sync, {
               sessionID: ctx.sessionID,
               callID: value.toolCallId,
@@ -462,7 +464,6 @@ export const layer: Layer.Layer<
               },
               timestamp: DateTime.makeUnsafe(Date.now()),
             })
-            yield* completeToolCall(value.toolCallId, output)
             return
           }
 
@@ -491,7 +492,8 @@ export const layer: Layer.Layer<
               errMsg += `\n\n[SYSTEM WARNING: You have executed the tool "${toolPart.tool}" with the exact same arguments ${consecutiveCount} times consecutively. It keeps failing with the same error. Please try a different approach, resolve any syntax issues, or ask the user for assistance.]`
             }
 
-            // TODO(v2): Temporary dual-write while migrating session messages to v2 events.
+            yield* failToolCall(value.toolCallId, new Error(errMsg))
+            // TODO(v2): Dual-write committed after primary failToolCall succeeds
             EventV2.run(SessionEvent.Tool.Failed.Sync, {
               sessionID: ctx.sessionID,
               callID: value.toolCallId,
@@ -504,7 +506,6 @@ export const layer: Layer.Layer<
               },
               timestamp: DateTime.makeUnsafe(Date.now()),
             })
-            yield* failToolCall(value.toolCallId, new Error(errMsg))
             return
           }
 
@@ -543,17 +544,6 @@ export const layer: Layer.Layer<
               usage: value.usage,
               metadata: value.providerMetadata,
             })
-            if (!ctx.assistantMessage.summary) {
-              // TODO(v2): Temporary dual-write while migrating session messages to v2 events.
-              EventV2.run(SessionEvent.Step.Ended.Sync, {
-                sessionID: ctx.sessionID,
-                finish: value.finishReason,
-                cost: usage.cost,
-                tokens: usage.tokens,
-                snapshot: completedSnapshot,
-                timestamp: DateTime.makeUnsafe(Date.now()),
-              })
-            }
             ctx.assistantMessage.finish = value.finishReason
             ctx.assistantMessage.cost += usage.cost
             ctx.assistantMessage.tokens = usage.tokens
@@ -568,6 +558,17 @@ export const layer: Layer.Layer<
               cost: usage.cost,
             })
             yield* session.updateMessage(ctx.assistantMessage)
+            if (!ctx.assistantMessage.summary) {
+              // TODO(v2): Dual-write committed after primary v1 updatePart and updateMessage succeed
+              EventV2.run(SessionEvent.Step.Ended.Sync, {
+                sessionID: ctx.sessionID,
+                finish: value.finishReason,
+                cost: usage.cost,
+                tokens: usage.tokens,
+                snapshot: completedSnapshot,
+                timestamp: DateTime.makeUnsafe(Date.now()),
+              })
+            }
             if (ctx.snapshot) {
               const patch = yield* snapshot.patch(ctx.snapshot)
               if (patch.files.length) {
@@ -598,13 +599,6 @@ export const layer: Layer.Layer<
           }
 
           case "text-start":
-            if (!ctx.assistantMessage.summary) {
-              // TODO(v2): Temporary dual-write while migrating session messages to v2 events.
-              EventV2.run(SessionEvent.Text.Started.Sync, {
-                sessionID: ctx.sessionID,
-                timestamp: DateTime.makeUnsafe(Date.now()),
-              })
-            }
             ctx.currentText = {
               id: PartID.ascending(),
               messageID: ctx.assistantMessage.id,
@@ -615,6 +609,13 @@ export const layer: Layer.Layer<
               metadata: value.providerMetadata,
             }
             yield* session.updatePart(ctx.currentText)
+            if (!ctx.assistantMessage.summary) {
+              // TODO(v2): Dual-write committed after primary v1 updatePart succeeds
+              EventV2.run(SessionEvent.Text.Started.Sync, {
+                sessionID: ctx.sessionID,
+                timestamp: DateTime.makeUnsafe(Date.now()),
+              })
+            }
             return
 
           case "text-delta":
@@ -643,20 +644,20 @@ export const layer: Layer.Layer<
               },
               { text: ctx.currentText.text },
             )).text
-            if (!ctx.assistantMessage.summary) {
-              // TODO(v2): Temporary dual-write while migrating session messages to v2 events.
-              EventV2.run(SessionEvent.Text.Ended.Sync, {
-                sessionID: ctx.sessionID,
-                text: ctx.currentText.text,
-                timestamp: DateTime.makeUnsafe(Date.now()),
-              })
-            }
             {
               const end = Date.now()
               ctx.currentText.time = { start: ctx.currentText.time?.start ?? end, end }
             }
             if (value.providerMetadata) ctx.currentText.metadata = value.providerMetadata
             yield* session.updatePart(ctx.currentText)
+            if (!ctx.assistantMessage.summary) {
+              // TODO(v2): Dual-write committed after primary v1 updatePart succeeds
+              EventV2.run(SessionEvent.Text.Ended.Sync, {
+                sessionID: ctx.sessionID,
+                text: ctx.currentText.text,
+                timestamp: DateTime.makeUnsafe(Date.now()),
+              })
+            }
             ctx.currentText = undefined
             return
 

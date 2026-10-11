@@ -47,7 +47,11 @@ export function run<Def extends SyncEvent.Definition>(
   options?: { publish?: boolean },
 ) {
   if (!Flag.NAVI_EXPERIMENTAL_EVENT_SYSTEM) return
-  SyncEvent.run(def, data, options)
+  try {
+    SyncEvent.run(def, data, options)
+  } catch (err) {
+    console.error(`[EventV2] Dual-write dispatch failed for ${def.type}:`, err)
+  }
 }
 
 export * as EventV2 from "./event"

@@ -23,6 +23,10 @@ export function attachWith<A, E, R>(effect: Effect.Effect<A, E, R>, refs: Refs):
   )
 }
 
+import * as Log from "@navi-ai/core/util/log"
+
+const log = Log.create({ service: "effect.run-service" })
+
 export function attach<A, E, R>(effect: Effect.Effect<A, E, R>): Effect.Effect<A, E, R> {
   const workspace = WorkspaceContext.workspaceID
   const instance = (() => {
@@ -30,13 +34,19 @@ export function attach<A, E, R>(effect: Effect.Effect<A, E, R>): Effect.Effect<A
       return Instance.current
     } catch (err) {
       if (!(err instanceof LocalContext.NotFound)) throw err
+      return undefined
     }
   })()
   if (instance && workspace !== undefined) return attachWith(effect, { instance, workspace })
   const fiber = Fiber.getCurrent()
+  const resolvedInstance = instance ?? (fiber ? Context.getReferenceUnsafe(fiber.context, InstanceRef) : undefined)
+  const resolvedWorkspace = workspace ?? (fiber ? Context.getReferenceUnsafe(fiber.context, WorkspaceRef) : undefined)
+  if (!resolvedInstance && !resolvedWorkspace) {
+    log.debug("Attaching effect with unconfined instance and workspace context")
+  }
   return attachWith(effect, {
-    instance: instance ?? (fiber ? Context.getReferenceUnsafe(fiber.context, InstanceRef) : undefined),
-    workspace: workspace ?? (fiber ? Context.getReferenceUnsafe(fiber.context, WorkspaceRef) : undefined),
+    instance: resolvedInstance,
+    workspace: resolvedWorkspace,
   })
 }
 

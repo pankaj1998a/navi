@@ -6,6 +6,10 @@ import { LocalContext } from "@/util/local-context"
 import { InstanceRef, WorkspaceRef } from "./instance-ref"
 import { attachWith } from "./run-service"
 
+import * as Log from "@navi-ai/core/util/log"
+
+const log = Log.create({ service: "effect.bridge" })
+
 export interface Shape {
   readonly promise: <A, E, R>(effect: Effect.Effect<A, E, R>) => Promise<A>
   readonly fork: <A, E, R>(effect: Effect.Effect<A, E, R>) => Fiber.Fiber<A, E>
@@ -18,6 +22,7 @@ function restore<R>(instance: InstanceContext | undefined, workspace: WorkspaceI
   }
   if (instance) return Instance.restore(instance, fn)
   if (workspace !== undefined) return WorkspaceContext.restore(workspace, fn)
+  log.warn("Executing bridge callback with no active Instance or Workspace context")
   return fn()
 }
 
@@ -51,9 +56,14 @@ export function make(): Effect.Effect<Shape> {
           return Instance.current
         } catch (err) {
           if (!(err instanceof LocalContext.NotFound)) throw err
+          log.warn("Instance.current not found in EffectBridge.make", { error: String(err) })
+          return undefined
         }
       })()
     const workspace = (yield* WorkspaceRef) ?? WorkspaceContext.workspaceID
+    if (!instance && workspace === undefined) {
+      log.warn("EffectBridge created without instance or workspace binding; cross-tenant containment risk")
+    }
     const attach = <A, E, R>(effect: Effect.Effect<A, E, R>) => attachWith(effect, { instance, workspace })
     const wrap = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
       attach(effect).pipe(Effect.provide(ctx)) as Effect.Effect<A, E, never>

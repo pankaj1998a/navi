@@ -6,8 +6,8 @@ import { PtyID } from "@/pty/schema"
 import { PositiveInt } from "@navi-ai/core/schema"
 import { Cache, Context, Duration, Effect, Layer, Schema } from "effect"
 
-const DEFAULT_TTL = Duration.seconds(60)
-const CAPACITY = 10_000
+const DEFAULT_TTL = Duration.seconds(15)
+const CAPACITY = 1_000
 
 export const ConnectToken = Schema.Struct({
   ticket: Schema.String,
@@ -28,9 +28,11 @@ export interface Interface {
 export class Service extends Context.Service<Service, Interface>()("@navi/PtyTicket") {}
 
 function matches(record: Scope, input: Scope) {
-  return (
-    record.ptyID === input.ptyID && record.directory === input.directory && record.workspaceID === input.workspaceID
-  )
+  if (record.ptyID !== input.ptyID) return false
+  // Disallow cross-instance reuse when tenant boundaries are undefined on either side
+  if (record.directory === undefined && record.workspaceID === undefined) return false
+  if (input.directory === undefined && input.workspaceID === undefined) return false
+  return record.directory === input.directory && record.workspaceID === input.workspaceID
 }
 
 // Tickets are inserted via Cache.set and removed atomically via invalidateWhen. The lookup is
@@ -44,6 +46,9 @@ export const make = (ttl: Duration.Input = DEFAULT_TTL) =>
     const expiresIn = Math.max(1, Math.round(Duration.toSeconds(Duration.fromInputUnsafe(ttl))))
     return Service.of({
       issue: Effect.fn("PtyTicket.issue")(function* (input) {
+        if (!input.directory && !input.workspaceID) {
+          return yield* Effect.die("Cannot issue PTY ticket with empty tenant scope")
+        }
         const ticket = crypto.randomUUID()
         yield* Cache.set(cache, ticket, input)
         return { ticket, expires_in: expiresIn }
@@ -61,8 +66,12 @@ export const defaultLayer = layer
 export const scope = Effect.gen(function* () {
   const instance = yield* InstanceRef
   const workspaceID = yield* WorkspaceRef
+  const directory = instance?.directory
+  if (!directory && !workspaceID) {
+    return yield* Effect.die("Cannot scope PTY ticket: InstanceRef and WorkspaceRef are missing")
+  }
   return {
-    directory: instance?.directory,
+    directory,
     workspaceID,
   }
 })

@@ -2,6 +2,7 @@ import { Effect, Layer, ManagedRuntime } from "effect"
 import { attach } from "./run-service"
 import * as Observability from "@navi-ai/core/effect/observability"
 import * as Log from "@navi-ai/core/util/log"
+import { LocalContext } from "@/util/local-context"
 
 const log = Log.create({ service: "app.runtime" })
 
@@ -127,7 +128,11 @@ const wrap = (effect: Parameters<typeof rt.runSync>[0]) => {
     const inst = Instance.current
     if (inst) next = Effect.provideService(next, InstanceRef, inst)
   } catch (e) {
-    log.debug("no current instance context in wrap", { error: String(e) })
+    if (!(e instanceof LocalContext.NotFound)) {
+      log.warn("Unexpected error reading Instance.current in wrap", { error: String(e) })
+    } else {
+      log.debug("no current instance context in wrap", { error: String(e) })
+    }
   }
   try {
     const ws = WorkspaceContext.workspaceID

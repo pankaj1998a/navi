@@ -200,22 +200,13 @@ export const OpenCodeProvider: ProviderLoader.Info = {
 
     let baseURL = (auth?.type === "api" ? auth.metadata?.url : undefined) || config.provider?.[inputId]?.options?.baseURL || OPENCODE_BASE_URL
 
-    if (!apiKey) {
-      const detected = await detectOpenCodeLocalAuth()
-      if (detected?.apiKey) {
-        apiKey = detected.apiKey
-        log.info("Using detected local OpenCode auth key")
-      }
-    }
-
     const isLocalServerRunning = await checkOpenCodeServer(DEFAULT_SERVER_URL)
     if (!apiKey && isLocalServerRunning) {
       baseURL = `${DEFAULT_SERVER_URL}/v1`
-      apiKey = "public"
-      log.info("Connecting to active local OpenCode server runtime")
+      log.info("Found active local OpenCode server runtime")
     }
 
-    const hasKey = !!apiKey && apiKey !== "public"
+    const hasKey = !!apiKey
     let models: Record<string, any> = { ...inputModels }
 
     for (const m of DEFAULT_OPENCODE_MODELS) {
@@ -350,7 +341,7 @@ export const OpenCodeProvider: ProviderLoader.Info = {
     return {
       autoload,
       options: {
-        apiKey: apiKey || "public",
+        apiKey: apiKey || undefined,
         baseURL,
         fetch: createOpenCodeBridgeFetch(baseURL, apiKey),
         headers: {

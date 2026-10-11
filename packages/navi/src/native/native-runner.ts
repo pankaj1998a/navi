@@ -48,6 +48,27 @@ export function isNativeAvailable(): boolean {
   return getNativeBinaryPath() !== null
 }
 
+const MAX_STDIN_BYTES = 20 * 1024 * 1024
+
+const FALLBACK_SECRET_PATTERNS = [
+  /-----BEGIN (?:RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----[\s\S]*?-----END (?:RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----/g,
+  /\bxai-[A-Za-z0-9_-]{20,}\b/g,
+  /\bsk-ant-api\d{2}-[a-zA-Z0-9_-]{32,}\b/g,
+  /\bsk-(?:proj-|admin-|[a-zA-Z0-9]{20,})[a-zA-Z0-9_-]{12,}\b/g,
+  /\b(?:AKIA|ASIA|ABIA|ACCA)[0-9A-Z]{16}\b/g,
+  /\bgh[pousr]_[A-Za-z0-9_]{36,255}\b/g,
+  /\bAIza[0-9A-Za-z-_]{35}\b/g,
+  /\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b/g,
+]
+
+function fallbackScrub(text: string): string {
+  let res = text
+  for (const p of FALLBACK_SECRET_PATTERNS) {
+    res = res.replace(p, "[REDACTED_SECRET]")
+  }
+  return res
+}
+
 /**
  * Executes high-performance patch application in Rust (adapted from codex-rs/apply-patch).
  * Performs fuzzy sequence matching (seek_sequence) on raw bytes.
@@ -57,10 +78,12 @@ export function applyPatchNative(rootDir: string, patchText: string): NativePatc
   if (!bin) return null
 
   try {
+    const boundedInput = patchText.length > MAX_STDIN_BYTES ? patchText.slice(0, MAX_STDIN_BYTES) : patchText
     const res = spawnSync(bin, ["apply-patch", rootDir], {
-      input: patchText,
+      input: boundedInput,
       encoding: "utf-8",
       maxBuffer: 50 * 1024 * 1024,
+      timeout: 15_000,
     })
 
     if (res.stdout) {
@@ -76,24 +99,29 @@ export function applyPatchNative(rootDir: string, patchText: string): NativePatc
 
 /**
  * Executes high-performance secret scrubbing DFA in Rust (adapted from xai-grok-secrets).
+ * If the Rust binary is missing or fails, falls back to JS regex scrubbing to prevent secret leaks.
  */
-export function scrubSecretsNative(text: string): string | null {
+export function scrubSecretsNative(text: string): string {
+  if (!text) return text
   const bin = getNativeBinaryPath()
-  if (!bin) return null
+  if (!bin) return fallbackScrub(text)
 
   try {
+    const boundedInput = text.length > MAX_STDIN_BYTES ? text.slice(0, MAX_STDIN_BYTES) : text
     const res = spawnSync(bin, ["scrub"], {
-      input: text,
+      input: boundedInput,
       encoding: "utf-8",
       maxBuffer: 50 * 1024 * 1024,
+      timeout: 10_000,
     })
 
     if (res.status === 0 && res.stdout) {
       return res.stdout
     }
-    return null
+    return fallbackScrub(text)
   } catch (err) {
-    return null
+    log.warn("Native scrub failed, using fallback scrubber", { error: String(err) })
+    return fallbackScrub(text)
   }
 }
 
@@ -107,6 +135,7 @@ export function countLinesNative(filePath: string): number | null {
   try {
     const res = spawnSync(bin, ["line-count", filePath], {
       encoding: "utf-8",
+      timeout: 10_000,
     })
 
     if (res.status === 0 && res.stdout) {
@@ -164,10 +193,12 @@ export function countTokensNative(text: string): number | null {
   if (!bin) return null
 
   try {
+    const boundedInput = text.length > MAX_STDIN_BYTES ? text.slice(0, MAX_STDIN_BYTES) : text
     const res = spawnSync(bin, ["bpe-tokens", "--stdin"], {
-      input: text,
+      input: boundedInput,
       encoding: "utf-8",
       maxBuffer: 50 * 1024 * 1024,
+      timeout: 10_000,
     })
 
     if (res.status === 0 && res.stdout) {
@@ -188,10 +219,13 @@ export function compactMessagesNative(req: NativeCompactRequest): NativeCompactR
   if (!bin) return null
 
   try {
+    const inputStr = JSON.stringify(req)
+    const boundedInput = inputStr.length > MAX_STDIN_BYTES ? inputStr.slice(0, MAX_STDIN_BYTES) : inputStr
     const res = spawnSync(bin, ["compact", String(req.max_tokens)], {
-      input: JSON.stringify(req),
+      input: boundedInput,
       encoding: "utf-8",
       maxBuffer: 50 * 1024 * 1024,
+      timeout: 15_000,
     })
 
     if (res.status === 0 && res.stdout) {
@@ -214,6 +248,7 @@ export function inspectBinaryNative(filePath: string): NativeBinaryResult | null
   try {
     const res = spawnSync(bin, ["inspect-binary", filePath], {
       encoding: "utf-8",
+      timeout: 10_000,
     })
 
     if (res.status === 0 && res.stdout) {
@@ -244,6 +279,7 @@ export function scanStructureNative(
     const res = spawnSync(bin, args, {
       encoding: "utf-8",
       maxBuffer: 50 * 1024 * 1024,
+      timeout: 30_000,
     })
 
     if (res.status === 0 && res.stdout) {

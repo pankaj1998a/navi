@@ -14,7 +14,7 @@ describe("Cybersecurity Suite - SAST", () => {
     const findings = scanSourceFile("src/db.js", code)
     const sqli = findings.filter((f) => f.cwe === "CWE-89")
     expect(sqli.length).toBeGreaterThan(0)
-    expect(sqli[0].severity).toBe("critical")
+    expect(sqli[0]?.severity).toBe("critical")
   })
 
   it("detects Command Injection vulnerabilities (CWE-78)", () => {
@@ -27,7 +27,7 @@ describe("Cybersecurity Suite - SAST", () => {
     const findings = scanSourceFile("src/ping.ts", code)
     const rce = findings.filter((f) => f.cwe === "CWE-78")
     expect(rce.length).toBeGreaterThan(0)
-    expect(rce[0].severity).toBe("critical")
+    expect(rce[0]?.severity).toBe("critical")
   })
 
   it("detects Hardcoded Secrets & API Keys (CWE-798)", () => {
@@ -38,7 +38,7 @@ describe("Cybersecurity Suite - SAST", () => {
     const findings = scanSourceFile("src/secrets.ts", code)
     const secrets = findings.filter((f) => f.cwe === "CWE-798")
     expect(secrets.length).toBeGreaterThanOrEqual(1)
-    expect(secrets[0].severity).toBe("high")
+    expect(secrets[0]?.severity).toBe("high")
   })
 
   it("detects Path Traversal (CWE-22)", () => {
@@ -69,7 +69,7 @@ describe("Cybersecurity Suite - Checksec Binary Auditor", () => {
     const nativeExe = path.resolve(__dirname, "../../native/navi-native/target/release/navi-native.exe")
     if (fs.existsSync(nativeExe)) {
       const audit = checksecBinary(nativeExe)
-      expect(audit.format).toBe("PE")
+      expect(audit.format).toBe("pe")
       expect(audit.nx).toBe(true) // DEP / NX enabled by Rust/MSVC
       expect(audit.pie).toBe(true) // ASLR enabled by default
       expect(audit.securityScore).toBeGreaterThanOrEqual(50)

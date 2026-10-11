@@ -148,7 +148,7 @@ export const OpenrouterProvider: ProviderLoader.Info = {
         return {
             autoload,
             options: {
-                apiKey: apiKey ?? "public",
+                apiKey: apiKey || undefined,
                 baseURL: "https://openrouter.ai/api/v1",
                 headers: {
                     "HTTP-Referer": "https://navi.ai/",
