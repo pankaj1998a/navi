@@ -1,0 +1,1 @@
+Spawns a coordinated swarm of specialized subagents (Explorer, Architect, Reviewer, Tester, Simplifier, or Auditor) to analyze, plan, verify, or execute tasks in parallel or sequence, returning an aggregated intelligence brief.

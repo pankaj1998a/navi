@@ -136,6 +136,9 @@ const isSwiftTestFile = (path: string): boolean => {
 function isSourceFile(name: string, path: string): boolean {
   if (/\.(ts|tsx)$/.test(name)) return !/\.d\.ts$/.test(name) && !isTestFile(name);
   if (name.endsWith('.swift')) return !isSwiftTestFile(path);
+  if (name.endsWith('.py')) return !opts.includeTests && !name.startsWith('test_') && !name.endsWith('_test.py');
+  if (name.endsWith('.go')) return !opts.includeTests && !name.endsWith('_test.go');
+  if (name.endsWith('.rs')) return true;
   return false;
 }
 
@@ -701,6 +704,102 @@ function emitSwiftFile(file: string, rawSource: string): boolean {
   return true;
 }
 
+function scanPythonSource(source: string): Array<{ kind: 'f' | 't' | 'c'; name: string }> {
+  const symbols: Array<{ kind: 'f' | 't' | 'c'; name: string }> = [];
+  const lines = source.split('\n');
+  for (const line of lines) {
+    const classMatch = line.match(/^class\s+([A-Za-z0-9_]+)/);
+    if (classMatch) {
+      symbols.push({ kind: 't', name: classMatch[1] });
+      continue;
+    }
+    const funcMatch = line.match(/^(?:async\s+)?def\s+([A-Za-z0-9_]+)/);
+    if (funcMatch) {
+      symbols.push({ kind: 'f', name: funcMatch[1] });
+      continue;
+    }
+  }
+  return symbols;
+}
+
+function emitPythonFile(file: string, source: string): boolean {
+  const symbols = scanPythonSource(source);
+  if (symbols.length === 0) return false;
+  symbolTotal += symbols.length;
+  if (opts.mode === 'dense') {
+    emitDense(file, symbols.map((s): DenseEntry => [s.kind, s.name]));
+    return true;
+  }
+  out.push(`## ${relative(opts.repoRoot, file).replace(/\\/g, '/')}`);
+  for (const s of symbols) out.push(`${s.kind === 't' ? 'class' : 'def'} ${s.name}`);
+  out.push('');
+  return true;
+}
+
+function scanGoSource(source: string): Array<{ kind: 'f' | 't' | 'c'; name: string }> {
+  const symbols: Array<{ kind: 'f' | 't' | 'c'; name: string }> = [];
+  const lines = source.split('\n');
+  for (const line of lines) {
+    const typeMatch = line.match(/^type\s+([A-Za-z0-9_]+)\s+(struct|interface)/);
+    if (typeMatch) {
+      symbols.push({ kind: 't', name: typeMatch[1] });
+      continue;
+    }
+    const funcMatch = line.match(/^func\s+(?:\([^)]+\)\s+)?([A-Za-z0-9_]+)\s*\(/);
+    if (funcMatch) {
+      symbols.push({ kind: 'f', name: funcMatch[1] });
+      continue;
+    }
+  }
+  return symbols;
+}
+
+function emitGoFile(file: string, source: string): boolean {
+  const symbols = scanGoSource(source);
+  if (symbols.length === 0) return false;
+  symbolTotal += symbols.length;
+  if (opts.mode === 'dense') {
+    emitDense(file, symbols.map((s): DenseEntry => [s.kind, s.name]));
+    return true;
+  }
+  out.push(`## ${relative(opts.repoRoot, file).replace(/\\/g, '/')}`);
+  for (const s of symbols) out.push(`${s.kind === 't' ? 'type' : 'func'} ${s.name}`);
+  out.push('');
+  return true;
+}
+
+function scanRustSource(source: string): Array<{ kind: 'f' | 't' | 'c'; name: string }> {
+  const symbols: Array<{ kind: 'f' | 't' | 'c'; name: string }> = [];
+  const lines = source.split('\n');
+  for (const line of lines) {
+    const structMatch = line.match(/^(?:pub(?:\([^)]+\))?\s+)?(?:struct|enum|trait)\s+([A-Za-z0-9_]+)/);
+    if (structMatch) {
+      symbols.push({ kind: 't', name: structMatch[1] });
+      continue;
+    }
+    const fnMatch = line.match(/^(?:pub(?:\([^)]+\))?\s+)?(?:async\s+)?fn\s+([A-Za-z0-9_]+)/);
+    if (fnMatch) {
+      symbols.push({ kind: 'f', name: fnMatch[1] });
+      continue;
+    }
+  }
+  return symbols;
+}
+
+function emitRustFile(file: string, source: string): boolean {
+  const symbols = scanRustSource(source);
+  if (symbols.length === 0) return false;
+  symbolTotal += symbols.length;
+  if (opts.mode === 'dense') {
+    emitDense(file, symbols.map((s): DenseEntry => [s.kind, s.name]));
+    return true;
+  }
+  out.push(`## ${relative(opts.repoRoot, file).replace(/\\/g, '/')}`);
+  for (const s of symbols) out.push(`${s.kind === 't' ? 'type' : 'fn'} ${s.name}`);
+  out.push('');
+  return true;
+}
+
 // --- main ---
 const t0 = Date.now();
 const boundarySet = new Set(opts.boundary);
@@ -717,13 +816,24 @@ let emitted = 0;
 
 function processFile(file: string): void {
   files++;
-  // Outside the skip-catch: loadTypescript exits the process with a clear message on total
-  // resolution failure — a missing compiler must never degrade into a silently thin map.
-  if (!file.endsWith('.swift') && !ts) ts = loadTypescript(opts.repoRoot);
+  const isNonTs = file.endsWith('.swift') || file.endsWith('.py') || file.endsWith('.go') || file.endsWith('.rs');
+  if (!isNonTs && !ts) ts = loadTypescript(opts.repoRoot);
   try {
     const text = readFileSync(file, 'utf8');
     if (file.endsWith('.swift')) {
       if (emitSwiftFile(file, text)) emitted++;
+      return;
+    }
+    if (file.endsWith('.py')) {
+      if (emitPythonFile(file, text)) emitted++;
+      return;
+    }
+    if (file.endsWith('.go')) {
+      if (emitGoFile(file, text)) emitted++;
+      return;
+    }
+    if (file.endsWith('.rs')) {
+      if (emitRustFile(file, text)) emitted++;
       return;
     }
     const sf = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true, /\.tsx$/.test(file) ? ts.ScriptKind.TSX : ts.ScriptKind.TS);

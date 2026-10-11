@@ -346,10 +346,10 @@ export function Prompt(props: PromptProps) {
     if (tokens <= 0) return
 
     const model = sync.data.provider.find((item) => item.id === last.providerID)?.models[last.modelID]
-    const pct = model?.limit.context ? `${Math.round((tokens / model.limit.context) * 100)}%` : undefined
+    const pct = model?.limit?.context ? `${Math.round((tokens / model.limit.context) * 100)}%` : undefined
     const cost = msg.reduce((sum, item) => sum + (item.role === "assistant" ? item.cost : 0), 0)
     return {
-      context: pct ? `${Locale.number(tokens)} (${pct})` : Locale.number(tokens),
+      context: pct ? `Context: ${pct} (${Locale.number(tokens)})` : `${Locale.number(tokens)} tokens`,
       cost: cost > 0 ? money.format(cost) : undefined,
     }
   })
@@ -1095,7 +1095,67 @@ export function Prompt(props: PromptProps) {
           ]
         : []
 
-    if (store.mode === "shell") {
+    const firstLine = inputText.split("\n")[0] ?? ""
+    const cmdToken = firstLine.split(" ")[0]?.toLowerCase() ?? ""
+    if (cmdToken === "/plan" || cmdToken === "/build") {
+      const targetAgent = cmdToken === "/plan" ? "plan" : "build"
+      local.agent.set(targetAgent)
+      const firstLineEnd = inputText.indexOf("\n")
+      const firstLineText = firstLineEnd === -1 ? inputText : inputText.slice(0, firstLineEnd)
+      const [, ...firstLineArgs] = firstLineText.split(" ")
+      const restOfInput = firstLineEnd === -1 ? "" : inputText.slice(firstLineEnd + 1)
+      const promptText = (firstLineArgs.join(" ") + (restOfInput ? "\n" + restOfInput : "")).trim()
+
+      if (!promptText) {
+        toast.show({
+          message:
+            targetAgent === "plan"
+              ? "Switched to Plan mode (Read-only)"
+              : "Switched to Build mode (Read/Write)",
+          variant: "info",
+        })
+        history.append({
+          ...store.prompt,
+          mode: currentMode,
+        })
+        input.extmarks.clear()
+        setStore("prompt", {
+          input: "",
+          parts: [],
+        })
+        setStore("extmarkToPartIndex", new Map())
+        return true
+      }
+
+      toast.show({
+        message:
+          targetAgent === "plan"
+            ? "Plan mode: Submitting planning prompt..."
+            : "Build mode: Submitting build prompt...",
+        variant: "info",
+      })
+
+      sdk.client.session
+        .prompt({
+          sessionID,
+          ...selectedModel,
+          messageID,
+          agent: targetAgent,
+          model: selectedModel,
+          variant,
+          parts: [
+            ...editorParts,
+            {
+              id: PartID.ascending(),
+              type: "text",
+              text: promptText,
+            },
+            ...nonTextParts.map(assign),
+          ],
+        })
+        .catch(() => {})
+      if (editorParts.length > 0) editor.markSelectionSent()
+    } else if (store.mode === "shell") {
       void sdk.client.session.shell({
         sessionID,
         agent: agent.name,

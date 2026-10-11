@@ -371,6 +371,54 @@ export const layer = Layer.effect(
         Object.assign(commands, getOfficialCommands())
       }
 
+      commands["plan"] = {
+        name: "plan",
+        agent: "plan",
+        description: "Switch to and run in Plan mode (read-only analysis, research, and planning)",
+        source: "command",
+        get template() {
+          return "$ARGUMENTS"
+        },
+        hints: ["$ARGUMENTS"],
+      }
+      commands["build"] = {
+        name: "build",
+        agent: "build",
+        description: "Switch to and run in Build mode (full implementation and tool execution)",
+        source: "command",
+        get template() {
+          return "$ARGUMENTS"
+        },
+        hints: ["$ARGUMENTS"],
+      }
+      commands["permissions"] = {
+        name: "permissions",
+        description: "Configure 4-tier permission mode: supervised | auto_accept_edits | auto | full_access",
+        source: "command",
+        get template() {
+          return "Configure permission mode: $ARGUMENTS"
+        },
+        hints: ["supervised", "auto_accept_edits", "auto", "full_access"],
+      }
+      commands["swarm"] = {
+        name: "swarm",
+        description: "Fan out a coordinated teammate swarm on an objective",
+        source: "command",
+        get template() {
+          return "Mobilize teammate swarm for objective: $ARGUMENTS"
+        },
+        hints: ["$ARGUMENTS"],
+      }
+      commands["magicdocs"] = {
+        name: "magicdocs",
+        description: "Audit and update living architecture documentation and memory",
+        source: "command",
+        get template() {
+          return "Audit and distill living documentation: $ARGUMENTS"
+        },
+        hints: ["architecture", "changelog", "memory"],
+      }
+
       for (const [name, command] of Object.entries(cfg.command ?? {})) {
         commands[name] = {
           name,

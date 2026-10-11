@@ -3,6 +3,8 @@
   "globalEnv": ["CI", "NAVI_DISABLE_SHARE"],
   "globalPassThroughEnv": ["CI", "NAVI_DISABLE_SHARE"],
   "tasks": {
+    "lint": {},
+    "check": {},
     "typecheck": {},
     "build": {
       "dependsOn": [],

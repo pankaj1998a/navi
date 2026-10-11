@@ -602,6 +602,26 @@ function App(props: { onSnapshot?: () => Promise<string[]> }) {
         },
       },
       {
+        name: "mode.plan",
+        title: "Switch to Plan mode (Read-only)",
+        category: "Mode",
+        slashName: "plan",
+        run: () => {
+          local.agent.set("plan")
+          toast.show({ message: "Switched to Plan mode (Read-only)", variant: "info" })
+        },
+      },
+      {
+        name: "mode.build",
+        title: "Switch to Build mode (Read/Write)",
+        category: "Mode",
+        slashName: "build",
+        run: () => {
+          local.agent.set("build")
+          toast.show({ message: "Switched to Build mode (Read/Write)", variant: "info" })
+        },
+      },
+      {
         name: "agent.cycle",
         title: "Agent cycle",
         category: "Agent",

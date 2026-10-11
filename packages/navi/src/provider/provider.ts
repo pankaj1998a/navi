@@ -170,61 +170,33 @@ export namespace Provider {
     env: Record<string, string | undefined>
   }): Record<string, CustomLoader> {
     return {
-    opencode: async (input) => {
-      const hasKey = await (async () => {
-        const allEnv = dep.env
-        if (input.env.some((item) => allEnv[item])) return true
-        if (await dep.auth("opencode")) return true
-        const config = dep.config
-        if (config.provider?.["opencode"]?.options?.apiKey) return true
-        return false
-      })()
-
-      if (!hasKey) {
-        for (const [key, value] of Object.entries(input.models)) {
-          if (value.cost.input === 0) continue
-          delete input.models[key]
-        }
-      }
-
-      return {
-        autoload: Object.keys(input.models).length > 0,
-        options: {
-          ...(hasKey ? {} : { apiKey: "public" }),
-          headers: {
-            "User-Agent": `opencode/${InstallationVersion}`,
-            "x-opencode-client": Flag.NAVI_CLIENT || "cli",
-          },
-        },
-      }
+    antigravity: async (input) => {
+      const { AntigravityProvider } = await import("./providers/antigravity")
+      return AntigravityProvider.load(input, dep)
     },
-    navi: async (input) => {
-      const hasKey = await (async () => {
-        const allEnv = dep.env
-        if (input.env.some((item) => allEnv[item])) return true
-        if (await dep.auth("navi")) return true
-        const config = dep.config
-        if (config.provider?.["navi"]?.options?.apiKey) return true
-        return false
-      })()
-
-      if (!hasKey) {
-        for (const [key, value] of Object.entries(input.models)) {
-          if (value.cost.input === 0) continue
-          delete input.models[key]
-        }
-      }
-
-      return {
-        autoload: Object.keys(input.models).length > 0,
-        options: {
-          ...(hasKey ? {} : { apiKey: "public" }),
-          headers: {
-            "User-Agent": `opencode/${InstallationVersion}`,
-            "x-opencode-client": Flag.NAVI_CLIENT || "cli",
-          },
-        },
-      }
+    "google-antigravity": async (input) => {
+      const { AntigravityProvider } = await import("./providers/antigravity")
+      return AntigravityProvider.load(input, dep)
+    },
+    "gemini-cli": async (input) => {
+      const { AntigravityProvider } = await import("./providers/antigravity")
+      return AntigravityProvider.load(input, dep)
+    },
+    opencode: async (input) => {
+      const { OpenCodeProvider } = await import("./providers/opencode")
+      return OpenCodeProvider.load(input, dep)
+    },
+    "opencode-cli": async (input) => {
+      const { OpenCodeCliProvider } = await import("./providers/opencode")
+      return OpenCodeCliProvider.load(input, dep)
+    },
+    "claude-cli": async (input) => {
+      const { ClaudeCliProvider } = await import("./providers/claude-cli")
+      return ClaudeCliProvider.load(input, dep)
+    },
+    "codex-cli": async (input) => {
+      const { CodexCliProvider } = await import("./providers/codex-cli")
+      return CodexCliProvider.load(input, dep)
     },
     openai: async (input) => {
       const { OpenAIProvider } = await import("./providers/openai")
@@ -783,26 +755,26 @@ export namespace Provider {
 
           // load env
           const env = yield* envSvc.all().pipe(Effect.orDie)
-          for (const [id, provider] of Object.entries(database as any) as any) {
+          for (const [id, provider] of Object.entries(database)) {
             const providerID = ProviderID.make(id)
             if (disabled.has(providerID)) continue
-            const apiKey = (provider as any).env.map((item: string) => env[item]).find(Boolean)
+            const apiKey = provider.env.map((item: string) => env[item]).find(Boolean)
             if (!apiKey) continue
             mergeProvider(providerID, {
               source: "env",
-              key: (provider as any).env.length === 1 ? apiKey : undefined,
+              key: provider.env.length === 1 ? apiKey : undefined,
             })
           }
 
           // load apikeys
-          const auths = (yield* authSvc.all().pipe(Effect.orDie)) as any
-          for (const [id, provider] of Object.entries(auths) as any) {
+          const auths = yield* authSvc.all().pipe(Effect.orDie)
+          for (const [id, provider] of Object.entries(auths)) {
             const providerID = ProviderID.make(id)
             if (disabled.has(providerID)) continue
-            if ((provider as any).type === "api") {
+            if (provider.type === "api") {
               mergeProvider(providerID, {
                 source: "api",
-                key: (provider as any).key,
+                key: provider.key,
               })
             }
           }
@@ -835,10 +807,13 @@ export namespace Provider {
           for (const [id, fn] of Object.entries(loaders)) {
             const providerID = ProviderID.make(id)
             if (disabled.has(providerID)) continue
-            const data = database[providerID]
-            if (!data) {
-              log.error("Provider does not exist in model list " + providerID)
-              continue
+            const data: Info = database[providerID] ?? {
+              id: providerID,
+              name: providerID,
+              source: "custom",
+              options: {},
+              env: [],
+              models: {},
             }
             const result = yield* Effect.promise(() => fn(data))
             if (result && (result.autoload || providers[providerID])) {
@@ -855,7 +830,7 @@ export namespace Provider {
           }
 
           // load config
-          for (const [id, provider] of configProviders as any) {
+          for (const [id, provider] of configProviders) {
             const providerID = ProviderID.make(id)
             const partial: Partial<Info> = { source: "config" }
             if (provider.env) partial.env = provider.env
@@ -1038,10 +1013,16 @@ export namespace Provider {
               }
             }
 
-            if (
-              (typeof input === "string" && input.includes("opencode.ai")) ||
-              (typeof input === "object" && input !== null && "url" in input && typeof (input as any).url === "string" && (input as any).url.includes("opencode.ai"))
-            ) {
+            const isOpencodeUrl =
+              typeof input === "string"
+                ? input.includes("opencode.ai")
+                : input instanceof Request
+                  ? input.url.includes("opencode.ai")
+                  : input instanceof URL
+                    ? input.href.includes("opencode.ai")
+                    : false
+
+            if (isOpencodeUrl) {
               const h = new Headers(opts.headers)
               h.set("User-Agent", `opencode/${InstallationVersion}`)
               if (!h.has("x-opencode-client")) h.set("x-opencode-client", Flag.NAVI_CLIENT || "cli")
@@ -1368,18 +1349,18 @@ export namespace Provider {
   })
 
   export function toPublicInfo(info: Info): typeof PublicInfo.Type {
-    if (!info) return {} as any
+    if (!info) return {} as typeof PublicInfo.Type
     const { key, ...rest } = info
-    return rest as any
+    return rest as typeof PublicInfo.Type
   }
 
   export function defaultModelIDs(providers: Record<ProviderID, Info>): Record<string, string> {
     return mapValues(providers, (item) => {
       if (!item || !item.models) return ""
-      const modelsList = Object.values(item.models).filter((m: any) => m && m.id)
-      const sorted = sort(modelsList as any[])
-      return sorted.length > 0 ? (sorted[0].id as string) : ""
-    }) as any
+      const modelsList = Object.values(item.models).filter((m): m is Model => Boolean(m && m.id))
+      const sorted = sort(modelsList)
+      return sorted.length > 0 ? (sorted[0]?.id ?? "") : ""
+    })
   }
 
   export const ModelNotFoundError = NamedError.create(

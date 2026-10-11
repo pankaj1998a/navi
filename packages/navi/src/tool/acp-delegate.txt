@@ -1,0 +1,1 @@
+Delegates queries, code reviews, or architectural questions to external ACP (Agent Client Protocol) compliant agents or servers (Codex, Claude, Cursor, OpenCode, or local ACP servers) via standard Agent Client Protocol.

@@ -20,6 +20,9 @@ import { PoeAuthPlugin } from "opencode-poe-auth"
 import { CloudflareAIGatewayAuthPlugin, CloudflareWorkersAuthPlugin } from "./cloudflare"
 import { AzureAuthPlugin } from "./azure"
 import { KilocodeAuthPlugin } from "../provider/kilocode"
+import { OpenCodeAuthPlugin } from "./opencode"
+import { ClaudeCliAuthPlugin } from "./claude-cli"
+import { AntigravityAuthPlugin } from "./antigravity"
 import { StandardHooksPlugin } from "./standard-hooks"
 import { OfficialPluginsPlugin } from "./official"
 import { Effect, Layer, Context, Stream } from "effect"
@@ -68,6 +71,9 @@ const INTERNAL_PLUGINS: PluginInstance[] = [
   CloudflareAIGatewayAuthPlugin,
   AzureAuthPlugin,
   KilocodeAuthPlugin,
+  OpenCodeAuthPlugin,
+  ClaudeCliAuthPlugin,
+  AntigravityAuthPlugin,
   StandardHooksPlugin,
   ...(Flag.NAVI_DISABLE_DEFAULT_PLUGINS ? [] : [OfficialPluginsPlugin]),
 ]

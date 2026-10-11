@@ -51,6 +51,26 @@ import { CheckpointTool } from "./checkpoint"
 import { TrashTool } from "./trash"
 import { GithubUploadTool } from "./github-upload"
 import { AgentationTool } from "./agentation"
+import { ReverseAnalyzeJavascriptTool } from "./reverse-analyze-javascript"
+import { ReverseAnalyzeManagedTool } from "./reverse-analyze-managed"
+import { ReverseAnalyzeApkTool } from "./reverse-analyze-apk"
+import { ReverseAnalyzeEvmTool } from "./reverse-analyze-evm"
+import { ReverseAnalyzeFirmwareTool } from "./reverse-analyze-firmware"
+import { ReverseAnalyzeNativeTool } from "./reverse-analyze-native"
+import { ReverseAnalyzeAppleTool } from "./reverse-analyze-apple"
+import { ReverseAnalyzeWebTool } from "./reverse-analyze-web"
+import { ReverseDoctorTool } from "./reverse-doctor"
+import { GitWorktreeTool } from "./git-worktree"
+import { PtcEvalTool } from "./ptc-eval"
+import { DeliverableTool } from "./deliverable"
+import { SpillReadTool } from "./spill"
+import { GoalTool } from "./goal"
+import { SwarmTool } from "./swarm"
+import { MagicDocsTool } from "./magic-docs"
+import { AcpDelegateTool } from "./acp-delegate"
+import { DiagramDesignTool } from "./diagram"
+import { ContextModeTool } from "./context-mode"
+import { PptMasterTool } from "./ppt-master"
 import { Glob } from "@navi-ai/core/util/glob"
 import path from "path"
 import { pathToFileURL } from "url"
@@ -81,7 +101,7 @@ export function webSearchEnabled(
   providerID: ProviderID,
   flags = { exa: Flag.NAVI_ENABLE_EXA, parallel: Flag.NAVI_ENABLE_PARALLEL },
 ) {
-  return providerID === ProviderID.navi || flags.exa || flags.parallel
+  return flags.exa || flags.parallel
 }
 
 // Removed local Interface and Service definitions to break circular dependencies.
@@ -166,6 +186,26 @@ export const layer: Layer.Layer<
     const trashtool = yield* TrashTool
     const githubupload = yield* GithubUploadTool
     const agentationtool = yield* AgentationTool
+    const reversejs = yield* ReverseAnalyzeJavascriptTool
+    const reversemanaged = yield* ReverseAnalyzeManagedTool
+    const reverseapk = yield* ReverseAnalyzeApkTool
+    const reverseevm = yield* ReverseAnalyzeEvmTool
+    const reversefirmware = yield* ReverseAnalyzeFirmwareTool
+    const reversenative = yield* ReverseAnalyzeNativeTool
+    const reverseapple = yield* ReverseAnalyzeAppleTool
+    const reverseweb = yield* ReverseAnalyzeWebTool
+    const reversedoctor = yield* ReverseDoctorTool
+    const gitworktree = yield* GitWorktreeTool
+    const ptceval = yield* PtcEvalTool
+    const deliverable = yield* DeliverableTool
+    const spillread = yield* SpillReadTool
+    const goaltool = yield* GoalTool
+    const swarmtool = yield* SwarmTool
+    const magicdocstool = yield* MagicDocsTool
+    const acpdelegatetool = yield* AcpDelegateTool
+    const diagramtool = yield* DiagramDesignTool
+    const contextmodetool = yield* ContextModeTool
+    const pptmastertool = yield* PptMasterTool
 
     const state = yield* InstanceState.make<State>(
       Effect.fn("ToolRegistry.state")(function* (ctx) {
@@ -283,6 +323,26 @@ export const layer: Layer.Layer<
           trash: Tool.init(trashtool),
           github_upload: Tool.init(githubupload),
           agentation: Tool.init(agentationtool),
+          reverse_js: Tool.init(reversejs),
+          reverse_managed: Tool.init(reversemanaged),
+          reverse_apk: Tool.init(reverseapk),
+          reverse_evm: Tool.init(reverseevm),
+          reverse_firmware: Tool.init(reversefirmware),
+          reverse_native: Tool.init(reversenative),
+          reverse_apple: Tool.init(reverseapple),
+          reverse_web: Tool.init(reverseweb),
+          reverse_doctor: Tool.init(reversedoctor),
+          git_worktree: Tool.init(gitworktree),
+          ptc_eval: Tool.init(ptceval),
+          deliverable: Tool.init(deliverable),
+          spill_read: Tool.init(spillread),
+          goal_manage: Tool.init(goaltool),
+          teammate_swarm: Tool.init(swarmtool),
+          magic_docs: Tool.init(magicdocstool),
+          acp_delegate: Tool.init(acpdelegatetool),
+          diagram_design: Tool.init(diagramtool),
+          context_mode: Tool.init(contextmodetool),
+          ppt_master: Tool.init(pptmastertool),
         })
 
         return {
@@ -321,6 +381,26 @@ export const layer: Layer.Layer<
             tool.trash,
             tool.github_upload,
             tool.agentation,
+            tool.reverse_js,
+            tool.reverse_managed,
+            tool.reverse_apk,
+            tool.reverse_evm,
+            tool.reverse_firmware,
+            tool.reverse_native,
+            tool.reverse_apple,
+            tool.reverse_web,
+            tool.reverse_doctor,
+            tool.git_worktree,
+            tool.ptc_eval,
+            tool.deliverable,
+            tool.spill_read,
+            tool.goal_manage,
+            tool.teammate_swarm,
+            tool.magic_docs,
+            tool.acp_delegate,
+            tool.diagram_design,
+            tool.context_mode,
+            tool.ppt_master,
             ...(Flag.NAVI_EXPERIMENTAL_LSP_TOOL ? [tool.lsp] : []),
             ...(Flag.NAVI_EXPERIMENTAL_PLAN_MODE && Flag.NAVI_CLIENT === "cli" ? [tool.plan] : []),
           ],

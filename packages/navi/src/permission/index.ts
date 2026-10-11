@@ -15,6 +15,9 @@ import { Deferred, Effect, Layer, Schema, Context } from "effect"
 import os from "os"
 import { evaluate as evalRule } from "./evaluate"
 import { PermissionID } from "./schema"
+import { PermissionModeManager } from "./mode"
+
+export { PermissionModeManager, type PermissionMode } from "./mode"
 
 const log = Log.create({ service: "permission" })
 
@@ -179,6 +182,12 @@ export const layer = Layer.effect(
     const ask = Effect.fn("Permission.ask")(function* (input: AskInput) {
       const { approved, pending } = yield* InstanceState.get(state)
       const { ruleset, ...request } = input
+
+      // Fast-path: Check active 4-tier PermissionMode (T3 Code matrix)
+      if (!PermissionModeManager.requiresApproval(request.permission)) {
+        return
+      }
+
       let needsAsk = false
 
       for (const pattern of request.patterns) {

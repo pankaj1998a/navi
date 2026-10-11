@@ -5,6 +5,9 @@ import { readFileSync } from "fs"
 import * as Log from "@navi-ai/core/util/log"
 import * as Bom from "../util/bom"
 import { applyPatchNative } from "../native/native-runner"
+import { HunkTracker } from "./hunk-tracker"
+
+export { HunkTracker } from "./hunk-tracker"
 
 const log = Log.create({ service: "patch" })
 
@@ -426,6 +429,13 @@ function computeReplacements(
 
     if (found !== -1) {
       replacements.push([found, pattern.length, newSlice])
+      HunkTracker.recordHunk({
+        filePath,
+        startLine: found + 1,
+        oldLines: pattern,
+        newLines: newSlice,
+        summary: chunk.change_context ? `Context: ${chunk.change_context}` : undefined,
+      })
       lineIndex = found + pattern.length
     } else {
       throw new Error(`Failed to find expected lines in ${filePath}:\n${chunk.old_lines.join("\n")}`)
@@ -504,8 +514,48 @@ function tryMatch(lines: string[], pattern: string[], startIndex: number, compar
   return -1
 }
 
-function seekSequence(lines: string[], pattern: string[], startIndex: number, eof = false): number {
-  if (pattern.length === 0) return -1
+function levenshteinDistance(a: string, b: string): number {
+  if (a === b) return 0
+  if (a.length === 0) return b.length
+  if (b.length === 0) return a.length
+
+  const d: number[][] = []
+  for (let i = 0; i <= a.length; i++) {
+    d[i] = [i]
+  }
+  for (let j = 0; j <= b.length; j++) {
+    d[0]![j] = j
+  }
+
+  for (let i = 1; i <= a.length; i++) {
+    for (let j = 1; j <= b.length; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1
+      d[i]![j] = Math.min(
+        d[i - 1]![j]! + 1,
+        d[i]![j - 1]! + 1,
+        d[i - 1]![j - 1]! + cost,
+      )
+    }
+  }
+  return d[a.length]![b.length]!
+}
+
+function fuzzyLineMatch(a: string, b: string): boolean {
+  const normA = normalizeUnicode(a.trim())
+  const normB = normalizeUnicode(b.trim())
+  if (normA === normB) return true
+  const maxLen = Math.max(normA.length, normB.length)
+  if (maxLen === 0) return true
+  const dist = levenshteinDistance(normA, normB)
+  // For short lines, allow 1 edit; for longer lines, allow up to 2 edits or >= 80% similarity
+  if (maxLen <= 8) return dist <= 1
+  if (dist <= 2) return true
+  return 1 - dist / maxLen >= 0.80
+}
+
+export function seekSequence(lines: string[], pattern: string[], startIndex: number, eof = false): number {
+  if (pattern.length === 0) return startIndex
+  if (pattern.length > lines.length) return -1
 
   // Pass 1: exact match
   const exact = tryMatch(lines, pattern, startIndex, (a, b) => a === b, eof)
@@ -527,7 +577,30 @@ function seekSequence(lines: string[], pattern: string[], startIndex: number, eo
     (a, b) => normalizeUnicode(a.trim()) === normalizeUnicode(b.trim()),
     eof,
   )
-  return normalized
+  if (normalized !== -1) return normalized
+
+  // Pass 5: Codex Resilient Fuzzy Context Match (tolerates minor typos, edits & whitespace)
+  const fuzzy = tryMatch(lines, pattern, startIndex, fuzzyLineMatch, eof)
+  if (fuzzy !== -1) return fuzzy
+
+  // Pass 6: Line offset recovery — search +/- 20 lines around startIndex
+  if (startIndex > 0) {
+    const windowStart = Math.max(0, startIndex - 20)
+    const windowEnd = Math.min(lines.length - pattern.length, startIndex + 20)
+    for (let i = windowStart; i <= windowEnd; i++) {
+      if (i === startIndex) continue
+      let matches = true
+      for (let j = 0; j < pattern.length; j++) {
+        if (!fuzzyLineMatch(lines[i + j] ?? "", pattern[j] ?? "")) {
+          matches = false
+          break
+        }
+      }
+      if (matches) return i
+    }
+  }
+
+  return -1
 }
 
 function generateUnifiedDiff(oldContent: string, newContent: string): string {

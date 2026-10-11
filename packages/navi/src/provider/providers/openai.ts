@@ -11,6 +11,11 @@ const NPM = "@ai-sdk/openai"
 const log = Log.create({ service: "openai-provider" })
 
 const PREFERRED_OPENAI_PREFIXES = [
+    "gpt-6.1",
+    "gpt-6",
+    "gpt-daybreak",
+    "gpt-5.6",
+    "gpt-5.5",
     "gpt-5.4",
     "gpt-5.3",
     "gpt-5.2",

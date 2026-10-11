@@ -184,8 +184,10 @@ export const layer: Layer.Layer<
       const target = path.resolve(filepath)
       let current = path.dirname(target)
 
+      const rootWithSep = root.endsWith(path.sep) ? root : root + path.sep
+
       // Walk upward from the file being read and attach nearby instruction files once per message.
-      while (current.startsWith(root) && current !== root) {
+      while (current.startsWith(rootWithSep) && current !== root) {
         const found = yield* find(current)
         if (!found || found === target || sys.has(found) || already.has(found)) {
           current = path.dirname(current)

@@ -1,6 +1,49 @@
 import { Effect, Schema } from "effect"
 import { Tool } from "./tool"
-import { Service as ToolRegistryService } from "./registry-service"
+
+export const CANONICAL_TOOL_IDS = [
+  "bash",
+  "read",
+  "write",
+  "edit",
+  "glob",
+  "grep",
+  "task",
+  "webfetch",
+  "webscrape",
+  "webcrawl",
+  "tavily",
+  "ddg_search",
+  "googlesearch",
+  "todo",
+  "skill",
+  "apply_patch",
+  "tool_search",
+  "memory",
+  "history",
+  "test_runner",
+  "browser",
+  "arch_map",
+  "checkpoint",
+  "trash",
+  "github_upload",
+  "agentation",
+  "reverse_js",
+  "reverse_doctor",
+  "git_worktree",
+  "ptc_eval",
+  "deliverable",
+  "spill_read",
+  "goal_manage",
+  "teammate_swarm",
+  "magic_docs",
+  "acp_delegate",
+  "diagram_design",
+  "context_mode",
+  "ppt_master",
+  "lsp",
+  "plan",
+]
 
 /**
  * ToolSearchTool — Semantic search over all available tools.
@@ -22,13 +65,9 @@ export const ToolSearchTool = Tool.define(
       }),
     })
 
-    const execute = (params: any, _ctx: Tool.Context) =>
+    const execute = (params: Schema.Schema.Type<typeof Parameters>, _ctx: Tool.Context) =>
       Effect.gen(function* () {
-        // Get the registry service at runtime to avoid circular dependency during initialization
-        const registry = yield* ToolRegistryService
-
-        // Get all available tool IDs
-        const toolIds = yield* registry.ids()
+        const toolIds = CANONICAL_TOOL_IDS
 
         // Score each tool against the query
         const query = params.query.toLowerCase()
@@ -82,10 +121,47 @@ export const ToolSearchTool = Tool.define(
             scrape: ["webscrape", "firecrawl"],
             crawl: ["webcrawl", "firecrawl"],
             browse: ["browser"],
-            memory: ["todowrite"],
+            memory: ["todowrite", "context_mode"],
             todo: ["todowrite"],
             skill: ["skill"],
             batch: ["batch"],
+            diagram: ["diagram_design"],
+            chart: ["diagram_design"],
+            architecture: ["diagram_design", "arch_map", "magic_docs"],
+            presentation: ["ppt_master"],
+            slide: ["ppt_master"],
+            deck: ["ppt_master"],
+            ppt: ["ppt_master"],
+            context: ["context_mode"],
+            bloat: ["context_mode"],
+            token: ["context_mode"],
+            doctor: ["context_mode", "reverse_doctor"],
+            swarm: ["teammate_swarm"],
+            teammate: ["teammate_swarm"],
+            peer: ["teammate_swarm"],
+            docs: ["magic_docs"],
+            living: ["magic_docs"],
+            changelog: ["magic_docs"],
+            patch: ["patch"],
+            diff: ["patch"],
+            reverse: [
+              "reverse_js",
+              "reverse_managed",
+              "reverse_apk",
+              "reverse_evm",
+              "reverse_firmware",
+              "reverse_native",
+              "reverse_apple",
+              "reverse_web",
+              "reverse_doctor",
+            ],
+            decompile: ["reverse_js", "reverse_managed", "reverse_apk", "reverse_native"],
+            worktree: ["git_worktree"],
+            isolate: ["git_worktree"],
+            deliverable: ["deliverable"],
+            delegate: ["acp_delegate"],
+            eval: ["ptc_eval"],
+            spill: ["spill_read"],
           }
 
           for (const [intent, tools] of Object.entries(intentMap)) {
@@ -129,8 +205,7 @@ Use this when you're unsure which tool to use or want to discover tools for a sp
 Returns matching tools with their names and descriptions, ranked by relevance.`,
 
       parameters: Parameters,
-
-      execute: execute as any,
-    } as any
+      execute,
+    }
   }),
 )

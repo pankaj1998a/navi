@@ -7,7 +7,7 @@ import { spawn } from "child_process"
 
 export const StructureCommand = effectCmd({
   command: "structure [target]",
-  describe: "Compress TypeScript and Swift projects into dense AST symbol maps for LLM agents",
+  describe: "Compress TypeScript, Swift, Python, Go, and Rust projects into dense AST symbol maps for LLM agents",
   instance: false,
   builder: (yargs) =>
     yargs

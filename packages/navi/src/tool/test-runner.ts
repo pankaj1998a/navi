@@ -4,7 +4,8 @@ import { InstanceState } from "@/effect/instance-state"
 import * as Log from "@navi-ai/core/util/log"
 import path from "path"
 import fs from "fs"
-import DESCRIPTION from "./test-runner.txt"
+import { spawnSync } from "node:child_process"
+const DESCRIPTION = "Runs test suites (bun, vitest, jest, pytest, cargo, go) and provides structured failure diagnostics."
 
 const log = Log.create({ service: "tool.test-runner" })
 
@@ -144,47 +145,87 @@ export const TestRunnerTool = Tool.define(
 
           log.info("running test suite", { command: display })
 
-          const runResult = yield* Effect.promise(async () => {
+          const bin = cmd[0]!
+          const args = cmd.slice(1)
+
+          const runResult = (() => {
             try {
-              const proc = Bun.spawn(cmd, {
+              const res = spawnSync(bin, args, {
                 cwd: instance.directory,
                 env: process.env,
-                stdout: "pipe",
-                stderr: "pipe",
+                encoding: "utf-8",
+                timeout: (params.timeout ?? 60) * 1000,
               })
-
-              const [stdout, stderr] = await Promise.all([
-                new Response(proc.stdout).text(),
-                new Response(proc.stderr).text(),
-              ])
-              const exitCode = await proc.exited
-
-              return { stdout, stderr, exitCode }
-            } catch (err: any) {
-              return { stdout: "", stderr: err?.message ?? String(err), exitCode: 1 }
+              return {
+                stdout: (res.stdout || "").trim(),
+                stderr: (res.stderr || "").trim(),
+                exitCode: res.status ?? (res.error ? 1 : 0),
+              }
+            } catch (err: unknown) {
+              const message = err instanceof Error ? err.message : String(err)
+              return { stdout: "", stderr: message, exitCode: 1 }
             }
-          })
+          })()
 
           const combined = (runResult.stdout + "\n" + runResult.stderr).trim()
           const passed = runResult.exitCode === 0
 
-          let statusIcon = passed ? "✅" : "❌"
-          let statusText = passed ? "PASSED" : "FAILED"
+          // Structured failure diagnostics
+          const failedFiles: string[] = []
+          const failedTests: string[] = []
+          const isTimeout = /timed?\s*out|ETIMEDOUT|timeout\s*exceeded/i.test(combined)
 
-          let outputSummary = [
+          for (const line of combined.split("\n")) {
+            const fileMatch = line.match(/(?:FAIL|FAILED)\s+([^\s:]+\.[a-zA-Z0-9]+)/i)
+            if (fileMatch && !failedFiles.includes(fileMatch[1]!)) {
+              failedFiles.push(fileMatch[1]!)
+            }
+            const testMatch = line.match(/(?:✕|FAIL|FAILED)\s+(?:(?:test\s+)?)([^(\n]+?)(?:\s+\(\d+ms\))?$/)
+            if (testMatch && testMatch[1] && !failedTests.includes(testMatch[1].trim())) {
+              failedTests.push(testMatch[1].trim())
+            }
+          }
+
+          const statusIcon = passed ? "✅" : "❌"
+          const statusText = passed ? "PASSED" : "FAILED"
+
+          const summaryParts = [
             `### ${statusIcon} Test Run ${statusText} (\`${fw}\`)`,
             `- **Command**: \`${display}\``,
             `- **Exit Code**: ${runResult.exitCode}`,
-            "",
-            "```text",
-            combined.slice(0, 10000),
-            combined.length > 10000 ? "\n... (output truncated)" : "",
-            "```",
-          ].join("\n")
+          ]
 
           if (!passed) {
-            outputSummary += "\n\n> [!IMPORTANT]\n> Tests failed. Please inspect the errors and stack traces above to self-correct the implementation."
+            summaryParts.push(``)
+            summaryParts.push(`#### 📊 Test Failure Diagnostic Matrix`)
+            if (failedFiles.length > 0) {
+              summaryParts.push(`- **Failing Files (${failedFiles.length})**: ${failedFiles.map((f) => `\`${f}\``).join(", ")}`)
+            }
+            if (failedTests.length > 0) {
+              summaryParts.push(`- **Failing Tests (${failedTests.length})**:`)
+              for (const t of failedTests.slice(0, 10)) {
+                summaryParts.push(`  - ❌ \`${t}\``)
+              }
+              if (failedTests.length > 10) {
+                summaryParts.push(`  - ... and ${failedTests.length - 10} more`)
+              }
+            }
+            if (isTimeout) {
+              summaryParts.push(`- ⚠️ **Timeout Detected**: Execution exceeded test budget or stalled. Check for unmocked async timers or deadlocks.`)
+            }
           }
+
+          summaryParts.push(``)
+          summaryParts.push("```text")
+          summaryParts.push(combined.slice(0, 10000))
+          if (combined.length > 10000) summaryParts.push("\n... (output truncated)")
+          summaryParts.push("```")
+
+          if (!passed) {
+            summaryParts.push("\n> [!IMPORTANT]\n> Tests failed. Focus repairs on the failing files and tests identified in the diagnostic matrix above.")
+          }
+
+          const outputSummary = summaryParts.join("\n")
 
           return {
             title: `Tests ${statusText} (${fw})`,
@@ -194,6 +235,9 @@ export const TestRunnerTool = Tool.define(
               framework: fw,
               command: display,
               exitCode: runResult.exitCode,
+              failedFiles,
+              failedTests,
+              isTimeout,
             } as Record<string, unknown>,
           }
         }),

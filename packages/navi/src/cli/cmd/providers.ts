@@ -366,11 +366,18 @@ export const ProvidersLoginCommand = effectCmd({
     const priority: Record<string, number> = {
       navi: 0,
       openai: 1,
-      "github-copilot": 2,
-      google: 3,
-      anthropic: 4,
-      openrouter: 5,
-      vercel: 6,
+      antigravity: 2,
+      "google-antigravity": 2,
+      "codex-cli": 3,
+      "github-copilot": 4,
+      opencode: 5,
+      "opencode-cli": 6,
+      anthropic: 7,
+      "claude-cli": 8,
+      google: 9,
+      "gemini-cli": 10,
+      openrouter: 11,
+      vercel: 12,
     }
     const pluginProviders = resolvePluginProviders({
       hooks,
@@ -379,29 +386,54 @@ export const ProvidersLoginCommand = effectCmd({
       enabled,
       providerNames: Object.fromEntries(Object.entries(config.provider ?? {}).map(([id, p]) => [id, p.name])),
     })
-    const options = [
-      ...pipe(
-        providers,
-        values(),
-        sortBy(
-          (x) => priority[x.id] ?? 99,
-          (x) => x.name ?? x.id,
+    const options = sortBy(
+      [
+        ...pipe(
+          providers,
+          values(),
+          map((x) => ({
+            label: x.name,
+            value: x.id,
+            hint: {
+              navi: "recommended",
+              openai: "ChatGPT Plus/Pro or API key",
+              antigravity: "Google Antigravity CLI (agy) subscription",
+              "google-antigravity": "Google Antigravity CLI (agy) subscription",
+              "codex-cli": "OpenAI Codex CLI subscription",
+              anthropic: "Anthropic API key",
+              "claude-cli": "Claude Code CLI subscription",
+              opencode: "OpenCode Go subscription or local runtime",
+              "opencode-cli": "OpenCode CLI subscription",
+              "github-copilot": "GitHub Copilot subscription",
+              "gemini-cli": "Google Code Assist (Antigravity) subscription",
+            }[x.id],
+          })),
         ),
-        map((x) => ({
-          label: x.name,
+        ...pluginProviders.map((x) => ({
+          label:
+            {
+              antigravity: "Google Antigravity CLI (agy)",
+              "google-antigravity": "Google Antigravity CLI (agy)",
+              "codex-cli": "OpenAI Codex CLI",
+              "claude-cli": "Claude Code CLI",
+              opencode: "OpenCode",
+              "opencode-cli": "OpenCode CLI",
+            }[x.id] || x.name,
           value: x.id,
-          hint: {
-            navi: "recommended",
-            openai: "ChatGPT Plus/Pro or API key",
-          }[x.id],
+          hint:
+            {
+              antigravity: "Google Antigravity CLI (agy) subscription",
+              "google-antigravity": "Google Antigravity CLI (agy) subscription",
+              "codex-cli": "OpenAI Codex CLI subscription",
+              "claude-cli": "Claude Code CLI subscription",
+              opencode: "OpenCode Go subscription or local runtime",
+              "opencode-cli": "OpenCode CLI subscription",
+            }[x.id] || "plugin",
         })),
-      ),
-      ...pluginProviders.map((x) => ({
-        label: x.name,
-        value: x.id,
-        hint: "plugin",
-      })),
-    ]
+      ],
+      (x) => priority[x.value] ?? 99,
+      (x) => x.label,
+    )
 
     let provider: string
     if (args.provider) {

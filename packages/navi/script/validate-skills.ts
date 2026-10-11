@@ -29,7 +29,7 @@ function parseFrontmatter(content: string): { data: SkillFrontmatter | null; err
     return { data: null, error: "Frontmatter must start on line 1 and be enclosed in ---" }
   }
 
-  const yamlBlock = match[1]
+  const yamlBlock = match[1] ?? ""
   const data: SkillFrontmatter = {}
 
   for (const line of yamlBlock.split("\n")) {

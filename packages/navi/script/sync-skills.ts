@@ -15,15 +15,20 @@ import os from "os"
 const homedir = os.homedir()
 const naviSkillsDir = path.resolve(__dirname, "../skills")
 
+const localAppData = process.env.LOCALAPPDATA || path.join(homedir, "AppData", "Local")
+const portableSkillsDir = path.resolve("v:/pankaj/navi-portable/skills")
+
 const targets = [
-  { name: "Antigravity Global", dir: path.join(homedir, ".gemini", "config", "skills") },
-  { name: "Claude Code", dir: path.join(homedir, ".claude", "skills") },
-  { name: "Codex", dir: path.join(homedir, ".codex", "skills") },
+  { name: "Antigravity Global", dir: path.join(homedir, ".gemini", "config", "skills"), useLink: true },
+  { name: "Claude Code", dir: path.join(homedir, ".claude", "skills"), useLink: true },
+  { name: "Codex", dir: path.join(homedir, ".codex", "skills"), useLink: true },
+  { name: "Local Navi Installation", dir: path.join(localAppData, "navi", "bin", "skills"), useLink: false },
+  { name: "Navi Portable", dir: portableSkillsDir, useLink: false },
 ]
 
 const args = process.argv.slice(2)
 const isDryRun = args.includes("--dry-run")
-const isClean = args.includes("--clean")
+const _isClean = args.includes("--clean")
 
 console.log(`[sync-skills] Source: ${naviSkillsDir}`)
 if (isDryRun) console.log("[sync-skills] Mode: DRY RUN (no modifications will be made)")
@@ -76,29 +81,35 @@ for (const target of targets) {
             continue
           }
         } else if (stat.isDirectory()) {
-          console.log(`   ⚠️ Preserving real directory: ${skillName}`)
-          totalSkipped++
-          continue
+          if (target.useLink) {
+            console.log(`   ⚠️ Preserving real directory: ${skillName}`)
+            totalSkipped++
+            continue
+          }
         }
       }
 
       if (isDryRun) {
-        console.log(`   + (dry-run) would link: ${skillName} -> ${src}`)
+        console.log(`   + (dry-run) would ${target.useLink ? "link" : "copy"}: ${skillName} -> ${src}`)
         totalLinked++
         continue
       }
 
-      if (stat) {
-        fs.rmSync(dest, { recursive: true, force: true })
+      if (target.useLink) {
+        if (stat) {
+          fs.rmSync(dest, { recursive: true, force: true })
+        }
+        // Create symlink (use 'junction' on Windows for directories to avoid admin privilege requirement)
+        const linkType = process.platform === "win32" ? "junction" : "dir"
+        fs.symlinkSync(src, dest, linkType)
+        console.log(`   ✓ Linked: ${skillName}`)
+      } else {
+        fs.cpSync(src, dest, { recursive: true, force: true })
+        console.log(`   ✓ Copied: ${skillName}`)
       }
-
-      // Create symlink (use 'junction' on Windows for directories to avoid admin privilege requirement)
-      const linkType = process.platform === "win32" ? "junction" : "dir"
-      fs.symlinkSync(src, dest, linkType)
-      console.log(`   ✓ Linked: ${skillName}`)
       totalLinked++
     } catch (err: any) {
-      console.error(`   ✗ Error linking ${skillName}: ${err.message}`)
+      console.error(`   ✗ Error processing ${skillName}: ${err.message}`)
     }
   }
 }

@@ -1,0 +1,1 @@
+Inspects workspace architecture, git deltas, and codebase structure to automatically distill and maintain living documentation (ARCHITECTURE.md, CHANGELOG.md, or .navi/memory/living-state.md).

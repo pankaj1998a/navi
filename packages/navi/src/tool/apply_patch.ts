@@ -17,6 +17,9 @@ import * as Bom from "@/util/bom"
 
 export const Parameters = Schema.Struct({
   patchText: Schema.String.annotate({ description: "The full patch text that describes all changes to be made" }),
+  hunkIndices: Schema.optional(Schema.Array(Schema.Number)).annotate({
+    description: "Optional list of 0-based hunk indices to apply selectively (allows cherry-picking specific hunks while skipping others)",
+  }),
 })
 
 export const ApplyPatchTool = Tool.define(
@@ -42,6 +45,11 @@ export const ApplyPatchTool = Tool.define(
         hunks = parseResult.hunks
       } catch (error) {
         return yield* Effect.fail(new Error(`apply_patch verification failed: ${error}`))
+      }
+
+      if (params.hunkIndices && params.hunkIndices.length > 0) {
+        const allowed = new Set(params.hunkIndices)
+        hunks = hunks.filter((_, idx) => allowed.has(idx))
       }
 
       if (hunks.length === 0) {

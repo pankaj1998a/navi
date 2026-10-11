@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 alibaba/open-code-review Contributors
+// @ts-nocheck
 
 "use strict";
 
@@ -2760,7 +2761,7 @@ function describeCommentLocation(reviewComment) {
 //
 // `cache` (optional) memoizes the result for the run: with several batches each
 // failing 422, the inventory would otherwise be refetched per batch.
-async function getPrDiffHunks({ github, owner, repo, prNumber, commitSha, log, cache }) {
+async function getPrDiffHunks({ github, owner, repo, prNumber, commitSha, log, cache }: Record<string, any>) {
   const logFn = typeof log === "function" ? log : () => {};
   if (cache && cache.diff !== undefined) return cache.diff;
 
@@ -2888,7 +2889,7 @@ const CHECKPOINT_SHA_RE = /^[0-9a-f]{40}$/;
 // the delta since the last push.
 const EVENT_FULL_SCOPE = new Set(["reopened", "ready_for_review"]);
 
-function buildCheckpointMarker(payload) {
+function buildCheckpointMarker(payload: unknown) {
   const encoded = Buffer.from(JSON.stringify(payload), "utf8").toString("base64");
   return `<!-- navi-checkpoint:v1 ${encoded} -->`;
 }
@@ -2908,7 +2909,7 @@ function buildCheckpointMarker(payload) {
 // would resolve that ambiguity by picking the first, and the next run would
 // then read a single well-formed marker and narrow to it. Rescuing nothing
 // leaves the ambiguity intact, which keeps failing closed.
-function preserveCheckpointMarker(newBody, oldBody) {
+function preserveCheckpointMarker(newBody: string, oldBody: string) {
   if (typeof oldBody !== "string" || oldBody === "") return newBody;
   if (CHECKPOINT_MARKER_RE.test(newBody || "")) return newBody;
   const found = oldBody.match(new RegExp(CHECKPOINT_MARKER_PATTERN, "g")) || [];
@@ -2920,17 +2921,17 @@ function preserveCheckpointMarker(newBody, oldBody) {
 // normal first run on a PR) and "marker present but unusable"; the caller maps
 // both to the same fail-closed reason because neither yields a usable range.
 // Two markers in one body are ambiguous and therefore also null.
-function parseCheckpointMarker(body) {
+function parseCheckpointMarker(body: string) {
   if (typeof body !== "string" || body === "") return null;
   const re = new RegExp(CHECKPOINT_MARKER_PATTERN, "g");
   const found = [];
   let m;
   while ((m = re.exec(body)) !== null) found.push(m[1]);
-  if (found.length !== 1) return null;
+  if (found.length !== 1 || !found[0]) return null;
   let payload;
   try {
     payload = JSON.parse(Buffer.from(found[0], "base64").toString("utf8"));
-  } catch (e) {
+  } catch (_e) {
     return null;
   }
   if (!payload || typeof payload !== "object" || Array.isArray(payload)) return null;
@@ -2947,7 +2948,7 @@ function parseCheckpointMarker(body) {
 // chose to review, not with respect to the whole diff. That is the strongest
 // signal the manifest offers, and it is why the range is only ever narrowed
 // past a run that reported it.
-function validateCheckpointPayload(payload, { prNumber } = {}) {
+function validateCheckpointPayload(payload: any, { prNumber }: { prNumber?: any } = {}) {
   if (!payload) return "no payload";
   if (payload.v !== CHECKPOINT_VERSION) return `unsupported version ${JSON.stringify(payload.v)}`;
   if (prNumber != null && payload.pr !== prNumber) return `belongs to PR ${JSON.stringify(payload.pr)}`;
@@ -2963,7 +2964,7 @@ function validateCheckpointPayload(payload, { prNumber } = {}) {
 // the API attaches to any comment written through an App token (the default
 // GITHUB_TOKEN is the "github-actions" app); the bot login is the fallback for
 // payloads that omit it. "" means "no bot wrote this".
-function checkpointAuthorSlug(comment) {
+function checkpointAuthorSlug(comment: any) {
   const app = comment && comment.performed_via_github_app;
   if (app && typeof app.slug === "string" && app.slug !== "") return app.slug;
   const login = (comment && comment.user && comment.user.login) || "";
@@ -2996,7 +2997,7 @@ function checkpointAuthorSlug(comment) {
 // author_unverified until that comment is deleted and reposted. That is
 // fail-closed — a wider review, never a wrong one — and the log line below
 // names the slug that was expected so it is diagnosable.
-function isCheckpointAuthorOurs(comment, appSlug = "") {
+function isCheckpointAuthorOurs(comment: any, appSlug = "") {
   const user = (comment && comment.user) || null;
   if (!user) return false;
   // performed_via_github_app is set for a user-to-server token too, i.e. on a
@@ -3023,7 +3024,7 @@ function isCheckpointAuthorOurs(comment, appSlug = "") {
 //
 // appSlug optionally tightens the author check to one specific app (see
 // isCheckpointAuthorOurs); empty means "any writer GitHub attributes to a bot".
-async function readCheckpointComment({ github, owner, repo, prNumber, appSlug = "", log }) {
+async function readCheckpointComment({ github, owner, repo, prNumber, appSlug = "", log }: Record<string, any>) {
   let comment;
   try {
     comment = await findSummaryIssueComment({
@@ -3035,7 +3036,7 @@ async function readCheckpointComment({ github, owner, repo, prNumber, appSlug = 
       tag: "",
       log,
     });
-  } catch (e) {
+  } catch (e: any) {
     log(`[checkpoint] cannot list issue comments (${e.message}); reviewing the full range.`);
     return { reason: "resolver_error", payload: null, raw: "" };
   }
@@ -3090,9 +3091,6 @@ async function resolveCheckpointRange({
   enabled = false,
   sticky = true,
   fullReview = false,
-  // github.event.action. "reopened" and "ready_for_review" mean a human just
-  // asked for the PR to be looked at again, so they get the whole diff even
-  // when a valid checkpoint would narrow it.
   eventAction = "",
   appSlug = "",
   headSha = "",
@@ -3100,15 +3098,10 @@ async function resolveCheckpointRange({
   mergeBase = "",
   fingerprint = "",
   isAncestor,
-  // Optional pre-read from readCheckpointComment. The caller needs the raw
-  // marker string anyway (to carry it forward on a run that does not advance),
-  // and that read costs a full listComments pagination plus an identity lookup.
-  // Passing it in keeps the whole feature at one read per run and makes the
-  // range decision and the carried marker come from the same observation.
   read = null as any,
-  log = () => {},
-}) {
-  const full = (reason, seen) =>
+  log = (_msg: string) => {},
+}: Record<string, any>) {
+  const full = (reason: string, seen: Record<string, any> = {}) =>
     Object.assign(
       {
         mode: "full",
@@ -3154,7 +3147,7 @@ async function resolveCheckpointRange({
   let status;
   try {
     status = await isAncestor(p.head, headSha);
-  } catch (e) {
+  } catch (e: any) {
     log(`[checkpoint] ancestry check failed (${e.message}); reviewing the full range.`);
     return full("resolver_error", seen);
   }

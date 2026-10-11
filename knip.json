@@ -1,6 +1,5 @@
 {
   "$schema": "https://unpkg.com/knip@5/schema.json",
-  "exclude": ["duplicates"],
   "ignoreBinaries": ["bwrap", "icacls", "musl-gcc", "python3", "sandbox-exec", "tar", "taskkill", "where.exe"],
   "ignoreWorkspaces": ["vendor/*"],
   "ignoreDependencies": ["lightningcss"],

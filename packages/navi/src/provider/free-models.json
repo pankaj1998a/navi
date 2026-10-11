@@ -1,181 +1,4 @@
 {
-    "navi": {
-        "id": "navi",
-        "name": "Navi Zen",
-        "api": "https://navi.ai/zen/v1",
-        "env": [
-            "NAVI_API_KEY"
-        ],
-        "npm": "@ai-sdk/openai-compatible",
-        "models": {
-            "gpt-5-nano": {
-                "id": "gpt-5-nano",
-                "name": "GPT-5 Nano",
-                "attachment": true,
-                "reasoning": true,
-                "temperature": false,
-                "tool_call": true,
-                "cost": {
-                    "input": 0,
-                    "output": 0,
-                    "cache_read": 0
-                },
-                "limit": {
-                    "context": 400000,
-                    "input": 272000,
-                    "output": 128000
-                },
-                "options": {}
-            },
-            "big-pickle": {
-                "id": "big-pickle",
-                "name": "Big Pickle",
-                "attachment": false,
-                "reasoning": true,
-                "temperature": true,
-                "tool_call": true,
-                "cost": {
-                    "input": 0,
-                    "output": 0,
-                    "cache_read": 0,
-                    "cache_write": 0
-                },
-                "limit": {
-                    "context": 200000,
-                    "output": 128000
-                },
-                "options": {}
-            },
-            "glm-4.7-free": {
-                "id": "glm-4.7-free",
-                "name": "GLM-4.7",
-                "attachment": false,
-                "reasoning": true,
-                "temperature": true,
-                "tool_call": true,
-                "cost": {
-                    "input": 0,
-                    "output": 0,
-                    "cache_read": 0
-                },
-                "limit": {
-                    "context": 204800,
-                    "output": 131072
-                },
-                "options": {}
-            },
-            "grok-code": {
-                "id": "grok-code",
-                "name": "Grok Code Fast 1",
-                "attachment": true,
-                "reasoning": true,
-                "temperature": true,
-                "tool_call": true,
-                "cost": {
-                    "input": 0,
-                    "output": 0,
-                    "cache_read": 0,
-                    "cache_write": 0
-                },
-                "limit": {
-                    "context": 256000,
-                    "output": 256000
-                },
-                "options": {}
-            },
-            "minimax-m2.1-free": {
-                "id": "minimax-m2.1-free",
-                "name": "MiniMax M2.1",
-                "attachment": false,
-                "reasoning": true,
-                "temperature": true,
-                "tool_call": true,
-                "cost": {
-                    "input": 0,
-                    "output": 0,
-                    "cache_read": 0
-                },
-                "limit": {
-                    "context": 204800,
-                    "output": 131072
-                },
-                "options": {}
-            },
-            "kimi-k2.5-free": {
-                "id": "kimi-k2.5-free",
-                "name": "Kimi K2.5 (Free)",
-                "attachment": true,
-                "reasoning": true,
-                "temperature": false,
-                "tool_call": true,
-                "cost": {
-                    "input": 0,
-                    "output": 0,
-                    "cache_read": 0
-                },
-                "limit": {
-                    "context": 256000,
-                    "output": 262144
-                },
-                "options": {}
-            },
-            "gpt-5.4": {
-                "id": "gpt-5.4",
-                "name": "GPT-5.4",
-                "attachment": true,
-                "reasoning": true,
-                "temperature": true,
-                "tool_call": true,
-                "cost": {
-                    "input": 0,
-                    "output": 0
-                },
-                "limit": {
-                    "context": 1050000,
-                    "output": 128000
-                },
-                "options": {}
-            },
-            "gpt-5.4-thinking": {
-                "id": "gpt-5.4-thinking",
-                "name": "GPT-5.4 Thinking",
-                "attachment": true,
-                "reasoning": true,
-                "temperature": false,
-                "tool_call": true,
-                "cost": {
-                    "input": 0,
-                    "output": 0
-                },
-                "limit": {
-                    "context": 1050000,
-                    "output": 128000
-                },
-                "options": {
-                    "reasoning": {
-                        "effort": "high"
-                    }
-                }
-            },
-            "gpt-5.4-pro": {
-                "id": "gpt-5.4-pro",
-                "name": "GPT-5.4 Pro",
-                "attachment": true,
-                "reasoning": true,
-                "temperature": true,
-                "tool_call": true,
-                "cost": {
-                    "input": 0,
-                    "output": 0
-                },
-                "limit": {
-                    "context": 1050000,
-                    "output": 128000
-                },
-                "options": {}
-            }
-        }
-    },
     "aihubmix": {
         "id": "aihubmix",
         "name": "AiHubMix",
@@ -1427,6 +1250,83 @@
                     "HTTP-Referer": "https://navi.ai/",
                     "X-Title": "navi"
                 }
+            }
+        }
+    },
+    "antigravity": {
+        "id": "antigravity",
+        "name": "Google Antigravity CLI",
+        "api": "https://antigravity.local/v1",
+        "env": [],
+        "npm": "@ai-sdk/openai-compatible",
+        "models": {
+            "gemini-3.8-flash-high": {
+                "id": "gemini-3.8-flash-high",
+                "name": "Gemini 3.8 Flash (High)",
+                "attachment": true,
+                "reasoning": true,
+                "temperature": true,
+                "tool_call": true,
+                "cost": {
+                    "input": 0,
+                    "output": 0
+                },
+                "limit": {
+                    "context": 1048576,
+                    "output": 65535
+                },
+                "options": {}
+            },
+            "gemini-3.7-flash-high": {
+                "id": "gemini-3.7-flash-high",
+                "name": "Gemini 3.7 Flash (High)",
+                "attachment": true,
+                "reasoning": true,
+                "temperature": true,
+                "tool_call": true,
+                "cost": {
+                    "input": 0,
+                    "output": 0
+                },
+                "limit": {
+                    "context": 1048576,
+                    "output": 65535
+                },
+                "options": {}
+            },
+            "claude-sonnet-4-6": {
+                "id": "claude-sonnet-4-6",
+                "name": "Claude Sonnet 4.6 (Thinking)",
+                "attachment": true,
+                "reasoning": true,
+                "temperature": true,
+                "tool_call": true,
+                "cost": {
+                    "input": 0,
+                    "output": 0
+                },
+                "limit": {
+                    "context": 1000000,
+                    "output": 65535
+                },
+                "options": {}
+            },
+            "claude-opus-4-6-thinking": {
+                "id": "claude-opus-4-6-thinking",
+                "name": "Claude Opus 4.6 (Thinking)",
+                "attachment": true,
+                "reasoning": true,
+                "temperature": true,
+                "tool_call": true,
+                "cost": {
+                    "input": 0,
+                    "output": 0
+                },
+                "limit": {
+                    "context": 1000000,
+                    "output": 65535
+                },
+                "options": {}
             }
         }
     },

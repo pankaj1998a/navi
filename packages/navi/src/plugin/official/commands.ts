@@ -276,6 +276,158 @@ Assess according to deep-module engineering principles:
     hints: ["$ARGUMENTS"],
     subtask: true,
   },
+  {
+    name: "validate",
+    description:
+      "Run the 6-forcing-question solo founder validation protocol to expose demand reality before writing code",
+    agent: "solo-founder",
+    template: `Execute the solo founder /validate protocol for idea: $ARGUMENTS
+
+Subject the concept to the 6 forcing questions:
+1. **Demand Reality**: Who desperately needs this today? What is their current painful workaround?
+2. **Status Quo**: Why is the status quo unacceptable? What happens if they do nothing?
+3. **Desperate Specificity**: Name the exact person, title, or user archetype who would pay immediately.
+4. **Narrowest Wedge**: What is the smallest 80% slice that delivers real value? Cut everything else.
+5. **Observation**: Have you observed this problem firsthand or seen people complain about it repeatedly?
+6. **Future-Fit**: If AI compresses the whole space, does this solution become obsolete or more essential?
+
+Conclude with a clear verdict: **GO** (with narrowest wedge defined), **KILL** (save time and move on), or **PIVOT** (reframed angle).`,
+    hints: ["$ARGUMENTS"],
+  },
+  {
+    name: "solo-plan",
+    description:
+      "Run the solo founder 1-shot review pipeline (CEO review + design review + eng review back-to-back)",
+    agent: "solo-founder",
+    template: `Run the unified 1-shot review pipeline on: $ARGUMENTS
+
+Execute the reviews sequentially:
+1. **CEO Review**:
+   - Is this a painkiller or a vitamin?
+   - What does the 10-star user experience look like?
+   - What can we remove from scope to ship faster?
+2. **Design Review**:
+   - Rate clarity, hierarchy, typography, and density (0-10).
+   - What would make this a 10? Remove visual slop, unneeded dialogs, and clunky flows.
+3. **Eng Review**:
+   - Architecture & data flow: identify schemas, persistence, and state invariants.
+   - Public seams & testability: where do tests live without coupling to internal details?
+   - Edge cases & failure modes: network drops, timeouts, concurrent mutations.
+4. **Final Action Plan**: Consolidated task checklist ready for immediate build.`,
+    hints: ["$ARGUMENTS"],
+    subtask: true,
+  },
+  {
+    name: "spec",
+    description:
+      "Write a formal engineering specification with capability map and acceptance criteria before writing code",
+    template: `Create a comprehensive engineering specification for: $ARGUMENTS
+
+Follow the spec-driven development protocol:
+1. **Capability Map**: If multiple capabilities exist, define an initiative capability map with stable module IDs and dependency order.
+2. **Problem Statement & Objectives**: The exact problem solved and explicit business/user goals.
+3. **User Stories & Scenarios**: Exhaustive scenarios with concrete inputs and outputs.
+4. **Public Seams & Contracts**: Exact interfaces, data structures, and schemas.
+5. **Non-Goals & Invariants**: Out-of-scope boundaries and invariants that must never be violated.`,
+    hints: ["$ARGUMENTS"],
+  },
+  {
+    name: "tdd-build",
+    description:
+      "Autonomous incremental implementation: delivers changes in thin, verified, test-driven slices",
+    template: `Execute incremental build for: $ARGUMENTS
+
+Rules:
+1. Break down the plan into ordered vertical slices.
+2. For each slice:
+   - Identify public seams.
+   - Write failing automated test (Red).
+   - Implement minimal working code (Green).
+   - Refactor for clarity without changing semantics.
+3. Verify test suite passes cleanly before proceeding to the next slice.`,
+    hints: ["$ARGUMENTS"],
+  },
+  {
+    name: "cso",
+    description:
+      "Chief Security Officer audit: secrets archaeology, dependency supply chain, OWASP Top 10, STRIDE threat model",
+    agent: "cso",
+    template: `Conduct a Chief Security Officer (CSO) audit for scope: $ARGUMENTS
+
+1. **Secrets Archaeology**: Check for leaked API keys, tokens, credentials in repo and history.
+2. **Dependency Supply Chain**: Inspect dependency trees, lockfiles, and package integrity.
+3. **Threat Model (STRIDE)**: Spoofing, Tampering, Repudiation, Information Disclosure, Denial of Service, Elevation of Privilege.
+4. **Input Boundaries & OWASP**: Injection, SSRF, IDOR, Broken Authentication, Deserialization.
+5. Provide actionable findings ranked by exploitability with minimal surgical remediation patches.`,
+    hints: ["$ARGUMENTS"],
+  },
+  {
+    name: "qa",
+    description:
+      "Real browser automated and interactive quality assurance with regression test generation",
+    template: `Run a comprehensive QA test session on target: $ARGUMENTS
+
+1. Verify environment and inspect live application using browser engine.
+2. Walk through primary happy path, boundary scenarios, and error states.
+3. Inspect DevTools console errors, network failures, and layout shifts.
+4. Log any discovered bugs with exact reproduction steps.
+5. Draft minimal automated regression tests to prevent regression.`,
+    hints: ["$ARGUMENTS"],
+  },
+  {
+    name: "webperf",
+    description:
+      "Web performance audit: Core Web Vitals (LCP, INP, CLS), asset budgets, and critical path optimization",
+    agent: "web-performance-auditor",
+    template: `Conduct a web performance audit on: $ARGUMENTS
+
+1. Inspect rendering architecture and network waterfall.
+2. Audit Core Web Vitals:
+   - LCP: hero element optimization, preloading, fetchpriority.
+   - INP: long tasks, input handlers, rendering contention.
+   - CLS: layout sizing, aspect ratios, dynamic content shifts.
+3. Analyze asset bundles, dead code, tree-shaking, and caching headers.
+4. Provide concrete code changes with estimated user-perceived performance gains.`,
+    hints: ["$ARGUMENTS"],
+  },
+  {
+    name: "ship",
+    description:
+      "Solo founder production ship protocol: test verification, changelog, version bump, and release",
+    agent: "solo-founder",
+    template: `Execute the production shipping protocol for release: $ARGUMENTS
+
+1. **Gate Check**: Run full test suites and typecheck. All tests must be 100% GREEN.
+2. **Diff Review**: Inspect git diff for unintended files, debug logs, or commented code.
+3. **Changelog & Documentation**: Update CHANGELOG.md and sync relevant documentation.
+4. **Version Bump**: Increment version tag according to semver.
+5. **Deploy & Verify**: Prepare commit, push branch, and trigger production release.`,
+    hints: ["$ARGUMENTS"],
+  },
+  {
+    name: "investigate",
+    description:
+      "Systematic root-cause debugging: four-phase investigation, hypothesis testing, and regression verification",
+    agent: "debugger",
+    template: `Investigate root cause of issue: $ARGUMENTS
+
+Follow the 4-phase systematic debugging protocol:
+1. **Investigate**: Reproduce the failure deterministically with a failing test or script. Do not guess fixes.
+2. **Analyze**: Trace data flow from symptom backwards to the exact divergence point.
+3. **Hypothesize**: Formulate ranked, falsifiable hypotheses. Test one hypothesis at a time with targeted logs.
+4. **Remediate**: Apply the minimal surgical fix that enforces the invariant, verify test passes green, and remove debug logs.`,
+    hints: ["$ARGUMENTS"],
+    subtask: true,
+  },
+  {
+    name: "guard",
+    description:
+      "Safety guard: warn on destructive shell operations and freeze edits to allowed project directories",
+    template: `Activate safety guard mode for session.
+1. Warn before executing any potentially destructive shell commands (rm, drop, clean, reset).
+2. Restrict edits strictly within the current workspace directory boundaries.`,
+    hints: [],
+  },
 ]
 
 

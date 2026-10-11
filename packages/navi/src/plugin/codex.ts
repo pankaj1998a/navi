@@ -1,9 +1,10 @@
 import type { Hooks, PluginInput } from "@navi-ai/plugin"
 import * as Log from "@navi-ai/core/util/log"
-import { Installation } from "../installation"
 import { InstallationVersion } from "@navi-ai/core/installation/version"
 import { OAUTH_DUMMY_KEY } from "../auth"
 import os from "os"
+import path from "path"
+import fs from "fs"
 import { setTimeout as sleep } from "node:timers/promises"
 import { createServer } from "http"
 
@@ -21,12 +22,21 @@ const pollSleep = (baseMs: number) => {
   return sleep(Math.min(baseMs + jitter, 120_000))
 }
 const ALLOWED_MODELS = new Set([
+  "gpt-6.1-sol",
+  "gpt-6-astra",
+  "gpt-6-luna",
+  "gpt-daybreak-blue-latest",
+  "gpt-daybreak-red-latest",
+  "gpt-6-sol",
+  "gpt-5.6-sol",
+  "gpt-5.6-terra",
+  "gpt-5.6-luna",
   "gpt-5.5",
-  "gpt-5.2",
-  "gpt-5.3-codex",
-  "gpt-5.3-codex-spark",
   "gpt-5.4",
   "gpt-5.4-mini",
+  "gpt-5.3-codex",
+  "gpt-5.3-codex-spark",
+  "gpt-5.2",
 ])
 
 interface PkceCodes {
@@ -99,6 +109,33 @@ export function extractAccountId(tokens: TokenResponse): string | undefined {
   if (tokens.access_token) {
     const claims = parseJwtClaims(tokens.access_token)
     return claims ? extractAccountIdFromClaims(claims) : undefined
+  }
+  return undefined
+}
+
+export async function detectCodexCliAuth(): Promise<{ access_token?: string; refresh_token?: string; account_id?: string } | undefined> {
+  const home = os.homedir()
+  const paths = [
+    path.join(home, ".codex", "auth.json"),
+  ]
+  const appData = process.env.APPDATA
+  if (appData) {
+    paths.push(path.join(appData, "codex", "auth.json"))
+  }
+  for (const authPath of paths) {
+    try {
+      const content = await fs.promises.readFile(authPath, "utf-8")
+      const parsed = JSON.parse(content)
+      const tokens = parsed.tokens || parsed
+      const access_token = tokens.access_token || tokens.access
+      const refresh_token = tokens.refresh_token || tokens.refresh
+      const account_id = tokens.account_id || parsed.account_id || extractAccountId(tokens)
+      if (access_token || refresh_token) {
+        return { access_token, refresh_token, account_id }
+      }
+    } catch {
+      // Continue
+    }
   }
   return undefined
 }
@@ -383,11 +420,12 @@ export async function CodexAuthPlugin(input: PluginInput): Promise<Hooks> {
           Object.entries(provider.models)
             .filter(([, model]) => {
               if (ALLOWED_MODELS.has(model.api.id)) return true
-              const match = model.api.id.match(/^gpt-(\d+\.\d+)/)
-              if (!match) return false
-              const minor = match[1]
-              if (minor === undefined) return false
-              return parseFloat(minor) > 5.4
+              if (model.api.id.startsWith("gpt-6") || model.api.id.startsWith("gpt-daybreak")) return true
+              const match = model.api.id.match(/^gpt-(\d+(\.\d+)?)/)
+              const rawVersion = match?.[1]
+              if (!rawVersion) return false
+              const version = parseFloat(rawVersion)
+              return !Number.isNaN(version) && version >= 5.2
             })
             .map(([modelID, model]) => [
               modelID,
@@ -499,6 +537,35 @@ export async function CodexAuthPlugin(input: PluginInput): Promise<Hooks> {
         }
       },
       methods: [
+        {
+          label: "Import from Codex CLI (~/.codex/auth.json)",
+          type: "oauth",
+          authorize: async () => {
+            const detected = await detectCodexCliAuth()
+            if (detected?.access_token || detected?.refresh_token) {
+              return {
+                url: "",
+                instructions: "Detected credentials from OpenAI Codex CLI (~/.codex/auth.json).",
+                method: "auto" as const,
+                callback: async () => {
+                  return {
+                    type: "success" as const,
+                    refresh: detected.refresh_token || detected.access_token!,
+                    access: detected.access_token || detected.refresh_token!,
+                    expires: Date.now() + 3600 * 1000,
+                    accountId: detected.account_id,
+                  }
+                },
+              }
+            }
+            return {
+              url: "",
+              instructions: "No Codex CLI auth found in ~/.codex/auth.json. Please run `codex login` first.",
+              method: "auto" as const,
+              callback: async () => ({ type: "failed" as const }),
+            }
+          },
+        },
         {
           label: "ChatGPT Pro/Plus (browser)",
           type: "oauth",
@@ -621,13 +688,13 @@ export async function CodexAuthPlugin(input: PluginInput): Promise<Hooks> {
       ],
     },
     "chat.headers": async (input, output) => {
-      if (input.model.providerID !== "openai") return
+      if (input.model.providerID !== "openai" && input.model.providerID !== "codex-cli") return
       output.headers.originator = "navi"
       output.headers["User-Agent"] = `navi/${InstallationVersion} (${os.platform()} ${os.release()}; ${os.arch()})`
       output.headers.session_id = input.sessionID
     },
     "chat.params": async (input, output) => {
-      if (input.model.providerID !== "openai") return
+      if (input.model.providerID !== "openai" && input.model.providerID !== "codex-cli") return
       // Match codex cli
       output.maxOutputTokens = undefined
     },

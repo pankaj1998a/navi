@@ -16,27 +16,27 @@
 
 <p align="center">
   <a href="README.md">English</a> |
-  <a href="README.zh.md">简体中文</a> |
-  <a href="README.zht.md">繁體中文</a> |
-  <a href="README.ko.md">한국어</a> |
-  <a href="README.de.md">Deutsch</a> |
-  <a href="README.es.md">Español</a> |
-  <a href="README.fr.md">Français</a> |
-  <a href="README.it.md">Italiano</a> |
-  <a href="README.da.md">Dansk</a> |
-  <a href="README.ja.md">日本語</a> |
-  <a href="README.pl.md">Polski</a> |
-  <a href="README.ru.md">Русский</a> |
-  <a href="README.bs.md">Bosanski</a> |
-  <a href="README.ar.md">العربية</a> |
-  <a href="README.no.md">Norsk</a> |
-  <a href="README.br.md">Português (Brasil)</a> |
-  <a href="README.th.md">ไทย</a> |
-  <a href="README.tr.md">Türkçe</a> |
-  <a href="README.uk.md">Українська</a> |
-  <a href="README.bn.md">বাংলা</a> |
-  <a href="README.gr.md">Ελληνικά</a> |
-  <a href="README.vi.md">Tiếng Việt</a>
+  <a href="docs/locales/README.zh.md">简体中文</a> |
+  <a href="docs/locales/README.zht.md">繁體中文</a> |
+  <a href="docs/locales/README.ko.md">한국어</a> |
+  <a href="docs/locales/README.de.md">Deutsch</a> |
+  <a href="docs/locales/README.es.md">Español</a> |
+  <a href="docs/locales/README.fr.md">Français</a> |
+  <a href="docs/locales/README.it.md">Italiano</a> |
+  <a href="docs/locales/README.da.md">Dansk</a> |
+  <a href="docs/locales/README.ja.md">日本語</a> |
+  <a href="docs/locales/README.pl.md">Polski</a> |
+  <a href="docs/locales/README.ru.md">Русский</a> |
+  <a href="docs/locales/README.bs.md">Bosanski</a> |
+  <a href="docs/locales/README.ar.md">العربية</a> |
+  <a href="docs/locales/README.no.md">Norsk</a> |
+  <a href="docs/locales/README.br.md">Português (Brasil)</a> |
+  <a href="docs/locales/README.th.md">ไทย</a> |
+  <a href="docs/locales/README.tr.md">Türkçe</a> |
+  <a href="docs/locales/README.uk.md">Українська</a> |
+  <a href="docs/locales/README.bn.md">বাংলা</a> |
+  <a href="docs/locales/README.gr.md">Ελληνικά</a> |
+  <a href="docs/locales/README.vi.md">Tiếng Việt</a>
 </p>
 
 [![Navi Terminal UI](packages/web/src/assets/lander/screenshot.png)](https://navi.ai)

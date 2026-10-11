@@ -117,8 +117,8 @@ export const BrowserCommand = effectCmd({
           const text = msg.text()
           process.stdout.write(`[CONSOLE:${type.toUpperCase()}] ${text}\n`)
         })
-        page.on("pageerror", (err) => {
-          process.stderr.write(`[PAGEERROR] ${err.message}\n`)
+        page.on("pageerror", (err: unknown) => {
+          process.stderr.write(`[PAGEERROR] ${err instanceof Error ? err.message : String(err)}\n`)
         })
         yield* Effect.promise(() => page.goto(target, { waitUntil: "networkidle2", timeout: 30000 }))
         yield* Effect.promise(() => new Promise((r) => setTimeout(r, 2000)))

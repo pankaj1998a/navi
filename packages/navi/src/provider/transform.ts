@@ -1,5 +1,8 @@
-// TODO: extract per-family transforms from this file (~50KB) into
-// provider/transform/*.ts. Split is deferred: transform ordering is load-bearing.
+/**
+ * Provider message and options transform pipeline.
+ * Transform ordering is strictly load-bearing: normalization runs before family-specific
+ * adaptations (Anthropic, OpenAI, Gemini, Bedrock), which precede JSON schema sanitization.
+ */
 import type { ModelMessage, ToolResultPart } from "ai"
 import { mergeDeep, unique } from "remeda"
 import type { JSONSchema7 } from "@ai-sdk/provider"
@@ -58,7 +61,7 @@ function sdkKey(npm: string): string | undefined {
   return undefined
 }
 
-// TODO: fix this stupid inefficient dogshit function
+// Normalizes model messages: sanitizes surrogate pairs and ensures tool results conform to provider bounds
 function normalizeMessages(
   msgs: ModelMessage[],
   model: Provider.Model,
@@ -1080,10 +1083,7 @@ export function options(input: {
     }
   }
 
-  if (
-    input.model.providerID === "baseten" ||
-    (input.model.providerID === "navi" && ["kimi-k2-thinking", "glm-4.6"].includes(input.model.api.id))
-  ) {
+  if (input.model.providerID === "baseten") {
     result["chat_template_args"] = { enable_thinking: true }
   }
 
@@ -1162,12 +1162,6 @@ export function options(input: {
       input.model.providerID !== "azure"
     ) {
       result["textVerbosity"] = "low"
-    }
-
-    if (input.model.providerID.startsWith("navi")) {
-      result["promptCacheKey"] = input.sessionID
-      result["include"] = ["reasoning.encrypted_content"]
-      result["reasoningSummary"] = "auto"
     }
   }
 
