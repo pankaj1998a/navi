@@ -554,11 +554,17 @@ export const layer = Layer.effect(
           },
           security: {
             name: "security",
-            description: "Specialized application security and vulnerability auditor. Inspects code, dependencies, and APIs for OWASP Top 10 vulnerabilities, injection flaws, and secret leaks.",
+            description: "Specialized cybersecurity, penetration testing, and vulnerability auditor. Inspects code, dependencies, and APIs for OWASP Top 10 vulnerabilities, injection flaws, binary mitigations, and secret leaks.",
             permission: Permission.merge(
               defaults,
               Permission.fromConfig({
                 question: "allow",
+                security_scan: "allow",
+                security_checksec: "allow",
+                security_audit_web: "allow",
+                reverse_native: "allow",
+                reverse_js: "allow",
+                reverse_doctor: "allow",
                 edit: "deny",
                 write: "deny",
               }),
@@ -566,7 +572,7 @@ export const layer = Layer.effect(
             ),
             prompt: PROMPT_SECURITY,
             options: {},
-            mode: "subagent",
+            mode: "all",
             native: true,
             color: "red",
           },

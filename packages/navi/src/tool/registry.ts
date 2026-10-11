@@ -71,6 +71,9 @@ import { AcpDelegateTool } from "./acp-delegate"
 import { DiagramDesignTool } from "./diagram"
 import { ContextModeTool } from "./context-mode"
 import { PptMasterTool } from "./ppt-master"
+import { SecurityScanTool } from "./security-scan"
+import { SecurityChecksecTool } from "./security-checksec"
+import { SecurityAuditWebTool } from "./security-audit-web"
 import { Glob } from "@navi-ai/core/util/glob"
 import path from "path"
 import { pathToFileURL } from "url"
@@ -206,6 +209,9 @@ export const layer: Layer.Layer<
     const diagramtool = yield* DiagramDesignTool
     const contextmodetool = yield* ContextModeTool
     const pptmastertool = yield* PptMasterTool
+    const securityscan = yield* SecurityScanTool
+    const securitychecksec = yield* SecurityChecksecTool
+    const securityauditweb = yield* SecurityAuditWebTool
 
     const state = yield* InstanceState.make<State>(
       Effect.fn("ToolRegistry.state")(function* (ctx) {
@@ -343,6 +349,9 @@ export const layer: Layer.Layer<
           diagram_design: Tool.init(diagramtool),
           context_mode: Tool.init(contextmodetool),
           ppt_master: Tool.init(pptmastertool),
+          security_scan: Tool.init(securityscan),
+          security_checksec: Tool.init(securitychecksec),
+          security_audit_web: Tool.init(securityauditweb),
         })
 
         return {
@@ -401,6 +410,9 @@ export const layer: Layer.Layer<
             tool.diagram_design,
             tool.context_mode,
             tool.ppt_master,
+            tool.security_scan,
+            tool.security_checksec,
+            tool.security_audit_web,
             ...(Flag.NAVI_EXPERIMENTAL_LSP_TOOL ? [tool.lsp] : []),
             ...(Flag.NAVI_EXPERIMENTAL_PLAN_MODE && Flag.NAVI_CLIENT === "cli" ? [tool.plan] : []),
           ],
