@@ -4,6 +4,7 @@ import path from "node:path"
 import process from "node:process"
 import {
   Sandbox,
+  SandboxPathGuard,
   SandboxUnavailableError,
   MacSeatbeltBackend,
   LinuxBwrapBackend,
@@ -106,7 +107,7 @@ describe("Sandbox", () => {
       expect(rwConfined.command).toBe("node")
       expect(rwConfined.args).toEqual(["index.js"])
       expect(rwConfined.backend).toBe("windows-acl")
-      expect(rwConfined.enforcement).toBe("full")
+      expect(rwConfined.enforcement).toBe("partial")
       expect(rwConfined.env.NAVI_SANDBOX_RESTRICTED_TOKEN).toBe("1")
       expect(rwConfined.env.NAVI_SANDBOX_JOB_OBJECT).toBe("1")
       expect(rwConfined.env.NAVI_SANDBOX_WRITE_RESTRICTED).toBe("1")
@@ -118,6 +119,28 @@ describe("Sandbox", () => {
   })
 
   describe("fail-closed rejection semantics", () => {
+    test("SandboxPathGuard denies writes to VCS internals and env secrets", () => {
+      const policy: SandboxPolicy = { mode: "workspace-write", workspaceRoot: root }
+      expect(() =>
+        SandboxPathGuard.assertPathAllowed(path.join(root, ".git", "config"), policy, true),
+      ).toThrow(/SANDBOX_VIOLATION/)
+      expect(() => SandboxPathGuard.assertPathAllowed(path.join(root, ".env"), policy, true)).toThrow(
+        /SANDBOX_VIOLATION/,
+      )
+      // Reads stay allowed; only direct writes are fenced.
+      expect(() =>
+        SandboxPathGuard.assertPathAllowed(path.join(root, ".git", "config"), policy, false),
+      ).not.toThrow()
+    })
+
+    test("SandboxPathGuard denies writes outside the workspace root", () => {
+      const policy: SandboxPolicy = { mode: "workspace-write", workspaceRoot: root }
+      expect(() => SandboxPathGuard.assertPathAllowed(path.join(root, "..", "outside.txt"), policy, true)).toThrow(
+        /SANDBOX_VIOLATION/,
+      )
+      expect(() => SandboxPathGuard.assertPathAllowed(path.join(root, "notes.txt"), policy, true)).not.toThrow()
+    })
+
     test("throws typed SandboxUnavailableError when backend is unavailable", () => {
       const prev = process.env.NAVI_SANDBOX_DISABLE_WINDOWS
       try {

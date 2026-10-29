@@ -43,6 +43,14 @@ function getAuthStatusText(status: MCP.AuthStatus): string {
   }
 }
 
+const STATUS_LABELS: Record<MCP.Status["status"], { icon: string; text: string }> = {
+  connected: { icon: "✓", text: "connected" },
+  disabled: { icon: "○", text: "disabled" },
+  failed: { icon: "✗", text: "failed" },
+  needs_auth: { icon: "⚠", text: "needs authentication" },
+  needs_client_registration: { icon: "✗", text: "needs client registration" },
+}
+
 type McpEntry = NonNullable<Config.Info["mcp"]>[string]
 
 type McpConfigured = ConfigMCP.Info
@@ -128,34 +136,12 @@ export const McpListCommand = effectCmd({
       const hasOAuth = isMcpRemote(serverConfig) && !!serverConfig.oauth
       const hasStoredTokens = stored[name]
 
-      let statusIcon: string
-      let statusText: string
+      const statusIcon = status ? STATUS_LABELS[status.status].icon : "○"
+      const statusText = status ? STATUS_LABELS[status.status].text : "not initialized"
       let hint = ""
-
-      if (!status) {
-        statusIcon = "○"
-        statusText = "not initialized"
-      } else if (status.status === "connected") {
-        statusIcon = "✓"
-        statusText = "connected"
-        if (hasOAuth && hasStoredTokens) {
-          hint = " (OAuth)"
-        }
-      } else if (status.status === "disabled") {
-        statusIcon = "○"
-        statusText = "disabled"
-      } else if (status.status === "needs_auth") {
-        statusIcon = "⚠"
-        statusText = "needs authentication"
-      } else if (status.status === "needs_client_registration") {
-        statusIcon = "✗"
-        statusText = "needs client registration"
-        hint = "\n    " + status.error
-      } else {
-        statusIcon = "✗"
-        statusText = "failed"
-        hint = "\n    " + status.error
-      }
+      if (status?.status === "connected" && hasOAuth && hasStoredTokens) hint = " (OAuth)"
+      if (status?.status === "needs_client_registration") hint = "\n    " + status.error
+      if (status?.status === "failed") hint = "\n    " + status.error
 
       const typeHint = serverConfig.type === "remote" ? serverConfig.url : serverConfig.command.join(" ")
       prompts.log.info(
@@ -271,7 +257,10 @@ export const McpAuthCommand = effectCmd({
         Effect.sync(() => {
           if (status.status === "connected") {
             spinner.stop("Authentication successful!")
-          } else if (status.status === "needs_client_registration") {
+            return
+          }
+
+          if (status.status === "needs_client_registration") {
             spinner.stop("Authentication failed", 1)
             prompts.log.error(status.error)
             prompts.log.info("Add clientId to your MCP server config:")
@@ -286,12 +275,16 @@ export const McpAuthCommand = effectCmd({
       }
     }
   }`)
-          } else if (status.status === "failed") {
+            return
+          }
+
+          if (status.status === "failed") {
             spinner.stop("Authentication failed", 1)
             prompts.log.error(status.error)
-          } else {
-            spinner.stop("Unexpected status: " + status.status, 1)
+            return
           }
+
+          spinner.stop("Unexpected status: " + status.status, 1)
         }),
       ),
       Effect.catchCause((cause) =>

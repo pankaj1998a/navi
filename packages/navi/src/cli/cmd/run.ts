@@ -809,11 +809,15 @@ export const RunCommand = effectCmd({
         process.stderr.write("DEBUG: Awaiting runtimeTask import...\n")
         const { runInteractiveLocalMode } = await runtimeTask
         process.stderr.write("DEBUG: runtimeTask imported\n")
-        const fetchFn = (async (input: any, init?: any) => {
-          const { Server } = await import("../../server/server")
-          const request = new Request(input, init)
-          return Server.Default().app.fetch(request)
-        }) as typeof globalThis.fetch
+        // SDK v2 calls fetch.preconnect at runtime, so it must exist on the delegated fetch.
+        const fetchFn: typeof fetch = Object.assign(
+          async (input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]): Promise<Response> => {
+            const { Server } = await import("../../server/server")
+            const request = new Request(input, init)
+            return await Server.Default().app.fetch(request)
+          },
+          { preconnect: globalThis.fetch.preconnect.bind(globalThis.fetch) },
+        )
 
         try {
           process.stderr.write("DEBUG: Calling runInteractiveLocalMode\n")
@@ -842,11 +846,15 @@ export const RunCommand = effectCmd({
         return await execute(sdk)
       }
 
-      const fetchFn = (async (input: any, init?: any) => {
-        const { Server } = await import("../../server/server")
-        const request = new Request(input, init)
-        return Server.Default().app.fetch(request)
-      }) as typeof globalThis.fetch
+      // SDK v2 calls fetch.preconnect at runtime, so it must exist on the delegated fetch.
+      const fetchFn: typeof fetch = Object.assign(
+        async (input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]): Promise<Response> => {
+          const { Server } = await import("../../server/server")
+          const request = new Request(input, init)
+          return await Server.Default().app.fetch(request)
+        },
+        { preconnect: globalThis.fetch.preconnect.bind(globalThis.fetch) },
+      )
       const sdk = createNaviClient({
         baseUrl: "http://navi.internal",
         fetch: fetchFn,
@@ -855,4 +863,4 @@ export const RunCommand = effectCmd({
       await execute(sdk)
     })
   }),
-}) as any
+})

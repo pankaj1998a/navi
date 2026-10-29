@@ -8,6 +8,18 @@ export const Parameters = Schema.Struct({
   query: Schema.optional(Schema.String).annotate({ description: "Search query" }),
 })
 
+interface FirecrawlDoc {
+  title?: string
+  url?: string
+  description?: string
+  markdown?: string
+}
+
+interface FirecrawlResponse {
+  data?: FirecrawlDoc[] | FirecrawlDoc
+  markdown?: string
+}
+
 export const FirecrawlTool = Tool.define(
   "firecrawl",
   Effect.gen(function* () {
@@ -38,16 +50,16 @@ export const FirecrawlTool = Tool.define(
           )
 
           if (!res.ok) throw new Error(`Firecrawl API error: ${yield* Effect.promise(() => res.text())}`)
-          const data = yield* Effect.promise(() => res.json()) as any
-          const searchResults = data.data || []
+          const data = (yield* Effect.promise(() => res.json())) as FirecrawlResponse
+          const searchResults = Array.isArray(data.data) ? data.data : []
 
           let output = ""
           if (params.action === "search") {
             output = searchResults
-              .map((r: any, i: number) => `${i + 1}. **${r.title}**\nURL: ${r.url}\n${r.description}\n`)
+              .map((r, i) => `${i + 1}. **${r.title}**\nURL: ${r.url}\n${r.description}\n`)
               .join("\n")
           } else {
-            output = data.data?.markdown || data.markdown || JSON.stringify(data, null, 2)
+            output = (Array.isArray(data.data) ? undefined : data.data)?.markdown || data.markdown || JSON.stringify(data, null, 2)
           }
 
           return {

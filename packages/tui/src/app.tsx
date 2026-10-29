@@ -2,9 +2,9 @@ import { render, TimeToFirstDraw, useRenderer, useTerminalDimensions } from "@op
 import { registerOpencodeSpinner } from "./component/register-spinner"
 import { createDefaultOpenTuiKeymap } from "@opentui/keymap/opentui"
 import { Deferred, Effect } from "effect"
-import { Global } from "@opencode-ai/core/global"
-import { Flag } from "@opencode-ai/core/flag/flag"
-import { InstallationVersion } from "@opencode-ai/core/installation/version"
+import { Global } from "@navi-ai/core/global"
+import { Flag } from "@navi-ai/core/flag/flag"
+import { InstallationVersion } from "@navi-ai/core/installation/version"
 import { ClipboardProvider, useClipboard } from "./context/clipboard"
 import { ExitProvider, useExit } from "./context/exit"
 import { EpilogueProvider } from "./context/epilogue"
@@ -70,6 +70,8 @@ import { createTuiApiAdapters } from "./plugin/adapters"
 import { createTuiApi } from "./plugin/api"
 import { createPluginRuntime, PluginRuntimeProvider, usePluginRuntime, type TuiPluginHost } from "./plugin/runtime"
 import { CommandPaletteDialog } from "./component/command-palette"
+import { SessionTabs } from "./component/session-tabs"
+import { SessionTabsProvider, useSessionTabs } from "./context/session-tabs"
 import {
   COMMAND_PALETTE_COMMAND,
   OPENCODE_BASE_MODE,
@@ -102,6 +104,8 @@ const appGlobalBindingCommands = [
   "session.quick_switch.8",
   "session.quick_switch.9",
 ] as const
+
+const sessionTabBindingCommands = ["session.tab.next", "session.tab.previous", "session.tab.close"] as const
 
 const appBindingCommands = [
   "command.palette.show",
@@ -315,10 +319,12 @@ export const run = Effect.fn("Tui.run")(function* (input: TuiInput) {
                                                               <PromptRefProvider>
                                                                 <EditorContextProvider>
                                                                   <LocationProvider>
-                                                                    <App
-                                                                      onSnapshot={input.onSnapshot}
-                                                                      pluginHost={input.pluginHost}
-                                                                    />
+                                                                    <SessionTabsProvider>
+                                                                      <App
+                                                                        onSnapshot={input.onSnapshot}
+                                                                        pluginHost={input.pluginHost}
+                                                                      />
+                                                                    </SessionTabsProvider>
                                                                   </LocationProvider>
                                                                 </EditorContextProvider>
                                                               </PromptRefProvider>
@@ -370,6 +376,7 @@ function App(props: { onSnapshot?: () => Promise<string[]>; pluginHost: TuiPlugi
   const renderer = useRenderer()
   const dialog = useDialog()
   const local = useLocal()
+  const tabs = useSessionTabs()
   const kv = useKV()
   const keymap = useOpencodeKeymap()
   const event = useEvent()
@@ -623,9 +630,36 @@ function App(props: { onSnapshot?: () => Promise<string[]>; pluginHost: TuiPlugi
         category: "Session",
         hidden: true,
         run: () => {
-          local.session.quickSwitch(i + 1)
+          if (local.session.slots()[i]) local.session.quickSwitch(i + 1)
+          else tabs.selectIndex(i)
         },
       })),
+      {
+        name: "session.tab.next",
+        title: "Next session tab",
+        category: "Session",
+        hidden: true,
+        run: () => {
+          tabs.cycle(1)
+        },
+      },
+      {
+        name: "session.tab.previous",
+        title: "Previous session tab",
+        category: "Session",
+        hidden: true,
+        run: () => {
+          tabs.cycle(-1)
+        },
+      },
+      {
+        name: "session.tab.close",
+        title: "Close session tab",
+        category: "Session",
+        run: () => {
+          tabs.close()
+        },
+      },
       {
         name: "model.list",
         title: "Switch model",
@@ -973,6 +1007,10 @@ function App(props: { onSnapshot?: () => Promise<string[]>; pluginHost: TuiPlugi
   }))
 
   useBindings(() => ({
+    bindings: tuiConfig.keybinds.gather("tabs", sessionTabBindingCommands),
+  }))
+
+  useBindings(() => ({
     mode: OPENCODE_BASE_MODE,
     enabled: () => {
       const current = promptRef.current
@@ -1108,6 +1146,7 @@ function App(props: { onSnapshot?: () => Promise<string[]>; pluginHost: TuiPlugi
         <TimeToFirstDraw />
       </Show>
       <Show when={ready()}>
+        <SessionTabs />
         <box flexGrow={1} minHeight={0} flexDirection="column">
           <Switch>
             <Match when={route.data.type === "home"}>

@@ -3,7 +3,7 @@ import { mkdtemp, rm } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { Effect, FileSystem, Schema, SchemaAST, SchemaGetter } from "effect"
-import { HttpApi, HttpApiEndpoint, HttpApiGroup, HttpApiMiddleware, HttpApiSchema } from "effect/unstable/httpapi"
+import { HttpApi, HttpApiEndpoint, HttpApiGroup, HttpApiMiddleware, HttpApiSchema } from "effect/http-api"
 import { format } from "prettier"
 import {
   compile as compileContract,
@@ -851,7 +851,7 @@ describe("HttpApiCodegen.generate", () => {
     const link = JsonNumber.ast.encoding?.[0]
     if (link === undefined) throw new Error("Expected JSON number encoding")
     // This helper is present at runtime but omitted from the public declaration surface.
-    const replaceEncoding: unknown = Reflect.get(SchemaAST, "replaceEncoding")
+    const replaceEncoding = (SchemaAST as unknown as Record<string, unknown>)["replaceEncoding"] as unknown
     if (typeof replaceEncoding !== "function") throw new Error("Expected SchemaAST.replaceEncoding")
     const ast: unknown = replaceEncoding(JsonNumber.ast, [
       new SchemaAST.Link(Schema.String.check(Schema.isMinLength(2)).ast, link.transformation),

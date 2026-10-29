@@ -268,6 +268,9 @@ Run the platform detection from the deploy bootstrap:
 [ -f render.yaml ] && echo "PLATFORM:render" && cat render.yaml
 [ -f vercel.json ] || [ -d .vercel ] && echo "PLATFORM:vercel"
 [ -f netlify.toml ] && echo "PLATFORM:netlify" && cat netlify.toml
+[ -f wrangler.toml ] || [ -f wrangler.jsonc ] || [ -f wrangler.json ] && echo "PLATFORM:cloudflare"
+[ -f sst.config.ts ] || [ -f cdk.json ] || [ -f serverless.yml ] && echo "PLATFORM:aws"
+[ -f app.yaml ] && echo "PLATFORM:gcp"
 [ -f Procfile ] && echo "PLATFORM:heroku"
 [ -f railway.json ] || [ -f railway.toml ] && echo "PLATFORM:railway"
 
@@ -336,6 +339,42 @@ If deploy workflows detected but no platform config:
 1. Read the workflow file to understand what it does
 2. Extract the deploy target (if mentioned)
 3. Ask the user for the production URL
+
+#### Cloudflare (Workers / Pages)
+
+If `wrangler.toml` or `wrangler.jsonc` detected:
+- Check for `wrangler` CLI: `which wrangler 2>/dev/null || npx wrangler --version`
+- Official Documentation: [https://developers.cloudflare.com/](https://developers.cloudflare.com/)
+- GitHub: [https://github.com/cloudflare](https://github.com/cloudflare)
+- Deploy command: `wrangler deploy`
+
+#### Amazon Web Services (AWS)
+
+If `sst.config.ts`, `cdk.json`, or `serverless.yml` detected:
+- Official Documentation: [https://docs.aws.amazon.com/](https://docs.aws.amazon.com/)
+- GitHub: [https://github.com/awsdocs](https://github.com/awsdocs)
+- Follow SST (`sst deploy`), AWS CDK (`cdk deploy`), or SAM (`sam deploy`) workflows.
+
+#### Google Cloud Platform (GCP)
+
+If `app.yaml` or Google Cloud workflows detected:
+- Official Documentation: [https://docs.cloud.google.com/docs](https://docs.cloud.google.com/docs) & [https://cloud.google.com/docs](https://cloud.google.com/docs)
+- GitHub: [https://github.com/googlecloudplatform](https://github.com/googlecloudplatform)
+- Deploy command: `gcloud app deploy` or `gcloud run deploy`.
+
+#### Microsoft Azure
+
+If Azure workflows or Bicep templates detected:
+- Official Documentation: [https://learn.microsoft.com/en-us/azure/?product=popular](https://learn.microsoft.com/en-us/azure/?product=popular)
+- GitHub: [https://github.com/MicrosoftDocs](https://github.com/MicrosoftDocs) & [https://github.com/MicrosoftDocs/azure-docs](https://github.com/MicrosoftDocs/azure-docs)
+- Deploy via Azure CLI (`az webapp up`) or GitHub Actions (`azure/webapps-deploy`).
+
+#### Oracle Cloud Infrastructure (OCI)
+
+If OCI Terraform or container deployment detected:
+- Official Documentation: [https://docs.oracle.com/](https://docs.oracle.com/) (Cloud: [https://docs.oracle.com/en/cloud/](https://docs.oracle.com/en/cloud/), OCI IaaS: [https://docs.oracle.com/en-us/iaas/Content/home.htm](https://docs.oracle.com/en-us/iaas/Content/home.htm))
+- GitHub: [https://github.com/oracle](https://github.com/oracle) & [https://github.com/oracle-devrel](https://github.com/oracle-devrel)
+- Deploy via `oci` CLI, OKE, or Terraform OCI Provider.
 
 #### Custom / Manual
 

@@ -1,6 +1,6 @@
 import { describe, expect } from "bun:test"
 import { Effect, Schema } from "effect"
-import { HttpClientRequest } from "effect/unstable/http"
+import { HttpClientRequest } from "effect/http"
 import { LLM } from "../../src"
 import { LLMClient } from "../../src/route"
 import * as OpenAICompatible from "../../src/providers/openai-compatible"

@@ -7,7 +7,8 @@
     "module": "nodenext",
     "declaration": true,
     "moduleResolution": "nodenext",
-    "lib": ["es2022", "dom", "dom.iterable"]
+    "lib": ["es2022", "dom", "dom.iterable"],
+    "noUncheckedIndexedAccess": true
   },
   "include": ["src"]
 }

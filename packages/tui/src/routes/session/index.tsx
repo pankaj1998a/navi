@@ -36,7 +36,7 @@ import type {
   TextPart,
   ReasoningPart,
   SessionStatus,
-} from "@opencode-ai/sdk/v2"
+} from "@navi-ai/sdk/v2"
 import { useLocal } from "../../context/local"
 import { Locale } from "../../util/locale"
 import { webSearchProviderLabel } from "../../util/tool-display"
@@ -82,6 +82,7 @@ import { getRevertDiffFiles } from "../../util/revert-diff"
 import { OPENCODE_BASE_MODE, useBindings, useCommandShortcut, useOpencodeKeymap } from "../../keymap"
 import { usePathFormatter } from "../../context/path-format"
 import { LocationProvider } from "../../context/location"
+import { TRANSCRIPT_BACKFILL_CHUNK, TRANSCRIPT_TAIL_ROWS, isAtBottom, isNearTop, rowWeight, rowsBefore } from "./mount-budget"
 
 addDefaultParsers(parsers.parsers)
 
@@ -308,7 +309,9 @@ export function Session() {
         // (which will be non-interactive)
         try {
           await sync.bootstrap({ fatal: false })
-        } catch {}
+        } catch {
+          // Non-fatal: the workspace may no longer exist; the session still renders
+        }
       }
       editor.reconnect(result.data.directory)
       await sync.session.sync(sessionID)
@@ -354,6 +357,100 @@ export function Session() {
   const keymap = useOpencodeKeymap()
   const dialog = useDialog()
   const renderer = useRenderer()
+
+  // Tail-first transcript mounting: a session opens with only its newest rows mounted, so a long
+  // transcript costs a bounded number of mounted rows instead of the whole history. Older rows
+  // mount in chunks as the reader scrolls up, and the mount window collapses back to the tail
+  // when the transcript returns to the bottom.
+  const [hiddenRows, setHiddenRows] = createSignal<number>()
+  const rowSlots = () => rowWeight(1)
+  const hidden = createMemo(() =>
+    Math.min(hiddenRows() ?? Infinity, rowsBefore(rowSlots, messages().length, TRANSCRIPT_TAIL_ROWS)),
+  )
+  const visibleMessages = createMemo(() => messages().slice(hidden()))
+
+  /** Runs after layout has settled. */
+  const afterLayout = (continuation: () => void) => {
+    renderer.requestAnimationFrame(() => {
+      renderer.requestAnimationFrame(() => {
+        continuation()
+      })
+    })
+  }
+
+  /**
+   * Keeps the mount window in step with the reader's position: pinned while the
+   * reader is away from the bottom so appended messages stop sliding the
+   * transcript under them, and collapsed back to the tail once the reader
+   * returns to the newest message.
+   */
+  const updateMountWindow = () => {
+    if (!scroll || scroll.isDestroyed) return
+    if (isAtBottom(scroll.scrollTop, scroll.viewport.height, scroll.scrollHeight)) {
+      setHiddenRows(undefined)
+      return
+    }
+    setHiddenRows((current) => current ?? hidden())
+  }
+
+  let revealingOlderRows = false
+  const revealOlderRows = (scrollBy = 0) => {
+    const current = hidden()
+    if (revealingOlderRows || !scroll || scroll.isDestroyed) return false
+    if (current === 0) return false
+    if (!isNearTop(scroll.scrollTop, scroll.viewport.height)) return false
+    revealingOlderRows = true
+    const before = scroll.scrollHeight
+    scroll.stickyScroll = false
+    setHiddenRows(rowsBefore(rowSlots, current, TRANSCRIPT_BACKFILL_CHUNK))
+    afterLayout(() => {
+      // Rows mounted above the viewport grow the content, so scroll down by that much to keep
+      // the reader on the same message.
+      if (scroll && !scroll.isDestroyed) {
+        scroll.scrollBy(scroll.scrollHeight - before + scrollBy)
+        scroll.stickyScroll = true
+      }
+      // Released even when the transcript was torn down, so a later reveal still runs.
+      revealingOlderRows = false
+    })
+    return true
+  }
+
+  const moveTranscript = (delta: number) => {
+    if (delta < 0 && revealOlderRows(delta)) return
+    scroll.scrollBy(delta)
+  }
+
+  /** Mounts the rows above `messageID` when it is outside the mounted window, then scrolls to it. */
+  const jumpToMessage = (messageID: string) => {
+    const index = messages().findIndex((message) => message.id === messageID)
+    if (index === -1) return
+    const scrollTo = () => {
+      if (!scroll || scroll.isDestroyed) return
+      const child = scroll.getChildren().find((child) => child.id === messageID)
+      if (child) scroll.scrollBy(child.y - scroll.y - 1)
+    }
+    if (index >= hidden()) {
+      scrollTo()
+      return
+    }
+    setHiddenRows(index)
+    afterLayout(scrollTo)
+  }
+
+  // The scrollbox renderable is replaced when the route swaps sessions, so the
+  // listener follows the renderable instead of being bound once at mount.
+  const bindScroll = (r: ScrollBoxRenderable) => {
+    if (scroll) scroll.verticalScrollBar.off("change", updateMountWindow)
+    scroll = r
+    scroll.verticalScrollBar.on("change", updateMountWindow)
+  }
+
+  onCleanup(() => {
+    revealingOlderRows = false
+    if (!scroll || scroll.isDestroyed) return
+    scroll.verticalScrollBar.off("change", updateMountWindow)
+  })
 
   event.on("session.status", (evt) => {
     if (evt.properties.sessionID !== route.sessionID) return
@@ -422,6 +519,8 @@ export function Session() {
   }
 
   function toBottom() {
+    // The reader is back at the newest message, so the transcript only needs its tail mounted.
+    setHiddenRows(undefined)
     setTimeout(() => {
       if (!scroll || scroll.isDestroyed) return
       scroll.scrollTo(scroll.scrollHeight)
@@ -526,10 +625,7 @@ export function Session() {
         dialog.replace(() => (
           <DialogTimeline
             onMove={(messageID) => {
-              const child = scroll.getChildren().find((child) => {
-                return child.id === messageID
-              })
-              if (child) scroll.scrollBy(child.y - scroll.y - 1)
+              jumpToMessage(messageID)
             }}
             sessionID={route.sessionID}
             setPrompt={(promptInfo) => prompt?.set(promptInfo)}
@@ -549,10 +645,7 @@ export function Session() {
           <DialogForkFromTimeline
             onMove={(messageID) => {
               if (!messageID) return
-              const child = scroll.getChildren().find((child) => {
-                return child.id === messageID
-              })
-              if (child) scroll.scrollBy(child.y - scroll.y - 1)
+              jumpToMessage(messageID)
             }}
             sessionID={route.sessionID}
           />
@@ -755,7 +848,7 @@ export function Session() {
       category: "Session",
       hidden: true,
       run: () => {
-        scroll.scrollBy(-scroll.height / 2)
+        moveTranscript(-scroll.height / 2)
         dialog.clear()
       },
     },
@@ -765,7 +858,7 @@ export function Session() {
       category: "Session",
       hidden: true,
       run: () => {
-        scroll.scrollBy(scroll.height / 2)
+        moveTranscript(scroll.height / 2)
         dialog.clear()
       },
     },
@@ -775,7 +868,7 @@ export function Session() {
       category: "Session",
       hidden: true,
       run: () => {
-        scroll.scrollBy(-1)
+        moveTranscript(-1)
         dialog.clear()
       },
     },
@@ -785,7 +878,7 @@ export function Session() {
       category: "Session",
       hidden: true,
       run: () => {
-        scroll.scrollBy(1)
+        moveTranscript(1)
         dialog.clear()
       },
     },
@@ -795,7 +888,7 @@ export function Session() {
       category: "Session",
       hidden: true,
       run: () => {
-        scroll.scrollBy(-scroll.height / 4)
+        moveTranscript(-scroll.height / 4)
         dialog.clear()
       },
     },
@@ -805,7 +898,7 @@ export function Session() {
       category: "Session",
       hidden: true,
       run: () => {
-        scroll.scrollBy(scroll.height / 4)
+        moveTranscript(scroll.height / 4)
         dialog.clear()
       },
     },
@@ -815,6 +908,8 @@ export function Session() {
       category: "Session",
       hidden: true,
       run: () => {
+        // The oldest rows are not mounted, so mount them before jumping to the top.
+        setHiddenRows(0)
         scroll.scrollTo(0)
         dialog.clear()
       },
@@ -851,10 +946,7 @@ export function Session() {
           )
 
           if (hasValidTextPart) {
-            const child = scroll.getChildren().find((child) => {
-              return child.id === message.id
-            })
-            if (child) scroll.scrollBy(child.y - scroll.y - 1)
+            jumpToMessage(message.id)
             break
           }
         }
@@ -1179,7 +1271,7 @@ export function Session() {
           <box flexGrow={1} minHeight={0} paddingBottom={1} paddingLeft={2} paddingRight={2} gap={1}>
             <Show when={session()}>
               <scrollbox
-                ref={(r) => (scroll = r)}
+                ref={bindScroll}
                 viewportOptions={{
                   paddingRight: showScrollbar() ? 1 : 0,
                 }}
@@ -1195,9 +1287,12 @@ export function Session() {
                 stickyStart="bottom"
                 flexGrow={1}
                 scrollAcceleration={scrollAcceleration()}
+                onMouseScroll={(event) => {
+                  if (event.scroll?.direction === "up") revealOlderRows()
+                }}
               >
                 <box height={1} />
-                <For each={messages()}>
+                <For each={visibleMessages()}>
                   {(message, index) => (
                     <Switch>
                       <Match when={message.id === revert()?.messageID}>
@@ -1261,13 +1356,17 @@ export function Session() {
                         })()}
                       </Match>
                       <Match
-                        when={revert()?.messageID && revertMessageIndex() !== -1 && index() >= revertMessageIndex()}
+                        when={
+                          revert()?.messageID &&
+                          revertMessageIndex() !== -1 &&
+                          index() + hidden() >= revertMessageIndex()
+                        }
                       >
                         <></>
                       </Match>
                       <Match when={message.role === "user"}>
                         <UserMessage
-                          index={index()}
+                          index={index() + hidden()}
                           onMouseUp={() => {
                             if (renderer.getSelection()?.getSelectedText()) return
                             dialog.replace(() => (

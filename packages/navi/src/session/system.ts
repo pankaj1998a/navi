@@ -78,6 +78,8 @@ export const layer = Layer.effect(
           "- **Deep Modules & Simplicity (`codebase-design`)**: Maximize interface depth (small interface, rich behavior) for high caller leverage and maintainer locality. Avoid shallow pass-through abstractions.",
           "- **Two-Axis Review (`code-review`)**: Evaluate changes along Standards (repo conventions + Fowler smells) and Spec (fidelity vs. scope creep) separately to prevent masking.",
           "- **Security & Boundary Defense (`security-audit`)**: Enforce strict trust boundaries, validate untrusted inputs, avoid injection, and never log or expose credentials.",
+          "- **Strict Google Style Guidelines (`language-guidelines`)**: When writing, refactoring, or reviewing code in any language with a Google Style Guide (C++, Python, Go, Java, TypeScript, JavaScript, Rust, Shell, Swift, C#, Kotlin, Dart, HTML/CSS, etc.), strictly adhere to Google's official style guide rules (https://google.github.io/styleguide/). Consult the language-guidelines skill references before producing code.",
+          "- **Cloud Architecture & Deployment Standards (`cloud-providers`)**: When architecting, deploying, or configuring cloud services on AWS, Oracle Cloud (OCI), Google Cloud (GCP), Cloudflare, or Azure, strictly follow official provider documentation and reference repositories (https://docs.aws.amazon.com/, https://docs.oracle.com/, https://docs.cloud.google.com/, https://developers.cloudflare.com/, https://learn.microsoft.com/azure).",
           "",
           "### Available Skills:",
           Skill.fmt(list, { verbose: true }),

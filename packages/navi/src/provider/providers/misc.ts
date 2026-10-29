@@ -3,6 +3,44 @@ import { Env } from "../../env"
 import { Auth } from "../../auth"
 import { Config } from "../../config/config"
 import * as Log from "@navi-ai/core/util/log"
+import { ModelID } from "../schema"
+
+// Models-list responses for OpenRouter-compatible catalogs; only the fields
+// the loaders consume are declared (JSON is untyped at runtime).
+interface OpenRouterModel {
+  id: string
+  name?: string
+  pricing?: {
+    prompt?: number
+    input?: number
+    completion?: number
+    output?: number
+    input_cache_read?: number
+    cache_read?: number
+    input_cache_write?: number
+    cache_write?: number
+  }
+  architecture?: {
+    input_modalities?: string[]
+    output_modalities?: string[]
+  }
+  supported_parameters?: string[]
+  context_length?: number
+  top_provider?: {
+    context_length?: number
+    max_completion_tokens?: number
+  }
+  // Aihubmix uses its own model-list shape
+  model_id: string
+  model_name?: string
+  input_modalities?: string
+  features?: string
+  max_output?: number
+}
+
+interface OpenRouterModelsResponse {
+  data?: OpenRouterModel[]
+}
 
 const log = Log.create({ service: "openrouter-provider" })
 
@@ -52,7 +90,7 @@ export const OpenrouterProvider: ProviderLoader.Info = {
                 signal: AbortSignal.timeout(8_000),
             })
             if (res.ok) {
-                const data = (await res.json()) as any
+                const data = (await res.json()) as OpenRouterModelsResponse
                 if (data && data.data && Array.isArray(data.data)) {
                     const fetched: typeof models = {}
                     for (const model of data.data) {
@@ -67,7 +105,7 @@ export const OpenrouterProvider: ProviderLoader.Info = {
                             ["image", "audio", "video", "pdf"].includes(item),
                         )
                         fetched[model.id] = {
-                            id: model.id,
+                            id: ModelID.make(model.id),
                             providerID: inputId,
                             name: model.name ?? model.id,
                             api: {
@@ -220,7 +258,7 @@ export const AihubmixProvider: ProviderLoader.Info = {
                 signal: AbortSignal.timeout(8_000),
             })
             if (res.ok) {
-                const data = (await res.json()) as any
+                const data = (await res.json()) as OpenRouterModelsResponse
                 if (data && data.data && Array.isArray(data.data)) {
                     const fetched: typeof models = {}
                     for (const model of data.data) {
@@ -235,7 +273,7 @@ export const AihubmixProvider: ProviderLoader.Info = {
                             ["image", "audio", "video", "pdf"].includes(item.trim()),
                         )
                         fetched[model.model_id] = {
-                            id: model.model_id,
+                            id: ModelID.make(model.model_id),
                             providerID: inputId,
                             name: model.model_name ?? model.model_id,
                             api: {

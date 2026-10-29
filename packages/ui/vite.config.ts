@@ -4,6 +4,9 @@ import { iconsSpritesheet } from "vite-plugin-icons-spritesheet"
 import fs from "fs"
 
 export default defineConfig({
+  resolve: {
+    dedupe: ["solid-js", "solid-js/web", "solid-js/store"],
+  },
   plugins: [
     solidPlugin(),
     providerIconsPlugin(),

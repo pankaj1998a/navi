@@ -1,5 +1,5 @@
 import { Effect, Option, Ref, Scope, Stream } from "effect"
-import type { Headers } from "effect/unstable/http"
+import type { Headers } from "effect/http"
 import * as CassetteService from "./cassette"
 import { canonicalizeJson, decodeJson } from "./matching"
 import { appendOrFail, makeReplayState, resolveAutoMode } from "./recorder"

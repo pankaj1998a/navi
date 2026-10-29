@@ -251,7 +251,9 @@ try {
   try {
     const { AppRuntime } = await import("@/effect/app-runtime")
     await AppRuntime.dispose()
-  } catch {}
+  } catch {
+    // Ignore disposal errors during shutdown; nothing left to route them to
+  }
   // Grace: allow scopes/finalizers to flush and the event loop to drain naturally.
   // Force-exit after 5s only if handles (e.g. docker-based MCP servers that ignore
   // SIGTERM without `docker run --init`) are still open.

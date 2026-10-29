@@ -1,5 +1,6 @@
 /// <reference path="../env.d.ts" />
 import { tool } from "@navi-ai/plugin"
+import { githubFetch } from "./github-fetch"
 
 const TEAM = {
   tui: ["kommander", "simonklee"],
@@ -17,22 +18,6 @@ function getIssueNumber(): number {
   const issue = parseInt(process.env.ISSUE_NUMBER ?? "", 10)
   if (!issue) throw new Error("ISSUE_NUMBER env var not set")
   return issue
-}
-
-async function githubFetch(endpoint: string, options: RequestInit = {}) {
-  const response = await fetch(`https://api.github.com${endpoint}`, {
-    ...options,
-    headers: {
-      Authorization: `Bearer ${process.env.GITHUB_TOKEN}`,
-      Accept: "application/vnd.github+json",
-      "Content-Type": "application/json",
-      ...(options.headers instanceof Headers ? Object.fromEntries(options.headers.entries()) : options.headers),
-    },
-  })
-  if (!response.ok) {
-    throw new Error(`GitHub API error: ${response.status} ${response.statusText}`)
-  }
-  return response.json()
 }
 
 export default tool({

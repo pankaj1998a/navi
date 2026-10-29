@@ -592,9 +592,7 @@ async function subscribeSessionEvents() {
               if (part.type === "tool" && part.state.status === "completed") {
                 const [tool, color] = TOOL[part.tool] ?? [part.tool, "\x1b[34m\x1b[1m"]
                 const title =
-                  part.state.title || Object.keys(part.state.input).length > 0
-                    ? JSON.stringify(part.state.input)
-                    : "Unknown"
+                  part.state.title || (Object.keys(part.state.input).length > 0 ? JSON.stringify(part.state.input) : "Unknown")
                 console.log()
                 console.log(`${color}|`, `\x1b[0m\x1b[2m ${tool.padEnd(7, " ")}`, "", `\x1b[0m${title}`)
               }
@@ -701,8 +699,8 @@ async function chat(text: string, files: PromptFiles = []) {
     },
   })
 
-  // @ts-ignore
-  const match = chat.data.parts.findLast((p) => p.type === "text")
+  const textParts = chat.data.parts.flatMap((part) => (part.type === "text" ? [part] : []))
+  const match = textParts[textParts.length - 1]
   if (!match) throw new Error("Failed to parse the text response")
 
   return match.text

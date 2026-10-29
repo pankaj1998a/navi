@@ -4,7 +4,7 @@ import { useTerminalDimensions } from "@opentui/solid"
 import { createEffect, createMemo, createSignal, For, Show } from "solid-js"
 import { useBindings, useKeymapSelector } from "../../keymap"
 import type { ActiveKey } from "@opentui/keymap"
-import type { TuiPlugin, TuiPluginApi } from "@opencode-ai/plugin/tui"
+import type { TuiPlugin, TuiPluginApi } from "@navi-ai/plugin/tui"
 import type { BuiltinTuiPlugin } from "../builtins"
 
 const command = {
@@ -92,7 +92,7 @@ function text(value: unknown) {
 }
 
 function ink(api: TuiPluginApi, name: string, fallback: string): Color {
-  const value = Reflect.get(api.theme.current, name)
+  const value = (api.theme.current as Record<string, unknown>)[name]
   if (typeof value === "string") return value
   if (value instanceof RGBA) return value
   return fallback

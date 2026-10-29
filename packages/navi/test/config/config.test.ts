@@ -559,25 +559,26 @@ test("handles file inclusion with replacement tokens", async () => {
   })
 })
 
-test("validates config schema and throws on invalid fields", async () => {
+test("validates config schema and prunes invalid fields", async () => {
   await using tmp = await tmpdir({
     init: async (dir) => {
       await writeConfig(dir, {
         $schema: "https://navi.ai/config.json",
-        invalid_field: "should cause error",
+        invalid_field: "should be pruned",
       })
     },
   })
   await provideTestInstance({
     directory: tmp.path,
     fn: async () => {
-      // Strict schema should throw an error for invalid fields
-      await expect(load()).rejects.toThrow()
+      // Lenient load keeps working and drops the unknown field instead of throwing
+      const config = await load()
+      expect("invalid_field" in (config as Record<string, unknown>)).toBe(false)
     },
   })
 })
 
-test("throws error for invalid JSON", async () => {
+test("skips invalid JSON instead of throwing", async () => {
   await using tmp = await tmpdir({
     init: async (dir) => {
       await Filesystem.write(path.join(dir, "navi.json"), "{ invalid json }")
@@ -586,7 +587,8 @@ test("throws error for invalid JSON", async () => {
   await provideTestInstance({
     directory: tmp.path,
     fn: async () => {
-      await expect(load()).rejects.toThrow()
+      const config = await load()
+      expect(config).toBeDefined()
     },
   })
 })
@@ -1708,6 +1710,23 @@ test("Effect config parser preserves permission order while rejecting unknown to
     const error = err as { data?: { issues?: Array<{ code?: string; keys?: string[]; path?: string[] }> } }
     expect(error.data?.issues?.[0]).toMatchObject({ code: "unrecognized_keys", keys: ["invalid_field"], path: [] })
   }
+})
+
+test("Effect config parser prunes unknown top-level keys in lenient mode", () => {
+  const config = ConfigParse.effectSchema(
+    Config.Info,
+    {
+      model: "opencode/beam-free",
+      invalid_field: true,
+      another_unknown: { nested: true },
+    },
+    "test",
+    { lenientTopLevel: true },
+  )
+
+  expect(config.model).toBe("opencode/beam-free")
+  expect("invalid_field" in (config as Record<string, unknown>)).toBe(false)
+  expect("another_unknown" in (config as Record<string, unknown>)).toBe(false)
 })
 
 // MCP config merging tests

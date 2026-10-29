@@ -1,6 +1,6 @@
 import { describe, expect, beforeAll, beforeEach, afterAll } from "bun:test"
 import { Effect, Layer, Ref } from "effect"
-import { HttpClient, HttpClientResponse } from "effect/unstable/http"
+import { HttpClient, HttpClientResponse } from "effect/http"
 import { AppFileSystem } from "@navi-ai/core/filesystem"
 import { Flag } from "@navi-ai/core/flag/flag"
 import { Global } from "@navi-ai/core/global"

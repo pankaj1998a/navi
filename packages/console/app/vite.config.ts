@@ -3,6 +3,9 @@ import { solidStart } from "@solidjs/start/config"
 import { nitro } from "nitro/vite"
 
 export default defineConfig({
+  resolve: {
+    dedupe: ["solid-js", "solid-js/web", "solid-js/store"],
+  },
   plugins: [
     solidStart({
       middleware: "./src/middleware.ts",

@@ -84,6 +84,7 @@ Apply built-in engineering standards during coding:
 - Deep Modules: Design interfaces with small surfaces and deep capabilities for high caller leverage and maintainer locality. Avoid shallow pass-through abstractions.
 - Two-Axis Review: Audit changes along both Standards (repo guidelines + Fowler smells) and Spec (fidelity to request vs. scope creep).
 - Security & Boundary Defense: Validate all untrusted inputs, enforce strict trust boundaries, prevent injection, and never expose or log secrets/credentials.
+- Google Style Guides: When coding, refactoring, or reviewing code in any language that has an official Google Style Guide (C++, Python, Go, Java, TypeScript, JavaScript, Rust, Shell, Swift, C#, Kotlin, Dart, HTML/CSS, etc.), strictly follow Google's official coding style guides (https://google.github.io/styleguide/).
 - Proactively leverage available skills via the skill tool when a task aligns with their domain.
 
 # Doing tasks

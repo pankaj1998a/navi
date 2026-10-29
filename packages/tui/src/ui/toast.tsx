@@ -1,6 +1,7 @@
 import { createContext, useContext, type ParentProps, Show } from "solid-js"
 import { createStore } from "solid-js/store"
 import { useTheme } from "../context/theme"
+import { feedbackColor, resolveSemantic } from "../theme/semantic"
 import { useTerminalDimensions } from "@opentui/solid"
 import { SplitBorder } from "./border"
 import { TextAttributes } from "@opentui/core"
@@ -15,6 +16,7 @@ type ToastInput = Omit<ToastOptions, "duration"> & { duration?: number }
 export function Toast() {
   const toast = useToast()
   const { theme } = useTheme()
+  const semantic = () => resolveSemantic(theme)
   const dimensions = useTerminalDimensions()
 
   return (
@@ -31,17 +33,17 @@ export function Toast() {
           paddingRight={2}
           paddingTop={1}
           paddingBottom={1}
-          backgroundColor={theme.backgroundPanel}
-          borderColor={theme[current().variant]}
+          backgroundColor={semantic().background.panel}
+          borderColor={feedbackColor(theme, current().variant)}
           border={["left", "right"]}
           customBorderChars={SplitBorder.customBorderChars}
         >
           <Show when={current().title}>
-            <text attributes={TextAttributes.BOLD} marginBottom={1} fg={theme.text}>
+            <text attributes={TextAttributes.BOLD} marginBottom={1} fg={semantic().text.base}>
               {current().title}
             </text>
           </Show>
-          <text fg={theme.text} wrapMode="word" width="100%">
+          <text fg={semantic().text.base} wrapMode="word" width="100%">
             {current().message}
           </text>
         </box>

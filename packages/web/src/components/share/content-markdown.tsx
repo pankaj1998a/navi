@@ -1,6 +1,7 @@
 import { marked } from "marked"
 import { codeToHtml } from "shiki"
 import markedShiki from "marked-shiki"
+import DOMPurify from "dompurify"
 import { createOverflow, useShareMessages } from "./common"
 import { CopyButton } from "./copy-button"
 import { createResource, createSignal } from "solid-js"
@@ -10,8 +11,9 @@ const markedWithShiki = marked.use(
   {
     renderer: {
       link({ href, title, text }) {
-        const titleAttr = title ? ` title="${title}"` : ""
-        return `<a href="${href}"${titleAttr} target="_blank" rel="noopener noreferrer">${text}</a>`
+        const cleanHref = /^(https?:|mailto:)/i.test(href.trim()) ? href.replace(/"/g, "&quot;") : "#"
+        const titleAttr = title ? ` title="${title.replace(/"/g, "&quot;")}"` : ""
+        return `<a href="${cleanHref}"${titleAttr} target="_blank" rel="noopener noreferrer">${text}</a>`
       },
     },
   },
@@ -37,7 +39,7 @@ export function ContentMarkdown(props: Props) {
   const [html] = createResource(
     () => strip(props.text),
     async (markdown) => {
-      return markedWithShiki.parse(markdown)
+      return DOMPurify.sanitize(markedWithShiki.parse(markdown))
     },
   )
   const [expanded, setExpanded] = createSignal(false)

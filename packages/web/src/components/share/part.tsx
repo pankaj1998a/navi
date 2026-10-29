@@ -25,7 +25,7 @@ import { ContentDiff } from "./content-diff"
 import { ContentText } from "./content-text"
 import { ContentBash } from "./content-bash"
 import { ContentError } from "./content-error"
-import { formatCount, formatDuration, formatNumber, normalizeLocale, useShareMessages } from "../share/common"
+import { copyAndFlash, formatCount, formatDuration, formatNumber, normalizeLocale, useShareMessages } from "../share/common"
 import { ContentMarkdown } from "./content-markdown"
 import type { MessageV2 } from "navi/session/message-v2"
 import type { Diagnostic } from "vscode-languageserver-types"
@@ -64,12 +64,7 @@ export function Part(props: PartProps) {
               const anchor = e.currentTarget
               const hash = anchor.getAttribute("href") || ""
               const { origin, pathname, search } = window.location
-              navigator.clipboard
-                .writeText(`${origin}${pathname}${search}${hash}`)
-                .catch((err) => console.error("Copy failed", err))
-
-              setCopied(true)
-              setTimeout(() => setCopied(false), 3000)
+              copyAndFlash(`${origin}${pathname}${search}${hash}`, setCopied)
             }}
           >
             <Switch>

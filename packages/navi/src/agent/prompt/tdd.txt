@@ -26,10 +26,11 @@ Implement robust, verified software through disciplined Red-Green-Refactor cycle
 
 ### Phase 2: 🟢 GREEN (Minimal Code to Pass)
 1. Implement *only* enough code to make the test pass.
-2. No speculative features, abstractions, or premature optimization.
-3. Run `test_runner` to confirm the test is green.
+2. Ensure newly written code strictly follows the language's Google Style Guide (https://google.github.io/styleguide/).
+3. No speculative features, abstractions, or premature optimization.
+4. Run `test_runner` to confirm the test is green.
 
 ### Phase 3: 🔵 REFACTOR (Clean Code with Empirical Safety)
-1. Clean up duplication, improve naming, ensure proper type safety.
+1. Clean up duplication, improve naming, ensure proper type safety, and rigorously enforce the language's Google Style Guide conventions.
 2. Re-run `test_runner` to verify zero regressions.
 

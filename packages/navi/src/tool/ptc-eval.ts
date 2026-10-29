@@ -165,13 +165,15 @@ export const PtcEvalTool = Tool.define(
               const runner = new AsyncFunction("tools", "console", `"use strict";\n${params.code}`)
 
               const customConsole = {
-                log: (...args: any[]) => log.info("[PTC User Log]", ...args),
-                error: (...args: any[]) => log.error("[PTC User Error]", ...args),
-                warn: (...args: any[]) => log.warn("[PTC User Warn]", ...args),
+                // Mirrors the logger's arity: args beyond the first are dropped
+                // by the writer, same as the previous `...args` spread.
+                log: (...args: unknown[]) => log.info("[PTC User Log]", args[0] as Record<string, unknown>),
+                error: (...args: unknown[]) => log.error("[PTC User Error]", args[0] as Record<string, unknown>),
+                warn: (...args: unknown[]) => log.warn("[PTC User Warn]", args[0] as Record<string, unknown>),
               }
 
               // Race execution with timeout
-              let timer: any
+              let timer: ReturnType<typeof setTimeout> | undefined
               const timeoutPromise = new Promise((_, reject) => {
                 timer = setTimeout(() => reject(new Error(`PTC execution exceeded budget of ${timeout}ms`)), timeout)
               })
@@ -182,7 +184,7 @@ export const PtcEvalTool = Tool.define(
               } finally {
                 clearTimeout(timer)
               }
-            } catch (err: any) {
+            } catch (err: unknown) {
               return {
                 error: err instanceof Error ? err.message : String(err),
                 status: "failed",

@@ -11,6 +11,7 @@ import { NoSuchModelError, type Provider as SDK } from "ai"
 import * as Log from "@navi-ai/core/util/log"
 import { Hash } from "@navi-ai/core/util/hash"
 import { Plugin } from "../plugin"
+import type { Auth as SDKAuth, Provider as SDKProvider } from "@navi-ai/sdk"
 import { NamedError } from "@navi-ai/core/util/error"
 import { type LanguageModelV3 } from "@ai-sdk/provider"
 import { ModelsDev } from "./models"
@@ -124,7 +125,7 @@ export namespace Provider {
   const NPM_SPEC_REGEX = /^(@[a-z0-9-]+\/[a-z0-9-]+|[a-z0-9-]+)@[^\s;|&$]+$/
   const BUN_ADD_TIMEOUT_MS = 60_000
 
-  const BUNDLED_PROVIDERS: Record<string, (options: any) => BundledSDK> = {
+  const BUNDLED_PROVIDERS: Record<string, (options: Record<string, unknown>) => BundledSDK> = {
     "@ai-sdk/amazon-bedrock": createAmazonBedrock,
     "@ai-sdk/anthropic": createAnthropic,
     "@ai-sdk/azure": createAzure,
@@ -132,7 +133,8 @@ export namespace Provider {
     "@ai-sdk/google-vertex": createVertex,
     "@ai-sdk/google-vertex/anthropic": createVertexAnthropic,
     "@ai-sdk/openai": createOpenAI,
-    "@ai-sdk/openai-compatible": createOpenAICompatible,
+    "@ai-sdk/openai-compatible": (options) =>
+      createOpenAICompatible(options as unknown as Parameters<typeof createOpenAICompatible>[0]),
     "@openrouter/ai-sdk-provider": createOpenRouter,
     "@ai-sdk/xai": createXai,
     "@ai-sdk/mistral": createMistral,
@@ -148,19 +150,20 @@ export namespace Provider {
     "@ai-sdk/github-copilot": createGitHubCopilotOpenAICompatible,
   }
 
-  type CustomModelLoader = (sdk: any, modelID: string, options?: Record<string, any>) => Promise<any>
-  type CustomVarsLoader = (options: Record<string, any>) => Record<string, string>
+  type CustomOptions = Model["options"]
+  type CustomModelLoader = (sdk: BundledSDK, modelID: string, options?: CustomOptions) => Promise<LanguageModelV3>
+  type CustomVarsLoader = (options: CustomOptions) => Record<string, string>
   type CustomDiscoverModels = () => Promise<Record<string, Model>>
   type CustomLoader = (provider: Info) => Promise<{
     autoload: boolean
     getModel?: CustomModelLoader
     vars?: CustomVarsLoader
-    options?: Record<string, any>
+    options?: CustomOptions
     discoverModels?: CustomDiscoverModels
     models?: Record<string, Model>
   }>
 
-  function useLanguageModel(sdk: any) {
+  function useLanguageModel(sdk: BundledSDK & { responses?: unknown; chat?: unknown }) {
     return sdk.responses === undefined && sdk.chat === undefined
   }
 
@@ -299,7 +302,7 @@ export namespace Provider {
         options: {
           apiKey,
         },
-        async getModel(sdk: any, modelID: string) {
+        async getModel(sdk, modelID) {
           return sdk.languageModel(modelID)
         },
         vars(_options) {
@@ -360,7 +363,7 @@ export namespace Provider {
 
       return {
         autoload: true,
-        async getModel(_sdk: any, modelID: string, _options?: Record<string, any>) {
+        async getModel(_sdk, modelID, _options?) {
           // Model IDs use Unified API format: provider/model (e.g., "anthropic/claude-sonnet-4-5")
           return aigateway(unified(modelID))
         },
@@ -498,7 +501,18 @@ export namespace Provider {
 
   export class Service extends Context.Service<Service, Interface>()("@navi/Provider") {}
 
-  function fromModelsDevModel(provider: ModelsDev.Provider, model: ModelsDev.Model): Model {
+  // models.dev catalog entries omit a few fields the local Model carries;
+  // declare them so downstream reads need no casts.
+  type CatalogModel = ModelsDev.Model & {
+    headers?: Record<string, string>
+    options?: Record<string, unknown>
+    cost?: NonNullable<ModelsDev.Model["cost"]> & {
+      reasoning?: number
+      context_over_200k?: NonNullable<NonNullable<ModelsDev.Model["cost"]>["context_over_200k"]> & { reasoning?: number }
+    }
+  }
+
+  function fromModelsDevModel(provider: ModelsDev.Provider, model: CatalogModel): Model {
     const m: Model = {
       id: ModelID.make(model.id),
       providerID: ProviderID.make(provider.id),
@@ -510,12 +524,12 @@ export namespace Provider {
         npm: model.provider?.npm ?? provider.npm ?? "@ai-sdk/openai-compatible",
       },
       status: model.status ?? "active",
-      headers: (model as any).headers ?? {},
-      options: (model as any).options ?? {},
+      headers: model.headers ?? {},
+      options: model.options ?? {},
       cost: {
         input: model.cost?.input ?? 0,
         output: model.cost?.output ?? 0,
-        reasoning: (model.cost as any)?.reasoning,
+        reasoning: model.cost?.reasoning,
         cache: {
           read: model.cost?.cache_read ?? 0,
           write: model.cost?.cache_write ?? 0,
@@ -528,7 +542,7 @@ export namespace Provider {
               },
               input: model.cost.context_over_200k.input,
               output: model.cost.context_over_200k.output,
-              reasoning: (model.cost.context_over_200k as any).reasoning,
+              reasoning: model.cost.context_over_200k.reasoning,
             }
           : undefined,
       },
@@ -587,17 +601,18 @@ export namespace Provider {
       const pluginSvc = yield* Plugin.Service
       const modelsDevSvc = yield* ModelsDev.Service
 
+      const context = yield* Effect.context<Auth.Service | Config.Service | Env.Service>()
+
       const cache = yield* InstanceState.make(() =>
         Effect.gen(function* () {
           using _ = log.time("state")
           const cfg = yield* configSvc.get()
-          const modelsDev = (yield* modelsDevSvc.get()) as any
-          const context = yield* Effect.context<Auth.Service | Config.Service | Env.Service>()
+          const modelsDev = yield* modelsDevSvc.get()
           const runPromise = Effect.runPromiseWith(context)
 
           const database = {
             ...mapValues(modelsDev, fromModelsDevProvider),
-            ...mapValues(freeModels, (p: any, id) => fromModelsDevProvider({ ...p, id })),
+            ...mapValues(freeModels, (p, id) => fromModelsDevProvider({ ...p, id } as unknown as ModelsDev.Provider)),
           } as Record<string, Info>
 
           const clones: [string, string, string][] = [
@@ -611,9 +626,9 @@ export namespace Provider {
             ["ollama", "ollama3", "Ollama (Account 3)"],
           ]
           for (const [src, dst, name] of clones) {
-            const srcInfo = (database as any)[src] as Info | undefined
-            if (srcInfo && !(database as any)[dst]) {
-              ;(database as any)[dst] = {
+            const srcInfo = database[src]
+            if (srcInfo && !database[dst]) {
+              database[dst] = {
                 ...srcInfo,
                 id: ProviderID.make(dst),
                 name,
@@ -623,7 +638,7 @@ export namespace Provider {
                     { ...model, providerID: ProviderID.make(dst) },
                   ]),
                 ) as Record<string, Model>,
-              } as Info
+              }
             }
           }
 
@@ -656,12 +671,12 @@ export namespace Provider {
           function mergeProvider(providerID: ProviderID, provider: Partial<Info>) {
             const existing = providers[providerID]
             if (existing) {
-              providers[providerID] = mergeDeep(existing, provider) as any
+              providers[providerID] = mergeDeep(existing, provider) as Info
               return
             }
             const match = database[providerID]
             if (!match) return
-            providers[providerID] = mergeDeep(match, provider) as any
+            providers[providerID] = mergeDeep(match, provider) as Info
           }
 
           // extend database from config
@@ -723,29 +738,29 @@ export namespace Provider {
                       model.modalities?.output?.includes("video") ?? existingModel?.capabilities.output.video ?? false,
                     pdf: model.modalities?.output?.includes("pdf") ?? existingModel?.capabilities.output.pdf ?? false,
                   },
-                  interleaved: (model as any).interleaved ?? false,
+                  interleaved: model.interleaved ?? false,
                 },
                 cost: {
-                  input: (model as any)?.cost?.input ?? existingModel?.cost?.input ?? 0,
-                  output: (model as any)?.cost?.output ?? existingModel?.cost?.output ?? 0,
+                  input: model.cost?.input ?? existingModel?.cost?.input ?? 0,
+                  output: model.cost?.output ?? existingModel?.cost?.output ?? 0,
                   cache: {
-                    read: (model as any)?.cost?.cache_read ?? existingModel?.cost?.cache.read ?? 0,
-                    write: (model as any)?.cost?.cache_write ?? existingModel?.cost?.cache.write ?? 0,
+                    read: model.cost?.cache_read ?? existingModel?.cost?.cache.read ?? 0,
+                    write: model.cost?.cache_write ?? existingModel?.cost?.cache.write ?? 0,
                   },
                 },
-                options: mergeDeep(existingModel?.options ?? {}, (model as any).options ?? {}),
+                options: mergeDeep(existingModel?.options ?? {}, model.options ?? {}),
                 limit: {
-                  context: (model as any).limit?.context ?? existingModel?.limit?.context ?? 0,
-                  output: (model as any).limit?.output ?? existingModel?.limit?.output ?? 0,
+                  context: model.limit?.context ?? existingModel?.limit?.context ?? 0,
+                  output: model.limit?.output ?? existingModel?.limit?.output ?? 0,
                 },
-                headers: mergeDeep(existingModel?.headers ?? {}, (model as any).headers ?? {}),
-                family: (model as any).family ?? existingModel?.family ?? "",
-                release_date: (model as any).release_date ?? existingModel?.release_date ?? "",
+                headers: mergeDeep(existingModel?.headers ?? {}, model.headers ?? {}),
+                family: model.family ?? existingModel?.family ?? "",
+                release_date: model.release_date ?? existingModel?.release_date ?? "",
                 variants: {},
               } as Model
-              const merged = mergeDeep(ProviderTransform.variants(parsedModel), (model as any).variants ?? {})
+              const merged = mergeDeep(ProviderTransform.variants(parsedModel), model.variants ?? {})
               parsedModel.variants = mapValues(
-                pickBy(merged as any, (v: any) => !v.disabled),
+                pickBy(merged, (v) => !v.disabled),
                 (v) => omit(v, ["disabled"]),
               )
               parsed.models[modelID] = parsedModel
@@ -779,18 +794,23 @@ export namespace Provider {
             }
           }
 
-          const plugins = (yield* pluginSvc.list()) as any
+          const plugins = yield* pluginSvc.list()
           for (const plugin of plugins) {
-            if (!plugin.auth) continue
-            const providerID = ProviderID.make(plugin.auth.provider)
+            const auth = plugin.auth
+            if (!auth) continue
+            const providerID = ProviderID.make(auth.provider)
             if (disabled.has(providerID)) continue
 
             const pluginAuth = yield* authSvc.get(providerID).pipe(Effect.orDie)
             if (!pluginAuth) continue
-            if (!plugin.auth.loader) continue
+            const loader = auth.loader
+            if (!loader) continue
 
             const options = yield* Effect.promise(() =>
-              (plugin.auth!.loader! as any)(() => runPromise(authSvc.get(providerID)), database[plugin.auth!.provider]),
+              loader(
+                () => runPromise(authSvc.get(providerID)) as Promise<SDKAuth>,
+                database[auth.provider] as SDKProvider,
+              ),
             )
             const opts = options ?? {}
             const patch: Partial<Info> = providers[providerID] ? { options: opts } : { source: "custom", options: opts }
@@ -869,7 +889,7 @@ export namespace Provider {
               if (configVariants && model.variants) {
                 const merged = mergeDeep(model.variants, configVariants)
                 model.variants = mapValues(
-                  pickBy(merged, (v: any) => !v.disabled),
+                  pickBy(merged, (v) => !v.disabled),
                   (v) => omit(v, ["disabled"]),
                 )
               }
@@ -949,7 +969,7 @@ export namespace Provider {
 
             url = (url as string).replace(/\$\{([^}]+)\}/g, (item, key) => {
               const val = s.providers[model.providerID]?.env.map((k) => env[k]).find(Boolean) || env[String(key)]
-              return (val as any) ?? item
+              return val ?? item
             })
             return url
           })
@@ -976,7 +996,7 @@ export namespace Provider {
           const chunkTimeout = options["chunkTimeout"]
           delete options["chunkTimeout"]
 
-          options["fetch"] = async (input: any, init?: BunFetchRequestInit) => {
+          options["fetch"] = async (input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) => {
             const fetchFn = customFetch ?? fetch
             const opts = init ?? {}
             const chunkAbortCtl =
@@ -1106,7 +1126,7 @@ export namespace Provider {
       }
 
       const getProvider = Effect.fn("Provider.getProvider")((providerID: ProviderID) =>
-        InstanceState.use(cache, (s) => s.providers[providerID]),
+        InstanceState.use(cache, (s) => s.providers[providerID] as Info),
       )
 
       const getModel = Effect.fn("Provider.getModel")(function* (providerID: ProviderID, modelID: ModelID) {
@@ -1136,7 +1156,7 @@ export namespace Provider {
         return yield* Effect.promise(async () => {
           const provider = s.providers[model.providerID]
           if (!provider) throw new ModelNotFoundError({ providerID: model.providerID, modelID: model.id, suggestions: [] })
-          const sdk = await resolveSDK(model, s, env)
+          const sdk = (await resolveSDK(model, s, env)) as BundledSDK
 
           try {
             const loader = s.modelLoaders[model.providerID]
@@ -1160,7 +1180,7 @@ export namespace Provider {
             throw e
           }
         })
-      })
+      }, Effect.provide(context))
 
       const closest = Effect.fn("Provider.closest")(function* (providerID: ProviderID, query: string[]) {
         const s = yield* InstanceState.get(cache)
@@ -1228,7 +1248,7 @@ export namespace Provider {
         }
 
         return undefined
-      })
+      }, Effect.provide(context))
 
       const defaultModel = Effect.fn("Provider.defaultModel")(function* () {
         const cfg = yield* configSvc.get()
@@ -1250,18 +1270,18 @@ export namespace Provider {
         }
 
         const provider = Object.values(s.providers).find(
-          (p: any) => !cfg.provider || Object.keys(cfg.provider).includes(p.id),
+          (p) => !cfg.provider || Object.keys(cfg.provider).includes(p.id),
         )
         if (!provider) throw new Error("no providers found")
-        const [model] = sort(Object.values(provider.models) as any)
+        const [model] = sort(Object.values(provider.models))
         if (!model) throw new Error("no models found")
         return {
           providerID: provider.id,
           modelID: model.id,
         }
-      })
+      }, Effect.provide(context))
 
-      return (Service as any).of({ list, getProvider, getModel, getLanguage, closest, getSmallModel, defaultModel, database })
+      return Service.of({ list, getProvider, getModel, getLanguage, closest, getSmallModel, defaultModel, database })
     }),
   )
 

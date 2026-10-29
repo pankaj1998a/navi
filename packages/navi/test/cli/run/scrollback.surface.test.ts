@@ -24,7 +24,7 @@ afterEach(() => {
 })
 
 function claim(renderer: TestRenderer): ClaimedCommit[] {
-  const queue = Reflect.get(renderer, "externalOutputQueue")
+  const queue = (renderer as unknown as Record<string, unknown>).externalOutputQueue
   if (!queue || typeof queue !== "object" || !("claim" in queue) || typeof queue.claim !== "function") {
     throw new Error("renderer missing external output queue")
   }

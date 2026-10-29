@@ -605,6 +605,29 @@ function readFileWithinLimit(file) {
   const noFollow = fs.constants.O_NOFOLLOW;
   const nonBlock = fs.constants.O_NONBLOCK;
   if (!Number.isInteger(noFollow) || noFollow === 0 || !Number.isInteger(nonBlock) || nonBlock === 0) {
+    if (process.platform === "win32") {
+      let lstat;
+      try {
+        lstat = fs.lstatSync(file);
+      } catch (err) {
+        throw err;
+      }
+      if (lstat.isSymbolicLink()) {
+        throw new SafeInputError("input must not be a symlink");
+      }
+      if (!lstat.isFile()) {
+        throw new SafeInputError("input must be a regular file");
+      }
+      if (lstat.size > LIMITS.inputBytes) {
+        throw new SafeInputError(`input exceeds ${LIMITS.inputBytes} byte limit`);
+      }
+      const raw = fs.readFileSync(file);
+      try {
+        return UTF8_DECODER.decode(raw);
+      } catch {
+        throw new SafeInputError("input is not valid UTF-8");
+      }
+    }
     throw new SafeInputError("OS no-follow and nonblocking input protection is unavailable");
   }
 

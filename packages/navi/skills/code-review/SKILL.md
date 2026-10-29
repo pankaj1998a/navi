@@ -8,7 +8,7 @@ description: Two-axis review of code changes along Standards (repo conventions +
 A change can pass standards but fail the spec (wrong behavior written cleanly), or pass the spec but fail standards (working code with severe tech debt). Review both axes independently to prevent masking.
 
 ## Axis 1: Standards & Fowler Smell Baseline
-Check repository conventions (`AGENTS.md`, `CLAUDE.md`) plus the Fowler smell baseline:
+Check repository conventions (`AGENTS.md`, `CLAUDE.md`), Google Style Guides (https://google.github.io/styleguide/) for the target language, plus the Fowler smell baseline:
 - **Mysterious Name**: Names that do not clearly convey intent or contents.
 - **Duplicated Code**: Identical logic repeated across files or hunks.
 - **Feature Envy**: Method reaching into another module's internal data.

@@ -1,0 +1,441 @@
+{
+  "nodes": [
+    {
+      "id": "extract.ts",
+      "label": "extract.ts",
+      "source_file": "extract.ts",
+      "source_location": "L1",
+      "node_type": "file"
+    },
+    {
+      "id": "extract.ts::Bar",
+      "label": "Bar",
+      "source_file": "extract.ts",
+      "node_type": "class"
+    },
+    {
+      "id": "extract.ts::ExtractOptions",
+      "label": "ExtractOptions",
+      "source_file": "extract.ts",
+      "node_type": "interface"
+    },
+    {
+      "id": "extract.ts::collectCodeFiles",
+      "label": "collectCodeFiles()",
+      "source_file": "extract.ts",
+      "node_type": "function"
+    },
+    {
+      "id": "extract.ts::extractGraph",
+      "label": "extractGraph()",
+      "source_file": "extract.ts",
+      "node_type": "function"
+    },
+    {
+      "id": "extract.ts::extractJsTs",
+      "label": "extractJsTs()",
+      "source_file": "extract.ts",
+      "node_type": "function"
+    },
+    {
+      "id": "extract.ts::foo",
+      "label": "foo()",
+      "source_file": "extract.ts",
+      "node_type": "function"
+    },
+    {
+      "id": "extract.ts::foo",
+      "label": "foo()",
+      "source_file": "extract.ts",
+      "node_type": "function"
+    },
+    {
+      "id": "extract.ts::foo",
+      "label": "foo()",
+      "source_file": "extract.ts",
+      "node_type": "function"
+    },
+    {
+      "id": "extract.ts::extractRust",
+      "label": "extractRust()",
+      "source_file": "extract.ts",
+      "node_type": "function"
+    },
+    {
+      "id": "extract.ts::extractPython",
+      "label": "extractPython()",
+      "source_file": "extract.ts",
+      "node_type": "function"
+    },
+    {
+      "id": "extract.ts::extractPackageJson",
+      "label": "extractPackageJson()",
+      "source_file": "extract.ts",
+      "node_type": "function"
+    },
+    {
+      "id": "index.ts",
+      "label": "index.ts",
+      "source_file": "index.ts",
+      "source_location": "L1",
+      "node_type": "file"
+    },
+    {
+      "id": "index.ts::GraphBuildResult",
+      "label": "GraphBuildResult",
+      "source_file": "index.ts",
+      "node_type": "interface"
+    },
+    {
+      "id": "index.ts::getGraphDir",
+      "label": "getGraphDir()",
+      "source_file": "index.ts",
+      "node_type": "function"
+    },
+    {
+      "id": "index.ts::getGraphJsonPath",
+      "label": "getGraphJsonPath()",
+      "source_file": "index.ts",
+      "node_type": "function"
+    },
+    {
+      "id": "index.ts::loadSavedGraph",
+      "label": "loadSavedGraph()",
+      "source_file": "index.ts",
+      "node_type": "function"
+    },
+    {
+      "id": "index.ts::buildCodeGraph",
+      "label": "buildCodeGraph()",
+      "source_file": "index.ts",
+      "node_type": "function"
+    },
+    {
+      "id": "index.ts::queryCodeGraph",
+      "label": "queryCodeGraph()",
+      "source_file": "index.ts",
+      "node_type": "function"
+    },
+    {
+      "id": "index.ts::getAffectedNodes",
+      "label": "getAffectedNodes()",
+      "source_file": "index.ts",
+      "node_type": "function"
+    },
+    {
+      "id": "index.ts::findShortestPath",
+      "label": "findShortestPath()",
+      "source_file": "index.ts",
+      "node_type": "function"
+    },
+    {
+      "id": "index.ts::generateWiki",
+      "label": "generateWiki()",
+      "source_file": "index.ts",
+      "node_type": "function"
+    },
+    {
+      "id": "index.ts::fallbackAnalyze",
+      "label": "fallbackAnalyze()",
+      "source_file": "index.ts",
+      "node_type": "function"
+    },
+    {
+      "id": "index.ts::fallbackGenerateReport",
+      "label": "fallbackGenerateReport()",
+      "source_file": "index.ts",
+      "node_type": "function"
+    },
+    {
+      "id": "index.ts::fallbackQuery",
+      "label": "fallbackQuery()",
+      "source_file": "index.ts",
+      "node_type": "function"
+    },
+    {
+      "id": "index.ts::fallbackAffected",
+      "label": "fallbackAffected()",
+      "source_file": "index.ts",
+      "node_type": "function"
+    },
+    {
+      "id": "index.ts::fallbackShortestPath",
+      "label": "fallbackShortestPath()",
+      "source_file": "index.ts",
+      "node_type": "function"
+    },
+    {
+      "id": "types.ts",
+      "label": "types.ts",
+      "source_file": "types.ts",
+      "source_location": "L1",
+      "node_type": "file"
+    },
+    {
+      "id": "types.ts::CodeNode",
+      "label": "CodeNode",
+      "source_file": "types.ts",
+      "node_type": "interface"
+    },
+    {
+      "id": "types.ts::CodeEdge",
+      "label": "CodeEdge",
+      "source_file": "types.ts",
+      "node_type": "interface"
+    },
+    {
+      "id": "types.ts::AffectedHit",
+      "label": "AffectedHit",
+      "source_file": "types.ts",
+      "node_type": "interface"
+    },
+    {
+      "id": "types.ts::PathStep",
+      "label": "PathStep",
+      "source_file": "types.ts",
+      "node_type": "interface"
+    },
+    {
+      "id": "types.ts::CycleInfo",
+      "label": "CycleInfo",
+      "source_file": "types.ts",
+      "node_type": "interface"
+    },
+    {
+      "id": "types.ts::GraphAnalysisResult",
+      "label": "GraphAnalysisResult",
+      "source_file": "types.ts",
+      "node_type": "interface"
+    },
+    {
+      "id": "types.ts::CodeGraphData",
+      "label": "CodeGraphData",
+      "source_file": "types.ts",
+      "node_type": "interface"
+    }
+  ],
+  "edges": [
+    {
+      "source": "extract.ts",
+      "target": "types.ts",
+      "relation": "imports",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "extract.ts",
+      "target": "...",
+      "relation": "imports",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "extract.ts",
+      "target": "extract.ts::Bar",
+      "relation": "defines",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "extract.ts",
+      "target": "extract.ts::ExtractOptions",
+      "relation": "defines",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "extract.ts",
+      "target": "extract.ts::collectCodeFiles",
+      "relation": "defines",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "extract.ts",
+      "target": "extract.ts::extractGraph",
+      "relation": "defines",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "extract.ts",
+      "target": "extract.ts::extractJsTs",
+      "relation": "defines",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "extract.ts",
+      "target": "extract.ts::foo",
+      "relation": "defines",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "extract.ts",
+      "target": "extract.ts::foo",
+      "relation": "defines",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "extract.ts",
+      "target": "extract.ts::foo",
+      "relation": "defines",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "extract.ts",
+      "target": "extract.ts::extractRust",
+      "relation": "defines",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "extract.ts",
+      "target": "extract.ts::extractPython",
+      "relation": "defines",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "extract.ts",
+      "target": "extract.ts::extractPackageJson",
+      "relation": "defines",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "index.ts",
+      "target": "extract.ts",
+      "relation": "imports",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "index.ts",
+      "target": "types.ts",
+      "relation": "imports",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "index.ts",
+      "target": "../memory/native",
+      "relation": "imports",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "index.ts",
+      "target": "index.ts::GraphBuildResult",
+      "relation": "defines",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "index.ts",
+      "target": "index.ts::getGraphDir",
+      "relation": "defines",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "index.ts",
+      "target": "index.ts::getGraphJsonPath",
+      "relation": "defines",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "index.ts",
+      "target": "index.ts::loadSavedGraph",
+      "relation": "defines",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "index.ts",
+      "target": "index.ts::buildCodeGraph",
+      "relation": "defines",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "index.ts",
+      "target": "index.ts::queryCodeGraph",
+      "relation": "defines",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "index.ts",
+      "target": "index.ts::getAffectedNodes",
+      "relation": "defines",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "index.ts",
+      "target": "index.ts::findShortestPath",
+      "relation": "defines",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "index.ts",
+      "target": "index.ts::generateWiki",
+      "relation": "defines",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "index.ts",
+      "target": "index.ts::fallbackAnalyze",
+      "relation": "defines",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "index.ts",
+      "target": "index.ts::fallbackGenerateReport",
+      "relation": "defines",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "index.ts",
+      "target": "index.ts::fallbackQuery",
+      "relation": "defines",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "index.ts",
+      "target": "index.ts::fallbackAffected",
+      "relation": "defines",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "index.ts",
+      "target": "index.ts::fallbackShortestPath",
+      "relation": "defines",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "types.ts",
+      "target": "types.ts::CodeNode",
+      "relation": "defines",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "types.ts",
+      "target": "types.ts::CodeEdge",
+      "relation": "defines",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "types.ts",
+      "target": "types.ts::AffectedHit",
+      "relation": "defines",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "types.ts",
+      "target": "types.ts::PathStep",
+      "relation": "defines",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "types.ts",
+      "target": "types.ts::CycleInfo",
+      "relation": "defines",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "types.ts",
+      "target": "types.ts::GraphAnalysisResult",
+      "relation": "defines",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "types.ts",
+      "target": "types.ts::CodeGraphData",
+      "relation": "defines",
+      "confidence": "EXTRACTED"
+    }
+  ]
+}

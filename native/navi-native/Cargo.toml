@@ -1,7 +1,24 @@
 [package]
-name = "navi-native"
+name = "navi-native-cli"
 version = "0.1.0"
 edition = "2021"
+authors = ["Navi Team"]
+description = "Standalone Navi native CLI binary: patch application, secret scrubbing, code-structure scanning, token counting, and binary inspection"
+license = "MIT"
+repository = "https://github.com/pankaj1998a/navi"
+
+# Keep the emitted binary name as `navi-native` so downstream
+# callers (packages/navi/src/native/native-runner.ts) are unaffected
+# by the crate rename.
+[[bin]]
+name = "navi-native"
+path = "src/main.rs"
+
+[lints.rust]
+unsafe_op_in_unsafe_fn = "deny"
+
+[lints.clippy]
+unwrap_used = "warn"
 
 [dependencies]
 regex = "1.10"

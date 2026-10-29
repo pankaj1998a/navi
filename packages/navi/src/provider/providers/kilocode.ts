@@ -16,6 +16,29 @@ const FETCH_HEADERS = {
 
 const BASE_URL = "https://api.kilo.ai/api/openrouter/"
 
+// Kilocode (OpenRouter-shaped) models-list response; only the fields the
+// loader consumes are declared.
+interface KilocodeModel {
+  id: string
+  name?: string
+  pricing?: {
+    prompt?: number
+    completion?: number
+  }
+  architecture?: {
+    input_modalities?: string[]
+  }
+  supported_parameters?: string[]
+  context_length?: number
+  top_provider?: {
+    max_completion_tokens?: number
+  }
+}
+
+interface KilocodeModelsResponse {
+  data?: KilocodeModel[]
+}
+
 async function fetchKilocodeModels(apiKey?: string, providerIdParam: string = "kilocode"): Promise<Record<string, Provider.Model>> {
     try {
         const headers: Record<string, string> = { ...FETCH_HEADERS }
@@ -30,7 +53,7 @@ async function fetchKilocodeModels(apiKey?: string, providerIdParam: string = "k
             const text = await res.text().catch(() => "")
             throw new Error(`HTTP ${res.status}: ${text}`)
         }
-        const data = (await res.json()) as any
+        const data = (await res.json()) as KilocodeModelsResponse
         if (!data || !data.data || !Array.isArray(data.data)) {
             return {}
         }
@@ -46,7 +69,7 @@ async function fetchKilocodeModels(apiKey?: string, providerIdParam: string = "k
             models[modelID] = {
                 id: modelID,
                 providerID: ProviderID.make(providerIdParam),
-                name: model.name,
+                name: model.name ?? model.id,
                 api: {
                     id: model.id,
                     url: BASE_URL,
@@ -147,7 +170,7 @@ export const KilocodeProvider: ProviderLoader.Info = {
             },
             discoverModels: async () => {
                 const latest = await fetchKilocodeModels(apiKey, inputId)
-                return latest as any
+                return latest
             },
             models,
         }

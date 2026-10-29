@@ -7,7 +7,7 @@ static BPE_REGEX: OnceLock<Regex> = OnceLock::new();
 fn get_bpe_regex() -> &'static Regex {
     BPE_REGEX.get_or_init(|| {
         // cl100k-style subword splitting pattern
-        Regex::new(r"(?i:'s|'t|'re|'ve|'m|'ll|'d)|[^\r\n\p{L}\p{N}]?\p{L}+|\p{N}{1,3}|[^\s\p{L}\p{N}]+[\r\n]*|\s*[\r\n]+|\s+").unwrap()
+        Regex::new(r"(?i:'s|'t|'re|'ve|'m|'ll|'d)|[^\r\n\p{L}\p{N}]?\p{L}+|\p{N}{1,3}|[^\s\p{L}\p{N}]+[\r\n]*|\s*[\r\n]+|\s+").expect("valid BPE subword pattern regex")
     })
 }
 
@@ -62,6 +62,20 @@ pub struct CompactRequest {
     pub max_tokens: usize,
     #[serde(default = "default_preserve_recent")]
     pub preserve_recent: usize,
+}
+
+/// Returns the largest byte index `i <= max` such that `s.is_char_boundary(i)`
+/// holds, so `&s[..i]` can never panic mid-codepoint. Panicking here would be
+/// a hard abort inside message compaction, hence the boundary-safe walk.
+fn floor_char_boundary(s: &str, max: usize) -> usize {
+    if max >= s.len() {
+        return s.len();
+    }
+    let mut i = max;
+    while i > 0 && !s.is_char_boundary(i) {
+        i -= 1;
+    }
+    i
 }
 
 fn default_preserve_recent() -> usize {
@@ -123,7 +137,9 @@ pub fn compact_messages(req: &CompactRequest) -> CompactResponse {
                 });
             } else if let Some(t) = &part.text {
                 if t.len() > 300 {
-                    let snippet = &t[..250];
+                    // Slice at a char boundary: a raw `[..250]` would panic if
+                    // byte 250 falls inside a multi-byte UTF-8 codepoint.
+                    let snippet = &t[..floor_char_boundary(t, 250)];
                     pruned_parts.push(MessagePart {
                         r#type: part.r#type.clone(),
                         text: Some(format!("{}... [compacted]", snippet)),

@@ -9,6 +9,33 @@ const log = Log.create({ service: "roocode-provider" })
 
 const ROOCODE_BASE_URL = "https://api.roocode.com/proxy/v1"
 
+// RooCode models-list response (OpenAI-compatible); only the fields the
+// loader consumes are declared.
+interface RoocodeModel {
+  id: string
+  name?: string
+  pricing?: {
+    input?: number
+    prompt?: number
+    output?: number
+    completion?: number
+  }
+  architecture?: {
+    input_modalities?: string[]
+  }
+  supported_parameters?: string[]
+  context_window?: number
+  context_length?: number
+  max_tokens?: number
+  top_provider?: {
+    max_completion_tokens?: number
+  }
+}
+
+interface RoocodeModelsResponse {
+  data?: RoocodeModel[]
+}
+
 export const RoocodeProvider: ProviderLoader.Info = {
     async load(input, dep) {
         const inputId = input?.id ?? "roocode"
@@ -54,11 +81,11 @@ export const RoocodeProvider: ProviderLoader.Info = {
                     signal: AbortSignal.timeout(8_000),
                 })
                 if (res.ok) {
-                    const data = (await res.json()) as any
+                    const data = (await res.json()) as RoocodeModelsResponse
                     if (data && data.data && Array.isArray(data.data)) {
                         const fetched: typeof models = {}
                         for (const model of data.data) {
-                            const modelId = model.id as string
+                            const modelId = model.id
                             const inputPrice = Number(model.pricing?.input || model.pricing?.prompt || 0)
                             const outputPrice = Number(model.pricing?.output || model.pricing?.completion || 0)
                             const isImage = model.id.includes("vision") || model.id.includes("gpt-4o") || model.id.includes("claude-3") || model.architecture?.input_modalities?.includes("image") || false

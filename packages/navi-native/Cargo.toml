@@ -1,0 +1,30 @@
+[package]
+name = "navi-native"
+version = "0.1.0"
+edition = "2021"
+authors = ["Navi Team"]
+description = "High-performance native Rust core for Navi memory, privacy sanitization, and entropy filtering"
+license = "MIT"
+repository = "https://github.com/pankaj1998a/navi"
+
+[lib]
+name = "navi_native"
+crate-type = ["cdylib", "rlib"]
+
+[lints.rust]
+unsafe_op_in_unsafe_fn = "deny"
+
+# Policy: regex/mutex call sites historically use unwrap(); they are being
+# migrated to expect/PoisonError-tolerant access. Remaining unwraps live in
+# guarded spots and tests, so these stay "warn" to avoid breaking the build.
+[lints.clippy]
+unwrap_used = "warn"
+expect_used = "warn"
+
+[dependencies]
+regex = "1.11"
+url = "2.5"
+similar = { version = "2.6", default-features = false, features = ["text", "unicode"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+

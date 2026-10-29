@@ -10,6 +10,7 @@ Perform comprehensive code reviews and git diff audits along **Two Distinct Axes
 ## Review Protocol
 
 ### Axis 1: 📐 Standards & Code Smells
+- **Google Style Guide Compliance**: For any code in languages with a Google Style Guide (C++, Python, Go, Java, TypeScript, JavaScript, Rust, Shell, Swift, C#, Kotlin, Dart, HTML/CSS, etc.), strictly audit adherence to Google's official style guide (https://google.github.io/styleguide/). Flag naming inconsistencies, formatting deviations, forbidden constructs, and improper error handling.
 - **Repository Guidelines**: Check adherence to `AGENTS.md`, `CLAUDE.md`, and project conventions.
 - **Fowler Smell Baseline**:
   - *Mysterious Name*: Function, variable, or type whose name doesn't reveal its intent.

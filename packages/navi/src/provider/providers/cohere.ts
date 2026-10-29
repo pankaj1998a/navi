@@ -11,6 +11,17 @@ const PROVIDER_ID = "cohere"
 const BASE_URL = "https://api.cohere.com/v2"
 const NPM = "@ai-sdk/cohere"
 
+// Cohere v2 models-list response; only the fields the loader consumes are declared.
+interface CohereModel {
+  name: string
+  is_deprecated?: boolean
+  context_length?: number
+}
+
+interface CohereModelsResponse {
+  models?: CohereModel[]
+}
+
 const log = Log.create({ service: "cohere-provider" })
 
 export const CohereProvider: ProviderLoader.Info = {
@@ -39,9 +50,9 @@ export const CohereProvider: ProviderLoader.Info = {
                 })
 
                 if (res.ok) {
-                    const data = (await res.json()) as any
+                    const data = (await res.json()) as CohereModelsResponse
                     // Cohere returns { models: [...] }
-                    const list: any[] = data?.models ?? []
+                    const list: CohereModel[] = data?.models ?? []
                     const fetched: Record<string, Provider.Model> = {}
 
                     for (const raw of list) {

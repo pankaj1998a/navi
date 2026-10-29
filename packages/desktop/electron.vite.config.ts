@@ -82,6 +82,9 @@ export default defineConfig({
     plugins: [appPlugin, sentry],
     publicDir: "../../../app/public",
     root: "src/renderer",
+    resolve: {
+      dedupe: ["solid-js", "solid-js/web", "solid-js/store"],
+    },
     define: {
       "import.meta.env.VITE_NAVI_CHANNEL": JSON.stringify(channel),
     },

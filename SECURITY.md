@@ -48,6 +48,17 @@ If you do not receive an acknowledgement of your report within 6 business days, 
 
 ---
 
+## Remote config and provider npm installs
+
+- `.well-known/navi` remote configuration is fetched at startup, but security-sensitive
+  sections are stripped before merging (`provider`, `mcp`, `plugin`, `command`, `skills`,
+  `reference`, `lsp`, `formatter`, `permission`, `shell`, `server`). Don't rely on remote
+  config to manage those sections.
+- Third-party `provider.api.npm` entries would install and import arbitrary npm packages.
+  This is consent-gated: set `NAVI_ALLOW_PROVIDER_NPM_INSTALL=1` explicitly to enable it.
+  Without the env var such providers fail with an `InitError`. Bundled providers are not
+  affected.
+
 ## Supply chain / LSP downloads
 
 LSP auto-downloads in `packages/navi/src/lsp/server.ts` follow these rules:

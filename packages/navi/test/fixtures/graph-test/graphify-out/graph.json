@@ -1,0 +1,112 @@
+{
+  "nodes": [
+    {
+      "id": "auth.ts",
+      "label": "auth.ts",
+      "source_file": "auth.ts",
+      "source_location": "L1",
+      "node_type": "file"
+    },
+    {
+      "id": "auth.ts::AuthManager",
+      "label": "AuthManager",
+      "source_file": "auth.ts",
+      "node_type": "class"
+    },
+    {
+      "id": "auth.ts::checkAuth",
+      "label": "checkAuth()",
+      "source_file": "auth.ts",
+      "node_type": "function"
+    },
+    {
+      "id": "db.ts",
+      "label": "db.ts",
+      "source_file": "db.ts",
+      "source_location": "L1",
+      "node_type": "file"
+    },
+    {
+      "id": "db.ts::queryUser",
+      "label": "queryUser()",
+      "source_file": "db.ts",
+      "node_type": "function"
+    },
+    {
+      "id": "main.ts",
+      "label": "main.ts",
+      "source_file": "main.ts",
+      "source_location": "L1",
+      "node_type": "file"
+    },
+    {
+      "id": "main.ts::run",
+      "label": "run()",
+      "source_file": "main.ts",
+      "node_type": "function"
+    },
+    {
+      "id": "server.ts",
+      "label": "server.ts",
+      "source_file": "server.ts",
+      "source_location": "L1",
+      "node_type": "file"
+    },
+    {
+      "id": "server.ts::startServer",
+      "label": "startServer()",
+      "source_file": "server.ts",
+      "node_type": "function"
+    }
+  ],
+  "edges": [
+    {
+      "source": "auth.ts",
+      "target": "db.ts",
+      "relation": "imports",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "auth.ts",
+      "target": "auth.ts::AuthManager",
+      "relation": "defines",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "auth.ts",
+      "target": "auth.ts::checkAuth",
+      "relation": "defines",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "db.ts",
+      "target": "db.ts::queryUser",
+      "relation": "defines",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "main.ts",
+      "target": "server.ts",
+      "relation": "imports",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "main.ts",
+      "target": "main.ts::run",
+      "relation": "defines",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "server.ts",
+      "target": "auth.ts",
+      "relation": "imports",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "server.ts",
+      "target": "server.ts::startServer",
+      "relation": "defines",
+      "confidence": "EXTRACTED"
+    }
+  ]
+}

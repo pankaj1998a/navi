@@ -2,15 +2,24 @@
 
 import { $ } from "bun"
 import fs from "fs"
+import { rm } from "fs/promises"
 import path from "path"
 import { fileURLToPath } from "url"
 import { createSolidTransformPlugin } from "@opentui/solid/bun-plugin"
+import { verifyArtifact } from "./verify-artifact"
+import { NativeArch } from "../../../script/native-arch"
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 const dir = path.resolve(__dirname, "..")
 
 process.chdir(dir)
+
+const outdir = path.resolve(
+  dir,
+  process.argv.find((arg) => arg.startsWith("--outdir="))?.slice("--outdir=".length) ?? "dist",
+)
+if (outdir === dir) throw new Error("--outdir must not be the package directory")
 
 await import("./generate.ts")
 
@@ -49,6 +58,7 @@ console.log(`Loaded ${migrations.length} migrations`)
 
 const singleFlag = process.argv.includes("--single")
 const baselineFlag = process.argv.includes("--baseline")
+const requestedTarget = process.argv.find((arg) => arg.startsWith("--target="))?.slice("--target=".length)
 const skipInstall = process.argv.includes("--skip-install")
 const sourcemapsFlag = process.argv.includes("--sourcemaps")
 const plugin = createSolidTransformPlugin()
@@ -58,7 +68,15 @@ const createEmbeddedWebUIBundle = async () => {
   console.log(`Building Web UI to embed in the binary`)
   const appDir = path.join(import.meta.dirname, "../../app")
   const dist = path.join(appDir, "dist")
-  await $`bun run --cwd ${appDir} build`
+  try {
+    await $`bun run --cwd ${appDir} build`
+  } catch (e) {
+    if (fs.existsSync(dist) && fs.readdirSync(dist).length > 0) {
+      console.warn(`Web UI build command failed, reusing existing dist/ bundle`)
+    } else {
+      throw e
+    }
+  }
   const files = (await Array.fromAsync(new Bun.Glob("**/*").scan({ cwd: dist })))
     .map((file) => file.replaceAll("\\", "/"))
     .filter((file) => !file.endsWith(".map"))
@@ -146,8 +164,11 @@ const allTargets: {
 
 ]
 
-const targets = singleFlag
-  ? allTargets.filter((item) => {
+const targets =
+  requestedTarget !== undefined
+    ? allTargets.filter((item) => targetName(item) === requestedTarget)
+    : singleFlag
+      ? allTargets.filter((item) => {
       if (item.os !== process.platform || item.arch !== process.arch) {
         return false
       }
@@ -166,8 +187,9 @@ const targets = singleFlag
       return true
     })
   : allTargets
+if (!targets.length) throw new Error(`Unknown build target: ${requestedTarget}`)
 
-await $`rm -rf dist`
+await rm(outdir, { recursive: true, force: true })
 
 const binaries: Record<string, string> = {}
 if (!skipInstall) {
@@ -175,18 +197,9 @@ if (!skipInstall) {
   await $`bun install --os="*" --cpu="*" @parcel/watcher@${pkg.dependencies["@parcel/watcher"]}`
 }
 for (const item of targets) {
-  const name = [
-    pkg.name,
-    // changing to win32 flags npm for some reason
-    item.os === "win32" ? "windows" : item.os,
-    item.arch,
-    item.avx2 === false ? "baseline" : undefined,
-    item.abi === undefined ? undefined : item.abi,
-  ]
-    .filter(Boolean)
-    .join("-")
+  const name = targetName(item)
   console.log(`building ${name}`)
-  await $`mkdir -p dist/${name}/bin`
+  await $`mkdir -p ${path.join(outdir, name, "bin")}`
 
   const localPath = path.resolve(dir, "node_modules/@opentui/core/parser.worker.js")
   const rootPath = path.resolve(dir, "../../node_modules/@opentui/core/parser.worker.js")
@@ -197,8 +210,8 @@ for (const item of targets) {
   const bunfsRoot = item.os === "win32" ? "B:/~BUN/root/" : "/$bunfs/root/"
   const workerRelativePath = path.relative(dir, parserWorker).replaceAll("\\", "/")
 
-  await Bun.build({
-    conditions: ["browser"],
+  const result = await Bun.build({
+    conditions: ["browser", "production"],
     tsconfig: "./tsconfig.json",
     plugins: [plugin],
     external: ["node-gyp"],
@@ -212,13 +225,14 @@ for (const item of targets) {
       autoloadTsconfig: true,
       autoloadPackageJson: true,
       target: name.replace(pkg.name, "bun") as any,
-      outfile: `dist/${name}/bin/navi`,
+      outfile: path.join(outdir, name, "bin", "navi"),
       execArgv: [`--user-agent=navi/${Script.version}`, "--use-system-ca", "--"],
       windows: {},
     },
     files: embeddedFileMap ? { "navi-web-ui.gen.ts": embeddedFileMap } : {},
     entrypoints: ["./src/index.ts", parserWorker, workerPath, ...(embeddedFileMap ? ["navi-web-ui.gen.ts"] : [])],
     define: {
+      "process.env.NODE_ENV": "'production'",
       NAVI_VERSION: `'${Script.version}'`,
       NAVI_MIGRATIONS: JSON.stringify(migrations),
       OTUI_TREE_SITTER_WORKER_PATH: bunfsRoot + workerRelativePath,
@@ -228,9 +242,15 @@ for (const item of targets) {
     },
   })
 
+  if (!result.success) {
+    for (const log of result.logs) console.error(log)
+    process.exit(1)
+  }
+  await NativeArch.verify(path.join(outdir, name, "bin", item.os === "win32" ? "navi.exe" : "navi"), item.arch)
+
   // Smoke test: only run if binary is for current platform
   if (item.os === process.platform && item.arch === process.arch && !item.abi) {
-    const binaryPath = `dist/${name}/bin/navi`
+    const binaryPath = path.join(outdir, name, "bin", "navi")
     console.log(`Running smoke test: ${binaryPath} --version`)
     try {
       const versionOutput = await $`${binaryPath} --version`.text()
@@ -241,8 +261,8 @@ for (const item of targets) {
     }
   }
 
-  await $`rm -rf ./dist/${name}/bin/tui`
-  await Bun.file(`dist/${name}/package.json`).write(
+  await $`rm -rf ${path.join(outdir, name, "bin", "tui")}`
+  await Bun.file(path.join(outdir, name, "package.json")).write(
     JSON.stringify(
       {
         name,
@@ -254,18 +274,32 @@ for (const item of targets) {
       2,
     ),
   )
+  await verifyArtifact(path.join(outdir, name))
   binaries[name] = Script.version
 }
 
 if (Script.release) {
   for (const key of Object.keys(binaries)) {
     if (key.includes("linux")) {
-      await $`tar -czf ../../${key}.tar.gz *`.cwd(`dist/${key}/bin`)
+      await $`tar -czf ${path.join(outdir, `${key}.tar.gz`)} *`.cwd(path.join(outdir, key, "bin"))
     } else {
-      await $`zip -r ../../${key}.zip *`.cwd(`dist/${key}/bin`)
+      await $`zip -r ${path.join(outdir, `${key}.zip`)} *`.cwd(path.join(outdir, key, "bin"))
     }
   }
-  await $`gh release upload v${Script.version} ./dist/*.zip ./dist/*.tar.gz --clobber --repo ${process.env.GH_REPO}`
+  await $`gh release upload v${Script.version} ${path.join(outdir, "*.zip")} ${path.join(outdir, "*.tar.gz")} --clobber --repo ${process.env.GH_REPO}`
+}
+
+function targetName(item: (typeof allTargets)[number]) {
+  return [
+    pkg.name,
+    // changing to win32 flags npm for some reason
+    item.os === "win32" ? "windows" : item.os,
+    item.arch,
+    item.avx2 === false ? "baseline" : undefined,
+    item.abi === undefined ? undefined : item.abi,
+  ]
+    .filter(Boolean)
+    .join("-")
 }
 
 export { binaries }

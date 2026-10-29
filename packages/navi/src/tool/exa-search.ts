@@ -23,6 +23,18 @@ export const Parameters = Schema.Struct({
   }),
 })
 
+interface ExaSearchResult {
+  title?: string
+  url?: string
+  publishedDate?: string
+  summary?: string
+  highlights?: string[]
+}
+
+interface ExaSearchResponse {
+  results?: ExaSearchResult[]
+}
+
 export const ExaSearchTool = Tool.define(
   "exa_search",
   Effect.gen(function* () {
@@ -66,7 +78,7 @@ export const ExaSearchTool = Tool.define(
           }
 
           // Direct API call if API key is present (supports more features)
-          const body: any = {
+          const body = {
             query: params.query,
             numResults: params.count ?? 10,
             type: params.type,
@@ -74,6 +86,12 @@ export const ExaSearchTool = Tool.define(
               highlights: params.include_highlights ?? true,
               summary: params.include_summary ?? false,
             },
+          } as {
+            query: string
+            numResults: number
+            type?: string
+            contents: { highlights: boolean; summary: boolean }
+            startPublishedDate?: string
           }
 
           if (params.freshness) {
@@ -98,11 +116,11 @@ export const ExaSearchTool = Tool.define(
             throw new Error(`Exa API error: ${error}`)
           }
 
-          const data = (yield* Effect.promise(() => response.json())) as any
+          const data = (yield* Effect.promise(() => response.json())) as ExaSearchResponse
           const results = data.results || []
 
           let output = `# Exa Search Results: ${params.query}\n\n`
-          results.forEach((result: any, index: number) => {
+          results.forEach((result, index) => {
             output += `${index + 1}. [${result.title || result.url}](${result.url})\n`
             if (result.publishedDate) output += `   Date: ${result.publishedDate}\n`
             if (result.summary) output += `   Summary: ${result.summary}\n`

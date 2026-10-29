@@ -98,6 +98,7 @@ export const mismatchDetail = (interactions: ReadonlyArray<HttpInteraction>, inc
     .map((interaction, index) => ({ index, lines: requestDiff(interaction.request, incoming) }))
     .toSorted((a, b) => a.lines.length - b.lines.length || a.index - b.index)
   const best = ranked[0]
+  if (best === undefined) return "no recorded interaction matched"
   return ["no recorded interaction matched", `closest interaction: #${best.index + 1}`, ...best.lines].join("\n")
 }
 

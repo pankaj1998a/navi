@@ -41,6 +41,15 @@ export function formatCount(value: number, locale: string, singular: string, plu
   return `${formatNumber(value, locale)} ${unit}`
 }
 
+export function copyAndFlash(value: string, setCopied: (value: boolean) => void, duration = 3000) {
+  navigator.clipboard
+    .writeText(value)
+    .catch((err) => console.error("Copy failed", err))
+
+  setCopied(true)
+  setTimeout(() => setCopied(false), duration)
+}
+
 interface AnchorProps extends JSX.HTMLAttributes<HTMLDivElement> {
   id: string
 }
@@ -60,12 +69,7 @@ export function AnchorIcon(props: AnchorProps) {
           const hash = anchor.getAttribute("href") || ""
           const { origin, pathname, search } = window.location
 
-          navigator.clipboard
-            .writeText(`${origin}${pathname}${search}${hash}`)
-            .catch((err) => console.error("Copy failed", err))
-
-          setCopied(true)
-          setTimeout(() => setCopied(false), 3000)
+          copyAndFlash(`${origin}${pathname}${search}${hash}`, setCopied)
         }}
       >
         {local.children}

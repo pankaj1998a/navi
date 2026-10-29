@@ -33,12 +33,12 @@ fn main() {
                     diff: String::new(),
                     error: Some(format!("Failed to read patch from stdin: {}", e)),
                 };
-                println!("{}", serde_json::to_string(&err_res).unwrap());
+                println!("{}", serde_json::to_string(&err_res).expect("serializing patch error result"));
                 std::process::exit(1);
             }
 
             let result = patch::execute_patch(&root_dir, &patch_content);
-            println!("{}", serde_json::to_string(&result).unwrap());
+            println!("{}", serde_json::to_string(&result).expect("serializing patch result"));
             if !result.success {
                 std::process::exit(1);
             }
@@ -83,7 +83,7 @@ fn main() {
 
             let res = structure::scan_directory(&target_dir, include_tests);
             if as_json {
-                println!("{}", serde_json::to_string(&res).unwrap());
+                println!("{}", serde_json::to_string(&res).expect("serializing structure scan result"));
             } else {
                 print!("{}", structure::render_dense_text(&res));
             }
@@ -104,7 +104,16 @@ fn main() {
         }
         "compact" => {
             let max_tokens = if args.len() >= 3 {
-                args[2].parse::<usize>().unwrap_or(8000)
+                match args[2].parse::<usize>() {
+                    Ok(n) => n,
+                    Err(_) => {
+                        eprintln!(
+                            "Error: invalid max-tokens argument '{}'. Usage: navi-native compact <max-tokens>",
+                            args[2]
+                        );
+                        std::process::exit(1);
+                    }
+                }
             } else {
                 8000
             };
@@ -121,7 +130,7 @@ fn main() {
                         req.max_tokens = max_tokens;
                     }
                     let res = compactor::compact_messages(&req);
-                    println!("{}", serde_json::to_string(&res).unwrap());
+                    println!("{}", serde_json::to_string(&res).expect("serializing compact result"));
                 }
                 Err(err) => {
                     eprintln!("Failed to parse CompactRequest JSON: {}", err);
@@ -137,7 +146,7 @@ fn main() {
             let path = PathBuf::from(&args[2]);
             match binary_inspect::inspect_binary(&path) {
                 Ok(res) => {
-                    println!("{}", serde_json::to_string(&res).unwrap());
+                    println!("{}", serde_json::to_string(&res).expect("serializing binary inspection result"));
                 }
                 Err(e) => {
                     eprintln!("Binary inspection error: {}", e);

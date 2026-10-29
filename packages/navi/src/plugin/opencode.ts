@@ -88,26 +88,68 @@ export async function checkOpenCodeServer(serverUrl: string = DEFAULT_OPENCODE_S
   return false
 }
 
-export async function ensureOpenCodeServer(serverUrl: string = DEFAULT_OPENCODE_SERVER_URL): Promise<boolean> {
-  if (await checkOpenCodeServer(serverUrl)) return true
-  try {
-    const { spawn } = await import("child_process")
-    const child = spawn("opencode", ["serve", "--port", "4096"], {
-      detached: true,
-      stdio: "ignore",
-      shell: true,
-      windowsHide: true,
-    })
-    child.unref()
-    const start = Date.now()
-    while (Date.now() - start < 8000) {
-      await new Promise((r) => setTimeout(r, 250))
-      if (await checkOpenCodeServer(serverUrl)) return true
+const spawnState: { up: boolean; inflight: Promise<boolean> | undefined; lastFailureAt: number } = {
+  up: false,
+  inflight: undefined,
+  lastFailureAt: 0,
+}
+
+const OPENCODE_SPAWN_COOLDOWN_MS = 60_000
+
+export async function ensureOpenCodeServer(serverUrl: string = DEFAULT_OPENCODE_SERVER_URL, retry = false): Promise<boolean> {
+  if (spawnState.up) return true
+  if (spawnState.inflight) return spawnState.inflight
+
+  if (retry) spawnState.lastFailureAt = 0
+
+  const inCooldown = spawnState.lastFailureAt > 0 && Date.now() - spawnState.lastFailureAt < OPENCODE_SPAWN_COOLDOWN_MS
+  if (inCooldown) {
+    const healthy = await checkOpenCodeServer(serverUrl)
+    if (healthy) {
+      spawnState.up = true
+      spawnState.lastFailureAt = 0
+      return true
     }
-  } catch (err) {
-    log.warn("Failed to auto-spawn OpenCode server", { error: String(err) })
+    return false
   }
-  return false
+
+  const attempt = (async () => {
+    try {
+      if (await checkOpenCodeServer(serverUrl)) return true
+
+      const isWindows = process.platform === "win32"
+      const command = isWindows ? Bun.which("opencode") : "opencode"
+      if (!command) {
+        log.warn("OpenCode server not running and opencode binary not found in PATH, skipping auto-spawn", { serverUrl })
+        return false
+      }
+
+      const { default: launch } = await import("cross-spawn")
+      const child = launch(command, ["serve", "--port", "4096"], {
+        stdio: "ignore",
+        windowsHide: true,
+      })
+      child.on("error", (err) => log.warn("Failed to auto-spawn OpenCode server", { error: String(err) }))
+      child.unref()
+
+      const start = Date.now()
+      while (Date.now() - start < 8000) {
+        await new Promise((r) => setTimeout(r, 250))
+        if (await checkOpenCodeServer(serverUrl)) return true
+      }
+      return false
+    } catch (err) {
+      log.warn("Failed to auto-spawn OpenCode server", { error: String(err) })
+      return false
+    }
+  })()
+
+  spawnState.inflight = attempt
+  const result = await attempt
+  spawnState.inflight = undefined
+  spawnState.up = result
+  spawnState.lastFailureAt = result ? 0 : Date.now()
+  return result
 }
 
 export const OpenCodeAuthHook: AuthHook = {

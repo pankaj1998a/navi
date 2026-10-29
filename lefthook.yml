@@ -1,6 +1,6 @@
 # Git hooks (lefthook). Keep these local checkpoints fast; CI owns the full
 # repository-wide gate matrix.
-# Install: `node scripts/install-lefthook.mjs` (runs automatically via postinstall).
+# Install: `bun x lefthook install`.
 # Borrowed from deepseek-harness (oxlint + typecheck).
 
 pre-commit:
@@ -9,7 +9,7 @@ pre-commit:
       glob: '*.{ts,tsx,mts,cts,mjs}'
       exclude:
         - 'vendor/*/src/**'
-      run: node_modules/.bin/tsx scripts/run-oxlint.ts --config .oxlintrc.staged.json --fix --no-error-on-unmatched-pattern {staged_files}
+      run: bun x oxlint --config .oxlintrc.staged.json --fix --no-error-on-unmatched-pattern {staged_files}
       stage_fixed: true
 
     - name: whitespace (staged)
@@ -21,5 +21,5 @@ pre-commit:
 
 pre-push:
   jobs:
-    - name: typecheck
-      run: bun turbo typecheck
+    - name: check
+      run: bun run check

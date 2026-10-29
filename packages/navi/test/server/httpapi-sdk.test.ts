@@ -1,7 +1,7 @@
 import { afterEach, describe, expect } from "bun:test"
 import { ConfigProvider, Effect, Layer } from "effect"
 import type * as Scope from "effect/Scope"
-import { HttpRouter } from "effect/unstable/http"
+import { HttpRouter } from "effect/http"
 import { Flag } from "@navi-ai/core/flag/flag"
 import { createNaviClient } from "@navi-ai/sdk/v2"
 import { validateSession } from "../../src/cli/cmd/tui/validate-session"

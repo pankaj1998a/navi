@@ -210,9 +210,9 @@ function fetchFromClient<T extends { name: string }>(
 ) {
   return Effect.tryPromise({
     try: () => listFn(client),
-    catch: (e: any) => {
-      log.error(`failed to get ${label}`, { clientName, error: e.message })
-      return e
+    catch: (err: unknown) => {
+      log.error(`failed to get ${label}`, { clientName, error: err instanceof Error ? err.message : String(err) })
+      return err
     },
   }).pipe(
     Effect.map((items) => {
@@ -572,7 +572,9 @@ export const layer = Layer.effect(
                     for (const dpid of pids) {
                       try {
                         process.kill(dpid, "SIGTERM")
-                      } catch {}
+                      } catch {
+                        // Ignore child processes that already exited
+                      }
                     }
                   }
                   yield* Effect.tryPromise(() => client.close()).pipe(Effect.ignore)
@@ -738,9 +740,9 @@ export const layer = Layer.effect(
       }
       return yield* Effect.tryPromise({
         try: () => fn(client),
-        catch: (e: any) => {
-          log.error(`failed to ${label}`, { clientName, ...meta, error: e?.message })
-          return e
+        catch: (err: unknown) => {
+          log.error(`failed to ${label}`, { clientName, ...meta, error: err instanceof Error ? err.message : String(err) })
+          return err
         },
       }).pipe(Effect.orElseSucceed(() => undefined))
     })

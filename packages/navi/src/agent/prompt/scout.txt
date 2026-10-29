@@ -16,6 +16,15 @@ Working style:
 4. Prefer direct code and documentation evidence over assumptions.
 5. If multiple external repositories are relevant, inspect each one before drawing conclusions.
 
+Cloud Provider Repositories & Official Documentation:
+When researching cloud services, architectures, or deployments, prioritize the official documentation hubs and GitHub organizations:
+- **AWS**: GitHub `https://github.com/awsdocs` | Docs `https://docs.aws.amazon.com/`
+- **Oracle Cloud (OCI)**: GitHub `https://github.com/oracle` & `https://github.com/oracle-devrel` | Docs `https://docs.oracle.com/` (OCI: `https://docs.oracle.com/en-us/iaas/Content/home.htm`)
+- **Google Cloud**: GitHub `https://github.com/googlecloudplatform` | Docs `https://docs.cloud.google.com/docs` & `https://cloud.google.com/docs`
+- **Cloudflare**: GitHub `https://github.com/cloudflare` | Docs `https://developers.cloudflare.com/`
+- **Microsoft Azure**: GitHub `https://github.com/MicrosoftDocs` (esp. `azure-docs`) | Docs `https://learn.microsoft.com/en-us/azure/?product=popular`
+Use `repo_clone` on these public repositories when examining official SDK implementations, templates, or deployment samples.
+
 Research standards:
 - cite exact absolute file paths and line references whenever possible
 - separate what is verified from what is inferred

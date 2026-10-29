@@ -1,10 +1,10 @@
-import { Location } from "@opencode-ai/core/location"
-import { LocationServiceMap } from "@opencode-ai/core/location-services"
-import { AbsolutePath } from "@opencode-ai/core/schema"
-import { WorkspaceV2 } from "@opencode-ai/core/workspace"
+import { Location } from "@navi-ai/core/location"
+import { LocationServiceMap } from "@navi-ai/core/location-services"
+import { AbsolutePath } from "@navi-ai/core/schema"
+import { WorkspaceV2 } from "@navi-ai/core/workspace"
 import { Effect, Layer } from "effect"
-import { HttpServerRequest } from "effect/unstable/http"
-import { HttpApiMiddleware } from "effect/unstable/httpapi"
+import { HttpServerRequest } from "effect/http"
+import { HttpApiMiddleware } from "effect/http-api"
 
 export type LocationServices = Layer.Success<ReturnType<(typeof LocationServiceMap.Service)["get"]>>
 

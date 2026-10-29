@@ -79,26 +79,26 @@ pub struct SymbolExtractor {
 impl SymbolExtractor {
     pub fn new() -> Self {
         Self {
-            ts_fn_re: Regex::new(r#"(?:export\s+)?(?:async\s+)?function\s+([A-Za-z0-9_$]+)|(?:export\s+)?const\s+([A-Za-z0-9_$]+)\s*=\s*(?:async\s*)?(?:\([^)]*\)|[A-Za-z0-9_$]+)\s*=>"#).unwrap(),
-            ts_class_re: Regex::new(r#"(?:export\s+)?(?:abstract\s+)?class\s+([A-Za-z0-9_$]+)"#).unwrap(),
-            ts_iface_re: Regex::new(r#"(?:export\s+)?interface\s+([A-Za-z0-9_$]+)"#).unwrap(),
-            ts_type_re: Regex::new(r#"(?:export\s+)?type\s+([A-Za-z0-9_$]+)"#).unwrap(),
-            ts_enum_re: Regex::new(r#"(?:export\s+)?enum\s+([A-Za-z0-9_$]+)"#).unwrap(),
+            ts_fn_re: Regex::new(r#"(?:export\s+)?(?:async\s+)?function\s+([A-Za-z0-9_$]+)|(?:export\s+)?const\s+([A-Za-z0-9_$]+)\s*=\s*(?:async\s*)?(?:\([^)]*\)|[A-Za-z0-9_$]+)\s*=>"#).expect("valid TS function pattern regex"),
+            ts_class_re: Regex::new(r#"(?:export\s+)?(?:abstract\s+)?class\s+([A-Za-z0-9_$]+)"#).expect("valid TS class pattern regex"),
+            ts_iface_re: Regex::new(r#"(?:export\s+)?interface\s+([A-Za-z0-9_$]+)"#).expect("valid TS interface pattern regex"),
+            ts_type_re: Regex::new(r#"(?:export\s+)?type\s+([A-Za-z0-9_$]+)"#).expect("valid TS type alias pattern regex"),
+            ts_enum_re: Regex::new(r#"(?:export\s+)?enum\s+([A-Za-z0-9_$]+)"#).expect("valid TS enum pattern regex"),
 
-            rs_fn_re: Regex::new(r#"(?:pub(?:\([^)]+\))?\s+)?(?:async\s+)?fn\s+([A-Za-z0-9_]+)"#).unwrap(),
-            rs_struct_re: Regex::new(r#"(?:pub(?:\([^)]+\))?\s+)?struct\s+([A-Za-z0-9_]+)"#).unwrap(),
-            rs_enum_re: Regex::new(r#"(?:pub(?:\([^)]+\))?\s+)?enum\s+([A-Za-z0-9_]+)"#).unwrap(),
-            rs_trait_re: Regex::new(r#"(?:pub(?:\([^)]+\))?\s+)?trait\s+([A-Za-z0-9_]+)"#).unwrap(),
-            rs_impl_re: Regex::new(r#"impl(?:<[^>]+>)?\s+(?:([A-Za-z0-9_]+)\s+for\s+)?([A-Za-z0-9_]+)"#).unwrap(),
+            rs_fn_re: Regex::new(r#"(?:pub(?:\([^)]+\))?\s+)?(?:async\s+)?fn\s+([A-Za-z0-9_]+)"#).expect("valid Rust function pattern regex"),
+            rs_struct_re: Regex::new(r#"(?:pub(?:\([^)]+\))?\s+)?struct\s+([A-Za-z0-9_]+)"#).expect("valid Rust struct pattern regex"),
+            rs_enum_re: Regex::new(r#"(?:pub(?:\([^)]+\))?\s+)?enum\s+([A-Za-z0-9_]+)"#).expect("valid Rust enum pattern regex"),
+            rs_trait_re: Regex::new(r#"(?:pub(?:\([^)]+\))?\s+)?trait\s+([A-Za-z0-9_]+)"#).expect("valid Rust trait pattern regex"),
+            rs_impl_re: Regex::new(r#"impl(?:<[^>]+>)?\s+(?:([A-Za-z0-9_]+)\s+for\s+)?([A-Za-z0-9_]+)"#).expect("valid Rust impl pattern regex"),
 
-            py_def_re: Regex::new(r#"^\s*(?:async\s+)?def\s+([A-Za-z0-9_]+)"#).unwrap(),
-            py_class_re: Regex::new(r#"^\s*class\s+([A-Za-z0-9_]+)"#).unwrap(),
+            py_def_re: Regex::new(r#"^\s*(?:async\s+)?def\s+([A-Za-z0-9_]+)"#).expect("valid Python def pattern regex"),
+            py_class_re: Regex::new(r#"^\s*class\s+([A-Za-z0-9_]+)"#).expect("valid Python class pattern regex"),
 
-            go_func_re: Regex::new(r#"^func\s+(?:\([^)]+\)\s+)?([A-Za-z0-9_]+)"#).unwrap(),
-            go_type_re: Regex::new(r#"^type\s+([A-Za-z0-9_]+)\s+(?:struct|interface)"#).unwrap(),
+            go_func_re: Regex::new(r#"^func\s+(?:\([^)]+\)\s+)?([A-Za-z0-9_]+)"#).expect("valid Go function pattern regex"),
+            go_type_re: Regex::new(r#"^type\s+([A-Za-z0-9_]+)\s+(?:struct|interface)"#).expect("valid Go type pattern regex"),
 
-            swift_func_re: Regex::new(r#"(?:public\s+|open\s+|private\s+|internal\s+)?func\s+([A-Za-z0-9_]+)"#).unwrap(),
-            swift_type_re: Regex::new(r#"(?:public\s+|open\s+|private\s+|internal\s+)?(?:class|struct|enum|protocol)\s+([A-Za-z0-9_]+)"#).unwrap(),
+            swift_func_re: Regex::new(r#"(?:public\s+|open\s+|private\s+|internal\s+)?func\s+([A-Za-z0-9_]+)"#).expect("valid Swift function pattern regex"),
+            swift_type_re: Regex::new(r#"(?:public\s+|open\s+|private\s+|internal\s+)?(?:class|struct|enum|protocol)\s+([A-Za-z0-9_]+)"#).expect("valid Swift type pattern regex"),
         }
     }
 

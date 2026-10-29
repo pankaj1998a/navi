@@ -36,12 +36,14 @@ const DEFAULT_OPENCODE_MODELS = [
   { id: "big-pickle", name: "Big Pickle (OpenCode)", context: 200000, reasoning: true, vision: false },
 ]
 
-function createOpenCodeBridgeFetch(_fallbackURL: string, _apiKey?: string) {
+function createOpenCodeBridgeFetch(_fallbackURL: string, apiKey?: string) {
   return async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
     const urlStr = typeof input === "string" ? input : input instanceof URL ? input.href : input.url
 
     if (urlStr.includes("/chat/completions")) {
-      const isServerUp = await ensureOpenCodeServer()
+      const isLocalTarget = /\/\/(localhost|127\.0\.0\.1|\[::1\])[:/]/i.test(urlStr)
+      const isBridgeTarget = isLocalTarget && (!apiKey || apiKey === "public")
+      const isServerUp = isBridgeTarget ? await ensureOpenCodeServer() : false
       if (isServerUp) {
         try {
           const body = typeof init?.body === "string" ? JSON.parse(init.body) : init?.body

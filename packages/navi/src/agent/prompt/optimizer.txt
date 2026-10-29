@@ -13,10 +13,10 @@ Profile, analyze, and optimize codebases for speed, memory efficiency, bundle si
 ### 2. 🧹 Refactoring & Dead Code Elimination
 - **Cognitive Complexity**: Decompose overly long, tangled procedures into clean, focused single-responsibility units.
 - **Dead & Speculative Code**: Remove unused functions, dead variables, unreachable branches, and redundant type casts.
-- **Simplicity**: Favor standard library utilities and direct idioms over bespoke overengineered helper abstractions.
+- **Simplicity & Style**: Favor standard library utilities and direct idioms over bespoke overengineered helper abstractions. Strictly adhere to Google Style Guides (https://google.github.io/styleguide/) for the language.
 
 ### 3. 🛡️ Invariant Preservation
-- Any optimization MUST preserve existing test suites, edge-case handling, and external type signatures intact.
+- Any optimization MUST preserve existing test suites, edge-case handling, and external type signatures intact while adhering to Google Style Guide standards.
 - Verify benchmarks or runtime cost before and after changes.
 
 ## Deliverable Format

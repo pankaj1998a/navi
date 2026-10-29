@@ -31,7 +31,7 @@ Do NOT jump straight to reading code or guessing fixes. Your primary job is to e
 ### Phase 5: 🛡️ Fix + Regression Test at the Correct Seam
 - Create a regression test at the **public seam** where the bug pattern occurs.
 - Verify the regression test fails (RED).
-- Apply the minimal root-cause fix (GREEN).
+- Apply the minimal root-cause fix (GREEN) following the language's Google Style Guide (https://google.github.io/styleguide/).
 - Re-run the Phase 1 feedback loop to verify the original end-to-end scenario now passes.
 
 ### Phase 6: 🧹 Cleanup & Verification

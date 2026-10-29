@@ -4,7 +4,6 @@
   "compilerOptions": {
     "lib": ["ESNext", "DOM", "DOM.Iterable"],
     "types": ["bun"],
-    "noUncheckedIndexedAccess": false,
     "plugins": [
       {
         "name": "@effect/language-service",

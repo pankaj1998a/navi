@@ -36,7 +36,9 @@ export function publish(port: number, domain?: string) {
     if (bonjour) {
       try {
         bonjour.destroy()
-      } catch {}
+      } catch {
+        // Ignore cleanup errors; unpublish already failed
+      }
     }
     bonjour = undefined
     currentPort = undefined

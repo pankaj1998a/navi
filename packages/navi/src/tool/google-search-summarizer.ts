@@ -1,5 +1,13 @@
 import type { SearchResult } from "./search-pipeline"
 
+interface GeminiResponse {
+  candidates?: {
+    content?: {
+      parts?: { text?: string }[]
+    }
+  }[]
+}
+
 export async function summarizeWithGoogleAi(
   query: string,
   results: SearchResult[],
@@ -41,7 +49,7 @@ export async function summarizeWithGoogleAi(
       return { mode: "heuristic", summary: summarizeResults(results) }
     }
 
-    const data = (await response.json()) as any
+    const data = (await response.json()) as GeminiResponse
     const text = extractGeminiText(data)
     if (!text) {
       return { mode: "heuristic", summary: summarizeResults(results) }
@@ -76,12 +84,12 @@ function buildGoogleAiPrompt(query: string, results: SearchResult[]): string {
   ].join("\n")
 }
 
-function extractGeminiText(data: any): string {
+function extractGeminiText(data: GeminiResponse): string {
   const candidate = data?.candidates?.[0]
   const parts = candidate?.content?.parts
   if (!Array.isArray(parts)) return ""
   return parts
-    .map((part: any) => (typeof part?.text === "string" ? part.text : ""))
+    .map((part) => (typeof part?.text === "string" ? part.text : ""))
     .filter(Boolean)
     .join("\n")
 }

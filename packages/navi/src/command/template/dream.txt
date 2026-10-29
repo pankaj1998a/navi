@@ -1,0 +1,4 @@
+Perform autonomous memory consolidation (/dream pass).
+Consolidate atomic observations from observations/_inbox/ into structured topic markdown files (topics/*.md), deduplicate redundant learnings, resolve contradictions, and update MEMORY.md.
+
+Use the memory tool with operation: "dream" to execute consolidation across memory scopes, and report consolidated topics and summary.

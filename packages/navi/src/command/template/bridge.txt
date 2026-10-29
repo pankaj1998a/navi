@@ -1,0 +1,10 @@
+You are configuring or managing the Navi Web Bridge to connect web-based AI assistants (Claude.ai, ChatGPT, Google Gemini) to this local workspace via remote Model Context Protocol (MCP).
+
+Task:
+- If the user wants to start or run the bridge, explain how to launch `navi bridge` in terminal or inspect if a bridge process is currently running.
+- Provide the clear step-by-step connection guide for:
+  1. Claude.ai (Custom Web Connector using SSE at `/sse` with Bearer auth)
+  2. ChatGPT (Developer Mode / Custom Actions with Bearer auth)
+  3. Google Gemini (Remote MCP Server using Streamable HTTP at `/mcp` with Bearer auth)
+- Explain that all actions from the web AI are guarded by Navi's SandboxPathGuard and DestructiveCommandGuard.
+$ARGUMENTS

@@ -565,7 +565,10 @@ export function fromV1(v1: Message.Info): MessageWithParts {
                   }
                 }
 
-                const { title, time, ...metadata } = v1.metadata.tool[part.toolInvocation.toolCallId]
+                const { title, time, ...metadata } = v1.metadata.tool[part.toolInvocation.toolCallId] ?? {
+                  title: "",
+                  time: { start: 0, end: 0 },
+                }
                 if (part.toolInvocation.state === "call") {
                   return {
                     status: "running",

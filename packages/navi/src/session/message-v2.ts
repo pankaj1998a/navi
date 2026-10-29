@@ -1278,7 +1278,9 @@ export function fromError(
             },
           ).toObject()
         }
-      } catch {}
+      } catch {
+        // Ignore parse errors; fall through to the generic unknown error below
+      }
       return new NamedError.Unknown({ message: JSON.stringify(e) }, { cause: e }).toObject()
   }
 }

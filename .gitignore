@@ -26,7 +26,7 @@ target
 .direnv/
 
 # Local dev files
-opencode-dev
+/opencode-dev
 UPCOMING_CHANGELOG.md
 logs/
 *.bun-build
@@ -37,6 +37,10 @@ tsconfig.tsbuildinfo
 .artifacts/
 **/.artifacts/
 scratch/
+.bun-cache/
+**/.bun-cache/
+.verify-scratch/
+**/.verify-scratch/
 
 # Build outputs (desktop + cli bundles)
 desktop/dist/
@@ -52,4 +56,6 @@ packages/*/out/
 test-openapi.json
 test-server.ts
 test-worker.ts
+strix/
+ai-memory/
 

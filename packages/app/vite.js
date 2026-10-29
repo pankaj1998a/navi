@@ -17,6 +17,7 @@ export default [
           alias: {
             "@": fileURLToPath(new URL("./src", import.meta.url)),
           },
+          dedupe: ["solid-js", "solid-js/web", "solid-js/store"],
         },
         worker: {
           format: "es",

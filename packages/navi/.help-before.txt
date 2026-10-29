@@ -1,0 +1,61 @@
+ΓûêΓûÇΓûÇΓûä ΓûêΓûÇΓûÇΓûê Γûê  Γûê ΓûÇΓûêΓûÇ
+Γûê  Γûê ΓûêΓûäΓûäΓûê ΓûÇΓûäΓûäΓûÇ  Γûê 
+ΓûÇ  ΓûÇ ΓûÇ  ΓûÇ   ΓûÇΓûÇ  ΓûÇ
+
+Commands:
+  navi completion                 generate shell completion script
+  navi acp                        start ACP (Agent Client Protocol) server
+  navi bridge                     connect web-based AIs (Claude, ChatGPT, Gemini) to your local Navi
+                                  workspace via remote MCP
+  navi mcp                        manage MCP (Model Context Protocol) servers
+  navi [project]                  start navi tui                                           [default]
+  navi attach <url>               attach to a running navi server
+  navi run [message..]            run navi with a message
+  navi debug                      debugging and troubleshooting tools
+  navi providers                  manage AI providers and credentials                [aliases: auth]
+  navi agent                      manage agents
+  navi upgrade [target]           upgrade navi to the latest or a specific version
+  navi uninstall                  uninstall navi and remove all related files
+  navi serve                      starts a headless navi server
+  navi web                        start navi server and open web interface
+  navi browser <action> [target]  Headless Chrome DevTools CLI (check, open, content, scrape,
+                                  screenshot, eval, console, network, pick)
+  navi structure [target]         Compress TypeScript, Swift, Python, Go, and Rust projects into
+                                  dense AST symbol maps for LLM agents
+  navi agentation <action> [id]   Inspect and manage live Agentation visual annotations (status,
+                                  pending, resolve)
+  navi trash <paths..>            Safely move files or directories to system Trash instead of
+                                  permanent rm -rf
+  navi models [provider]          list all available models
+  navi stats                      show token usage and cost statistics
+  navi export [sessionID]         export session data as JSON
+  navi import <file>              import session data from JSON file or URL
+  navi github                     manage GitHub agent
+  navi pr <number>                fetch and checkout a GitHub PR branch, then run navi
+  navi session                    manage sessions
+  navi api <method> <path>        make a request to a running navi server
+  navi plugin <module>            install plugin and update config                   [aliases: plug]
+  navi db                         database tools
+
+Positionals:
+  project  path to start navi in                                                            [string]
+
+Options:
+  -h, --help         show help                                                             [boolean]
+  -v, --version      show version number                                                   [boolean]
+      --print-logs   print logs to stderr                                                  [boolean]
+      --log-level    log level                  [string] [choices: "DEBUG", "INFO", "WARN", "ERROR"]
+      --pure         run without external plugins                                          [boolean]
+      --port         port to listen on                                         [number] [default: 0]
+      --hostname     hostname to listen on                           [string] [default: "127.0.0.1"]
+      --mdns         enable mDNS service discovery (defaults hostname to 0.0.0.0)
+                                                                          [boolean] [default: false]
+      --mdns-domain  custom domain name for mDNS service (default: navi.local)
+                                                                    [string] [default: "navi.local"]
+      --cors         additional domains to allow for CORS                      [array] [default: []]
+  -m, --model        model to use in the format of provider/model                           [string]
+  -c, --continue     continue the last session                                             [boolean]
+  -s, --session      session id to continue                                                 [string]
+      --fork         fork the session when continuing (use with --continue or --session)   [boolean]
+      --prompt       prompt to use                                                          [string]
+      --agent        agent to use                                                           [string]
