@@ -385,7 +385,11 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
         fullSyncedSessions.clear()
         syncedWorkspace = workspace
       }
-      const sessionListPromise = listSessions()
+      // Session scoping (directory filter) depends on the instance paths that
+      // project.sync() loads, so the first list must wait for them; otherwise
+      // startup falls back to project scope and ignores the saved filter.
+      const projectSyncPromise = project.sync()
+      const sessionListPromise = projectSyncPromise.then(() => listSessions())
 
       // blocking - include session.list when continuing a session
       const providersPromise = sdk.client.config.providers({ workspace }, { throwOnError: true })
@@ -471,7 +475,7 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
             sdk.client.provider.auth({ workspace }).then((x) => setStore("provider_auth", reconcile(x.data ?? {}))),
             sdk.client.vcs.get({ workspace }).then((x) => setStore("vcs", reconcile(x.data))),
             project.workspace.sync(),
-            project.sync(),
+            projectSyncPromise,
           ]).then(() => {
             setStore("status", "complete")
           })

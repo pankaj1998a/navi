@@ -7,6 +7,7 @@
 
 import path from "node:path"
 import fs from "node:fs"
+import type { Pointer } from "bun:ffi"
 
 export interface NativeBinding {
   isAvailable: boolean
@@ -261,7 +262,7 @@ try {
      * distinguished because an empty result is a legitimate outcome (a cache
      * miss, a no-op diff) while a null pointer signals an actual failure.
      */
-    const readNativeString = (outPtr: number | null, outLenBuf: BigUint64Array): string | null => {
+    const readNativeString = (outPtr: Pointer | null, outLenBuf: BigUint64Array): string | null => {
       if (!outPtr) return null
       const outLen = Number(outLenBuf[0])
       if (outLen === 0) return ""

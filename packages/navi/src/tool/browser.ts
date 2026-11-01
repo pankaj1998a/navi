@@ -3,7 +3,8 @@ import * as Tool from "./tool"
 import { InstanceState } from "@/effect/instance-state"
 import * as Log from "@navi-ai/core/util/log"
 import { Hash } from "@navi-ai/core/util/hash"
-import { getBrowser, htmlToMarkdown, htmlToText } from "./browser-engine"
+import { blockedNavigationError, getBrowser, guardPageRequests, htmlToMarkdown, htmlToText } from "./browser-engine"
+import { assertAllowed, resolvePolicy, type Policy } from "./net-guard"
 import type { Page, Browser, HTTPRequest, KeyInput } from "puppeteer-core"
 import path from "path"
 import fs from "fs"
@@ -133,6 +134,8 @@ interface SessionBrowserState {
   activePageIndex: number
   consoleLogs: Array<{ type: string; text: string; time: number }>
   networkLogs: NetworkLogItem[]
+  /** Egress policy for this session; read per request by the page guard. */
+  policy?: Policy
 }
 
 const sessionStates = new Map<string, SessionBrowserState>()
@@ -211,6 +214,9 @@ async function getOrCreateSessionState(sessionID: string, browser: Browser): Pro
       "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
     )
     attachPageListeners(page, state)
+    // Enforce the egress allowlist on every request the page makes, including
+    // redirect hops and click-driven navigations.
+    await guardPageRequests(page, () => state.policy)
     state.pages.push(page)
     state.activePageIndex = 0
   }
@@ -239,6 +245,21 @@ export const BrowserTool = Tool.define(
       execute: (params: Schema.Schema.Type<typeof Parameters>, ctx: Tool.Context) =>
         Effect.gen(function* () {
           const instance = yield* InstanceState.context
+
+          // Resolve and enforce the egress allowlist before the permission
+          // prompt and before the browser is launched. Navigation targets are
+          // validated here; every other request (redirects, subresources,
+          // click-driven navigation) is guarded by the page request hook.
+          const policy = yield* resolvePolicy()
+          const requestedUrl = params.url
+          if ((params.action === "navigate" || params.action === "new_tab") && requestedUrl) {
+            if (!/^https?:\/\//i.test(requestedUrl)) {
+              throw new Error("URL must start with http:// or https://")
+            }
+            assertAllowed(requestedUrl, policy)
+            const { assertSafeExternalUrl } = yield* Effect.promise(() => import("@/util/ssrf"))
+            yield* Effect.promise(() => assertSafeExternalUrl(requestedUrl))
+          }
 
           yield* ctx.ask({
             permission: "browser",
@@ -288,18 +309,25 @@ export const BrowserTool = Tool.define(
           }
 
           const sessionState = yield* Effect.promise(() => getOrCreateSessionState(ctx.sessionID, browserInstance))
+          sessionState.policy = policy
           const page = getActivePageFromState(sessionState)
 
           switch (params.action) {
             case "navigate": {
               if (!params.url) throw new Error("Parameter 'url' is required for action 'navigate'")
+              // Already scheme-, SSRF- and policy-checked above.
               const targetUrl = params.url
-              const { assertSafeExternalUrl } = yield* Effect.promise(() => import("@/util/ssrf"))
-              yield* Effect.promise(() => assertSafeExternalUrl(targetUrl))
               log.info("navigating browser", { url: targetUrl })
               const navResult = yield* Effect.promise(async () => {
-                await page.goto(targetUrl, { waitUntil: "domcontentloaded", timeout: 30_000 })
+                try {
+                  await page.goto(targetUrl, { waitUntil: "domcontentloaded", timeout: 30_000 })
+                } catch (err) {
+                  throw blockedNavigationError(page, targetUrl, err)
+                }
                 await new Promise((r) => setTimeout(r, 600))
+                // Refuse to report content from a URL the policy denies (for
+                // example when a redirect slipped past request interception).
+                assertAllowed(page.url() || targetUrl, policy)
                 const title = await page.title()
                 const currentUrl = page.url()
                 return { title, currentUrl }
@@ -718,12 +746,17 @@ export const BrowserTool = Tool.define(
                 const p = await browserInstance.newPage()
                 await p.setViewport({ width: 1280, height: 800 })
                 attachPageListeners(p, sessionState)
+                await guardPageRequests(p, () => sessionState.policy)
                 sessionState.pages.push(p)
                 sessionState.activePageIndex = sessionState.pages.length - 1
                 if (params.url) {
-                  const { assertSafeExternalUrl } = await import("@/util/ssrf")
-                  await assertSafeExternalUrl(params.url)
-                  await p.goto(params.url, { waitUntil: "domcontentloaded", timeout: 30_000 })
+                  // Already scheme-, SSRF- and policy-checked above.
+                  try {
+                    await p.goto(params.url, { waitUntil: "domcontentloaded", timeout: 30_000 })
+                  } catch (err) {
+                    throw blockedNavigationError(p, params.url, err)
+                  }
+                  assertAllowed(p.url() || params.url, sessionState.policy)
                 }
                 return p
               })

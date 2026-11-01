@@ -1,9 +1,9 @@
 import { GlobalBus } from "@/bus/global"
 import { WorkspaceContext } from "@/control-plane/workspace-context"
 import { InstanceRef } from "@/effect/instance-ref"
-import { disposeInstance as runDisposers } from "@/effect/instance-registry"
+import { disposeInstance as runDisposers, disposeTimeoutMs } from "@/effect/instance-registry"
 import { AppFileSystem } from "@navi-ai/core/filesystem"
-import { Context, Deferred, Duration, Effect, Exit, Layer, Scope } from "effect"
+import { Context, Deferred, Duration, Effect, Exit, Layer, Option, Scope } from "effect"
 import { context, type InstanceContext } from "./instance-context"
 import { InstanceBootstrap } from "./bootstrap-service"
 import * as Project from "./project"
@@ -87,7 +87,18 @@ export const layer: Layer.Layer<Service, never, Project.Service | InstanceBootst
 
     const disposeContext = Effect.fn("InstanceStore.disposeContext")(function* (ctx: InstanceContext) {
       yield* Effect.logInfo("disposing instance", { directory: ctx.directory })
-      yield* Effect.promise(() => runDisposers(ctx.directory))
+      // runDisposers is already bounded per disposer; this outer bound is a
+      // defensive guarantee that disposal always settles (so the process can exit).
+      const timeoutMs = disposeTimeoutMs()
+      const result = yield* Effect.promise(() => runDisposers(ctx.directory)).pipe(
+        Effect.timeoutOption(Duration.millis(timeoutMs)),
+      )
+      if (Option.isNone(result)) {
+        yield* Effect.logWarning("instance disposal timed out; continuing", {
+          directory: ctx.directory,
+          timeoutMs,
+        })
+      }
       yield* emitDisposed({ directory: ctx.directory, project: ctx.project.id })
     })
 
@@ -142,7 +153,22 @@ export const layer: Layer.Layer<Service, never, Project.Service | InstanceBootst
       const entry = cache.get(ctx.directory)
       if (!entry) return yield* disposeContext(ctx)
 
-      const exit = yield* Deferred.await(entry.deferred).pipe(Effect.exit)
+      // Never block on an in-flight load forever: disposal must settle so
+      // one-shot callers (CLI commands, tests) can finish and the process can exit.
+      const timeoutMs = disposeTimeoutMs()
+      const awaited = yield* Deferred.await(entry.deferred).pipe(
+        Effect.exit,
+        Effect.timeoutOption(Duration.millis(timeoutMs)),
+      )
+      if (Option.isNone(awaited)) {
+        yield* Effect.logWarning("instance dispose timed out waiting for load; continuing", {
+          directory: ctx.directory,
+          timeoutMs,
+        })
+        yield* removeEntry(ctx.directory, entry).pipe(Effect.asVoid)
+        return yield* disposeContext(ctx)
+      }
+      const exit = awaited.value
       if (Exit.isFailure(exit)) return yield* removeEntry(ctx.directory, entry).pipe(Effect.asVoid)
       if (exit.value !== ctx) return
       yield* disposeEntry(ctx.directory, entry, ctx).pipe(Effect.asVoid)
@@ -150,11 +176,24 @@ export const layer: Layer.Layer<Service, never, Project.Service | InstanceBootst
 
     const disposeAllOnce = Effect.fnUntraced(function* () {
       yield* Effect.logInfo("disposing all instances")
+      const timeoutMs = disposeTimeoutMs()
       yield* Effect.forEach(
         [...cache.entries()],
         (item) =>
           Effect.gen(function* () {
-            const exit = yield* Deferred.await(item[1].deferred).pipe(Effect.exit)
+            const awaited = yield* Deferred.await(item[1].deferred).pipe(
+              Effect.exit,
+              Effect.timeoutOption(Duration.millis(timeoutMs)),
+            )
+            if (Option.isNone(awaited)) {
+              yield* Effect.logWarning("instance dispose timed out waiting for load", {
+                key: item[0],
+                timeoutMs,
+              })
+              yield* removeEntry(item[0], item[1])
+              return
+            }
+            const exit = awaited.value
             if (Exit.isFailure(exit)) {
               yield* Effect.logWarning("instance dispose failed", { key: item[0], cause: exit.cause })
               yield* removeEntry(item[0], item[1])
@@ -180,6 +219,10 @@ export const layer: Layer.Layer<Service, never, Project.Service | InstanceBootst
         ),
       )
 
+    // Runtime teardown: dispose every open instance. This is the *only* shutdown
+    // work done here. Forcing the process to exit is a one-shot CLI concern and
+    // is armed by `src/index.ts` after teardown — an embedder that disposes the
+    // runtime mid-life (or a test disposing between cases) must keep running.
     yield* Effect.addFinalizer(() => disposeAll().pipe(Effect.ignore))
 
     return Service.of({

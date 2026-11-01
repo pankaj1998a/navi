@@ -1,6 +1,7 @@
 import { Effect, Schema } from "effect"
 import * as Tool from "./tool"
 import { searchService } from "../search/service"
+import { assertAllowed, resolvePolicy } from "./net-guard"
 
 export const Parameters = Schema.Struct({
   query: Schema.String.annotate({ description: "Search query" }),
@@ -26,6 +27,11 @@ export const TavilySearchTool = Tool.define(
       parameters: Parameters,
       execute: (params: Schema.Schema.Type<typeof Parameters>, ctx: Tool.Context) =>
         Effect.gen(function* () {
+          // The provider endpoint is fixed; validate it once per call so a
+          // policy can block the backend before the request is issued.
+          const policy = yield* resolvePolicy()
+          assertAllowed("https://api.tavily.com/search", policy)
+
           yield* ctx.ask({
             permission: "websearch",
             patterns: [params.query],

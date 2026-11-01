@@ -1,6 +1,6 @@
 import { Effect, Option, Schema, Scope } from "effect"
 import { NonNegativeInt } from "@navi-ai/core/schema"
-import { createReadStream } from "fs"
+import { createReadStream, realpathSync } from "fs"
 import * as path from "path"
 import { createInterface } from "readline"
 import * as Tool from "./tool"
@@ -12,6 +12,8 @@ import { assertExternalDirectoryEffect } from "./external-directory"
 import { Instruction } from "../session/instruction"
 import { isPdfAttachment, sniffAttachmentMime } from "@/util/media"
 import { Reference } from "@/reference/reference"
+import { Agent } from "@/agent/agent"
+import { Permission } from "@/permission"
 
 const DEFAULT_READ_LIMIT = 2000
 const MAX_LINE_LENGTH = 2000
@@ -20,6 +22,54 @@ const MAX_BYTES = 50 * 1024
 const MAX_BYTES_LABEL = `${MAX_BYTES / 1024} KB`
 const SAMPLE_BYTES = 4096
 const SUPPORTED_IMAGE_MIMES = new Set(["image/jpeg", "image/png", "image/gif", "image/webp"])
+
+// Credential-shaped filenames. Example/sample files are documentation and stay
+// readable; everything else is routed through the permission layer instead of a
+// pre-permission hard throw.
+const SECRET_KEY_EXTENSIONS = new Set([".pem", ".key", ".pfx", ".p12", ".pkcs12", ".ppk", ".p8"])
+const SECRET_KEY_BASENAMES = new Set([
+  "id_rsa",
+  "id_dsa",
+  "id_ecdsa",
+  "id_ed25519",
+  "id_rsa_sk",
+  "id_ed25519_sk",
+  ".netrc",
+  ".pgpass",
+  ".git-credentials",
+  ".htpasswd",
+])
+const SECRET_EXAMPLE_SEGMENTS = new Set(["example", "sample", "template", "dist", "defaults"])
+
+function classifySecretName(filepath: string): "example" | "secret" | undefined {
+  const name = path.basename(filepath).toLowerCase()
+  if (SECRET_KEY_BASENAMES.has(name)) return "secret"
+  if (SECRET_KEY_EXTENSIONS.has(path.extname(name))) return "secret"
+  if (!/^\.env(?:$|\.)/.test(name)) return undefined
+  const segments = name.split(".").filter(Boolean)
+  if (segments.some((segment) => SECRET_EXAMPLE_SEGMENTS.has(segment))) return "example"
+  return "secret"
+}
+
+/**
+ * Classify a read target, following symlinks so `notes.txt -> .env` is still
+ * treated as a secret and the permission rules see the real target name.
+ *
+ * The realpath is classified *before* the lexical name: a safelisted name such
+ * as `.env.example` that is actually a symlink to `.env` must not inherit the
+ * safelist.
+ */
+function classifySecretFile(filepath: string): { kind: "example" | "secret"; target: string } | undefined {
+  try {
+    const real = realpathSync.native(filepath)
+    const resolved = classifySecretName(real)
+    if (resolved) return { kind: resolved, target: real }
+  } catch {
+    // Missing path: fall back to the lexical name.
+  }
+  const lexical = classifySecretName(filepath)
+  return lexical ? { kind: lexical, target: filepath } : undefined
+}
 
 // `offset` and `limit` were originally `z.coerce.number()` — the runtime
 // coercion was useful when the tool was called from a shell but serves no
@@ -43,6 +93,7 @@ export const ReadTool = Tool.define(
     const instruction = yield* Instruction.Service
     const lsp = yield* LSP.Service
     const reference = yield* Reference.Service
+    const agents = yield* Agent.Service
     const scope = yield* Scope.Scope
 
     const miss = Effect.fn("ReadTool.miss")(function* (filepath: string) {
@@ -167,7 +218,27 @@ export const ReadTool = Tool.define(
         filepath = AppFileSystem.normalizePath(filepath)
       }
       const { SandboxPathGuard } = yield* Effect.promise(() => import("@/sandbox"))
-      SandboxPathGuard.assertPathAllowed(filepath, { mode: "workspace-write", workspaceRoot: instance.worktree }, false)
+      // Credential-shaped paths are decided by the permission layer, not by a
+      // pre-permission hard throw. Examples/samples (`*.env.example`) stay
+      // readable; real secrets fall back to deny when no rule allows them.
+      const sensitive = classifySecretFile(filepath)
+      const permissionPath = path.relative(instance.worktree, sensitive?.target ?? filepath)
+      if (sensitive === undefined) {
+        SandboxPathGuard.assertPathAllowed(
+          filepath,
+          { mode: "workspace-write", workspaceRoot: instance.worktree },
+          false,
+        )
+      } else {
+        const ruleset = (yield* agents.get(ctx.agent)).permission
+        const decision = Permission.Policy.evaluate(
+          "read",
+          permissionPath,
+          [ruleset],
+          sensitive.kind === "secret" ? "deny" : "allow",
+        )
+        if (decision.action === "deny") return yield* new Permission.DeniedError({ ruleset })
+      }
       yield* reference.ensure(filepath)
       const title = path.relative(instance.worktree, filepath)
 
@@ -183,12 +254,16 @@ export const ReadTool = Tool.define(
         kind: stat?.type === "Directory" ? "directory" : "file",
       })
 
-      yield* ctx.ask({
-        permission: "read",
-        patterns: [path.relative(instance.worktree, filepath)],
-        always: ["*"],
-        metadata: {},
-      })
+      // Safelisted examples never prompt; everything else (including real
+      // secrets) goes through `Permission.ask` so ask/deny rules apply.
+      if (sensitive?.kind !== "example") {
+        yield* ctx.ask({
+          permission: "read",
+          patterns: [permissionPath],
+          always: ["*"],
+          metadata: sensitive ? { sensitive: true } : {},
+        })
+      }
 
       if (!stat) return yield* miss(filepath)
 

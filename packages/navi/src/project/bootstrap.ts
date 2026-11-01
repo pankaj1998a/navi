@@ -14,6 +14,7 @@ import { Config } from "@/config/config"
 import { Service } from "./bootstrap-service"
 import { Reference } from "@/reference/reference"
 import { HistoryBackfill, HistoryWriter } from "@/history"
+import { HookEffect } from "@/hook/effect"
 
 export { Service } from "./bootstrap-service"
 export type { Interface } from "./bootstrap-service"
@@ -45,6 +46,8 @@ export const layer = Layer.effect(
       yield* config.get()
       // Plugin can mutate config so it has to be initialized before anything else.
       yield* plugin.init()
+      // Load `.navi/hooks.json` once per process; no-op when no hooks are configured.
+      yield* HookEffect.loadHooks(ctx.directory)
       // Each service self-manages its own slow work via Effect.forkScoped against
       // its per-instance state scope. We just await materialization here.
       yield* Effect.forEach(

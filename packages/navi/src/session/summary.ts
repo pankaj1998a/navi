@@ -64,8 +64,19 @@ function unquoteGitPath(input: string) {
   return Buffer.from(bytes).toString()
 }
 
+export interface SummarizeInput {
+  sessionID: SessionID
+  messageID: MessageID
+  /**
+   * Tree hash the finished step captured. When it matches the tree of the last
+   * published summary, nothing the summarizer looks at has moved and the stored
+   * counts/diffs are still accurate.
+   */
+  snapshot?: string
+}
+
 export interface Interface {
-  readonly summarize: (input: { sessionID: SessionID; messageID: MessageID }) => Effect.Effect<void>
+  readonly summarize: (input: SummarizeInput) => Effect.Effect<void>
   readonly diff: (input: { sessionID: SessionID; messageID?: MessageID }) => Effect.Effect<Snapshot.FileDiff[]>
   readonly computeDiff: (input: { messages: MessageV2.WithParts[] }) => Effect.Effect<Snapshot.FileDiff[]>
 }
@@ -96,14 +107,22 @@ export const layer = Layer.effect(
           if (part.type === "step-finish" && part.snapshot) to = part.snapshot
         }
       }
-      if (from && to) return yield* snapshot.diffFull(from, to)
+      if (from && to) {
+        // Identical tree hashes cannot differ; skip the git diff entirely.
+        if (from === to) return []
+        return yield* snapshot.diffFull(from, to)
+      }
       return []
     })
 
-    const summarize = Effect.fn("SessionSummary.summarize")(function* (input: {
-      sessionID: SessionID
-      messageID: MessageID
-    }) {
+    // Per-session summarizer state: `running` keeps history loads from stacking
+    // up when several steps finish in quick succession, `again` coalesces those
+    // requests into the run that is already in flight, and `tree` lets a step
+    // that changed nothing reuse the published summary.
+    const runs = new Map<SessionID, { running: boolean; again: boolean; input: SummarizeInput; tree?: string }>()
+    const maxRuns = 100
+
+    const publish = Effect.fnUntraced(function* (input: SummarizeInput) {
       const all = yield* sessions.messages({ sessionID: input.sessionID })
       if (!all.length) return
 
@@ -127,6 +146,47 @@ export const layer = Layer.effect(
       const msgDiffs = yield* computeDiff({ messages })
       target.info.summary = { ...target.info.summary, diffs: msgDiffs }
       yield* sessions.updateMessage(target.info)
+    })
+
+    const summarize = Effect.fn("SessionSummary.summarize")(function* (input: SummarizeInput) {
+      const entry = runs.get(input.sessionID) ?? { running: false, again: false, input }
+      if (!runs.has(input.sessionID)) {
+        runs.set(input.sessionID, entry)
+        if (runs.size > maxRuns) {
+          for (const [key, value] of runs) {
+            if (key === input.sessionID || value.running) continue
+            runs.delete(key)
+            break
+          }
+        }
+      }
+
+      // Never start a second full-history pass for a session: latch this request
+      // onto the run in flight so the last one observes the newest state.
+      if (entry.running) {
+        entry.again = true
+        entry.input = input
+        return
+      }
+      if (input.snapshot !== undefined && entry.tree === input.snapshot) return
+
+      entry.running = true
+      entry.input = input
+      yield* Effect.gen(function* () {
+        while (true) {
+          entry.again = false
+          const current = entry.input
+          yield* publish(current)
+          entry.tree = current.snapshot
+          if (!entry.again) return
+        }
+      }).pipe(
+        Effect.ensuring(
+          Effect.sync(() => {
+            entry.running = false
+          }),
+        ),
+      )
     })
 
     const diff = Effect.fn("SessionSummary.diff")(function* (input: { sessionID: SessionID; messageID?: MessageID }) {

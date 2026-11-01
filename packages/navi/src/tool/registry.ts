@@ -76,6 +76,7 @@ import { SecurityChecksecTool } from "./security-checksec"
 import { SecurityAuditWebTool } from "./security-audit-web"
 import { Glob } from "@navi-ai/core/util/glob"
 import path from "path"
+import { stat } from "fs/promises"
 import { pathToFileURL } from "url"
 import { Service, type Interface, type TaskDef, type ReadDef } from "./registry-service"
 export { Service, type Interface, type TaskDef, type ReadDef } from "./registry-service"
@@ -100,6 +101,14 @@ import { Reference } from "@/reference/reference"
 
 const log = Log.create({ service: "tool.registry" })
 
+async function fsStat(target: string) {
+  try {
+    return await stat(target)
+  } catch {
+    return undefined
+  }
+}
+
 export function webSearchEnabled(
   providerID: ProviderID,
   flags = { exa: Flag.NAVI_ENABLE_EXA, parallel: Flag.NAVI_ENABLE_PARALLEL },
@@ -115,6 +124,67 @@ type State = {
   builtin: Tool.Def[]
   task: TaskDef
   read: ReadDef
+  /**
+   * Per-(provider, model, agent) cache of the resolved tool descriptor list.
+   * Building it re-runs plugin `tool.definition` hooks, permission filtering and
+   * `describeSkill` / `describeTask`, which is pure work per step: the tool set
+   * and skill/agent state are fixed for the lifetime of an instance, so the
+   * result only has to change when the instance (and therefore this state) is
+   * rebuilt.
+   */
+  cache: Map<string, { generation: number; tools: Tool.Def<any, any>[] }>
+}
+
+/**
+ * Bumped by {@link invalidateToolCaches}. Every cached entry remembers the
+ * generation it was built under, so callers (config reload, tests) can drop
+ * every derived value without walking each instance.
+ */
+let cacheGeneration = 0
+
+/** Test/hot-reload hook: drop all module-level tool caches. */
+export function invalidateToolCaches() {
+  cacheGeneration++
+  customToolScanCache.clear()
+}
+
+const CUSTOM_TOOL_SCAN_TTL_MS = 30_000
+/** Distinct config-dir sets kept at once; each entry is a handful of paths. */
+const MAX_CUSTOM_TOOL_SCAN_ENTRIES = 32
+
+/**
+ * Custom tool file discovery (`{tool,tools}/*.{js,ts}`) is a directory walk per
+ * config dir. It used to run synchronously on every instance bootstrap; keep the
+ * result cached per directory list and revalidate cheaply by the mtimes of the
+ * `tool`/`tools` folders instead of re-globbing every time.
+ */
+const customToolScanCache = new Map<string, { at: number; mtimes: string; matches: string[] }>()
+
+async function scanCustomToolFiles(dirs: string[]): Promise<string[]> {
+  const key = dirs.join("\u0000")
+  const mtimes: string[] = []
+  for (const dir of dirs) {
+    for (const name of ["tool", "tools"]) {
+      const stat = await fsStat(path.join(dir, name))
+      mtimes.push(stat ? `${stat.mtimeMs}:${stat.size}` : "-")
+    }
+  }
+  const stamp = mtimes.join("|")
+  const cached = customToolScanCache.get(key)
+  if (cached && cached.mtimes === stamp && Date.now() - cached.at < CUSTOM_TOOL_SCAN_TTL_MS) return cached.matches
+
+  const matches = (
+    await Promise.all(
+      dirs.map((dir) =>
+        Glob.scan("{tool,tools}/*.{js,ts}", { cwd: dir, absolute: true, dot: true, symlink: true }).catch(
+          () => [] as string[],
+        ),
+      ),
+    )
+  ).flat()
+  if (customToolScanCache.size >= MAX_CUSTOM_TOOL_SCAN_ENTRIES) customToolScanCache.clear()
+  customToolScanCache.set(key, { at: Date.now(), mtimes: stamp, matches })
+  return matches
 }
 
 
@@ -273,9 +343,7 @@ export const layer: Layer.Layer<
         }
 
         const dirs = yield* config.directories()
-        const matches = dirs.flatMap((dir) =>
-          Glob.scanSync("{tool,tools}/*.{js,ts}", { cwd: dir, absolute: true, dot: true, symlink: true }),
-        )
+        const matches = yield* Effect.promise(() => scanCustomToolFiles(dirs))
         if (matches.length) yield* config.waitForDependencies()
         for (const match of matches) {
           const namespace = path.basename(match, path.extname(match))
@@ -363,6 +431,7 @@ export const layer: Layer.Layer<
 
         return {
           custom,
+          cache: new Map(),
           builtin: [
             tool.invalid,
             ...(questionEnabled ? [tool.question] : []),
@@ -457,11 +526,10 @@ export const layer: Layer.Layer<
       ].join("\n")
     })
 
-    const describeTask = Effect.fn("ToolRegistry.describeTask")(function* (agent: Agent.Info) {
-      const items = (yield* agents.list()).filter((item) => item.mode !== "primary")
-      const filtered = items.filter(
-        (item) => Permission.evaluate("task", item.name, agent.permission).action !== "deny",
-      )
+    const describeTask = Effect.fn("ToolRegistry.describeTask")(function* (agent: Agent.Info, items: Agent.Info[]) {
+      const filtered = items
+        .filter((item) => item.mode !== "primary")
+        .filter((item) => Permission.evaluate("task", item.name, agent.permission).action !== "deny")
       const list = filtered.toSorted((a, b) => a.name.localeCompare(b.name))
       const description = list
         .map(
@@ -472,8 +540,38 @@ export const layer: Layer.Layer<
       return ["Available agent types and the tools they have access to:", description].join("\n")
     })
 
+    /**
+     * Stable description of the caller's permission surface. Two `Agent.Info`
+     * objects with the same ruleset produce the same tool descriptions, so this
+     * is all the cache key needs (agent names alone would let a config reload
+     * that loosens/tightens `task`/`skill` permissions reuse a stale list).
+     */
+    const agentKey = (agent: Agent.Info) =>
+      `${agent.name}\u0001${agent.mode}\u0001${(agent.permission ?? [])
+        .map((rule) => `${rule.permission}:${rule.pattern}:${rule.action}`)
+        .join(";")}`
+
+    // `Agent.Info` is rebuilt only when the instance's Agent state is rebuilt,
+    // which is the same lifetime as this registry's state — so agent identity in
+    // the key is enough and `agents.list()` (a sort over every configured agent)
+    // only runs on a cache miss.
     const tools: Interface["tools"] = Effect.fn("ToolRegistry.tools")(function* (input) {
-      const filtered = (yield* all()).filter((tool) => {
+      const s = yield* InstanceState.get(state)
+      const key = [
+        input.providerID,
+        input.modelID,
+        agentKey(input.agent),
+        // `webSearchEnabled` reads process flags at call time; keep them in the
+        // key so flipping a flag invalidates instead of serving a stale list.
+        Flag.NAVI_ENABLE_EXA ? "exa" : "",
+        Flag.NAVI_ENABLE_PARALLEL ? "parallel" : "",
+      ].join("\u0000")
+
+      const cached = s.cache.get(key)
+      if (cached && cached.generation === cacheGeneration) return cached.tools
+
+      const agentItems = yield* agents.list()
+      const filtered = [...s.builtin, ...s.custom].filter((tool) => {
         if (tool.id === WebSearchTool.id) {
           return webSearchEnabled(input.providerID)
         }
@@ -486,7 +584,7 @@ export const layer: Layer.Layer<
         return true
       })
 
-      return yield* Effect.forEach(
+      const resolved = yield* Effect.forEach(
         filtered,
         Effect.fnUntraced(function* (tool: Tool.Def<any, any>) {
           using _ = log.time(tool.id)
@@ -499,7 +597,7 @@ export const layer: Layer.Layer<
             id: tool.id,
             description: [
               output.description,
-              tool.id === TaskTool.id ? yield* describeTask(input.agent) : undefined,
+              tool.id === TaskTool.id ? yield* describeTask(input.agent, agentItems) : undefined,
               tool.id === SkillTool.id ? yield* describeSkill(input.agent) : undefined,
             ]
               .filter(Boolean)
@@ -511,6 +609,12 @@ export const layer: Layer.Layer<
         }),
         { concurrency: "unbounded" },
       )
+
+      // Bounded: a session may mix many models/agents, but the descriptors are
+      // large; keep the working set small and let misses recompute.
+      if (s.cache.size > 64) s.cache.clear()
+      s.cache.set(key, { generation: cacheGeneration, tools: resolved })
+      return resolved
     })
 
     const named: Interface["named"] = Effect.fn("ToolRegistry.named")(function* () {

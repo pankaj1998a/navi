@@ -1,11 +1,13 @@
-import { Effect, Schema } from "effect"
-import { HttpClient } from "effect/unstable/http"
+import { Effect, Option, Schema } from "effect"
+import { FetchHttpClient, HttpClient } from "effect/unstable/http"
 import * as Tool from "./tool"
 import * as McpWebSearch from "./mcp-websearch"
 import DESCRIPTION from "./websearch.txt"
 import { Flag } from "@navi-ai/core/flag/flag"
 import { checksum } from "@navi-ai/core/util/encode"
 import { InstallationVersion } from "@navi-ai/core/installation/version"
+import { Config } from "@/config/config"
+import { NetworkPolicy } from "@/permission"
 
 export const Parameters = Schema.Struct({
   query: Schema.String.annotate({ description: "Websearch query" }),
@@ -129,7 +131,19 @@ export const WebSearchTool = Tool.define(
             },
           })
 
-          const result = yield* callProvider(http, provider, params, ctx)
+          // Enforce the egress allowlist against the provider endpoint before
+          // issuing the request.
+          const config = Option.getOrUndefined(yield* Effect.serviceOption(Config.Service))
+          NetworkPolicy.assertUrlAllowed(
+            provider === "parallel" ? McpWebSearch.PARALLEL_URL : McpWebSearch.EXA_URL,
+            NetworkPolicy.resolve(config ? (yield* config.get()).permission : undefined),
+          )
+
+          // Redirects are refused for the same reason as webfetch: the URL
+          // checked against the egress policy must be the URL actually called.
+          const result = yield* callProvider(http, provider, params, ctx).pipe(
+            Effect.provideService(FetchHttpClient.RequestInit, { redirect: "manual" }),
+          )
 
           return {
             output: result ?? "No search results found. Please try a different query.",

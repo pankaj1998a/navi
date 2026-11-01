@@ -1,8 +1,14 @@
 import { describe, expect } from "bun:test"
 import { Effect, Layer } from "effect"
-import { Skill } from "../../src/skill"
+import { Skill, invalidateSkillCaches } from "../../src/skill"
 import { CrossSpawnSpawner } from "@navi-ai/core/cross-spawn-spawner"
-import { provideInstance, provideTmpdirInstance, tmpdir } from "../fixture/fixture"
+import {
+  provideInstance,
+  provideTmpdirInstance,
+  reloadTestInstance,
+  tmpdir,
+  tmpdirScoped,
+} from "../fixture/fixture"
 import { testEffect } from "../lib/effect"
 import path from "path"
 import fs from "fs/promises"
@@ -423,4 +429,106 @@ description: A skill in the .navi/skills directory.
       { git: true },
     ),
   )
+
+  describe("discovery cache", () => {
+    const skillFile = (name: string, description: string) =>
+      ["---", `name: ${name}`, `description: ${description}`, "---", "", `# ${name}`, ""].join("\n")
+
+    // `it.instance` loads through a different InstanceStore than
+    // `reloadTestInstance`, and only that store's reload runs instance disposers,
+    // so these tests drive `provideInstance` explicitly.
+    const names = (dir: string) =>
+      provideInstance(dir)(
+        Effect.gen(function* () {
+          const skill = yield* Skill.Service
+          const list = yield* skill.all()
+          return list.map((item) => item.name).sort()
+        }),
+      )
+
+    it.live("picks up a skill folder added under skills/ after reload", () =>
+      Effect.gen(function* () {
+        const dir = yield* tmpdirScoped({ git: true })
+        yield* Effect.promise(() =>
+          Bun.write(path.join(dir, ".navi", "skills", "inv-one", "SKILL.md"), skillFile("inv-one", "first")),
+        )
+        expect(yield* names(dir)).toEqual(["inv-one"])
+
+        yield* Effect.promise(() =>
+          Bun.write(path.join(dir, ".navi", "skills", "inv-two", "SKILL.md"), skillFile("inv-two", "second")),
+        )
+        yield* Effect.promise(() => reloadTestInstance({ directory: dir }))
+
+        expect(yield* names(dir)).toEqual(["inv-one", "inv-two"])
+      }),
+    )
+
+    it.live("drops a skill whose SKILL.md was removed", () =>
+      Effect.gen(function* () {
+        const dir = yield* tmpdirScoped({ git: true })
+        yield* Effect.promise(() =>
+          Bun.write(path.join(dir, ".navi", "skills", "inv-keep", "SKILL.md"), skillFile("inv-keep", "keep")),
+        )
+        yield* Effect.promise(() =>
+          Bun.write(path.join(dir, ".navi", "skills", "inv-drop", "SKILL.md"), skillFile("inv-drop", "drop")),
+        )
+        expect(yield* names(dir)).toEqual(["inv-drop", "inv-keep"])
+
+        yield* Effect.promise(() => fs.rm(path.join(dir, ".navi", "skills", "inv-drop", "SKILL.md")))
+        yield* Effect.promise(() => reloadTestInstance({ directory: dir }))
+
+        expect(yield* names(dir)).toEqual(["inv-keep"])
+      }),
+    )
+
+    it.live("re-reads an edited SKILL.md without dropping the discovery cache", () =>
+      Effect.gen(function* () {
+        const dir = yield* tmpdirScoped({ git: true })
+        const file = path.join(dir, ".navi", "skills", "inv-edit", "SKILL.md")
+        yield* Effect.promise(() => Bun.write(file, skillFile("inv-edit", "before edit")))
+        const before = yield* provideInstance(dir)(
+          Effect.gen(function* () {
+            return yield* (yield* Skill.Service).get("inv-edit")
+          }),
+        )
+        expect(before?.description).toBe("before edit")
+
+        // Same path, no new skill folder: only the per-file mtime/size cache can
+        // notice this, so this covers the parse cache invalidation path.
+        yield* Effect.promise(() => Bun.write(file, skillFile("inv-edit", "after edit, now longer")))
+        yield* Effect.promise(() => reloadTestInstance({ directory: dir }))
+        const after = yield* provideInstance(dir)(
+          Effect.gen(function* () {
+            return yield* (yield* Skill.Service).get("inv-edit")
+          }),
+        )
+        expect(after?.description).toBe("after edit, now longer")
+      }),
+    )
+
+    it.live("invalidateSkillCaches() picks up nested additions roots cannot see", () =>
+      Effect.gen(function* () {
+        const dir = yield* tmpdirScoped({ git: true })
+        yield* Effect.promise(() =>
+          Bun.write(path.join(dir, ".navi", "skills", "inv-group", "SKILL.md"), skillFile("inv-group", "group")),
+        )
+        expect(yield* names(dir)).toEqual(["inv-group"])
+
+        // A nested folder does not change the mtimes of the skill roots, so the
+        // cached discovery list is still reused until the TTL or an explicit drop.
+        yield* Effect.promise(() =>
+          Bun.write(
+            path.join(dir, ".navi", "skills", "inv-group", "nested", "SKILL.md"),
+            skillFile("inv-nested", "nested"),
+          ),
+        )
+        yield* Effect.promise(() => reloadTestInstance({ directory: dir }))
+        expect(yield* names(dir)).toEqual(["inv-group"])
+
+        invalidateSkillCaches()
+        yield* Effect.promise(() => reloadTestInstance({ directory: dir }))
+        expect(yield* names(dir)).toEqual(["inv-group", "inv-nested"])
+      }),
+    )
+  })
 })

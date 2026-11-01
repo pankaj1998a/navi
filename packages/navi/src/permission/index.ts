@@ -1,5 +1,6 @@
 import { Bus } from "@/bus"
 import { BusEvent } from "@/bus/bus-event"
+import { Config } from "@/config/config"
 import { ConfigPermission } from "@/config/permission"
 import { InstanceState } from "@/effect/instance-state"
 import { ProjectID } from "@/project/schema"
@@ -11,13 +12,16 @@ import { zod } from "@navi-ai/core/effect-zod"
 import * as Log from "@navi-ai/core/util/log"
 import { withStatics } from "@navi-ai/core/schema"
 import { Wildcard } from "@/util/wildcard"
-import { Deferred, Effect, Layer, Schema, Context } from "effect"
+import { Deferred, Effect, Layer, Option, Schema, Context } from "effect"
 import os from "os"
 import { evaluate as evalRule } from "./evaluate"
+import { Policy as PermissionPolicy } from "./policy"
 import { PermissionID } from "./schema"
-import { PermissionModeManager } from "./mode"
+import { PermissionModeManager, resolvePermissionMode, setPermissionMode } from "./mode"
 
-export { PermissionModeManager, type PermissionMode } from "./mode"
+export { PermissionModeManager, setPermissionMode, resolvePermissionMode, type PermissionMode } from "./mode"
+export * as Policy from "./policy"
+export * as NetworkPolicy from "./network"
 
 const log = Log.create({ service: "permission" })
 
@@ -158,6 +162,17 @@ export const layer = Layer.effect(
     const bus = yield* Bus.Service
     const state = yield* InstanceState.make<State>(
       Effect.fn("Permission.state")(function* (ctx) {
+        // Wire the runtime mode once the instance state exists. Config is
+        // optional here so permission tests and embedders that only provide
+        // the permission layer still get the safe `supervised` default.
+        const config = Option.getOrUndefined(yield* Effect.serviceOption(Config.Service))
+        if (config) {
+          const info = yield* config.get()
+          setPermissionMode(resolvePermissionMode(info.permission), ctx.directory)
+        } else {
+          setPermissionMode(resolvePermissionMode(undefined), ctx.directory)
+        }
+
         const row = Database.use((db) =>
           db.select().from(PermissionTable).where(eq(PermissionTable.project_id, ctx.project.id)).get(),
         )
@@ -168,6 +183,7 @@ export const layer = Layer.effect(
 
         yield* Effect.addFinalizer(() =>
           Effect.gen(function* () {
+            PermissionModeManager.clearScope(ctx.directory)
             for (const item of state.pending.values()) {
               yield* Deferred.fail(item.deferred, new RejectedError())
             }
@@ -181,28 +197,34 @@ export const layer = Layer.effect(
 
     const ask = Effect.fn("Permission.ask")(function* (input: AskInput) {
       const { approved, pending } = yield* InstanceState.get(state)
+      const instance = yield* InstanceState.context
       const { ruleset, ...request } = input
 
-      // Fast-path: Check active 4-tier PermissionMode (T3 Code matrix)
-      if (!PermissionModeManager.requiresApproval(request.permission)) {
-        return
+      // Explicit rules are evaluated before the mode fast-path so `deny`
+      // always wins and explicit `ask` rules prompt even under `full_access`.
+      // `Policy.evaluate` applies deny > ask > allow across all matching rules.
+      const matches = request.patterns.map((pattern) => {
+        const decision = PermissionPolicy.evaluate(request.permission, pattern, [ruleset, approved])
+        log.info("evaluated", {
+          permission: request.permission,
+          pattern,
+          action: decision.rule ? decision.action : "default",
+        })
+        return decision.rule ? decision.action : undefined
+      })
+
+      const outcome = PermissionPolicy.resolveAskOutcome({
+        matches,
+        modeRequiresApproval: PermissionModeManager.requiresApproval(request.permission, "*", instance.directory),
+      })
+
+      if (outcome === "deny") {
+        return yield* new DeniedError({
+          ruleset: ruleset.filter((rule) => Wildcard.match(request.permission, rule.permission)),
+        })
       }
 
-      let needsAsk = false
-
-      for (const pattern of request.patterns) {
-        const rule = evaluate(request.permission, pattern, ruleset, approved)
-        log.info("evaluated", { permission: request.permission, pattern, action: rule })
-        if (rule.action === "deny") {
-          return yield* new DeniedError({
-            ruleset: ruleset.filter((rule) => Wildcard.match(request.permission, rule.permission)),
-          })
-        }
-        if (rule.action === "allow") continue
-        needsAsk = true
-      }
-
-      if (!needsAsk) return
+      if (outcome === "allow") return
 
       const id = request.id ?? PermissionID.ascending()
       const info = Schema.decodeUnknownSync(Request)({
@@ -300,7 +322,11 @@ function expand(pattern: string): string {
 export function fromConfig(permission: ConfigPermission.Info) {
   const ruleset: Ruleset = []
   for (const [key, value] of Object.entries(permission)) {
+    // `mode` selects the runtime approval mode; `network` is an egress
+    // allowlist consumed by `NetworkPolicy`, not a tool rule.
+    if (key === "mode" || key === "network") continue
     if (typeof value === "string") {
+      if (value !== "allow" && value !== "ask" && value !== "deny") continue
       ruleset.push({ permission: key, action: value, pattern: "*" })
       continue
     }

@@ -4,10 +4,6 @@ import { exec } from "child_process"
 import { Filesystem } from "@/util/filesystem"
 import * as prompts from "@clack/prompts"
 import { map, pipe, sortBy, values } from "remeda"
-import { Octokit } from "@octokit/rest"
-import { graphql } from "@octokit/graphql"
-import * as core from "@actions/core"
-import * as github from "@actions/github"
 import type { Context } from "@actions/github/lib/context"
 import type {
   IssueCommentEvent,
@@ -20,19 +16,10 @@ import type {
 import { UI } from "../ui"
 import { cmd } from "./cmd"
 import { effectCmd } from "../effect-cmd"
-import { ModelsDev } from "@/provider/models"
-import { InstanceRef } from "@/effect/instance-ref"
-import { SessionShare } from "@/share/session"
-import { Session } from "@/session/session"
 import type { SessionID } from "../../session/schema"
 import { MessageID, PartID } from "../../session/schema"
-import { Provider } from "@/provider/provider"
-import { Bus } from "../../bus"
-import { MessageV2 } from "../../session/message-v2"
-import { SessionPrompt } from "@/session/prompt"
-import { Git } from "@/git"
+import type { MessageV2 } from "../../session/message-v2"
 import { setTimeout as sleep } from "node:timers/promises"
-import { Process } from "@/util/process"
 import { parseGitHubRemote } from "@/util/repository"
 import { Effect } from "effect"
 import crypto from "crypto"
@@ -42,6 +29,80 @@ import {
   resolveCheckpointRange,
   findExistingSummaryComment,
 } from "@/github/post-review-comments"
+
+/**
+ * GitHub agent dependencies (octokit, the Actions runtime, the model registry,
+ * and the session/provider service modules) are heavy and are only reachable
+ * from a handler. Resolving them lazily keeps `github --help` off that graph.
+ */
+type GithubDeps = {
+  Octokit: typeof import("@octokit/rest").Octokit
+  graphql: typeof import("@octokit/graphql").graphql
+  core: typeof import("@actions/core")
+  github: typeof import("@actions/github")
+  ModelsDev: typeof import("@/provider/models").ModelsDev
+  InstanceRef: typeof import("@/effect/instance-ref").InstanceRef
+  SessionShare: typeof import("@/share/session").SessionShare
+  Session: typeof import("@/session/session").Session
+  SessionPrompt: typeof import("@/session/prompt").SessionPrompt
+  Provider: typeof import("@/provider/provider").Provider
+  Bus: typeof import("../../bus").Bus
+  MessageV2: typeof import("../../session/message-v2").MessageV2
+  Git: typeof import("@/git").Git
+  Process: typeof import("@/util/process").Process
+}
+
+let githubDeps: Promise<GithubDeps> | undefined
+
+const loadGithubDeps = () =>
+  (githubDeps ??= Promise.all([
+    import("@octokit/rest"),
+    import("@octokit/graphql"),
+    import("@actions/core"),
+    import("@actions/github"),
+    import("@/provider/models"),
+    import("@/effect/instance-ref"),
+    import("@/share/session"),
+    import("@/session/session"),
+    import("@/session/prompt"),
+    import("@/provider/provider"),
+    import("../../bus"),
+    import("../../session/message-v2"),
+    import("@/git"),
+    import("@/util/process"),
+  ]).then(
+    ([
+      octokit,
+      gql,
+      core,
+      github,
+      modelsDev,
+      instanceRef,
+      sessionShare,
+      session,
+      sessionPrompt,
+      provider,
+      bus,
+      messageV2,
+      git,
+      proc,
+    ]): GithubDeps => ({
+      Octokit: octokit.Octokit,
+      graphql: gql.graphql,
+      core,
+      github,
+      ModelsDev: modelsDev.ModelsDev,
+      InstanceRef: instanceRef.InstanceRef,
+      SessionShare: sessionShare.SessionShare,
+      Session: session.Session,
+      SessionPrompt: sessionPrompt.SessionPrompt,
+      Provider: provider.Provider,
+      Bus: bus.Bus,
+      MessageV2: messageV2.MessageV2,
+      Git: git.Git,
+      Process: proc.Process,
+    }),
+  ))
 
 type GitHubAuthor = {
   login: string
@@ -308,6 +369,7 @@ export const GithubUploadCommand = effectCmd({
         describe: "GitHub personal access token (defaults to GITHUB_TOKEN or gh auth token)",
       }),
   handler: Effect.fn("Cli.github.upload")(function* (args: { file: string; repo?: string; token?: string }) {
+    const { InstanceRef, Git } = yield* Effect.promise(loadGithubDeps)
     const ctx = yield* InstanceRef
     const gitSvc = yield* Git.Service
 
@@ -441,6 +503,7 @@ export const GithubInstallCommand = effectCmd({
   command: "install",
   describe: "install the GitHub agent",
   handler: Effect.fn("Cli.github.install")(function* () {
+    const { InstanceRef, ModelsDev, Git } = yield* Effect.promise(loadGithubDeps)
     const maybeCtx = yield* InstanceRef
     if (!maybeCtx) return yield* Effect.die("InstanceRef not provided")
     const ctx = maybeCtx
@@ -678,6 +741,21 @@ export const GithubRunCommand = effectCmd({
         describe: "GitHub personal access token (github_pat_********)",
       }),
   handler: Effect.fn("Cli.github.run")(function* (args) {
+    const {
+      InstanceRef,
+      Git,
+      Session,
+      SessionShare,
+      SessionPrompt,
+      github,
+      core,
+      Octokit,
+      graphql,
+      Bus,
+      MessageV2,
+      Provider,
+      Process,
+    } = yield* Effect.promise(loadGithubDeps)
     const ctx = yield* InstanceRef
     if (!ctx) return yield* Effect.die("InstanceRef not provided")
     const gitSvc = yield* Git.Service
@@ -730,7 +808,7 @@ export const GithubRunCommand = effectCmd({
       const shareBaseUrl = isMock ? "https://dev.navi.ai" : "https://navi.ai"
 
       let appToken: string
-      let octoRest: Octokit
+      let octoRest: InstanceType<typeof Octokit>
       let octoGraph: typeof graphql
       let gitConfig: string
       let session: { id: SessionID; title: string; version: string }
@@ -2073,6 +2151,7 @@ export const GithubReviewCommand = effectCmd({
         describe: "comma-separated categories routed to summary",
       }),
   handler: Effect.fn("Cli.github.review")(function* (args) {
+    const { InstanceRef, Git } = yield* Effect.promise(loadGithubDeps)
     const ctx = yield* InstanceRef
     if (!ctx) return yield* Effect.die("InstanceRef not provided")
     const gitSvc = yield* Git.Service

@@ -62,7 +62,9 @@ export class SpinnerRenderable extends Renderable {
     this._autoplay = options.autoplay ?? true
     this._color = toColor(options.color ?? RGBA.defaultForeground())
     this._backgroundColor = parseColor(options.backgroundColor ?? "transparent")
-    this.setMeasureProvider(() => ({ width: this.frameWidth, height: 1 }))
+    // An auto-sized renderable is measured through its yoga node, so report the
+    // current frame width and a single row instead of declaring a fixed size.
+    this.getLayoutNode().setMeasureFunc(() => ({ width: this.frameWidth, height: 1 }))
     this.frames = options.frames ?? SPINNER_FRAMES
   }
 
@@ -77,7 +79,7 @@ export class SpinnerRenderable extends Renderable {
     const width = Math.max(0, ...this.glyphs.map((glyphs) => glyphs.reduce((sum, glyph) => sum + glyph.width, 0)))
     if (width !== this.frameWidth) {
       this.frameWidth = width
-      this.invalidateIntrinsicSize()
+      this.getLayoutNode().markDirty()
     }
     this.restart()
   }
@@ -156,10 +158,6 @@ function toColor(value: ColorInput | ColorGenerator) {
   return typeof value === "function" ? value : parseColor(value)
 }
 
-declare module "@opentui/solid" {
-  interface OpenTUIComponents {
-    spinner: typeof SpinnerRenderable
-  }
-}
-
+// `opentui-spinner/solid` already declares `spinner` in `OpenTUIComponents`, so
+// this file only registers its renderable under that name at runtime.
 extend({ spinner: SpinnerRenderable })

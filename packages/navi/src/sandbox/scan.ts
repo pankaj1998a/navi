@@ -88,8 +88,36 @@ const BASH_NON_FUNCTION_KEYWORDS = new Set([
 ])
 // Characters that can begin a quoting or expansion unit.
 const BASH_UNIT_STARTS = "\\$'\"`<>"
+// The scanner visits one character at a time, so per-character membership is
+// answered from a lookup table instead of `String.prototype.includes`.
+const ASCII_LIMIT = 128
+
+function asciiTable(chars: string): Uint8Array {
+  const table = new Uint8Array(ASCII_LIMIT)
+  for (const char of chars) table[char.charCodeAt(0)] = 1
+  return table
+}
+
+function inTable(table: Uint8Array, char: string): boolean {
+  const code = char.charCodeAt(0)
+  return code < ASCII_LIMIT && table[code] === 1
+}
+
+const BASH_UNIT_TABLE = asciiTable(BASH_UNIT_STARTS)
+const BASH_QUOTE_TABLE = asciiTable("'\"\\")
+const BASH_OPERATOR_TABLE = asciiTable("<>&|;\n")
+const BASH_WHITESPACE_TABLE = asciiTable(" \t\n\v\f\r")
+
+function isBashWhitespace(char: string): boolean {
+  return inTable(BASH_WHITESPACE_TABLE, char) || (char.charCodeAt(0) >= ASCII_LIMIT && /\s/.test(char))
+}
+
 const MAX_INPUT_LENGTH = 64 * 1024
 const MAX_SUBSTITUTION_DEPTH = 32
+// Runs of characters that cannot start a quoting, expansion, operator, comment,
+// subscript, or assignment construct. They are appended in one step because the
+// per-character append is otherwise the dominant scan cost on long commands.
+const BASH_PLAIN_RUN_RE = /[^\s\\$'"`<>&|;(){}#=[\]]+/y
 const TOKEN_RE = /[A-Za-z_][A-Za-z0-9_]*(?=(?:\\\n)*(?:[ \t\n;|&()<>]|$))/y
 const BRACE_CLOSE_AHEAD_RE = /(?:\\\n)*(?:[ \t\n;&|()<>]|$)/y
 const SPACE_CONTINUATION_AHEAD_RE = /(?:\\\n)*[ \t\n]/y
@@ -494,7 +522,7 @@ function scanBash(
     if (char === "\\" && index + 1 >= input.length) return { kind: "opaque", reason: "unterminated-escape" }
     if (
       !state.assignmentWord &&
-      ("'\"\\".includes(char) || (char === "$" && (input[index + 1] === "'" || input[index + 1] === '"')))
+      (inTable(BASH_QUOTE_TABLE, char) || (char === "$" && (input[index + 1] === "'" || input[index + 1] === '"')))
     )
       state.assignmentHeadUnsafe = true
     const inCasePattern = state.structures.at(-1)?.phase === "pattern"
@@ -515,7 +543,19 @@ function scanBash(
       state.wordEnd = index + 1
       continue
     }
-    const unit = BASH_UNIT_STARTS.includes(char)
+    // A run of plain characters (a path, a flag, an identifier) is appended in
+    // one step; the fast path cannot change any of the constructs below because
+    // every character that starts one is excluded from the run.
+    BASH_PLAIN_RUN_RE.lastIndex = index
+    const run = BASH_PLAIN_RUN_RE.exec(input)
+    if (run) {
+      state.wordStarted = true
+      bashAppend(state, run[0])
+      index += run[0].length - 1
+      state.wordEnd = index + 1
+      continue
+    }
+    const unit = inTable(BASH_UNIT_TABLE, char)
       ? scanBashUnit(
           input,
           index,
@@ -579,7 +619,7 @@ function scanBash(
       index = newline - 1
       continue
     }
-    if ("<>&|;\n".includes(char)) {
+    if (inTable(BASH_OPERATOR_TABLE, char)) {
       const step = scanBashOperatorOrSeparator(state, index, depth, context)
       if (typeof step === "object") return step
       index = step
@@ -596,7 +636,8 @@ function scanBash(
       return closeBashList(state, index)
     }
     if (char === "(") return { kind: "opaque", reason: state.wordStarted ? "dynamic-execution" : "compound-command" }
-    if (/\s/.test(char) && !" \t\n".includes(char)) return { kind: "opaque", reason: "invalid-structure" }
+    if (isBashWhitespace(char) && char !== " " && char !== "\t" && char !== "\n")
+      return { kind: "opaque", reason: "invalid-structure" }
     if (char === " " || char === "\t") {
       finishBashWord(state)
       continue
@@ -1691,10 +1732,27 @@ export function scanPowerShell(input: string): Result {
   if (input.length > MAX_INPUT_LENGTH) return { kind: "opaque", reason: "invalid-structure" }
   // PowerShell's Unicode quotes, dashes, and whitespace differ from JavaScript's token rules.
   if (/[\0\u0085\u2013-\u2015\u2018-\u201e\ufeff]/.test(input)) return { kind: "opaque", reason: "invalid-structure" }
+  // A .NET type expression is an expression, not a command, so `[IO.File]::WriteAllText(…)` yields no
+  // command at all even though it writes any path the process can reach. A writer stream constructed
+  // with New-Object names no write either.
+  if (
+    (POWERSHELL_DOTNET_TYPE_RE.test(input) && POWERSHELL_DOTNET_WRITE_RE.test(input)) ||
+    POWERSHELL_DOTNET_NEW_OBJECT_RE.test(input)
+  )
+    return { kind: "opaque", reason: "dynamic-execution" }
   const result = scanPowerShellList(input, 0, 0, { remaining: MAX_INPUT_LENGTH * MAX_SUBSTITUTION_DEPTH })
   if (result.kind === "opaque") return result
   return { kind: "scanned", commands: result.commands }
 }
+
+// A .NET namespace type invocation such as `[System.IO.File]` or `[io.fileinfo]`.
+const POWERSHELL_DOTNET_TYPE_RE = /\[\s*(?:system\s*\.\s*)?io\s*\.\s*[A-Za-z]/i
+// Members that create, rewrite, or delete a file, a directory, or a stream.
+const POWERSHELL_DOTNET_WRITE_RE =
+  /::\s*(?:WriteAllText|WriteAllTextAsync|WriteAllLines|WriteAllLinesAsync|WriteAllBytes|WriteAllBytesAsync|AppendAllText|AppendAllTextAsync|AppendAllLines|AppendAllBytes|OpenWrite|Create|CreateText|CreateDirectory|CreateSubdirectory|Delete|Move|MoveTo|Copy|CopyTo|Replace|SetAttributes|SetCreationTime|SetLastWriteTime|Encrypt|Decrypt)\s*\(|\[\s*(?:system\s*\.\s*)?io\s*\.\s*(?:streamwriter|filestream|binarywriter|stringwriter)\s*\]/i
+// Writer streams constructed by name never expose their path as an operand.
+const POWERSHELL_DOTNET_NEW_OBJECT_RE =
+  /new-object\s+system\s*\.\s*io\s*\.\s*(?:streamwriter|filestream|binarywriter)/i
 
 type PowerShellClause = "member" | "block" | "if" | "try" | "clause" | "switch" | "paren" | "do" | undefined
 

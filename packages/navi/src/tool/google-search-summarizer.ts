@@ -1,4 +1,5 @@
 import type { SearchResult } from "./search-pipeline"
+import { assertAllowed, isNetworkBlocked, type Policy } from "./net-guard"
 
 interface GeminiResponse {
   candidates?: {
@@ -8,11 +9,18 @@ interface GeminiResponse {
   }[]
 }
 
+const GEMINI_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models"
+
 export async function summarizeWithGoogleAi(
   query: string,
   results: SearchResult[],
   abort: AbortSignal,
+  policy?: Policy,
 ): Promise<{ mode: "gemini" | "heuristic"; summary: string }> {
+  // The summarizer makes its own outbound call: enforce the egress policy
+  // before it, and let denials propagate instead of silently degrading.
+  assertAllowed(GEMINI_ENDPOINT, policy)
+
   try {
     const { getAccessToken, geminiCliFetch, resolveGeminiModelID } = await import("../provider/gemini-cli")
     const token = await getAccessToken()
@@ -23,7 +31,7 @@ export async function summarizeWithGoogleAi(
     const model = resolveGeminiModelID(process.env.NAVI_GOOGLE_AI_MODEL ?? "gemini-2.0-flash")
     const prompt = buildGoogleAiPrompt(query, results)
     const response = await geminiCliFetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
+      `${GEMINI_ENDPOINT}/${model}:generateContent`,
       {
         method: "POST",
         signal: abort,
@@ -56,7 +64,8 @@ export async function summarizeWithGoogleAi(
     }
 
     return { mode: "gemini", summary: text.trim() }
-  } catch {
+  } catch (error) {
+    if (isNetworkBlocked(error)) throw error
     return { mode: "heuristic", summary: summarizeResults(results) }
   }
 }

@@ -223,6 +223,94 @@ describe("Truncate", () => {
       }),
     )
 
+    it.live("keeps the exact head window and marker format", () =>
+      Effect.gen(function* () {
+        const svc = yield* Truncate.Service
+        const lines = Array.from({ length: 100 }, (_, i) => `line${i}`)
+        const result = yield* svc.output(lines.join("\n"), { maxLines: 10 })
+
+        expect(result.truncated).toBe(true)
+        if (!result.truncated) throw new Error("expected truncated")
+        const marker = "\n\n...90 lines truncated...\n\n"
+        expect(result.content.startsWith(lines.slice(0, 10).join("\n") + marker)).toBe(true)
+        expect(result.content).toContain("The tool call succeeded but the output was truncated. Full output saved to:")
+        // Nothing past the window leaks into the preview.
+        expect(result.content.slice(0, result.content.indexOf(marker))).not.toContain("line10")
+      }),
+    )
+
+    it.live("keeps the exact tail window and marker format", () =>
+      Effect.gen(function* () {
+        const svc = yield* Truncate.Service
+        const lines = Array.from({ length: 100 }, (_, i) => `line${i}`)
+        const result = yield* svc.output(lines.join("\n"), { maxLines: 10, direction: "tail" })
+
+        expect(result.truncated).toBe(true)
+        if (!result.truncated) throw new Error("expected truncated")
+        const marker = "...90 lines truncated...\n\n"
+        expect(result.content.startsWith(marker)).toBe(true)
+        expect(result.content.endsWith("\n\n" + lines.slice(-10).join("\n"))).toBe(true)
+        expect(result.content).not.toContain("line89\n")
+      }),
+    )
+
+    it.live("byte marker equals the payload size minus the rendered window", () =>
+      Effect.gen(function* () {
+        const svc = yield* Truncate.Service
+        const content = Array.from({ length: 20_000 }, (_, i) => `${i}:${"x".repeat(60)}`).join("\n")
+        const result = yield* svc.output(content)
+
+        expect(result.truncated).toBe(true)
+        if (!result.truncated) throw new Error("expected truncated")
+        const match = result.content.match(/^([\s\S]*?)\n\n\.\.\.(\d+) bytes truncated\.\.\./)
+        if (!match) throw new Error("missing byte marker")
+        const rendered = match[1]!
+        const removed = Number(match[2])
+        expect(Buffer.byteLength(rendered, "utf-8")).toBeLessThanOrEqual(Truncate.MAX_BYTES)
+        expect(removed).toBe(Buffer.byteLength(content, "utf-8") - Buffer.byteLength(rendered, "utf-8"))
+      }),
+    )
+
+    it.live("writes large multi-byte payloads to disk byte-for-byte", () =>
+      Effect.gen(function* () {
+        const svc = yield* Truncate.Service
+        const line = "日本語テキストと絵文字😀 — ünïcode"
+        const content = Array.from({ length: 20_000 }, (_, i) => `${i} ${line}`).join("\n")
+        const result = yield* svc.output(content, { direction: "tail" })
+
+        expect(result.truncated).toBe(true)
+        if (!result.truncated) throw new Error("expected truncated")
+        const written = yield* Effect.promise(() => Filesystem.readText(result.outputPath))
+        expect(written).toBe(content)
+        expect(result.content).toContain("bytes truncated...")
+        expect(result.content).not.toContain("\uFFFD")
+      }),
+    )
+
+    it.live("preserves empty lines inside the window", () =>
+      Effect.gen(function* () {
+        const svc = yield* Truncate.Service
+        const lines = ["first", "", "third", "", ...Array.from({ length: 50 }, (_, i) => `tail${i}`)]
+        const result = yield* svc.output(lines.join("\n"), { maxLines: 4 })
+
+        expect(result.truncated).toBe(true)
+        if (!result.truncated) throw new Error("expected truncated")
+        expect(result.content.startsWith("first\n\nthird\n\n\n...50 lines truncated...")).toBe(true)
+      }),
+    )
+
+    it.live("single line larger than the byte budget yields an empty window", () =>
+      Effect.gen(function* () {
+        const svc = yield* Truncate.Service
+        const content = "z".repeat(200_000)
+        const result = yield* svc.output(content, { maxBytes: 1000 })
+
+        expect(result.truncated).toBe(true)
+        if (!result.truncated) throw new Error("expected truncated")
+        expect(result.content.startsWith(`\n\n...${Buffer.byteLength(content)} bytes truncated...`)).toBe(true)
+      }),
+    )
+
     test("loads truncate effect in a fresh process", async () => {
       const out = await Process.run([process.execPath, "run", path.join(ROOT, "src", "tool", "truncate.ts")], {
         cwd: ROOT,

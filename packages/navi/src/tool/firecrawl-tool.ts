@@ -1,6 +1,7 @@
 import { Effect, Schema } from "effect"
 import * as Tool from "./tool"
 import { Env } from "../env"
+import { assertAllowed, guardedFetch, resolvePolicy } from "./net-guard"
 
 export const Parameters = Schema.Struct({
   action: Schema.Literals(["scrape", "crawl", "search"]),
@@ -31,6 +32,12 @@ export const FirecrawlTool = Tool.define(
           const apiKey = yield* Effect.promise(() => Env.get("FIRECRAWL_API_KEY"))
           if (!apiKey) throw new Error("FIRECRAWL_API_KEY not set")
 
+          // Fixed provider endpoint built locally: enforce the egress policy
+          // before the permission prompt and the request.
+          const policy = yield* resolvePolicy()
+          const endpoint = `https://api.firecrawl.dev/v1/${params.action}`
+          assertAllowed(endpoint, policy)
+
           const permissionUrl = params.url || params.query || "firecrawl"
           yield* ctx.ask({
             permission: "webfetch",
@@ -40,7 +47,8 @@ export const FirecrawlTool = Tool.define(
           })
 
           const res = yield* Effect.promise(() =>
-            fetch(`https://api.firecrawl.dev/v1/${params.action}`, {
+            guardedFetch(endpoint, {
+              policy,
               method: "POST",
               headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
               body: JSON.stringify(

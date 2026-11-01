@@ -1,4 +1,4 @@
-import { Effect, Stream } from "effect"
+import { Effect, Option, Stream } from "effect"
 import os from "os"
 import { createWriteStream } from "node:fs"
 import * as Tool from "./tool"
@@ -22,6 +22,9 @@ import { ChildProcess } from "effect/unstable/process"
 import { ChildProcessSpawner } from "effect/unstable/process/ChildProcessSpawner"
 import { ShellPrompt, type Parameters } from "./shell/prompt"
 import { BashArity } from "@/permission/arity"
+import { PermissionModeManager } from "@/permission/mode"
+import { Permission } from "@/permission"
+import { Sandbox, type ConfinedExecution, type SandboxPolicy } from "@/sandbox"
 
 export { Parameters } from "./shell/prompt"
 
@@ -229,33 +232,50 @@ function preview(text: string) {
 }
 
 function tail(text: string, maxLines: number, maxBytes: number) {
-  const lines = text.split("\n")
-  if (lines.length <= maxLines && Buffer.byteLength(text, "utf-8") <= maxBytes) {
-    return {
-      text,
-      cut: false,
+  const totalBytes = Buffer.byteLength(text, "utf-8")
+  if (totalBytes <= maxBytes) {
+    let lineCount = 1
+    let idx = text.indexOf("\n")
+    while (idx !== -1) {
+      lineCount++
+      if (lineCount > maxLines) break
+      idx = text.indexOf("\n", idx + 1)
+    }
+    if (lineCount <= maxLines) {
+      return {
+        text,
+        cut: false,
+      }
     }
   }
 
   const out: string[] = []
   let bytes = 0
-  for (let i = lines.length - 1; i >= 0 && out.length < maxLines; i--) {
-    const line = lines[i]
-    if (line === undefined) break
+  let end = text.length
+
+  while (end > 0 && out.length < maxLines) {
+    const prevNewline = text.lastIndexOf("\n", end - 1)
+    const line = prevNewline === -1 ? text.slice(0, end) : text.slice(prevNewline + 1, end)
     const size = Buffer.byteLength(line, "utf-8") + (out.length > 0 ? 1 : 0)
+
     if (bytes + size > maxBytes) {
       if (out.length === 0) {
         const buf = Buffer.from(line, "utf-8")
         let start = buf.length - maxBytes
         if (start < 0) start = 0
         while (start < buf.length && ((buf[start] ?? 0) & 0xc0) === 0x80) start++
-        out.unshift(buf.subarray(start).toString("utf-8"))
+        out.push(buf.subarray(start).toString("utf-8"))
       }
       break
     }
-    out.unshift(line)
+
+    out.push(line)
     bytes += size
+    if (prevNewline === -1) break
+    end = prevNewline
   }
+
+  out.reverse()
   return {
     text: out.join("\n"),
     cut: true,
@@ -291,20 +311,42 @@ const ask = Effect.fn("ShellTool.ask")(function* (ctx: Tool.Context, scan: Scan)
   })
 })
 
-function cmd(shell: string, command: string, cwd: string, env: NodeJS.ProcessEnv) {
+// The argv a shell needs to run `command` non-interactively. Mirrors the `shell`
+// option that `ChildProcess.make` used before the sandbox wrapper existed.
+function shellArgs(shell: string, command: string) {
   if (process.platform === "win32" && Shell.ps(shell)) {
-    return ChildProcess.make(shell, ["-NoLogo", "-NoProfile", "-NonInteractive", "-Command", command], {
+    return ["-NoLogo", "-NoProfile", "-NonInteractive", "-Command", command]
+  }
+  if (Shell.posix(shell)) return ["-c", command]
+  return ["/d", "/s", "/c", command]
+}
+
+function cmd(confined: ConfinedExecution, shell: string, command: string, cwd: string) {
+  // No OS wrapper was applied (danger-full-access or the Windows tool-layer
+  // guard): keep the original spawn shape so quoting semantics stay identical.
+  if (confined.command === shell) {
+    if (process.platform === "win32" && Shell.ps(shell)) {
+      return ChildProcess.make(shell, ["-NoLogo", "-NoProfile", "-NonInteractive", "-Command", command], {
+        cwd,
+        env: confined.env,
+        stdin: "ignore",
+        detached: false,
+      })
+    }
+
+    return ChildProcess.make(command, [], {
+      shell,
       cwd,
-      env,
+      env: confined.env,
       stdin: "ignore",
-      detached: false,
+      detached: process.platform !== "win32",
     })
   }
 
-  return ChildProcess.make(command, [], {
-    shell,
+  // seatbelt/bwrap rewrote argv to launcher + profile/flags + shell + command.
+  return ChildProcess.make(confined.command, confined.args, {
     cwd,
-    env,
+    env: confined.env,
     stdin: "ignore",
     detached: process.platform !== "win32",
   })
@@ -354,24 +396,53 @@ export const ShellTool = Tool.define(
       return AppFileSystem.normalizePath(file)
     })
 
+    // Roots the msys runtime maps into its own tree, so `/tmp` means the
+    // emulated temp dir rather than `C:\tmp`. Everything else that starts with
+    // a slash but has no drive is a drive-root path (`/Users/me/repo`).
+    const MSYS_ROOTS = new Set([
+      "tmp",
+      "usr",
+      "bin",
+      "sbin",
+      "etc",
+      "home",
+      "dev",
+      "proc",
+      "var",
+      "opt",
+      "lib",
+      "mingw32",
+      "mingw64",
+    ])
+
     const resolvePath = Effect.fn("ShellTool.resolvePath")(function* (text: string, root: string, shell: string) {
-      if (process.platform === "win32") {
-        if (Shell.posix(shell) && text.startsWith("/") && AppFileSystem.windowsPath(text) === text) {
-          const file = yield* cygpath(shell, text)
-          if (file) return file
-        }
-        return AppFileSystem.normalizePath(path.resolve(root, AppFileSystem.windowsPath(text)))
+      if (process.platform !== "win32") return path.resolve(root, text)
+      const windows = AppFileSystem.windowsPath(text)
+      if (Shell.posix(shell) && text.startsWith("/") && windows === text) {
+        // Prefer the drive root when that directory exists; otherwise ask the
+        // shell's mount table so `/tmp` keeps its Git Bash semantics.
+        const drive = AppFileSystem.normalizePath(path.join(path.parse(root).root, text))
+        const emulated = MSYS_ROOTS.has(text.split("/")[1]?.toLowerCase() ?? "")
+        if (!emulated && (yield* fs.existsSafe(drive))) return drive
+        const file = yield* cygpath(shell, text)
+        if (file) return file
       }
-      return path.resolve(root, text)
+      return AppFileSystem.normalizePath(path.resolve(root, windows))
     })
 
-    const argPath = Effect.fn("ShellTool.argPath")(function* (arg: string, cwd: string, ps: boolean, shell: string) {
+    const argText = (arg: string, cwd: string, ps: boolean, shell: string) => {
       const text = ps ? expand(arg, cwd, shell) : home(unquote(arg))
       const file = text && prefix(text)
       if (!file || dynamic(file, ps)) return
-      const next = ps ? provider(file) : file
-      if (!next) return
-      return yield* resolvePath(next, cwd, shell)
+      return ps ? provider(file) : file
+    }
+
+    const firstExisting = Effect.fn("ShellTool.firstExisting")(function* (
+      candidates: Array<{ path: string; consumed: number }>,
+    ) {
+      for (const candidate of candidates) {
+        if (yield* fs.existsSafe(candidate.path)) return candidate
+      }
     })
 
     const collect = Effect.fn("ShellTool.collect")(function* (
@@ -394,11 +465,26 @@ export const ShellTool = Tool.define(
         const cmd = ps || shellKind === "cmd" ? tokens[0]?.toLowerCase() : tokens[0]
 
         if (cmd && (FILES.has(cmd) || (shellKind === "cmd" && CMD_FILES.has(cmd)))) {
-          for (const arg of pathArgs(command, ps, shellKind === "cmd")) {
-            const resolved = yield* argPath(arg, cwd, ps, shell)
-            log.info("resolved path", { arg, resolved })
-            if (!resolved || containsPath(resolved, instance)) continue
-            const dir = (yield* fs.isDir(resolved)) ? resolved : path.dirname(resolved)
+          const args = pathArgs(command, ps, shellKind === "cmd")
+            .map((arg) => argText(arg, cwd, ps, shell))
+            .filter((text): text is string => Boolean(text))
+          for (let index = 0; index < args.length; ) {
+            // A path with spaces is split into several shell words, so resolve
+            // every rejoin and use the first one inside the project boundary.
+            const candidates: Array<{ path: string; consumed: number }> = []
+            for (const candidate of Sandbox.pathWordCandidates(args, index, cwd)) {
+              candidates.push({ path: yield* resolvePath(candidate.text, cwd, shell), consumed: candidate.consumed })
+            }
+            // Outside the project the intended path is the rejoin that exists,
+            // not the truncated prefix (which would ask for a far wider glob).
+            const chosen =
+              candidates.find((item) => containsPath(item.path, instance)) ??
+              (candidates.length > 1 ? yield* firstExisting(candidates) : undefined) ??
+              candidates[0]!
+            log.info("resolved path", { arg: args[index], resolved: chosen.path })
+            index += chosen.consumed
+            if (containsPath(chosen.path, instance)) continue
+            const dir = (yield* fs.isDir(chosen.path)) ? chosen.path : path.dirname(chosen.path)
             scan.dirs.add(dir)
           }
         }
@@ -431,6 +517,7 @@ export const ShellTool = Tool.define(
         command: string
         cwd: string
         env: NodeJS.ProcessEnv
+        policy: SandboxPolicy
         timeout: number
         description: string
       },
@@ -457,7 +544,11 @@ export const ShellTool = Tool.define(
 
       const code: number | null = yield* Effect.scoped(
         Effect.gen(function* () {
-          const handle = yield* spawner.spawn(cmd(input.shell, input.command, input.cwd, input.env))
+          const confined = yield* Effect.try({
+            try: () => Sandbox.confineSync(input.shell, shellArgs(input.shell, input.command), input.policy, input.env),
+            catch: (cause) => cause,
+          }).pipe(Effect.orDie)
+          const handle = yield* spawner.spawn(cmd(confined, input.shell, input.command, input.cwd))
 
           yield* Effect.forkScoped(
             Stream.runForEach(Stream.decodeText(handle.all), (chunk) => {
@@ -618,12 +709,36 @@ export const ShellTool = Tool.define(
                 }),
               )
 
+              // Force the permission state to initialise so the mode configured
+              // for this instance (permission.mode) is applied before the
+              // sandbox policy is derived. `ask` above is skipped for commands
+              // without file patterns, so it cannot be relied on for this.
+              const permission = yield* Effect.serviceOption(Permission.Service)
+              if (Option.isSome(permission)) yield* permission.value.list()
+
+              const policy: SandboxPolicy = {
+                mode: Sandbox.resolveMode(
+                  PermissionModeManager.getMode(executeInstance.directory),
+                  process.env.NAVI_SANDBOX_MODE,
+                ),
+                // Confine to the repository root when there is one; a non-git
+                // instance reports "/" as its worktree, so fall back to the
+                // working directory.
+                workspaceRoot: executeInstance.worktree === "/" ? executeInstance.directory : executeInstance.worktree,
+              }
+              const shellKind = ps ? "powershell" : Shell.posix(shell) ? "bash" : "cmd"
+              yield* Effect.sync(() => {
+                Sandbox.assertCwdContained(cwd, policy)
+                Sandbox.assertCommandContained(params.command, policy, { cwd, shell: shellKind })
+              })
+
               return yield* run(
                 {
                   shell,
                   command: params.command,
                   cwd,
                   env: yield* shellEnv(ctx, cwd),
+                  policy,
                   timeout,
                   description: params.description,
                 },

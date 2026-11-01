@@ -2,6 +2,7 @@ import { afterEach, test, expect } from "bun:test"
 import os from "os"
 import { Cause, Effect, Exit, Fiber, Layer } from "effect"
 import { Bus } from "../../src/bus"
+import { Config } from "../../src/config/config"
 import { CrossSpawnSpawner } from "@navi-ai/core/cross-spawn-spawner"
 import { Permission } from "../../src/permission"
 import { PermissionID } from "../../src/permission/schema"
@@ -20,7 +21,14 @@ import { MessageID, SessionID } from "../../src/session/schema"
 
 const bus = Bus.layer
 const env = Layer.mergeAll(Permission.layer.pipe(Layer.provide(bus)), bus, CrossSpawnSpawner.defaultLayer)
+const envWithConfig = Layer.mergeAll(env, Config.defaultLayer)
 const it = testEffect(env)
+const itConfig = testEffect(envWithConfig)
+
+// Fixture helpers widen the effect requirements; erase the variance for these tests.
+type LiveBody = (name: string, self: () => Effect.Effect<unknown, unknown, unknown>) => void
+const live = it.live as unknown as LiveBody
+const liveConfig = itConfig.live as unknown as LiveBody
 
 afterEach(async () => {
   await disposeAllInstances()
@@ -1112,6 +1120,29 @@ it.live("ask - should deny even when an earlier pattern is ask", () =>
   ),
 )
 
+live("ask - deny wins over a later wildcard allow", () =>
+  withDir({ git: true }, () =>
+    Effect.gen(function* () {
+      const err = yield* fail(
+        ask({
+          sessionID: SessionID.make("session_test"),
+          permission: "bash",
+          patterns: ["rm -rf /"],
+          metadata: {},
+          always: [],
+          ruleset: [
+            { permission: "bash", pattern: "rm *", action: "deny" },
+            { permission: "bash", pattern: "*", action: "allow" },
+          ],
+        }),
+      )
+
+      expect(err).toBeInstanceOf(Permission.DeniedError)
+      expect(yield* list()).toHaveLength(0)
+    }),
+  ),
+)
+
 it.live("ask - abort should clear pending request", () =>
   Effect.gen(function* () {
     const dir = yield* tmpdirScoped({ git: true })
@@ -1135,4 +1166,74 @@ it.live("ask - abort should clear pending request", () =>
     expect(Exit.isFailure(exit)).toBe(true)
     if (Exit.isFailure(exit)) expect(Cause.squash(exit.cause)).toBeInstanceOf(Permission.RejectedError)
   }),
+)
+
+// mode wiring tests
+
+liveConfig("mode - defaults to supervised when config omits permission.mode", () =>
+  provideTmpdirInstance(
+    () =>
+      Effect.gen(function* () {
+        yield* list()
+        expect(Permission.PermissionModeManager.getMode()).toBe("supervised")
+      }),
+    { git: true },
+  ),
+)
+
+liveConfig("mode - reads permission.mode from config", () =>
+  provideTmpdirInstance(
+    () =>
+      Effect.gen(function* () {
+        yield* list()
+        expect(Permission.PermissionModeManager.getMode()).toBe("full_access")
+      }),
+    { git: true, config: { permission: { mode: "full_access" } } },
+  ),
+)
+
+liveConfig("ask - deny rules win under full_access mode", () =>
+  provideTmpdirInstance(
+    () =>
+      Effect.gen(function* () {
+        // Initialise instance state (and therefore the configured mode).
+        yield* list()
+        expect(Permission.PermissionModeManager.getMode()).toBe("full_access")
+
+        const err = yield* fail(
+          ask({
+            sessionID: SessionID.make("session_test"),
+            permission: "bash",
+            patterns: ["rm -rf /"],
+            metadata: {},
+            always: [],
+            ruleset: [{ permission: "bash", pattern: "*", action: "deny" }],
+          }),
+        )
+        expect(err).toBeInstanceOf(Permission.DeniedError)
+      }),
+    { git: true, config: { permission: { mode: "full_access" } } },
+  ),
+)
+
+liveConfig("ask - explicit ask rules prompt under full_access mode", () =>
+  provideTmpdirInstance(
+    () =>
+      Effect.gen(function* () {
+        const fiber = yield* ask({
+          id: PermissionID.make("per_full_access_ask"),
+          sessionID: SessionID.make("session_test"),
+          permission: "bash",
+          patterns: ["ls"],
+          metadata: {},
+          always: [],
+          ruleset: [{ permission: "bash", pattern: "*", action: "ask" }],
+        }).pipe(Effect.forkScoped)
+
+        expect(yield* waitForPending(1)).toHaveLength(1)
+        yield* rejectAll()
+        yield* Fiber.await(fiber)
+      }),
+    { git: true, config: { permission: { mode: "full_access" } } },
+  ),
 )

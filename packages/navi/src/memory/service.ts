@@ -6,6 +6,9 @@ import { Database } from "@/storage/db"
 import { Config } from "@/config/config"
 import { reconcileMemory } from "./reconcile"
 import { buildFtsQuery } from "./fts-query"
+import * as MemoryHandoff from "./handoff"
+import * as MemoryWiki from "./wiki"
+import * as MemoryProfile from "./profile"
 
 type SearchRow = {
   path: string
@@ -28,6 +31,26 @@ export interface Interface {
   }) => Effect.Effect<
     Array<{ path: string; snippet: string; score: number; scope: string; scope_id: string; type: string }>
   >
+  readonly acceptHandoff: (input: {
+    handoff_id?: string
+    target_directory?: string
+    claimed_by?: string
+  }) => Effect.Effect<MemoryHandoff.AcceptHandoffResult>
+  readonly cancelHandoff: (handoffId: string) => Effect.Effect<boolean>
+  readonly listHandoffs: (filter?: {
+    target_directory?: string
+    status?: "open" | "claimed" | "expired" | "cancelled" | "all"
+    owner?: string
+  }) => Effect.Effect<MemoryHandoff.HandoffRecord[]>
+  readonly lintWiki: () => Effect.Effect<{ healthy: boolean; issues: MemoryWiki.WikiLintIssue[] }>
+  readonly listWikiPages: (filter?: {
+    tier?: MemoryWiki.WikiTier
+    kind?: MemoryWiki.WikiKind
+    scope?: string
+    include_expired?: boolean
+  }) => Effect.Effect<MemoryWiki.WikiPageMeta[]>
+  readonly getUserProfile: () => Effect.Effect<MemoryProfile.UserProfile>
+  readonly updateUserProfile: (updates: Partial<MemoryProfile.UserProfile>) => Effect.Effect<MemoryProfile.UserProfile>
 }
 
 export class Service extends Context.Service<Service, Interface>()("@navi/Memory") {}
@@ -139,6 +162,27 @@ export const layer: Layer.Layer<Service, never, Config.Service> = Layer.effect(
       root: rootEff,
       reconcile,
       search,
+      acceptHandoff: Effect.fn("Memory.acceptHandoff")(function* (input) {
+        return yield* Effect.sync(() => MemoryHandoff.acceptHandoff(input))
+      }),
+      cancelHandoff: Effect.fn("Memory.cancelHandoff")(function* (handoffId) {
+        return yield* Effect.sync(() => MemoryHandoff.cancelHandoff(handoffId))
+      }),
+      listHandoffs: Effect.fn("Memory.listHandoffs")(function* (filter) {
+        return yield* Effect.sync(() => MemoryHandoff.listHandoffs(filter))
+      }),
+      lintWiki: Effect.fn("Memory.lintWiki")(function* () {
+        return yield* Effect.sync(() => MemoryWiki.lintWiki())
+      }),
+      listWikiPages: Effect.fn("Memory.listWikiPages")(function* (filter) {
+        return yield* Effect.sync(() => MemoryWiki.listWikiPages(filter))
+      }),
+      getUserProfile: Effect.fn("Memory.getUserProfile")(function* () {
+        return yield* Effect.sync(() => MemoryProfile.getUserProfile())
+      }),
+      updateUserProfile: Effect.fn("Memory.updateUserProfile")(function* (updates) {
+        return yield* Effect.sync(() => MemoryProfile.updateUserProfile(updates))
+      }),
     })
   }),
 )

@@ -1,6 +1,7 @@
 import { Effect, Schema } from "effect"
 import * as Tool from "./tool"
 import { webCrawl } from "./browser-engine"
+import { assertAllowed, resolvePolicy } from "./net-guard"
 
 export const Parameters = Schema.Struct({
   url: Schema.String.annotate({ description: "URL to start crawling from" }),
@@ -32,6 +33,18 @@ export const WebCrawlTool = Tool.define(
       parameters: Parameters,
       execute: (params: Schema.Schema.Type<typeof Parameters>, ctx: Tool.Context) =>
         Effect.gen(function* () {
+          if (!params.url.startsWith("http://") && !params.url.startsWith("https://")) {
+            throw new Error("URL must start with http:// or https://")
+          }
+
+          // Egress allowlist before the permission prompt and before the
+          // browser launches; `webCrawl` re-checks every queued/derived URL.
+          const policy = yield* resolvePolicy()
+          assertAllowed(params.url, policy)
+
+          const { assertSafeExternalUrl } = yield* Effect.promise(() => import("@/util/ssrf"))
+          yield* Effect.promise(() => assertSafeExternalUrl(params.url))
+
           yield* ctx.ask({
             permission: "webfetch",
             patterns: [params.url],
@@ -46,6 +59,7 @@ export const WebCrawlTool = Tool.define(
             format: params.format,
             includePattern: params.includePattern ? new RegExp(params.includePattern) : undefined,
             excludePattern: params.excludePattern ? new RegExp(params.excludePattern) : undefined,
+            policy,
           }
 
           const _pages = yield* Effect.promise(() => webCrawl(params.url, opts as any))

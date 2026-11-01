@@ -570,8 +570,11 @@ export const layer: Layer.Layer<
               })
             }
             if (ctx.snapshot) {
-              const patch = yield* snapshot.patch(ctx.snapshot)
-              if (patch.files.length) {
+              // Same tree before and after the step means the index matches the
+              // step-start capture, so a diff against it cannot have entries.
+              const patch =
+                completedSnapshot === ctx.snapshot ? undefined : yield* snapshot.patch(ctx.snapshot)
+              if (patch?.files.length) {
                 yield* session.updatePart({
                   id: PartID.ascending(),
                   messageID: ctx.assistantMessage.id,
@@ -587,6 +590,10 @@ export const layer: Layer.Layer<
               .summarize({
                 sessionID: ctx.sessionID,
                 messageID: ctx.assistantMessage.parentID,
+                // Lets the summarizer skip the full-history pass when this step
+                // did not move the tree; the summary service also single-flights
+                // runs so forked steps cannot stack up.
+                snapshot: completedSnapshot,
               })
               .pipe(Effect.ignore, Effect.forkIn(scope))
             if (

@@ -12,7 +12,15 @@
     "paths": {
       "@/*": ["./src/*"],
       "@tui/*": ["./src/cli/cmd/tui/*"],
-      "@test/*": ["./test/*"]
+      "@test/*": ["./test/*"],
+      // effect 4.0.0-beta.74 moved these modules under `effect/unstable/*`.
+      // Test-only compatibility shims (test/shims) keep pre-migration specifiers
+      // resolving without touching every importing file.
+      "effect/process": ["./test/shims/process.ts"],
+      "effect/http": ["./test/shims/http.ts"],
+      "effect/http/HttpServer": ["./test/shims/http-server.ts"],
+      "effect/http-api": ["./test/shims/http-api.ts"],
+      "effect/socket/Socket": ["./test/shims/socket.ts"]
     }
   },
   "include": ["src", "test", "script"],

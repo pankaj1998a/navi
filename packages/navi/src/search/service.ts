@@ -5,6 +5,7 @@ import type { SearchQuery, SearchResult, SearchService } from "./index";
 import type { SearchProvider } from "../tool/search-pipeline";
 import { executeSearchPipeline } from "../tool/search-pipeline";
 import { searchWithProvider } from "../tool/http-search";
+import { guardedFetch } from "../tool/net-guard";
 
 const log = Log.create({ service: "search-service" });
 
@@ -48,7 +49,7 @@ export class DefaultSearchService implements SearchService {
       body.startPublishedDate = now.toISOString();
     }
 
-    const res = await fetch("https://api.exa.ai/search", {
+    const res = await guardedFetch("https://api.exa.ai/search", {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-api-key": apiKey },
       body: JSON.stringify(body),
@@ -68,7 +69,7 @@ export class DefaultSearchService implements SearchService {
     const apiKey = await Env.get("TAVILY_API_KEY");
     if (!apiKey) throw new Error("TAVILY_API_KEY not set");
 
-    const res = await fetch("https://api.tavily.com/search", {
+    const res = await guardedFetch("https://api.tavily.com/search", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -92,7 +93,7 @@ export class DefaultSearchService implements SearchService {
     const apiKey = await Env.get("FIRECRAWL_API_KEY");
     if (!apiKey) throw new Error("FIRECRAWL_API_KEY not set");
 
-    const res = await fetch("https://api.firecrawl.dev/v1/search", {
+    const res = await guardedFetch("https://api.firecrawl.dev/v1/search", {
       method: "POST",
       headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
       body: JSON.stringify({

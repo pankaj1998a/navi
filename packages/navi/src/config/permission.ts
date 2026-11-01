@@ -8,6 +8,15 @@ export const Action = Schema.Literals(["ask", "allow", "deny"])
   .pipe(withStatics((s) => ({ zod: zod(s) })))
 export type Action = Schema.Schema.Type<typeof Action>
 
+/**
+ * Runtime permission mode. When omitted the permission layer defaults to
+ * `supervised`; `full_access` must be opted into explicitly.
+ */
+export const Mode = Schema.Literals(["supervised", "auto_accept_edits", "auto", "full_access"])
+  .annotate({ identifier: "PermissionModeConfig" })
+  .pipe(withStatics((s) => ({ zod: zod(s) })))
+export type Mode = Schema.Schema.Type<typeof Mode>
+
 export const Object = Schema.Record(Schema.String, Action)
   .annotate({ identifier: "PermissionObjectConfig" })
   .pipe(withStatics((s) => ({ zod: zod(s) })))
@@ -23,6 +32,8 @@ export type Rule = Schema.Schema.Type<typeof Rule>
 // parse option so user key order is preserved for permission precedence.
 const InputObject = Schema.StructWithRest(
   Schema.Struct({
+    // Reserved key: selects the runtime approval mode instead of a rule.
+    mode: Schema.optional(Mode),
     read: Schema.optional(Rule),
     edit: Schema.optional(Rule),
     glob: Schema.optional(Rule),
@@ -46,7 +57,10 @@ const InputObject = Schema.StructWithRest(
     arch_map: Schema.optional(Rule),
     checkpoint: Schema.optional(Rule),
   }),
-  [Schema.Record(Schema.String, Rule)],
+  // The rest record also accepts `Mode` so `permission.mode` can live next to
+  // rule keys (Effect's StructWithRest applies the index signature to every
+  // key). `Permission.fromConfig` skips the reserved `mode` key.
+  [Schema.Record(Schema.String, Schema.Union([Rule, Mode]))],
 )
 
 // Input the user writes in config: either a single Action (shorthand for "*")

@@ -51,6 +51,8 @@ export interface Interface {
   readonly init: () => Effect.Effect<void>
   readonly cleanup: () => Effect.Effect<void>
   readonly track: () => Effect.Effect<string | undefined>
+  readonly exists: (hash: string) => Effect.Effect<boolean>
+  readonly release: (hash: string) => Effect.Effect<void>
   readonly patch: (hash: string) => Effect.Effect<Patch>
   readonly restore: (snapshot: string) => Effect.Effect<void>
   readonly revert: (patches: Patch[]) => Effect.Effect<void>
@@ -94,6 +96,17 @@ export const layer: Layer.Layer<
 
         const enc = new TextEncoder()
         const feed = (list: string[]) => Stream.make(enc.encode(list.join("\0") + "\0"))
+
+        // `write-tree` is a pure function of the shadow index, so a tree stays
+        // valid until something stages, drops or rewrites that index. Bumping a
+        // version on every index write lets consecutive step captures reuse the
+        // last tree instead of paying another `git write-tree` per capture.
+        let indexVersion = 0
+        let tree: { version: number; hash: string } | undefined
+        // The source repository's exclude path is fixed for a worktree; only its
+        // contents can change, so resolve the path once instead of per capture.
+        let excludePath: string | undefined
+        let excludeText: string | undefined
 
         const git = Effect.fnUntraced(
           function* (
@@ -149,6 +162,7 @@ export const layer: Layer.Layer<
 
         const drop = Effect.fnUntraced(function* (files: string[]) {
           if (!files.length) return
+          indexVersion += 1
           yield* git(
             [
               ...cfg,
@@ -163,6 +177,7 @@ export const layer: Layer.Layer<
 
         const stage = Effect.fnUntraced(function* (files: string[]) {
           if (!files.length) return
+          indexVersion += 1
           const result = yield* git(
             [...cfg, ...args(["add", "--all", "--sparse", "--pathspec-from-file=-", "--pathspec-file-nul"])],
             {
@@ -188,10 +203,13 @@ export const layer: Layer.Layer<
         })
 
         const excludes = Effect.fnUntraced(function* () {
-          const result = yield* git(["rev-parse", "--path-format=absolute", "--git-path", "info/exclude"], {
-            cwd: state.worktree,
-          })
-          const file = result.text.trim()
+          if (!excludePath) {
+            const result = yield* git(["rev-parse", "--path-format=absolute", "--git-path", "info/exclude"], {
+              cwd: state.worktree,
+            })
+            excludePath = result.text.trim()
+          }
+          const file = excludePath
           if (!file) return
           if (!(yield* exists(file))) return
           return file
@@ -206,6 +224,10 @@ export const layer: Layer.Layer<
           ]
             .filter(Boolean)
             .join("\n")
+          // Written on every capture; skip the rewrite when the desired content
+          // is already on disk.
+          if (text === excludeText) return
+          excludeText = text
           yield* fs.ensureDir(path.join(state.gitdir, "info")).pipe(Effect.orDie)
           yield* fs.writeFileString(target, text ? `${text}\n` : "").pipe(Effect.orDie)
         })
@@ -310,12 +332,35 @@ export const layer: Layer.Layer<
                 log.info("initialized")
               }
               yield* add()
+              // Staging nothing leaves the index (and therefore the tree) as it
+              // was, so consecutive no-change captures reuse the previous tree.
+              if (tree && tree.version === indexVersion) {
+                log.info("tracking", { hash: tree.hash, cached: true, cwd: state.directory, git: state.gitdir })
+                return tree.hash
+              }
               const result = yield* git(args(["write-tree"]), { cwd: state.directory })
               const hash = result.text.trim()
+              if (hash) tree = { version: indexVersion, hash }
               log.info("tracking", { hash, cwd: state.directory, git: state.gitdir })
               return hash
             }),
           )
+        })
+
+        /** Whether a captured tree is still present in the shadow repository. */
+        const existsTree = Effect.fnUntraced(function* (hash: string) {
+          if (!hash) return false
+          const result = yield* git(args(["cat-file", "-e", `${hash}^{tree}`]), { cwd: state.directory })
+          return result.code === 0
+        })
+
+        /**
+         * Drops the checkpoint ref that keeps a captured tree reachable.
+         * Deleting a ref that does not exist is a no-op, so releasing twice is safe.
+         */
+        const release = Effect.fnUntraced(function* (hash: string) {
+          if (!hash) return
+          yield* git(args(["update-ref", "-d", `refs/navi/checkpoints/${hash}`]), { cwd: state.directory })
         })
 
         const patch = Effect.fnUntraced(function* (hash: string) {
@@ -355,6 +400,8 @@ export const layer: Layer.Layer<
           return yield* locked(
             Effect.gen(function* () {
               log.info("restore", { commit: snapshot })
+              // read-tree rewrites the index wholesale, invalidating any cached tree.
+              indexVersion += 1
               const result = yield* git([...core, ...args(["read-tree", snapshot])], { cwd: state.worktree })
               if (result.code === 0) {
                 const checkout = yield* git([...core, ...args(["checkout-index", "-a", "-f"])], {
@@ -380,6 +427,8 @@ export const layer: Layer.Layer<
         const revert = Effect.fnUntraced(function* (patches: Patch[]) {
           return yield* locked(
             Effect.gen(function* () {
+              // `git checkout <tree> -- <path>` stages the restored content too.
+              indexVersion += 1
               const ops: { hash: string; file: string; rel: string }[] = []
               const seen = new Set<string>()
               for (const item of patches) {
@@ -738,7 +787,7 @@ export const layer: Layer.Layer<
           Effect.forkScoped,
         )
 
-        return { cleanup, track, patch, restore, revert, diff, diffFull }
+        return { cleanup, track, exists: existsTree, release, patch, restore, revert, diff, diffFull }
       }),
     )
 
@@ -751,6 +800,12 @@ export const layer: Layer.Layer<
       }),
       track: Effect.fn("Snapshot.track")(function* () {
         return yield* InstanceState.useEffect(state, (s) => s.track())
+      }),
+      exists: Effect.fn("Snapshot.exists")(function* (hash: string) {
+        return yield* InstanceState.useEffect(state, (s) => s.exists(hash))
+      }),
+      release: Effect.fn("Snapshot.release")(function* (hash: string) {
+        return yield* InstanceState.useEffect(state, (s) => s.release(hash))
       }),
       patch: Effect.fn("Snapshot.patch")(function* (hash: string) {
         return yield* InstanceState.useEffect(state, (s) => s.patch(hash))

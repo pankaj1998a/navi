@@ -6,12 +6,16 @@ import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js"
 import { UnauthorizedError } from "@modelcontextprotocol/sdk/client/auth.js"
 import {
   CallToolResultSchema,
+  ListToolsResultSchema,
   ToolSchema,
   type Tool as MCPToolDef,
   ToolListChangedNotificationSchema,
 } from "@modelcontextprotocol/sdk/types.js"
 import { Config } from "@/config/config"
 import { ConfigMCP } from "../config/mcp"
+import { Permission } from "@/permission"
+import { Policy as PermissionPolicy } from "@/permission/policy"
+import { SessionID } from "@/session/schema"
 import * as Log from "@navi-ai/core/util/log"
 import { sanitizeChildProcessEnv } from "@/util/sanitize-env"
 import { NamedError } from "@navi-ai/core/util/error"
@@ -38,13 +42,16 @@ import { withStatics } from "@navi-ai/core/schema"
 const log = Log.create({ service: "mcp" })
 const DEFAULT_TIMEOUT = 30_000
 
-const TolerantToolSchema = ToolSchema.extend({
-  outputSchema: z.unknown().optional(),
-})
+// Servers may publish an `outputSchema` whose references cannot be resolved.
+// Dropping that one field still lists the tools, while every other field keeps
+// the SDK's own (zod 4.4.x) schema so the result is validated consistently.
+const TolerantToolSchema = ToolSchema.omit({ outputSchema: true })
 
-const TolerantListToolsResultSchema = z.looseObject({
-  tools: z.array(TolerantToolSchema),
-  nextCursor: z.string().optional(),
+// The SDK validates `tools/list` against tools that carry an `outputSchema`.
+// Reusing the SDK's own list schema (instead of building one with navi's zod,
+// which resolves to a different v4 build) keeps the retry fully SDK-typed.
+const tolerantListToolsResultSchema = ListToolsResultSchema.extend({
+  tools: TolerantToolSchema.array(),
 })
 
 export const Resource = Schema.Struct({
@@ -125,6 +132,37 @@ function isMcpConfigured(entry: McpEntry): entry is ConfigMCP.Info {
 
 const sanitize = (s: string) => s.replace(/[^a-zA-Z0-9_-]/g, "_")
 
+/**
+ * Tool-name namespace for an MCP server.
+ *
+ * Server names are free-form, so the namespace is sanitized to the character
+ * set every provider accepts. A name that sanitizes to nothing falls back to
+ * `mcp` so the resulting tool name stays addressable.
+ */
+export function namespace(server: string): string {
+  return sanitize(server) || "mcp"
+}
+
+/** Provider-facing tool name: the owning server's namespace prefixed to the tool name. */
+export function mcpToolName(server: string, tool: string): string {
+  return `${namespace(server)}_${sanitize(tool)}`
+}
+
+export interface McpToolMetadata {
+  /** Name the model calls the tool by. */
+  name: string
+  /** Permission action the runtime matches rules against. */
+  permission: string
+  server: string
+  tool: string
+}
+
+/** Identity of an MCP tool once it is namespaced by its owning server. */
+export function mcpToolMetadata(server: string, tool: string): McpToolMetadata {
+  const name = mcpToolName(server, tool)
+  return { name, permission: name, server, tool }
+}
+
 function remoteURL(key: string, value: string) {
   if (URL.canParse(value)) return new URL(value)
   log.warn("invalid remote mcp url", { key })
@@ -147,7 +185,7 @@ function listTools(key: string, client: MCPClient, timeout: number) {
 
       log.warn("failed to validate MCP tool output schemas, retrying without output schema validation", { key, error })
       return Effect.tryPromise({
-        try: () => client.request({ method: "tools/list" }, TolerantListToolsResultSchema, { timeout }),
+        try: () => client.request({ method: "tools/list" }, tolerantListToolsResultSchema, { timeout }),
         catch: (err) => (err instanceof Error ? err : new Error(String(err))),
       }).pipe(
         Effect.map((result) =>
@@ -162,8 +200,50 @@ function listTools(key: string, client: MCPClient, timeout: number) {
   )
 }
 
+// Permission requests need a session ID; MCP tools execute outside the native
+// tool context, so all MCP approvals share a synthetic session bucket.
+const MCP_PERMISSION_SESSION = SessionID.make("ses_mcp_permission")
+
+/** Permission name used for MCP tool approvals, e.g. `mcp:github`. */
+export function mcpPermissionName(server: string): string {
+  return `mcp:${server}`
+}
+
+/**
+ * MCP tools can declare `annotations.readOnlyHint`. Read-only tools are safe to
+ * execute without prompting; everything else goes through `Permission.ask`.
+ */
+export function isReadOnlyMcpTool(tool: Pick<MCPToolDef, "annotations">): boolean {
+  return tool.annotations?.readOnlyHint === true
+}
+
+/** Non-read-only MCP tools must pass through `Permission.ask`. */
+export function shouldGateMcpTool(tool: Pick<MCPToolDef, "annotations">): boolean {
+  return !isReadOnlyMcpTool(tool)
+}
+
+/**
+ * Runtime approval decision. `readOnlyHint` is declared by the MCP server, so
+ * it is untrusted: it only skips the prompt when the user explicitly allowed
+ * this server/tool in config. Otherwise every MCP tool goes through
+ * `Permission.ask`, where `deny`/`ask` rules still apply.
+ */
+export function mcpToolRequiresApproval(
+  server: string,
+  tool: Pick<MCPToolDef, "name" | "annotations">,
+  ruleset: ReadonlyArray<{ permission: string; pattern: string; action: "allow" | "ask" | "deny" }>,
+): boolean {
+  if (!isReadOnlyMcpTool(tool)) return true
+  return PermissionPolicy.evaluate(mcpPermissionName(server), tool.name, [ruleset]).action !== "allow"
+}
+
 // Convert MCP tool definition to AI SDK Tool type
-function convertMcpTool(mcpTool: MCPToolDef, client: MCPClient, timeout?: number): Tool {
+function convertMcpTool(
+  mcpTool: MCPToolDef,
+  client: MCPClient,
+  timeout?: number,
+  gate?: (tool: MCPToolDef) => Promise<void>,
+): Tool {
   const inputSchema = mcpTool.inputSchema
 
   // Spread first, then override type to ensure it's always "object"
@@ -178,6 +258,7 @@ function convertMcpTool(mcpTool: MCPToolDef, client: MCPClient, timeout?: number
     description: mcpTool.description ?? "",
     inputSchema: jsonSchema(schema),
     execute: async (args: unknown) => {
+      await gate?.(mcpTool)
       return client.callTool(
         {
           name: mcpTool.name,
@@ -282,6 +363,7 @@ export const layer = Layer.effect(
     const spawner = yield* ChildProcessSpawner.ChildProcessSpawner
     const auth = yield* McpAuth.Service
     const bus = yield* Bus.Service
+    const permission = yield* Permission.Service
 
     type Transport = StdioClientTransport | StreamableHTTPClientTransport | SSEClientTransport
 
@@ -671,10 +753,26 @@ export const layer = Layer.effect(
     const tools = Effect.fn("MCP.tools")(function* () {
       const result: Record<string, Tool> = {}
       const s = yield* InstanceState.get(state)
+      const bridge = yield* EffectBridge.make()
 
       const cfg = yield* cfgSvc.get()
       const config = cfg.mcp ?? {}
       const defaultTimeout = cfg.experimental?.mcp_timeout
+      const ruleset = Permission.fromConfig(cfg.permission ?? {})
+
+      const gate = async (server: string, mcpTool: MCPToolDef) => {
+        if (!mcpToolRequiresApproval(server, mcpTool, ruleset)) return
+        await bridge.promise(
+          permission.ask({
+            sessionID: MCP_PERMISSION_SESSION,
+            permission: mcpPermissionName(server),
+            patterns: [mcpTool.name],
+            metadata: { server, tool: mcpTool.name },
+            always: [mcpTool.name],
+            ruleset,
+          }),
+        )
+      }
 
       const connectedClients = Object.entries(s.clients).filter(
         ([clientName]) => s.status[clientName]?.status === "connected",
@@ -695,7 +793,12 @@ export const layer = Layer.effect(
 
             const timeout = entry?.timeout ?? defaultTimeout
             for (const mcpTool of listed) {
-              result[sanitize(clientName) + "_" + sanitize(mcpTool.name)] = convertMcpTool(mcpTool, client, timeout)
+              result[mcpToolName(clientName, mcpTool.name)] = convertMcpTool(
+                mcpTool,
+                client,
+                timeout,
+                (tool) => gate(clientName, tool),
+              )
             }
           }),
         { concurrency: "unbounded" },
@@ -965,6 +1068,7 @@ export const defaultLayer = layer.pipe(
   Layer.provide(McpAuth.layer),
   Layer.provide(Bus.layer),
   Layer.provide(Config.defaultLayer),
+  Layer.provide(Permission.defaultLayer),
   Layer.provide(CrossSpawnSpawner.defaultLayer),
   Layer.provide(AppFileSystem.defaultLayer),
 )

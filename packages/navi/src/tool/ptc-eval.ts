@@ -17,7 +17,7 @@ import fsSync from "fs"
 import { spawnSync } from "node:child_process"
 const DESCRIPTION = "Executes async JavaScript/TypeScript programs that compose multiple tools in local loops without repetitive LLM round-trips."
 
-import { confineSync, DestructiveCommandGuard, isPathContained, SandboxPathGuard } from "@/sandbox"
+import { assertCommandContained, confineSync, DestructiveCommandGuard, isPathContained, SandboxPathGuard } from "@/sandbox"
 
 const log = Log.create({ service: "tool.ptc-eval" })
 
@@ -124,9 +124,14 @@ function createPtcBindings(baseDir: string): PtcHostBindings {
 
     async shell({ command }: { command: string }) {
       DestructiveCommandGuard.assertCommandSafe(command)
+      const policy = { mode: "workspace-write" as const, workspaceRoot: baseDir }
       const shellBin = process.platform === "win32" ? "cmd.exe" : "sh"
+      assertCommandContained(command, policy, {
+        cwd: baseDir,
+        shell: process.platform === "win32" ? "cmd" : "bash",
+      })
       const shellArgs = [process.platform === "win32" ? "/c" : "-c", command]
-      const confined = confineSync(shellBin, shellArgs, { mode: "workspace-write", workspaceRoot: baseDir })
+      const confined = confineSync(shellBin, shellArgs, policy)
       const res = spawnSync(confined.command, confined.args, {
         cwd: baseDir,
         env: confined.env,

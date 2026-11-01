@@ -1,4 +1,5 @@
 import * as Log from "@navi-ai/core/util/log"
+import { isNetworkBlocked, type Policy } from "./net-guard"
 
 const log = Log.create({ service: "search-pipeline" })
 
@@ -60,6 +61,7 @@ export async function executeSearchPipeline(
   query: string,
   numResults: number,
   preferredProviders?: SearchProvider[],
+  policy?: Policy,
 ): Promise<SearchExecution> {
   const providerOrder = resolveProviderOrder(preferredProviders)
   const attemptedProviders: SearchProvider[] = []
@@ -71,16 +73,19 @@ export async function executeSearchPipeline(
 
       if (provider === "browser") {
         const { webSearch } = await import("./browser-engine")
-        results = await webSearch(query, numResults)
+        results = await webSearch(query, numResults, policy)
       } else {
         const { searchWithProvider } = await import("./http-search")
-        results = await searchWithProvider(provider, query, numResults)
+        results = await searchWithProvider(provider, query, numResults, policy)
       }
 
       if (results.length > 0) {
         return { provider, attemptedProviders, results }
       }
     } catch (error) {
+      // A policy denial is not a transient provider failure: fail closed
+      // instead of silently trying another backend.
+      if (isNetworkBlocked(error)) throw error
       log.warn("search provider failed", { provider, error: String(error) })
     }
   }

@@ -1,5 +1,6 @@
 import { Duration, Effect, Schema } from "effect"
-import { HttpClient, HttpClientRequest } from "effect/unstable/http"
+import { FetchHttpClient, HttpClient, HttpClientRequest } from "effect/unstable/http"
+import * as NetworkPolicy from "@/permission/network"
 
 export const EXA_URL = process.env.EXA_API_KEY
   ? `https://mcp.exa.ai/mcp?exaApiKey=${encodeURIComponent(process.env.EXA_API_KEY)}`
@@ -71,6 +72,14 @@ const McpRequest = <F extends Schema.Struct.Fields>(args: Schema.Struct<F>) =>
     }),
   })
 
+export interface CallOptions {
+  /**
+   * Egress policy resolved by the calling tool. Omitted falls back to the
+   * environment-only policy so direct callers still fail closed.
+   */
+  policy?: NetworkPolicy.NetworkPolicy
+}
+
 export const call = <F extends Schema.Struct.Fields>(
   http: HttpClient.HttpClient,
   url: string,
@@ -79,8 +88,13 @@ export const call = <F extends Schema.Struct.Fields>(
   value: Schema.Struct.Type<F>,
   timeout: Duration.Input,
   headers?: Record<string, string>,
+  options?: CallOptions,
 ) =>
   Effect.gen(function* () {
+    // Fixed MCP endpoints: validate once per call, before the request, so a
+    // policy can block the backend.
+    NetworkPolicy.assertUrlAllowed(url, options?.policy ?? NetworkPolicy.resolve(undefined))
+
     const request = yield* HttpClientRequest.post(url).pipe(
       HttpClientRequest.accept("application/json, text/event-stream"),
       HttpClientRequest.setHeaders(headers ?? {}),
@@ -94,6 +108,8 @@ export const call = <F extends Schema.Struct.Fields>(
     const response = yield* HttpClient.filterStatusOk(http)
       .execute(request)
       .pipe(
+        // Refuse redirects: the URL validated above must be the URL called.
+        Effect.provideService(FetchHttpClient.RequestInit, { redirect: "manual" }),
         Effect.timeoutOrElse({ duration: timeout, orElse: () => Effect.die(new Error(`${tool} request timed out`)) }),
       )
     const body = yield* response.text

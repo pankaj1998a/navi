@@ -1,0 +1,209 @@
+{
+  "_meta": {
+    "description": "Verified site interaction protocols. Agents MUST read this before navigating any AI site. If a protocol exists and is not stale (last_verified within 30 days), use it directly — do NOT run snapshot discovery. After successfully interacting with a site, update the protocol entry.",
+    "format_version": "1",
+    "update_instruction": "After a successful send+receive cycle, update the matching site entry: set last_verified to today's date (YYYY-MM-DD), update selectors if they changed, and save this file."
+  },
+  "sites": {
+    "chatgpt.com": {
+      "url": "https://chatgpt.com",
+      "session_name": "chatgpt",
+      "last_verified": "2026-06-27",
+      "input": {
+        "method": "fill",
+        "selector": "@e99",
+        "selector_fallback": "div[data-testid='composer-input'], textarea#prompt-textarea, [contenteditable='true']",
+        "mode": "contenteditable",
+        "notes": "@e99 is the 'Chat with ChatGPT' textbox (contenteditable DIV). Refs change between sessions — always snapshot to confirm."
+      },
+      "send": {
+        "method": "click",
+        "selector": "@e101",
+        "selector_fallback": "button[data-testid='send-button'], button[aria-label='Send prompt']",
+        "notes": "@e101 is the 'Send prompt' button. Refs change between sessions — always snapshot to confirm."
+      },
+      "wait_seconds": 15,
+      "response_extract": {
+        "method": "evaluate",
+        "code": "Array.from(document.querySelectorAll('div[data-message-author-role=\"assistant\"]')).map(el => el.innerText).join('\\n---\\n')"
+      }
+    },
+    "chat.deepseek.com": {
+      "url": "https://chat.deepseek.com",
+      "session_name": "deepseek",
+      "last_verified": "2026-06-30",
+      "input": {
+        "method": "evaluate_iife",
+        "notes": "fill FAILS on DeepSeek — must use native setter via IIFE",
+        "code_template": "(() => { const ta = document.querySelector('textarea'); ta.focus(); const s = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value').set; s.call(ta, '{{MESSAGE}}'); ta.dispatchEvent(new Event('input', {bubbles: true})); })()"
+      },
+      "send": {
+        "method": "evaluate",
+        "notes": "click on submit does not work — dispatch Enter keydown on textarea",
+        "code": "(() => { document.querySelector('textarea').dispatchEvent(new KeyboardEvent('keydown', {key:'Enter',keyCode:13,bubbles:true})); })()"
+      },
+      "wait_seconds": 20,
+      "response_extract": {
+        "method": "evaluate",
+        "code": "document.body.innerText"
+      }
+    },
+    "kimi.com": {
+      "url": "https://kimi.com",
+      "session_name": "kimi",
+      "last_verified": "2026-06-04",
+      "input": {
+        "method": "fill",
+        "selector": "@e17",
+        "selector_fallback": "div[contenteditable='true']",
+        "mode": "contenteditable",
+        "notes": "@e17 is the contenteditable DIV input"
+      },
+      "send": {
+        "method": "evaluate",
+        "notes": "Find and click submit button, or dispatch Enter",
+        "code": "(() => { const btn = document.querySelector('button[type=\"submit\"]') || document.querySelector('[aria-label=\"Send\"]'); if (btn) { btn.click(); } else { document.querySelector('[contenteditable]').dispatchEvent(new KeyboardEvent('keydown', {key:'Enter',bubbles:true})); } })()"
+      },
+      "wait_seconds": 10,
+      "response_extract": {
+        "method": "evaluate",
+        "code": "document.body.innerText"
+      }
+    },
+    "gemini.google.com": {
+      "url": "https://gemini.google.com",
+      "session_name": "gemini",
+      "last_verified": "2026-06-28",
+      "input": {
+        "method": "fill",
+        "selector": "div.ql-editor",
+        "selector_fallback": "div[contenteditable='true'][role='textbox']",
+        "mode": "contenteditable",
+        "notes": "Gemini uses Quill editor (div.ql-editor). The old 'rich-textarea' selector does NOT exist. fill works on div.ql-editor in contenteditable mode."
+      },
+      "send": {
+        "method": "evaluate",
+        "selector": "button[aria-label='Send message']",
+        "code": "(() => { const btn = document.querySelector('button[aria-label=\"Send message\"]'); if (btn) { btn.dispatchEvent(new MouseEvent('click', {bubbles:true,cancelable:true})); return 'ok'; } return 'not found'; })()",
+        "notes": "Plain click() fails — use evaluate to dispatch MouseEvent. Button has class 'mdc-icon-button' and is enabled when input has text."
+      },
+      "wait_seconds": 15,
+      "response_extract": {
+        "method": "evaluate",
+        "code": "Array.from(document.querySelectorAll('model-response')).map(el => el.innerText).join('\\n---\\n')"
+      }
+    },
+    "claude.ai": {
+      "url": "https://claude.ai",
+      "session_name": "claude",
+      "last_verified": null,
+      "input": {
+        "method": "fill",
+        "selector": "div[contenteditable='true'].ProseMirror",
+        "selector_fallback": "div[contenteditable='true']",
+        "mode": "contenteditable",
+        "notes": "Unverified — run snapshot on first use and update"
+      },
+      "send": {
+        "method": "evaluate",
+        "code": "(() => { const btn = document.querySelector('button[aria-label=\"Send Message\"]') || document.querySelector('button[type=\"submit\"]'); if (btn) btn.click(); })()",
+        "notes": "Unverified — confirm with snapshot"
+      },
+      "wait_seconds": 15,
+      "response_extract": {
+        "method": "evaluate",
+        "code": "Array.from(document.querySelectorAll('[data-is-streaming=\"false\"] .font-claude-message')).map(el => el.innerText).join('\\n---\\n')"
+      }
+    },
+     "perplexity.ai": {
+       "url": "https://perplexity.ai",
+       "session_name": "perplexity",
+       "last_verified": "2026-06-27",
+       "input": {
+         "method": "fill",
+         "selector": "@e43",
+         "selector_fallback": "div[contenteditable='true'][role='textbox']",
+         "mode": "contenteditable",
+         "notes": "@e43 = contenteditable DIV textbox (placeholder 'Type / for search modes'). fill works in contenteditable mode."
+       },
+       "send": {
+         "method": "evaluate",
+         "selector": "@e45",
+         "selector_fallback": "button:has-text('Search')",
+         "code": "(() => { const tb = document.querySelector('[role=\"textbox\"]') || document.querySelector('div[contenteditable=\"true\"]'); if (tb) { tb.dispatchEvent(new KeyboardEvent('keydown', {key:'Enter',keyCode:13,bubbles:true})); return 'ok'; } return 'not found'; })()",
+         "notes": "click on @e45 (Search button) fails with 'Uncaught'. Use evaluate to dispatch Enter keydown on the textbox instead."
+       },
+       "wait_seconds": 14,
+       "response_extract": {
+         "method": "evaluate",
+         "code": "document.body.innerText"
+       }
+     }
+    },
+    "grok.com": {
+      "url": "https://grok.com",
+      "session_name": "grok",
+      "last_verified": null,
+      "input": {
+        "method": "fill",
+        "selector": "textarea",
+        "mode": "value",
+        "notes": "Unverified — run snapshot on first use and update"
+      },
+      "send": {
+        "method": "click",
+        "selector": "button[type='submit']",
+        "notes": "Unverified — confirm with snapshot"
+      },
+      "wait_seconds": 15,
+      "response_extract": {
+        "method": "evaluate",
+        "code": "document.body.innerText"
+      }
+    },
+    "copilot.microsoft.com": {
+      "url": "https://copilot.microsoft.com",
+      "session_name": "copilot",
+      "last_verified": null,
+      "input": {
+        "method": "fill",
+        "selector": "textarea[id='searchbox']",
+        "mode": "value",
+        "notes": "Unverified — run snapshot on first use and update"
+      },
+      "send": {
+        "method": "click",
+        "selector": "button[aria-label='Submit']",
+        "notes": "Unverified — confirm with snapshot"
+      },
+      "wait_seconds": 12,
+      "response_extract": {
+        "method": "evaluate",
+        "code": "document.body.innerText"
+      }
+    },
+    "agent.minimax.io": {
+      "url": "https://agent.minimax.io/",
+      "session_name": "minimax",
+      "last_verified": "2026-06-28",
+      "input": {
+        "method": "fill",
+        "selector": "div.tiptap.ProseMirror.rich-text-editor",
+        "selector_fallback": "div[contenteditable='true'].ProseMirror",
+        "mode": "contenteditable",
+        "notes": "TipTap rich text editor (div.tiptap). fill works in contenteditable mode. The contenteditable div has no @e ref — use CSS selector."
+      },
+      "send": {
+        "method": "click",
+        "selector": "@e30",
+        "selector_fallback": "button[aria-label='Send message']",
+        "notes": "@e30 = 'Send message' button. Enabled when input has text."
+      },
+      "wait_seconds": 15,
+      "response_extract": {
+        "method": "evaluate",
+        "code": "Array.from(document.querySelectorAll('div.matrix-markdown.message-content')).map(el => el.innerText).join('\\n---\\n')"
+      }
+    }
+  }
+}

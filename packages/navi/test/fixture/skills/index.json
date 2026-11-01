@@ -1,6 +1,21 @@
 {
   "skills": [
-    { "name": "agents-sdk", "description": "Cloudflare Agents SDK", "files": ["SKILL.md", "references/callable.md"] },
-    { "name": "cloudflare", "description": "Cloudflare Platform Skill", "files": ["SKILL.md"] }
+    {
+      "name": "agents-sdk",
+      "description": "Cloudflare Agents SDK",
+      "files": ["SKILL.md", "references/callable.md"],
+      "checksums": {
+        "SKILL.md": "b0a97749c4587653cc973ac8ab5d399762afa790a00905293470fb5c370c1658",
+        "references/callable.md": "ca80074a485120b260d8913e9848c18fd4f3c288cf159a8eae52679206357e41"
+      }
+    },
+    {
+      "name": "cloudflare",
+      "description": "Cloudflare Platform Skill",
+      "files": ["SKILL.md"],
+      "checksums": {
+        "SKILL.md": "5244ac56bebf39d925da132988543089942c68b3f29958d39eeadf82debf4d79"
+      }
+    }
   ]
 }

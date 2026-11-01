@@ -1536,3 +1536,54 @@ test("revert handles large mixed batches across chunk boundaries", async () => {
     },
   })
 })
+
+test("cached tree captures still observe later edits", async () => {
+  await using tmp = await bootstrap()
+  await WithInstance.provide({
+    directory: tmp.path,
+    fn: async () => {
+      const result = await Effect.runPromise(
+        Effect.gen(function* () {
+          const snapshot = yield* Snapshot.Service
+          const first = yield* snapshot.track()
+          // Reused from the previous capture: nothing was staged.
+          const second = yield* snapshot.track()
+          yield* Effect.promise(() => Filesystem.write(`${tmp.path}/cached-edit.txt`, "CACHED"))
+          const third = yield* snapshot.track()
+          const patch = yield* snapshot.patch(first!)
+          yield* Effect.promise(() => Filesystem.write(`${tmp.path}/cached-edit.txt`, "SECOND EDIT"))
+          const fourth = yield* snapshot.track()
+          return { first, second, third, fourth, patch }
+        }).pipe(provideInstance(tmp.path), Effect.provide(Snapshot.defaultLayer)),
+      )
+
+      expect(result.second).toBe(result.first)
+      expect(result.third).not.toBe(result.first)
+      expect(result.fourth).not.toBe(result.third)
+      expect(result.patch.files).toContain(fwd(tmp.path, "cached-edit.txt"))
+    },
+  })
+})
+
+test("restore invalidates the cached tree", async () => {
+  await using tmp = await bootstrap()
+  await WithInstance.provide({
+    directory: tmp.path,
+    fn: async () => {
+      const result = await Effect.runPromise(
+        Effect.gen(function* () {
+          const snapshot = yield* Snapshot.Service
+          const first = yield* snapshot.track()
+          yield* Effect.promise(() => Filesystem.write(`${tmp.path}/b.txt`, "MODIFIED"))
+          const second = yield* snapshot.track()
+          yield* snapshot.restore(first!)
+          const restored = yield* snapshot.track()
+          return { first, second, restored }
+        }).pipe(provideInstance(tmp.path), Effect.provide(Snapshot.defaultLayer)),
+      )
+
+      expect(result.second).not.toBe(result.first)
+      expect(result.restored).toBe(result.first)
+    },
+  })
+})

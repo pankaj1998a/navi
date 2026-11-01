@@ -1,6 +1,7 @@
 import { Effect, Schema } from "effect"
 import * as Tool from "./tool"
 import { webScrape, autoScrape } from "./browser-engine"
+import { assertAllowed, isNetworkBlocked, resolvePolicy } from "./net-guard"
 
 export const ScrapeField = Schema.Struct({
   name: Schema.String.annotate({ description: "Field name for the extracted data" }),
@@ -33,6 +34,15 @@ export const WebScrapeTool = Tool.define(
       parameters: Parameters,
       execute: (params: Schema.Schema.Type<typeof Parameters>, ctx: Tool.Context) =>
         Effect.gen(function* () {
+          if (!params.url.startsWith("http://") && !params.url.startsWith("https://")) {
+            throw new Error("URL must start with http:// or https://")
+          }
+
+          // Egress allowlist first: a denied host must fail before the SSRF
+          // probe, the permission prompt, or any browser launch.
+          const policy = yield* resolvePolicy()
+          assertAllowed(params.url, policy)
+
           const { assertSafeExternalUrl } = yield* Effect.promise(() => import("@/util/ssrf"))
           yield* Effect.promise(() => assertSafeExternalUrl(params.url))
 
@@ -49,11 +59,14 @@ export const WebScrapeTool = Tool.define(
               if (!params.fields || params.fields.length === 0) {
                 throw new Error("'custom' mode requires at least one field with a CSS selector.")
               }
-              result = yield* Effect.promise(() => webScrape(params.url, params.fields! as any))
+              result = yield* Effect.promise(() => webScrape(params.url, params.fields! as any, policy))
             } else {
-              result = yield* Effect.promise(() => autoScrape(params.url))
+              result = yield* Effect.promise(() => autoScrape(params.url, policy))
             }
           } catch (err) {
+            // Policy denials are surfaced verbatim instead of being rewritten
+            // into a generic scrape failure.
+            if (isNetworkBlocked(err)) throw err
             const msg = err instanceof Error ? err.message : String(err)
             throw new Error(`Scrape failed for ${params.url}: ${msg}`)
           }

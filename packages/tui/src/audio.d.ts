@@ -1,9 +1,9 @@
-declare module "*.mp3" {
+declare module "*.aac" {
   const path: string
   export default path
 }
 
-declare module "@navi-ai/ui/audio/*.mp3" {
+declare module "@navi-ai/ui/audio/*.aac" {
   const path: string
   export default path
 }

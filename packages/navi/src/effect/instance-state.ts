@@ -1,9 +1,9 @@
-import { Effect, Fiber, ScopedCache, Scope, Context } from "effect"
+import { Duration, Effect, Fiber, Option, ScopedCache, Scope, Context } from "effect"
 import * as EffectLogger from "@navi-ai/core/effect/logger"
 import { Instance, type InstanceContext } from "@/project/instance"
 import { LocalContext } from "@/util/local-context"
 import { InstanceRef, WorkspaceRef } from "./instance-ref"
-import { registerDisposer } from "./instance-registry"
+import { disposeTimeoutMs, registerDisposer } from "./instance-registry"
 import { WorkspaceContext } from "@/control-plane/workspace-context"
 
 const TypeId = "~navi/InstanceState"
@@ -48,7 +48,21 @@ export const make = <A, E = never, R = never>(
     })
 
     const off = registerDisposer((directory) =>
-      Effect.runPromise(ScopedCache.invalidate(cache, directory).pipe(Effect.provide(EffectLogger.layer))),
+      Effect.runPromise(
+        ScopedCache.invalidate(cache, directory).pipe(
+          Effect.provide(EffectLogger.layer),
+          // Bound cache invalidation so a wedged finalizer cannot stall
+          // instance disposal (and therefore CLI exit) indefinitely.
+          Effect.timeoutOption(Duration.millis(disposeTimeoutMs())),
+          Effect.flatMap((result) =>
+            Option.isNone(result)
+              ? Effect.logWarning("InstanceState invalidation timed out; abandoning finalizers", {
+                  directory,
+                })
+              : Effect.void,
+          ),
+        ),
+      ),
     )
     yield* Effect.addFinalizer(() => Effect.sync(off))
 

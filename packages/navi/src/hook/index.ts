@@ -28,6 +28,8 @@ export type { AggregatedHookResult } from "./runner"
 
 export {
   loadHooks,
+  loadHooksOnce,
+  refreshHooks,
   registerFunctionHook,
   unregisterFunctionHook,
   fire,
@@ -49,3 +51,6 @@ export { registerFunctionHook as register } from "./registry"
 export { unregisterFunctionHook as unregister } from "./registry"
 
 export { runHook, runHooks } from "./runner"
+
+// Effect wrappers (non-fatal; enforce block semantics at the call site)
+export * as HookEffect from "./effect"

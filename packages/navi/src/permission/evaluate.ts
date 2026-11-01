@@ -1,4 +1,5 @@
 import { Wildcard } from "@/util/wildcard"
+import { Policy } from "./policy"
 
 type Rule = {
   permission: string
@@ -6,10 +7,22 @@ type Rule = {
   action: "allow" | "deny" | "ask"
 }
 
-export function evaluate(permission: string, pattern: string, ...rulesets: Rule[][]): Rule {
+/**
+ * Return the last matching rule, or `undefined` when no rule applies.
+ *
+ * Unlike `evaluate`, this lets the runtime distinguish an explicit `ask` rule
+ * from the default (no rule) so the configured mode can supply the fallback.
+ */
+export function match(permission: string, pattern: string, ...rulesets: Rule[][]): Rule | undefined {
   const rules = rulesets.flat()
-  const match = rules.findLast(
-    (rule) => Wildcard.match(permission, rule.permission) && Wildcard.match(pattern, rule.pattern),
+  return rules.findLast(
+    (rule) =>
+      Wildcard.match(permission, rule.permission) && Policy.matchesPattern(permission, pattern, rule.pattern),
   )
-  return match ?? { action: "ask", permission, pattern: "*" }
 }
+
+export function evaluate(permission: string, pattern: string, ...rulesets: Rule[][]): Rule {
+  return match(permission, pattern, ...rulesets) ?? { action: "ask", permission, pattern: "*" }
+}
+
+export * as Evaluate from "./evaluate"

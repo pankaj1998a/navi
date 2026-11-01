@@ -7,6 +7,14 @@ export interface InboxState {
 
 export type WakeReason = "followup" | "steer" | "inject"
 
+function cloneItem<T>(item: T): T {
+  if (typeof item === "object" && item !== null) {
+    if (Array.isArray(item)) return [...item] as unknown as T
+    return { ...item }
+  }
+  return item
+}
+
 export class Inbox {
   private state: InboxState = { nextTurn: [], nextStep: [] }
 
@@ -17,8 +25,8 @@ export class Inbox {
   }
 
   send(message: unknown, target: InboxTarget, wake = true): { target: InboxTarget; wake: boolean } {
-    if (target === "next-turn") this.state.nextTurn.push(structuredClone(message))
-    else this.state.nextStep.push(structuredClone(message))
+    if (target === "next-turn") this.state.nextTurn.push(cloneItem(message))
+    else this.state.nextStep.push(cloneItem(message))
     return { target, wake }
   }
 
@@ -36,7 +44,7 @@ export class Inbox {
 
   splice(start: number, deleteCount: number, items: unknown[] = []): void {
     const merged = [...this.state.nextTurn, ...this.state.nextStep]
-    merged.splice(start, deleteCount, ...items.map((i) => structuredClone(i)))
+    merged.splice(start, deleteCount, ...items.map((i) => cloneItem(i)))
     const turnLen = this.state.nextTurn.length
     this.state.nextTurn = merged.slice(0, turnLen)
     this.state.nextStep = merged.slice(turnLen)

@@ -1,5 +1,6 @@
 import { afterEach, describe, expect } from "bun:test"
 import { Cause, Effect, Exit, Layer } from "effect"
+import fs from "fs/promises"
 import path from "path"
 import { Agent } from "../../src/agent/agent"
 import { CrossSpawnSpawner } from "@navi-ai/core/cross-spawn-spawner"
@@ -596,6 +597,135 @@ describe("tool.read binary detection", () => {
 
       const err = yield* fail(dir, { filePath: path.join(dir, "module.wasm") })
       expect(err.message).toContain("Cannot read binary file")
+    }),
+  )
+})
+
+describe("tool.read secret file routing", () => {
+  it.live("reads safelisted .env examples without prompting", () =>
+    Effect.gen(function* () {
+      const dir = yield* tmpdirScoped()
+      yield* put(path.join(dir, ".env.example"), "API_URL=https://example.com")
+      yield* put(path.join(dir, ".env.sample"), "API_URL=https://example.com")
+
+      let asked = false
+      const next = {
+        ...ctx,
+        ask: () => Effect.sync(() => void (asked = true)),
+      }
+
+      const example = yield* exec(dir, { filePath: path.join(dir, ".env.example") }, next)
+      expect(example.output).toContain("API_URL=https://example.com")
+      const sample = yield* exec(dir, { filePath: path.join(dir, ".env.sample") }, next)
+      expect(sample.output).toContain("API_URL=https://example.com")
+      expect(asked).toBe(false)
+    }),
+  )
+
+  it.live(".env routes through Permission.ask and reads when allowed", () =>
+    Effect.gen(function* () {
+      const dir = yield* tmpdirScoped({ git: true })
+      yield* put(path.join(dir, ".env"), "SECRET=super-secret")
+
+      const patterns: string[] = []
+      const next = {
+        ...ctx,
+        ask: (req: Omit<Permission.Request, "id" | "sessionID" | "tool">) =>
+          Effect.sync(() => {
+            patterns.push(...req.patterns)
+          }),
+      }
+
+      const result = yield* exec(dir, { filePath: path.join(dir, ".env") }, next)
+      expect(patterns).toEqual([".env"])
+      expect(result.output).toContain("SECRET=super-secret")
+    }),
+  )
+
+  it.live(".env is denied when the permission layer rejects", () =>
+    Effect.gen(function* () {
+      const dir = yield* tmpdirScoped()
+      yield* put(path.join(dir, ".env"), "SECRET=super-secret")
+
+      const next = {
+        ...ctx,
+        ask: () =>
+          Effect.sync(() => {
+            throw new Permission.DeniedError({ ruleset: [] })
+          }),
+      }
+
+      const err = yield* fail(dir, { filePath: path.join(dir, ".env") }, next)
+      expect(err).toBeInstanceOf(Permission.DeniedError)
+    }),
+  )
+
+  it.live("key material is permission-routed instead of hard-thrown", () =>
+    Effect.gen(function* () {
+      const dir = yield* tmpdirScoped()
+      yield* put(path.join(dir, "server.pem"), "-----BEGIN PRIVATE KEY-----\nMIIB\n-----END PRIVATE KEY-----")
+
+      const result = yield* exec(dir, { filePath: path.join(dir, "server.pem") })
+      expect(result.output).toContain("BEGIN PRIVATE KEY")
+    }),
+  )
+
+  it.live("case-insensitive and multi-suffix examples stay safelisted", () =>
+    Effect.gen(function* () {
+      const dir = yield* tmpdirScoped()
+      yield* put(path.join(dir, ".ENV.EXAMPLE"), "A=1")
+      yield* put(path.join(dir, ".env.local.example"), "A=1")
+      yield* put(path.join(dir, ".env.example.dist"), "A=1")
+
+      let asked = false
+      const next = {
+        ...ctx,
+        ask: () => Effect.sync(() => void (asked = true)),
+      }
+
+      for (const name of [".ENV.EXAMPLE", ".env.local.example", ".env.example.dist"]) {
+        yield* exec(dir, { filePath: path.join(dir, name) }, next)
+      }
+      expect(asked).toBe(false)
+    }),
+  )
+
+  it.live("a safelisted name that symlinks to a real secret is still treated as a secret", () =>
+    Effect.gen(function* () {
+      const dir = yield* tmpdirScoped()
+      yield* put(path.join(dir, ".env"), "SECRET=super-secret")
+      const link = path.join(dir, ".env.example")
+      try {
+        yield* Effect.promise(() => fs.symlink(path.join(dir, ".env"), link))
+      } catch {
+        // Windows without developer mode cannot create symlinks; skip.
+        return
+      }
+
+      const env = yield* exec(dir, { filePath: link })
+      // The permission layer allowed it in this harness, but the permission
+      // pattern must point at the real target, not the safelisted alias.
+      expect(env.output).toContain("SECRET=super-secret")
+
+      const { items, next } = asks()
+      yield* exec(dir, { filePath: link }, next)
+      const read = items.find((item) => item.permission === "read")
+      expect(read?.metadata?.sensitive).toBe(true)
+    }),
+  )
+
+  it.live("ssh and key-store files are secret-classified", () =>
+    Effect.gen(function* () {
+      const dir = yield* tmpdirScoped({ git: true })
+      yield* put(path.join(dir, "id_rsa"), "-----BEGIN OPENSSH PRIVATE KEY-----\nabc")
+      yield* put(path.join(dir, "client.pfx"), "binary")
+
+      const { items, next } = asks()
+      yield* exec(dir, { filePath: path.join(dir, "id_rsa") }, next)
+      yield* exec(dir, { filePath: path.join(dir, "client.pfx") }, next)
+      const tracked = items.filter((item) => item.permission === "read")
+      expect(tracked.every((item) => item.metadata?.sensitive === true)).toBe(true)
+      expect(tracked.map((item) => item.patterns[0])).toEqual(["id_rsa", "client.pfx"])
     }),
   )
 })

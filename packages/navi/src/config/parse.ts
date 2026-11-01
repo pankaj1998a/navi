@@ -49,8 +49,11 @@ export function effectSchema<S extends EffectSchema.Decoder<unknown, never>>(
   schema: S,
   data: unknown,
   source: string,
+  options?: { lenientTopLevel?: boolean },
 ): DeepMutable<S["Type"]> {
-  const extra = topLevelExtraKeys(schema, data)
+  // Lenient callers accept config written for a newer version: unknown
+  // top-level keys are pruned by the struct decoder instead of rejected.
+  const extra = options?.lenientTopLevel ? [] : topLevelExtraKeys(schema, data)
   if (extra.length) {
     throw new InvalidError({
       path: source,

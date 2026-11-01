@@ -1176,6 +1176,10 @@ export function fromError(
       ).toObject()
     case OutputLengthError.isInstance(e):
       return e
+    // Budget stops are raised as typed errors by the processor's guard. Preserve
+    // the BudgetExceededError shape instead of degrading it to UnknownError.
+    case BudgetExceededError.isInstance(e):
+      return e.toObject()
     case LoadAPIKeyError.isInstance(e):
       return new AuthError(
         {

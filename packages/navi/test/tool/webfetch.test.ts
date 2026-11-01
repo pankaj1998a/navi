@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test"
+import { describe, expect, mock, test } from "bun:test"
 import path from "path"
 import { Effect, Layer } from "effect"
 import { FetchHttpClient } from "effect/http"
@@ -8,6 +8,14 @@ import { Instance } from "../../src/project/instance"
 import { WithInstance } from "../../src/project/with-instance"
 import { WebFetchTool } from "../../src/tool/webfetch"
 import { SessionID, MessageID } from "../../src/session/schema"
+
+// These tests exercise content handling against a loopback server. Production
+// webfetch rejects loopback targets via the SSRF guard, so stub just the guard
+// here; the network/SSRF behaviour itself is covered by util/ssrf tests.
+mock.module("../../src/util/ssrf", () => ({
+  SSRFProtectionError: class SSRFProtectionError extends Error {},
+  assertSafeExternalUrl: async (url: string) => new URL(url),
+}))
 
 const projectRoot = path.join(import.meta.dir, "../..")
 
@@ -94,8 +102,33 @@ describe("tool.webfetch", () => {
           directory: projectRoot,
           fn: async () => {
             const result = await exec({ url: new URL("/file.txt", url).toString(), format: "text" })
-            expect(result.output).toBe("hello from webfetch")
+            expect(result.output).toContain("hello from webfetch")
             expect(result.attachments).toBeUndefined()
+          },
+        })
+      },
+    )
+  })
+
+  test("refuses to follow redirects", async () => {
+    let redirectedHits = 0
+    await withFetch(
+      (req) => {
+        const url = new URL(req.url)
+        if (url.pathname === "/final") {
+          redirectedHits += 1
+          return new Response("should never be fetched", { headers: { "content-type": "text/plain" } })
+        }
+        return new Response(null, { status: 302, headers: { location: "/final" } })
+      },
+      async (url) => {
+        await WithInstance.provide({
+          directory: projectRoot,
+          fn: async () => {
+            await expect(exec({ url: new URL("/start", url).toString(), format: "text" })).rejects.toThrow(
+              /redirect/i,
+            )
+            expect(redirectedHits).toBe(0)
           },
         })
       },

@@ -104,30 +104,89 @@ export const layer: Layer.Layer<Service, never, AppFileSystem.Service | HttpClie
   Service,
   Effect.gen(function* () {
     const fs = yield* AppFileSystem.Service
-    const http = HttpClient.filterStatusOk(withTransientReadRetry(yield* HttpClient.HttpClient))
+    // Conditional requests need the raw response (304 is not an error), so the
+    // status check happens below instead of through `filterStatusOk`.
+    const http = withTransientReadRetry(yield* HttpClient.HttpClient)
 
     const source = Flag.NAVI_MODELS_URL || "https://models.dev"
     const filepath = path.join(
       Global.Path.cache,
       source === "https://models.dev" ? "models.json" : `models-${Hash.fast(source)}.json`,
     )
+    // Validators (ETag / Last-Modified) live beside the payload so the catalog
+    // file stays a plain providers map for every other reader.
+    const metaPath = `${filepath}.meta.json`
     const ttl = Duration.minutes(5)
     const lockKey = `models-dev:${filepath}`
 
-    const fresh = Effect.fnUntraced(function* () {
+    type Validators = { etag?: string; lastModified?: string; fetchedAt?: number }
+
+    const readValidators: Effect.Effect<Validators> = fs.readJson(metaPath).pipe(
+      Effect.catch(() => Effect.succeed(undefined)),
+      Effect.map((value) => {
+        const meta = value as Validators | undefined
+        if (!meta || typeof meta !== "object") return {} as Validators
+        return {
+          etag: typeof meta.etag === "string" ? meta.etag : undefined,
+          lastModified: typeof meta.lastModified === "string" ? meta.lastModified : undefined,
+          fetchedAt: typeof meta.fetchedAt === "number" ? meta.fetchedAt : undefined,
+        }
+      }),
+    )
+
+    const writeValidators = (validators: Validators) =>
+      fs.writeWithDirs(metaPath, JSON.stringify(validators)).pipe(Effect.catch(() => Effect.void))
+
+    const payloadMtime = Effect.fnUntraced(function* () {
       const stat = yield* fs.stat(filepath).pipe(Effect.catch(() => Effect.succeed(undefined)))
-      if (!stat) return false
-      const mtime = Option.getOrElse(stat.mtime, () => new Date(0)).getTime()
-      return Date.now() - mtime < Duration.toMillis(ttl)
+      if (!stat) return undefined
+      return Option.getOrElse(stat.mtime, () => new Date(0)).getTime()
     })
 
+    const fresh = Effect.fnUntraced(function* () {
+      const mtime = yield* payloadMtime()
+      // A 304 does not rewrite the payload, so the last confirmed-fresh time is
+      // whichever is newer: the file write or the successful revalidation.
+      const fetchedAt = (yield* readValidators).fetchedAt ?? 0
+      const at = Math.max(mtime ?? 0, fetchedAt)
+      if (!at) return false
+      return Date.now() - at < Duration.toMillis(ttl)
+    })
+
+    /**
+     * Fetch the catalog. Conditional (`If-None-Match` / `If-Modified-Since`) only
+     * when the payload it would validate is actually on disk, so a first run still
+     * receives a full body. Returns `undefined` on `304 Not Modified`.
+     */
     const fetchApi = Effect.fn("ModelsDev.fetchApi")(function* () {
-      return yield* HttpClientRequest.get(`${source}/api.json`).pipe(
+      const conditional = yield* fs.existsSafe(filepath)
+      const validators = conditional ? yield* readValidators : ({} as Validators)
+      let request = HttpClientRequest.get(`${source}/api.json`).pipe(
         HttpClientRequest.setHeader("User-Agent", Installation.USER_AGENT),
-        http.execute,
-        Effect.flatMap((res) => res.text),
-        Effect.timeout("10 seconds"),
       )
+      if (validators.etag) request = request.pipe(HttpClientRequest.setHeader("If-None-Match", validators.etag))
+      if (validators.lastModified)
+        request = request.pipe(HttpClientRequest.setHeader("If-Modified-Since", validators.lastModified))
+      const res = yield* http.execute(request).pipe(Effect.timeout("10 seconds"))
+      const etag = res.headers["etag"]
+      const lastModified = res.headers["last-modified"]
+
+      if (res.status === 304) {
+        // Unchanged upstream: keep the catalog bytes, only refresh the
+        // freshness clock (the payload's mtime intentionally stays untouched).
+        yield* writeValidators({
+          etag: etag ?? validators.etag,
+          lastModified: lastModified ?? validators.lastModified,
+          fetchedAt: Date.now(),
+        })
+        return undefined
+      }
+      if (res.status >= 400) {
+        return yield* Effect.fail(new Error(`models.dev responded with status ${res.status}`))
+      }
+
+      const text = yield* res.text.pipe(Effect.timeout("10 seconds"))
+      return { text, etag, lastModified }
     })
 
     const loadFromDisk = fs.readJson(Flag.NAVI_MODELS_PATH ?? filepath).pipe(
@@ -137,21 +196,48 @@ export const layer: Layer.Layer<Service, never, AppFileSystem.Service | HttpClie
 
     // Bundled at build time; absent in dev — `tryPromise` covers both.
     // TODO: chunk provider/models-snapshot.js (4.4MB) per-provider so startup only parses what's needed.
-    const loadSnapshot = Effect.tryPromise({
-      // @ts-ignore — generated at build time, may not exist in dev
-      try: () => import("./models-snapshot.js").then((m) => m.snapshot as Record<string, Provider> | undefined),
-      catch: () => undefined,
-    }).pipe(Effect.catch(() => Effect.succeed(undefined)))
+    // `NAVI_MODELS_SNAPSHOT_PATH` points at a JSON catalog instead of the
+    // bundled module so callers (tests, diagnostics) can pin the fallback.
+    const loadSnapshot = Effect.gen(function* () {
+      const override = process.env["NAVI_MODELS_SNAPSHOT_PATH"]
+      if (override) {
+        return yield* fs.readJson(override).pipe(
+          Effect.map((v) => v as Record<string, Provider>),
+          Effect.orElseSucceed(() => undefined),
+        )
+      }
+      return yield* Effect.tryPromise({
+        // @ts-ignore — generated at build time, may not exist in dev
+        try: () => import("./models-snapshot.js").then((m) => m.snapshot as Record<string, Provider> | undefined),
+        catch: () => undefined,
+      }).pipe(Effect.catch(() => Effect.succeed(undefined)))
+    })
 
     const fetchAndWrite = Effect.fn("ModelsDev.fetchAndWrite")(function* () {
-      const text = yield* fetchApi()
-      yield* fs.writeWithDirs(filepath, text)
-      return text
+      const fetched = yield* fetchApi()
+      if (!fetched) return undefined
+      yield* fs.writeWithDirs(filepath, fetched.text)
+      yield* writeValidators({ etag: fetched.etag, lastModified: fetched.lastModified, fetchedAt: Date.now() })
+      return fetched.text
     })
+
+    const parse = (text: string) =>
+      Effect.try({
+        try: () => JSON.parse(text) as Record<string, Provider>,
+        catch: (cause) => cause,
+      }).pipe(
+        Effect.tapError((cause) =>
+          Effect.sync(() => log.debug("invalid models.dev JSON, using empty", { error: String(cause) })),
+        ),
+        Effect.orElseSucceed(() => ({}) as Record<string, Provider>),
+      )
 
     const populate = Effect.gen(function* () {
       const fromDisk = yield* loadFromDisk
       if (fromDisk) return fromDisk
+      // The bundled/snapshot catalog is local, so it stays the offline fallback
+      // even when fetching is disabled; NAVI_DISABLE_MODELS_FETCH only stops
+      // network refreshes.
       const snapshot = yield* loadSnapshot
       if (snapshot) return snapshot
       if (Flag.NAVI_DISABLE_MODELS_FETCH) return {}
@@ -161,16 +247,16 @@ export const layer: Layer.Layer<Service, never, AppFileSystem.Service | HttpClie
           yield* Flock.effect(lockKey)
           return yield* fetchAndWrite()
         }),
+      ).pipe(
+        // Offline / HTTP failure with no cache at all: degrade instead of dying.
+        Effect.tapCause((cause) => Effect.logWarning("models.dev fetch failed, using fallback catalog", { cause })),
+        Effect.catch(() => Effect.succeed(undefined)),
       )
-      return yield* Effect.try({
-        try: () => JSON.parse(text) as Record<string, Provider>,
-        catch: (cause) => cause,
-      }).pipe(
-        Effect.tapError((cause) =>
-          Effect.sync(() => log.debug("invalid models.dev JSON, using empty", { error: String(cause) })),
-        ),
-        Effect.orElseSucceed(() => ({}) as Record<string, Provider>),
-      )
+      if (text === undefined) {
+        // A concurrent process may have populated the cache while we waited.
+        return (yield* loadFromDisk) ?? snapshot ?? {}
+      }
+      return yield* parse(text)
     }).pipe(Effect.withSpan("ModelsDev.populate"), Effect.orDie)
 
     const [cachedGet, invalidate] = yield* Effect.cachedInvalidateWithTTL(populate, Duration.infinity)
@@ -185,8 +271,9 @@ export const layer: Layer.Layer<Service, never, AppFileSystem.Service | HttpClie
           // Re-check under the lock: another process may have refreshed between
           // our outer check and lock acquisition.
           if (!force && (yield* fresh())) return
-          yield* fetchAndWrite()
-          yield* invalidate
+          const text = yield* fetchAndWrite()
+          // 304 leaves the in-memory catalog untouched and valid.
+          if (text !== undefined) yield* invalidate
         }),
       ).pipe(
         Effect.tapCause((cause) => Effect.logError("Failed to fetch models.dev", { cause })),

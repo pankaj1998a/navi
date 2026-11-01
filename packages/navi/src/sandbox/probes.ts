@@ -2,8 +2,8 @@ import { mkdtempSync, rmSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 
-type Runner = "bwrap" | "landlock" | "seatbelt" | "windows-acl"
-type Enforcement = "full" | "partial" | "unusable"
+export type Runner = "bwrap" | "landlock" | "seatbelt" | "windows-acl"
+export type Enforcement = "full" | "partial" | "unusable"
 type RunnerFailureRule = {
   readonly fatalSignatures: readonly string[]
   readonly allowedExitCodes?: readonly number[]
@@ -100,7 +100,10 @@ const probeRunner = (runner: Runner): Enforcement => {
   return "unusable"
 }
 
-export const selectRunner = (platform: string): { runner: Runner; enforcement: Enforcement } | null => {
+export const selectRunner = (
+  platform: string,
+  probe: (runner: Runner) => Enforcement = probeRunner,
+): { runner: Runner; enforcement: Enforcement } | null => {
   const chain = PLATFORM_CHAINS[platform]
   if (chain === undefined) return null
   if (chain.length === 0) return null
@@ -109,7 +112,7 @@ export const selectRunner = (platform: string): { runner: Runner; enforcement: E
     return { runner: sole, enforcement: STATIC_ENFORCEMENT[sole] }
   }
   for (const runner of chain) {
-    const enforcement = probeRunner(runner as Runner)
+    const enforcement = probe(runner as Runner)
     if (enforcement !== "unusable") return { runner: runner as Runner, enforcement }
   }
   return null

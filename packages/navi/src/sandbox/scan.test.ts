@@ -257,6 +257,21 @@ describe("ShellScan.scanPowerShell", () => {
     expect(psReason("Invoke-Expression $x")).toBe("dynamic-execution")
   })
 
+  test("reports .NET file writes as opaque", () => {
+    // The type expression yields no command at all, so the scanner must report it.
+    expect(psReason("[IO.File]::WriteAllText('C:/x','y')")).toBe("dynamic-execution")
+    expect(psReason("[System.IO.File]::WriteAllBytes('C:/x', $b)")).toBe("dynamic-execution")
+    expect(psReason("$null = [io.file]::Delete('C:/x')")).toBe("dynamic-execution")
+    expect(psReason("New-Object System.IO.StreamWriter 'C:/x'")).toBe("dynamic-execution")
+    // Reads and unrelated type expressions stay scannable.
+    expect(psCommands("[IO.File]::ReadAllText('a.txt')")).toEqual([])
+    expect(psCommands("[IO.Path]::Combine('a','b')")).toEqual([])
+    expect(psCommands("Get-Content a.txt | Out-File b.txt").map((c) => c.resource)).toEqual([
+      "Get-Content",
+      "Out-File",
+    ])
+  })
+
   test("reports unbalanced quotes as opaque", () => {
     expect(psReason("echo 'unterminated")).toBe("unterminated-quote")
   })

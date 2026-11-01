@@ -62,6 +62,8 @@ import * as DateTime from "effect/DateTime"
 import { eq } from "@/storage/db"
 import * as Database from "@/storage/db"
 import { SessionTable } from "./session.sql"
+import { errorMessage } from "@/util/error"
+import { HookEffect } from "@/hook/effect"
 
 // @ts-ignore
 globalThis.AI_SDK_LOG_WARNINGS = false
@@ -438,7 +440,36 @@ NOTE: At any point in time through this workflow you should feel free to ask the
                   { tool: item.id, sessionID: ctx.sessionID, callID: ctx.callID },
                   { args },
                 )
-                const result = yield* item.execute(args, ctx)
+                const pre = yield* HookEffect.preToolUse(
+                  ctx.sessionID,
+                  input.session.directory,
+                  item.id,
+                  args,
+                  ctx.agent,
+                )
+                if (!pre.shouldContinue) {
+                  return yield* Effect.fail(new Error(HookEffect.blockMessage(item.id, pre.blockReason)))
+                }
+                const result = yield* item.execute(args, ctx).pipe(
+                  Effect.catchCause((cause) =>
+                    HookEffect.postToolUseFailure(
+                      ctx.sessionID,
+                      input.session.directory,
+                      item.id,
+                      args,
+                      errorMessage(Cause.squash(cause)),
+                      ctx.agent,
+                    ).pipe(Effect.flatMap(() => Effect.failCause(cause))),
+                  ),
+                )
+                yield* HookEffect.postToolUse(
+                  ctx.sessionID,
+                  input.session.directory,
+                  item.id,
+                  args,
+                  result.output,
+                  ctx.agent,
+                )
                 const output = {
                   ...result,
                   attachments: result.attachments?.map((attachment) => ({
@@ -479,6 +510,16 @@ NOTE: At any point in time through this workflow you should feel free to ask the
                 { tool: key, sessionID: ctx.sessionID, callID: opts.toolCallId },
                 { args },
               )
+              const pre = yield* HookEffect.preToolUse(
+                ctx.sessionID,
+                input.session.directory,
+                key,
+                args,
+                ctx.agent,
+              )
+              if (!pre.shouldContinue) {
+                return yield* Effect.fail(new Error(HookEffect.blockMessage(key, pre.blockReason)))
+              }
               const result: Awaited<ReturnType<NonNullable<typeof execute>>> = yield* Effect.gen(function* () {
                 yield* ctx.ask({ permission: key, metadata: {}, patterns: ["*"], always: ["*"] })
                 return yield* Effect.promise(() => execute(args, opts))
@@ -491,6 +532,16 @@ NOTE: At any point in time through this workflow you should feel free to ask the
                     "message.id": input.processor.message.id,
                   },
                 }),
+                Effect.catchCause((cause) =>
+                  HookEffect.postToolUseFailure(
+                    ctx.sessionID,
+                    input.session.directory,
+                    key,
+                    args,
+                    errorMessage(Cause.squash(cause)),
+                    ctx.agent,
+                  ).pipe(Effect.flatMap(() => Effect.failCause(cause))),
+                ),
               )
               yield* plugin.trigger(
                 "tool.execute.after",
@@ -541,6 +592,14 @@ NOTE: At any point in time through this workflow you should feel free to ask the
                 })),
                 content: result.content,
               }
+              yield* HookEffect.postToolUse(
+                ctx.sessionID,
+                input.session.directory,
+                key,
+                args,
+                output.output,
+                ctx.agent,
+              )
               if (opts.abortSignal?.aborted) {
                 yield* input.processor.completeToolCall(opts.toolCallId, output)
               }
@@ -623,6 +682,7 @@ NOTE: At any point in time through this workflow you should feel free to ask the
 
       let error: Error | undefined
       const taskAbort = new AbortController()
+      yield* HookEffect.subagentStart(sessionID, ctx.directory, task.agent)
       const result = yield* taskTool
         .execute(taskArgs, {
           agent: task.agent,
@@ -725,6 +785,8 @@ NOTE: At any point in time through this workflow you should feel free to ask the
           },
         } satisfies MessageV2.ToolPart)
       }
+
+      yield* HookEffect.subagentStop(sessionID, ctx.directory, task.agent)
 
       if (!task.command) return
 
@@ -1387,6 +1449,19 @@ NOTE: At any point in time through this workflow you should feel free to ask the
     )(function* (input: PromptInput) {
       const session = yield* sessions.get(input.sessionID).pipe(Effect.orDie)
       yield* revert.cleanup(session)
+      const submitted = yield* HookEffect.userPromptSubmit(
+        input.sessionID,
+        session.directory,
+        input.parts.flatMap((part) => (part.type === "text" ? [part.text] : [])).join("\n"),
+        input.agent,
+      )
+      if (!submitted.shouldContinue) {
+        const error = new NamedError.Unknown({
+          message: `Prompt blocked by UserPromptSubmit hook${submitted.blockReason ? `: ${submitted.blockReason}` : "."}`,
+        })
+        yield* bus.publish(Session.Event.Error, { sessionID: input.sessionID, error: error.toObject() })
+        return yield* Effect.die(error)
+      }
       const message = yield* createUserMessage(input)
       yield* sessions.touch(input.sessionID)
 

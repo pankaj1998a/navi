@@ -235,17 +235,59 @@ export function scanSourceFile(filePath: string, content: string): SecurityFindi
   return findings
 }
 
+/**
+ * Absolute paths of files changed relative to the repository HEAD, including
+ * staged, unstaged, and untracked files. Throws when `root` is not inside a git
+ * work tree so callers can surface a clear "diff mode needs git" error instead
+ * of silently falling back to a full scan.
+ */
+function changedFilesInGitRepo(root: string): Set<string> {
+  const git = (args: string[]) =>
+    Bun.spawnSync({ cmd: ["git", ...args], cwd: root, stdout: "pipe", stderr: "pipe" })
+
+  const topLevel = git(["rev-parse", "--show-toplevel"])
+  if (topLevel.exitCode !== 0) {
+    throw new Error(`SAST diff scan requires a git repository, but ${root} is not inside one`)
+  }
+  const repoRoot = topLevel.stdout.toString().trim()
+  const changed = new Set<string>()
+
+  // `git diff HEAD` covers staged + unstaged edits. Repos without a commit
+  // have no HEAD, so fall back to the index/worktree diff.
+  const hasHead = git(["rev-parse", "--verify", "HEAD"]).exitCode === 0
+  const tracked = git([
+    "diff",
+    "--name-only",
+    "--diff-filter=ACMR",
+    "-z",
+    ...(hasHead ? ["HEAD"] : []),
+  ])
+  for (const file of tracked.stdout.toString().split("\0")) {
+    if (file) changed.add(path.resolve(repoRoot, file))
+  }
+
+  const untracked = git(["ls-files", "--others", "--exclude-standard", "-z"])
+  for (const file of untracked.stdout.toString().split("\0")) {
+    if (file) changed.add(path.resolve(repoRoot, file))
+  }
+
+  return changed
+}
+
 export function scanWorkspace(
   targetDir: string,
   options?: {
     maxFiles?: number
     severityFilter?: Severity[]
+    /** Only scan files changed in git (staged, unstaged, or untracked). */
+    diffOnly?: boolean
   },
 ): ScanResult {
   const root = path.resolve(targetDir)
   const findings: SecurityFinding[] = []
   let scannedFiles = 0
   const max = options?.maxFiles ?? 2500
+  const changed = options?.diffOnly ? changedFilesInGitRepo(root) : undefined
 
   function walk(current: string) {
     if (scannedFiles >= max) return
@@ -267,6 +309,7 @@ export function scanWorkspace(
       } else if (entry.isFile()) {
         const ext = path.extname(entry.name).toLowerCase()
         if ([".ts", ".js", ".tsx", ".jsx", ".py", ".go", ".rs", ".java", ".php", ".json", ".env"].includes(ext)) {
+          if (changed && !changed.has(path.resolve(fullPath))) continue
           try {
             const stat = fs.statSync(fullPath)
             if (stat.size > 2 * 1024 * 1024) continue // Skip giant files > 2MB

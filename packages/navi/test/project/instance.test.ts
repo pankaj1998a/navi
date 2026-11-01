@@ -2,7 +2,7 @@ import { afterEach, describe, expect } from "bun:test"
 import { CrossSpawnSpawner } from "@navi-ai/core/cross-spawn-spawner"
 import { Effect, Fiber, Layer } from "effect"
 import { InstanceRef } from "../../src/effect/instance-ref"
-import { registerDisposer } from "../../src/effect/instance-registry"
+import { registerDisposer, cancelShutdownExit, shutdownExitArmed } from "../../src/effect/instance-registry"
 import { InstanceBootstrap } from "../../src/project/bootstrap-service"
 import { Instance } from "../../src/project/instance"
 import { WithInstance } from "../../src/project/with-instance"
@@ -218,6 +218,78 @@ describe("InstanceStore", () => {
       yield* store.load({ directory: dir2 })
       yield* store.disposeAll()
       expect(disposed).toEqual([dir1, dir2])
+    }),
+  )
+
+  it.live("dispose completes when a registered finalizer hangs", () =>
+    Effect.gen(function* () {
+      const dir = yield* tmpdirScoped({ git: true })
+      const store = yield* InstanceStore.Service
+      const previous = process.env.NAVI_DISPOSE_TIMEOUT_MS
+      process.env.NAVI_DISPOSE_TIMEOUT_MS = "50"
+      const off = registerDisposer(() => new Promise<void>(() => {}))
+      yield* Effect.addFinalizer(() =>
+        Effect.sync(() => {
+          off()
+          if (previous === undefined) delete process.env.NAVI_DISPOSE_TIMEOUT_MS
+          else process.env.NAVI_DISPOSE_TIMEOUT_MS = previous
+        }),
+      )
+
+      const ctx = yield* store.load({ directory: dir })
+      const started = Date.now()
+      yield* store.dispose(ctx)
+
+      expect(Date.now() - started).toBeLessThan(2_000)
+    }),
+  )
+
+  it.live("disposeAll completes while a load is still in flight", () =>
+    Effect.gen(function* () {
+      const dir = yield* tmpdirScoped({ git: true })
+      const store = yield* InstanceStore.Service
+      const previous = process.env.NAVI_DISPOSE_TIMEOUT_MS
+      process.env.NAVI_DISPOSE_TIMEOUT_MS = "50"
+      yield* Effect.addFinalizer(() =>
+        Effect.sync(() => {
+          bootstrapRun = Effect.void
+          if (previous === undefined) delete process.env.NAVI_DISPOSE_TIMEOUT_MS
+          else process.env.NAVI_DISPOSE_TIMEOUT_MS = previous
+        }),
+      )
+
+      bootstrapRun = Effect.never
+      yield* store.load({ directory: dir }).pipe(Effect.forkScoped)
+      // Give the forked load time to register its cache entry.
+      yield* Effect.promise(() => new Promise((resolve) => setTimeout(resolve, 25)))
+
+      const started = Date.now()
+      yield* store.disposeAll()
+
+      expect(Date.now() - started).toBeLessThan(2_000)
+    }),
+  )
+
+  it.live("disposeAll does not arm the one-shot shutdown watchdog", () =>
+    Effect.gen(function* () {
+      const dir = yield* tmpdirScoped({ git: true })
+      const store = yield* InstanceStore.Service
+      const previous = process.env.NODE_ENV
+      // Prove the store does not arm even outside `bun test`; the watchdog is a
+      // CLI-entry concern (`src/index.ts`), not a layer-finalizer one.
+      process.env.NODE_ENV = "production"
+      yield* Effect.addFinalizer(() =>
+        Effect.sync(() => {
+          cancelShutdownExit()
+          if (previous === undefined) delete process.env.NODE_ENV
+          else process.env.NODE_ENV = previous
+        }),
+      )
+
+      yield* store.load({ directory: dir })
+      yield* store.disposeAll()
+
+      expect(shutdownExitArmed()).toBe(false)
     }),
   )
 

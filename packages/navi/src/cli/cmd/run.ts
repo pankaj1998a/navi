@@ -15,19 +15,33 @@ import type { Argv } from "yargs"
 import path from "path"
 import { pathToFileURL } from "url"
 import { Effect, Context } from "effect"
-import { AppRuntime } from "../../effect/app-runtime"
 import { UI } from "../ui"
 import { effectCmd } from "../effect-cmd"
 import { Flag } from "@navi-ai/core/flag/flag"
-import { ServerAuth } from "../../server/auth"
 import { EOL } from "os"
 import { Filesystem } from "../../util/filesystem"
 import { createNaviClient, type NaviClient, type ToolPart } from "@navi-ai/sdk/v2"
-import { Agent } from "../../agent/agent"
-import { Permission } from "../../permission"
+// Type-only: the agent graph, the service runtime, and the server auth helper
+// are resolved inside the handler so `run --help` never loads them.
+import type { Agent } from "../../agent/agent"
+import type { Permission } from "../../permission"
 import { INTERACTIVE_INPUT_ERROR, resolveInteractiveStdin } from "./run/runtime.stdin"
+import {
+  disableStyles,
+  errorText,
+  parseSchema,
+  stripAnsi,
+  writeFinalMessage,
+  type FinalMessage,
+} from "../automation"
 
-const runtimeTask = import("./run/runtime")
+// Mirrors `--color never` for text that bypasses UI.Style (tool output, model
+// text). One CLI invocation per process, so a module flag is sufficient.
+let stripOutput = false
+const clean = (text: string) => (stripOutput ? stripAnsi(text) : text)
+
+let runtimeTask: Promise<typeof import("./run/runtime")> | undefined
+const loadRuntime = () => (runtimeTask ??= import("./run/runtime"))
 type ModelInput = Parameters<NaviClient["session"]["prompt"]>[0]["model"]
 
 function pick(value: string | undefined): ModelInput | undefined {
@@ -79,7 +93,7 @@ function block(info: Inline, output?: string) {
   UI.empty()
   inline(info)
   if (!output?.trim()) return
-  UI.println(output)
+  UI.println(clean(output))
   UI.empty()
 }
 
@@ -228,23 +242,40 @@ export const RunCommand = effectCmd({
         type: "boolean",
         default: false,
         describe: "enable direct interactive demo slash commands; pass one as the message to run it immediately",
+      })
+      .option("output-last-message", {
+        type: "string",
+        describe: "write the final assistant message to a file",
+      })
+      .option("output-schema", {
+        type: "string",
+        describe: "JSON schema file; request structured output and validate the final JSON message against it",
+      })
+      .option("color", {
+        type: "string",
+        choices: ["always", "never", "auto"] as const,
+        default: "auto",
+        describe: "control ANSI color output",
       }),
   handler: Effect.fn("Cli.run")(function* (args) {
-    process.stderr.write("DEBUG: RunCommand handler started\n")
-    process.stderr.write("DEBUG: Yielding Agent.Service...\n")
-    const agentSvc = yield* Agent.Service
-    process.stderr.write("DEBUG: Agent.Service yielded\n")
+    // Loaded here (not at module scope) so `run --help` never pays for the agent
+    // graph, the service runtime, or the server auth helper.
+    const [agent, { AppRuntime }, { ServerAuth }] = yield* Effect.promise(() =>
+      Promise.all([import("../../agent/agent"), import("../../effect/app-runtime"), import("../../server/auth")]),
+    )
+    const agentSvc = yield* agent.Agent.Service
     yield* Effect.promise(async () => {
-      process.stderr.write("DEBUG: Effect.promise block started\n")
       const rawMessage = [...args.message, ...(args["--"] || [])].join(" ")
-      process.stderr.write(`DEBUG: rawMessage: "${rawMessage}"\n`)
-      process.stderr.write(`DEBUG: process.stdout.isTTY: ${process.stdout.isTTY}\n`)
+      const outputLastMessage = args["output-last-message"]
+      const outputSchema = args["output-schema"]
       if (!args.interactive && !rawMessage && !args.command && process.stdout.isTTY) {
-        process.stderr.write("DEBUG: Auto-enabling interactive mode\n")
         args.interactive = true
       }
-      process.stderr.write(`DEBUG: args.interactive: ${args.interactive}\n`)
       const thinking = args.interactive ? (args.thinking ?? true) : (args.thinking ?? false)
+      if (args.color === "never") {
+        stripOutput = true
+        disableStyles(UI.Style)
+      }
       const die = (message: string): never => {
         UI.error(message)
         process.exit(1)
@@ -273,6 +304,14 @@ export const RunCommand = effectCmd({
         die("--interactive cannot be used with --format json")
       }
 
+      if (args.interactive && (outputLastMessage || outputSchema)) {
+        die("--output-last-message and --output-schema cannot be used with --interactive")
+      }
+
+      if (args.command && outputSchema) {
+        die("--output-schema cannot be used with --command")
+      }
+
       /*
       if (args.interactive && !process.stdout.isTTY) {
         die("--interactive requires a TTY stdout")
@@ -281,9 +320,7 @@ export const RunCommand = effectCmd({
 
       if (args.interactive) {
         try {
-          process.stderr.write("DEBUG: Resolving interactive stdin...\n")
           resolveInteractiveStdin().cleanup?.()
-          process.stderr.write("DEBUG: Stdin resolved\n")
         } catch (error) {
           dieInteractive(error)
         }
@@ -313,6 +350,15 @@ export const RunCommand = effectCmd({
         })
       }
 
+      const schema = await (async () => {
+        if (!outputSchema) return undefined
+        const schemaPath = path.resolve(directory ?? root, outputSchema)
+        if (!(await Filesystem.exists(schemaPath))) return die(`--output-schema: file not found: ${outputSchema}`)
+        const parsed = parseSchema(await Bun.file(schemaPath).text())
+        if (!parsed.ok) return die(`--output-schema: ${parsed.error}`)
+        return parsed.schema
+      })()
+
       const files: FilePart[] = []
       if (args.file) {
         const list = Array.isArray(args.file) ? args.file : [args.file]
@@ -335,12 +381,7 @@ export const RunCommand = effectCmd({
         }
       }
 
-      process.stderr.write(`DEBUG: process.stdin.isTTY: ${process.stdin.isTTY}\n`)
-      const piped = (process.stdin.isTTY || process.stdin.isTTY === undefined) ? undefined : await (async () => {
-        process.stderr.write("DEBUG: Awaiting Bun.stdin.text()...\n")
-        return await Bun.stdin.text()
-      })()
-      process.stderr.write("DEBUG: Piped input resolved\n")
+      const piped = (process.stdin.isTTY || process.stdin.isTTY === undefined) ? undefined : await Bun.stdin.text()
       message = resolveRunInput(message, piped) ?? ""
       const initialInput = resolveRunInput(rawMessage, piped)
 
@@ -520,7 +561,6 @@ export const RunCommand = effectCmd({
       }
 
       async function localAgent() {
-        process.stderr.write("DEBUG: localAgent started\n")
         if (!args.agent) return undefined
         const name = args.agent
 
@@ -673,7 +713,7 @@ export const RunCommand = effectCmd({
 
               if (part.type === "text" && part.time?.end) {
                 if (emit("text", { part })) continue
-                const text = part.text.trim()
+                const text = clean(part.text.trim())
                 if (!text) continue
                 if (!process.stdout.isTTY) {
                   process.stdout.write(text + EOL)
@@ -686,7 +726,7 @@ export const RunCommand = effectCmd({
 
               if (part.type === "reasoning" && part.time?.end && thinking) {
                 if (emit("reasoning", { part })) continue
-                const text = part.text.trim()
+                const text = clean(part.text.trim())
                 if (!text) continue
                 const line = `Thinking: ${text}`
                 if (process.stdout.isTTY) {
@@ -750,6 +790,24 @@ export const RunCommand = effectCmd({
 
         await share(client, sessionID)
 
+        // CI output contract: when a schema was supplied, validate the
+        // structured result before persisting the final assistant text, so a
+        // schema failure never creates or overwrites the output file.
+        async function writeContract(result: { data?: FinalMessage; error?: unknown }) {
+          if (!outputLastMessage && !schema) return
+          if (result.error) return die(`Request failed: ${errorText(result.error)}`)
+          if (!result.data) return die("Failed to capture the final assistant message")
+          const contract = await writeFinalMessage({
+            message: result.data,
+            schema,
+            output: outputLastMessage,
+            cwd,
+          })
+          if (contract.ok) return
+          for (const error of contract.errors) UI.error(error)
+          process.exit(1)
+        }
+
         if (!args.interactive) {
           const events = await client.event.subscribe()
           loop(client, events).catch((e) => {
@@ -758,7 +816,7 @@ export const RunCommand = effectCmd({
           })
 
           if (args.command) {
-            await client.session.command({
+            const result = await client.session.command({
               sessionID,
               agent,
               model: args.model,
@@ -766,22 +824,25 @@ export const RunCommand = effectCmd({
               arguments: message,
               variant: args.variant,
             })
+            await writeContract(result)
             return
           }
 
           const model = pick(args.model)
-          await client.session.prompt({
+          const result = await client.session.prompt({
             sessionID,
             agent,
             model,
             variant: args.variant,
             parts: [...files, { type: "text", text: message }],
+            ...(schema && { format: { type: "json_schema" as const, schema } }),
           })
+          await writeContract(result)
           return
         }
 
         const model = pick(args.model)
-        const { runInteractiveMode } = await runtimeTask
+        const { runInteractiveMode } = await loadRuntime()
         try {
           await runInteractiveMode({
             sdk: client,
@@ -806,9 +867,7 @@ export const RunCommand = effectCmd({
 
       if (args.interactive && !args.attach && !args.session && !args.continue) {
         const model = pick(args.model)
-        process.stderr.write("DEBUG: Awaiting runtimeTask import...\n")
-        const { runInteractiveLocalMode } = await runtimeTask
-        process.stderr.write("DEBUG: runtimeTask imported\n")
+        const { runInteractiveLocalMode } = await loadRuntime()
         // SDK v2 calls fetch.preconnect at runtime, so it must exist on the delegated fetch.
         const fetchFn: typeof fetch = Object.assign(
           async (input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]): Promise<Response> => {
@@ -820,7 +879,6 @@ export const RunCommand = effectCmd({
         )
 
         try {
-          process.stderr.write("DEBUG: Calling runInteractiveLocalMode\n")
           return await runInteractiveLocalMode({
             directory: directory ?? root,
             fetch: fetchFn,

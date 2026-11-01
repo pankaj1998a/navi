@@ -7,6 +7,8 @@ import * as chromeLauncher from "chrome-launcher"
 import puppeteer, { type Browser, type Page } from "puppeteer-core"
 import TurndownService from "turndown"
 import * as Log from "@navi-ai/core/util/log"
+import * as NetworkPolicy from "@/permission/network"
+import { assertAllowed, browserRequestAllowed, guardedFetch, isNetworkBlocked, type Policy } from "./net-guard"
 
 const log = Log.create({ service: "browser-engine" })
 
@@ -189,24 +191,61 @@ export async function getBrowser(opts?: { visible?: boolean }): Promise<Browser>
 }
 
 /** Open a fresh page with a reasonable default config. */
-async function openPage(browser: Browser): Promise<Page> {
+export async function openPage(browser: Browser, policy?: Policy): Promise<Page> {
     const page = await browser.newPage()
     await page.setUserAgent(USER_AGENT)
     await page.setViewport({ width: 1280, height: 800 })
 
-    // Block heavy resources to speed up non-visual fetches
-    await page.setRequestInterception(true)
-    page.on("request", (req) => {
-        const type = req.resourceType()
-        if (["image", "media", "font", "stylesheet"].includes(type)) {
-            req.abort()
-        } else {
-            req.continue()
-        }
-    })
+    // Egress allowlist + resource blocking. Redirects performed by the browser
+    // surface as individual requests, so each hop is validated here; a denied
+    // hop aborts the navigation instead of being followed.
+    await guardPageRequests(page, () => policy, { blockHeavyResources: true })
 
     page.setDefaultNavigationTimeout(NAVIGATION_TIMEOUT)
     return page
+}
+
+// ─── Request guard ──────────────────────────────────────────────────────────
+
+const blockedRequests = new WeakMap<Page, string[]>()
+
+function noteBlockedRequest(page: Page, url: string) {
+    const list = blockedRequests.get(page) ?? []
+    if (list.length < 20) list.push(url)
+    blockedRequests.set(page, list)
+}
+
+/** First URL this page tried to reach but the network policy denied, if any. */
+export function blockedRequestFor(page: Page): string | undefined {
+    return blockedRequests.get(page)?.[0]
+}
+
+/**
+ * Enable request interception on `page` and abort anything the egress policy
+ * denies. The policy is read per request through `getPolicy`, so a session page
+ * picks up a policy resolved later in the same tool call.
+ */
+export async function guardPageRequests(
+    page: Page,
+    getPolicy: () => Policy | undefined,
+    opts?: { blockHeavyResources?: boolean },
+): Promise<void> {
+    await page.setRequestInterception(true)
+    page.on("request", (req) => {
+        const url = req.url()
+        if (!browserRequestAllowed(url, getPolicy())) {
+            noteBlockedRequest(page, url)
+            log.warn("blocked browser request by network policy", { url: url.slice(0, 200) })
+            req.abort("blockedbyclient").catch(() => {})
+            return
+        }
+        const type = req.resourceType()
+        if (opts?.blockHeavyResources && ["image", "media", "font", "stylesheet"].includes(type)) {
+            req.abort().catch(() => {})
+        } else {
+            req.continue().catch(() => {})
+        }
+    })
 }
 
 // ─── Markdown / text conversion ─────────────────────────────────────────────
@@ -250,13 +289,14 @@ export interface SearchResult {
     snippet: string
 }
 
-export async function webSearch(query: string, numResults: number = 8): Promise<SearchResult[]> {
+export async function webSearch(query: string, numResults: number = 8, policy?: Policy): Promise<SearchResult[]> {
     const browser = await getBrowser()
-    const page = await openPage(browser)
+    const page = await openPage(browser, policy)
 
     try {
         // 1) Try Google
         const googleUrl = `https://www.google.com/search?q=${encodeURIComponent(query)}&num=${Math.min(numResults, 20)}&hl=en&gl=us`
+        assertAllowed(googleUrl, policy)
         await page.goto(googleUrl, { waitUntil: "domcontentloaded" })
 
         const googleResults: SearchResult[] = await page.evaluate((max) => {
@@ -294,10 +334,9 @@ export async function webSearch(query: string, numResults: number = 8): Promise<
 
         // 2) Fallback: Bing
         log.info("google returned no results, trying bing")
-        await page.goto(
-            `https://www.bing.com/search?q=${encodeURIComponent(query)}&count=${numResults}&mkt=en-US&setlang=en-US&cc=US`,
-            { waitUntil: "domcontentloaded" },
-        )
+        const bingUrl = `https://www.bing.com/search?q=${encodeURIComponent(query)}&count=${numResults}&mkt=en-US&setlang=en-US&cc=US`
+        assertAllowed(bingUrl, policy)
+        await page.goto(bingUrl, { waitUntil: "domcontentloaded" })
 
         const bingResults: SearchResult[] = await page.evaluate((max) => {
             const items: { title: string; url: string; snippet: string }[] = []
@@ -339,13 +378,18 @@ export async function webFetch(
     url: string,
     format: FetchFormat = "markdown",
     timeoutMs = 30_000,
-    opts?: { preferBrowser?: boolean },
+    opts?: { preferBrowser?: boolean; policy?: Policy },
 ): Promise<FetchResult> {
+    const policy = opts?.policy
     assertSafeUrl(url)
+    assertAllowed(url, policy)
     if (!opts?.preferBrowser) {
     // ── Fast path: plain HTTP fetch ──
         try {
-            const response = await fetch(url, {
+            // `guardedFetch` refuses automatic redirects and re-validates every
+            // hop, so a 302 into a denied/private host is rejected.
+            const response = await guardedFetch(url, {
+                policy,
                 signal: AbortSignal.timeout(timeoutMs),
                 headers: { "User-Agent": USER_AGENT, Accept: "text/html,*/*" },
             })
@@ -358,7 +402,9 @@ export async function webFetch(
                     return { url, title: extractTitle(html), content: capContent(convert(html, format)), statusCode: response.status }
                 }
             }
-        } catch {
+        } catch (err) {
+            // Policy violations are not recoverable by retrying in the browser.
+            if (isNetworkBlocked(err)) throw err
             // fall through to browser
         }
     }
@@ -366,11 +412,14 @@ export async function webFetch(
     // ── Browser fallback for JS-heavy pages ──
     log.info("falling back to browser fetch", { url })
     const browser = await getBrowser()
-    const page = await openPage(browser)
+    const page = await openPage(browser, policy)
     try {
-        const response = await page.goto(url, { waitUntil: "networkidle2", timeout: NAVIGATION_TIMEOUT })
+        const response = await page.goto(url, { waitUntil: "networkidle2", timeout: NAVIGATION_TIMEOUT }).catch((err) => {
+            throw blockedNavigationError(page, url, err)
+        })
         // Wait a bit for late-loading JS
         await new Promise((r) => setTimeout(r, 800))
+        assertAllowed(page.url() || url, policy)
         const html = capContent(await page.content())
         const title = await page.title()
         return {
@@ -384,6 +433,17 @@ export async function webFetch(
             log.debug("page.close failed", { error: String(e) })
         })
     }
+}
+
+/**
+ * Turn a navigation failure caused by the request guard into a
+ * `NetworkBlockedError` so callers can distinguish policy denials from
+ * ordinary network errors.
+ */
+export function blockedNavigationError(page: Page, url: string, cause: unknown): unknown {
+    const blocked = blockedRequestFor(page)
+    if (!blocked) return cause
+    return new NetworkPolicy.NetworkBlockedError(`Redirect/navigation to ${blocked} is not allowed by the network policy`, url)
 }
 
 function extractTitle(html: string): string {
@@ -414,6 +474,7 @@ export interface CrawlOptions {
     format?: FetchFormat
     includePattern?: RegExp
     excludePattern?: RegExp
+    policy?: Policy
 }
 
 export async function webCrawl(startUrl: string, opts: CrawlOptions = {}): Promise<CrawledPage[]> {
@@ -424,9 +485,13 @@ export async function webCrawl(startUrl: string, opts: CrawlOptions = {}): Promi
         format = "markdown",
         includePattern,
         excludePattern,
+        policy,
     } = opts
 
     const origin = assertSafeUrl(startUrl).origin
+    // The start URL is user/model supplied: refuse it before touching the
+    // browser when the egress policy denies it.
+    assertAllowed(startUrl, policy)
     const visited = new Set<string>()
     const queue: Array<{ url: string; depth: number }> = [{ url: startUrl, depth: 0 }]
     const results: CrawledPage[] = []
@@ -444,11 +509,12 @@ export async function webCrawl(startUrl: string, opts: CrawlOptions = {}): Promi
         if (includePattern && !includePattern.test(normalised)) continue
         try {
             assertSafeUrl(normalised)
+            assertAllowed(normalised, policy)
         } catch {
             continue
         }
 
-        const page = await openPage(browser)
+        const page = await openPage(browser, policy)
         try {
             log.info("crawling", { url: normalised, depth: item.depth })
             await page.goto(normalised, { waitUntil: "domcontentloaded", timeout: NAVIGATION_TIMEOUT })
@@ -468,11 +534,12 @@ export async function webCrawl(startUrl: string, opts: CrawlOptions = {}): Promi
             for (const raw of rawLinks) {
                 try {
                     const u = assertSafeUrl(raw)
+                    assertAllowed(raw, policy)
                     if (sameDomain && u.origin !== origin) continue
                     const normalized = u.href.split("#")[0] ?? ""
                     if (!visited.has(normalized)) links.push(normalized)
                 } catch {
-                    // ignore invalid/unsafe URLs
+                    // ignore invalid/unsafe/denied URLs
                 }
             }
 
@@ -522,13 +589,19 @@ export interface ScrapeResult {
  * Extract structured data from a page using CSS selectors.
  * Automatically falls back to a full browser render for JS pages.
  */
-export async function webScrape(url: string, fields: ScrapeField[]): Promise<ScrapeResult> {
+export async function webScrape(url: string, fields: ScrapeField[], policy?: Policy): Promise<ScrapeResult> {
     assertSafeUrl(url)
+    assertAllowed(url, policy)
     const browser = await getBrowser()
-    const page = await openPage(browser)
+    const page = await openPage(browser, policy)
 
     try {
-        await page.goto(url, { waitUntil: "networkidle2", timeout: NAVIGATION_TIMEOUT })
+        await page
+            .goto(url, { waitUntil: "networkidle2", timeout: NAVIGATION_TIMEOUT })
+            .catch((err) => {
+                throw blockedNavigationError(page, url, err)
+            })
+        assertAllowed(page.url() || url, policy)
         await new Promise((r) => setTimeout(r, 800))
 
         const data: Record<string, string | string[]> = {}
@@ -569,13 +642,19 @@ export async function webScrape(url: string, fields: ScrapeField[]): Promise<Scr
 }
 
 /** Auto-scrape: extract common page data without needing explicit selectors. */
-export async function autoScrape(url: string): Promise<ScrapeResult> {
+export async function autoScrape(url: string, policy?: Policy): Promise<ScrapeResult> {
     assertSafeUrl(url)
+    assertAllowed(url, policy)
     const browser = await getBrowser()
-    const page = await openPage(browser)
+    const page = await openPage(browser, policy)
 
     try {
-        await page.goto(url, { waitUntil: "networkidle2", timeout: NAVIGATION_TIMEOUT })
+        await page
+            .goto(url, { waitUntil: "networkidle2", timeout: NAVIGATION_TIMEOUT })
+            .catch((err) => {
+                throw blockedNavigationError(page, url, err)
+            })
+        assertAllowed(page.url() || url, policy)
         await new Promise((r) => setTimeout(r, 800))
 
         const data = await page.evaluate(() => {

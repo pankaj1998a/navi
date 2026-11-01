@@ -1,9 +1,11 @@
-import { Effect, Schema } from "effect"
-import { HttpClient, HttpClientRequest } from "effect/unstable/http"
+import { Effect, Option, Schema } from "effect"
+import { FetchHttpClient, HttpClient, HttpClientRequest } from "effect/unstable/http"
 import * as Tool from "./tool"
 import TurndownService from "turndown"
 import DESCRIPTION from "./webfetch.txt"
 import { isImageAttachment } from "@/util/media"
+import { Config } from "@/config/config"
+import { NetworkPolicy } from "@/permission"
 
 const MAX_RESPONSE_SIZE = 5 * 1024 * 1024 // 5MB
 const DEFAULT_TIMEOUT = 30 * 1000 // 30 seconds
@@ -36,6 +38,14 @@ export const WebFetchTool = Tool.define(
 
           const { assertSafeExternalUrl } = yield* Effect.promise(() => import("@/util/ssrf"))
           yield* Effect.promise(() => assertSafeExternalUrl(params.url))
+
+          // Egress allowlist (permission.network / NAVI_NETWORK_*). Enforced
+          // before permission prompts and before any request is made.
+          const config = Option.getOrUndefined(yield* Effect.serviceOption(Config.Service))
+          NetworkPolicy.assertUrlAllowed(
+            params.url,
+            NetworkPolicy.resolve(config ? (yield* config.get()).permission : undefined),
+          )
 
           yield* ctx.ask({
             permission: "webfetch",
@@ -76,7 +86,11 @@ export const WebFetchTool = Tool.define(
 
           const request = HttpClientRequest.get(params.url).pipe(HttpClientRequest.setHeaders(headers))
 
-          // Retry with honest UA if blocked by Cloudflare bot detection (TLS fingerprint mismatch)
+          // Retry with honest UA if blocked by Cloudflare bot detection (TLS
+          // fingerprint mismatch). Redirects are refused (`redirect: "manual"`):
+          // the network policy and SSRF guard above validated this exact URL,
+          // and following a redirect would let a public host bounce the fetch
+          // into a denied host or the private network.
           const response = yield* httpOk.execute(request).pipe(
             Effect.catchIf(
               (err) =>
@@ -90,6 +104,14 @@ export const WebFetchTool = Tool.define(
                   ),
                 ),
             ),
+            Effect.catchIf(
+              (err) =>
+                err.reason._tag === "StatusCodeError" &&
+                err.reason.response.status >= 300 &&
+                err.reason.response.status < 400,
+              () => Effect.fail(new Error(`Refusing to follow HTTP redirect for ${params.url}`)),
+            ),
+            Effect.provideService(FetchHttpClient.RequestInit, { redirect: "manual" }),
             Effect.timeoutOrElse({ duration: timeout, orElse: () => Effect.die(new Error("Request timed out")) }),
           )
 

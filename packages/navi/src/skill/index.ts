@@ -1,7 +1,7 @@
 import path from "path"
 import { pathToFileURL } from "url"
 import z from "zod"
-import { Effect, Layer, Context, Schema } from "effect"
+import { Effect, Layer, Context, Schema, Option } from "effect"
 import { zod } from "@navi-ai/core/effect-zod"
 import { withStatics } from "@navi-ai/core/schema"
 import { NamedError } from "@navi-ai/core/util/error"
@@ -74,6 +74,37 @@ type DiscoveryState = {
 type ScanState = {
   matches: Set<string>
   dirs: Set<string>
+  /** Directories that were globbed; their mtimes fingerprint the result. */
+  roots: Set<string>
+}
+
+/**
+ * Skill discovery walks every configured skill root (external `~/.claude`,
+ * `~/.agents`, project `.navi/{skill,skills}`, configured paths) on each instance
+ * bootstrap. The result only changes when a skill file does, so it is cached per
+ * (directory, worktree, global home) and revalidated by the mtimes of the roots —
+ * no per-instance directory walk.
+ */
+const DISCOVERY_TTL_MS = 60_000
+
+type CachedDiscovery = {
+  at: number
+  stamp: string
+  roots: string[]
+  matches: string[]
+  dirs: string[]
+}
+
+/** Parse cache: a `SKILL.md` whose mtime+size are unchanged skips frontmatter parsing. */
+type CachedSkill = { mtimeMs: number; size: number; info: Info }
+
+const discoveryCache = new Map<string, CachedDiscovery>()
+const skillCache = new Map<string, CachedSkill>()
+
+/** Test/hot-reload hook: drop every cached discovery and parsed skill. */
+export function invalidateSkillCaches() {
+  discoveryCache.clear()
+  skillCache.clear()
 }
 
 export interface Interface {
@@ -83,7 +114,17 @@ export interface Interface {
   readonly available: (agent?: Agent.Info) => Effect.Effect<Info[]>
 }
 
-const add = Effect.fnUntraced(function* (state: State, match: string, bus: Bus.Interface) {
+const add = Effect.fnUntraced(function* (state: State, match: string, bus: Bus.Interface, fsys: AppFileSystem.Interface) {
+  const fileStat = yield* fsys.stat(match).pipe(Effect.catch(() => Effect.succeed(undefined)))
+  const mtimeMs = fileStat ? Option.getOrElse(fileStat.mtime, () => new Date(0)).getTime() : 0
+  const size = fileStat ? Number(fileStat.size) : 0
+  const cached = skillCache.get(match)
+  if (cached && cached.mtimeMs === mtimeMs && cached.size === size) {
+    state.dirs.add(path.dirname(match))
+    state.skills[cached.info.name] = cached.info
+    return
+  }
+
   const md = yield* Effect.tryPromise({
     try: () => ConfigMarkdown.parse(match),
     catch: (err) => err,
@@ -115,13 +156,15 @@ const add = Effect.fnUntraced(function* (state: State, match: string, bus: Bus.I
     })
   }
 
-  state.dirs.add(path.dirname(match))
-  state.skills[parsed.data.name] = {
+  const info: Info = {
     name: parsed.data.name,
     description: parsed.data.description,
     location: match,
     content: md.content,
   }
+  rememberSkill(match, { mtimeMs, size, info })
+  state.dirs.add(path.dirname(match))
+  state.skills[info.name] = info
 })
 
 const scan = Effect.fnUntraced(function* (
@@ -152,6 +195,7 @@ const scan = Effect.fnUntraced(function* (
     state.matches.add(match)
     state.dirs.add(path.dirname(match))
   }
+  state.roots.add(root)
 })
 
 const discoverSkills = Effect.fnUntraced(function* (
@@ -162,7 +206,7 @@ const discoverSkills = Effect.fnUntraced(function* (
   directory: string,
   worktree: string,
 ) {
-  const state: ScanState = { matches: new Set(), dirs: new Set() }
+  const state: ScanState = { matches: new Set(), dirs: new Set(), roots: new Set() }
 
   const externalDirs: string[] = []
   if (!Flag.NAVI_DISABLE_EXTERNAL_SKILLS) {
@@ -209,13 +253,98 @@ const discoverSkills = Effect.fnUntraced(function* (
   }
 
   return {
-    matches: Array.from(state.matches),
+    matches: Array.from(state.matches).toSorted(),
     dirs: Array.from(state.dirs),
+    roots: Array.from(state.roots),
   }
 })
 
-const loadSkills = Effect.fnUntraced(function* (state: State, discovered: DiscoveryState, bus: Bus.Interface) {
-  yield* Effect.forEach(discovered.matches, (match) => add(state, match, bus), {
+/**
+ * Fingerprint of the directories that were globbed. Bounded to one stat per root
+ * (plus the `skill/` and `skills/` children, which are where new skill folders
+ * appear), so revalidation costs a few stats instead of a full directory walk.
+ * Adding or removing a skill folder (or a `SKILL.md` directly under a root)
+ * changes one of these mtimes and invalidates the entry; edits *inside* an
+ * already-discovered folder are picked up by the per-file parse cache, and the
+ * TTL bounds anything the mtimes miss.
+ */
+const rootStamp = Effect.fnUntraced(function* (fsys: AppFileSystem.Interface, roots: string[]) {
+  const parts = yield* Effect.forEach(
+    roots,
+    (root) =>
+      Effect.gen(function* () {
+        const names = [root, path.join(root, "skill"), path.join(root, "skills")]
+        const stamps = yield* Effect.forEach(names, (target) =>
+          fsys.stat(target).pipe(
+            Effect.map((info) => {
+              const mtime = Option.getOrElse(info.mtime, () => new Date(0)).getTime()
+              return `${mtime}:${Number(info.size)}`
+            }),
+            Effect.catch(() => Effect.succeed("-")),
+          ),
+        )
+        return `${root}=${stamps.join(",")}`
+      }),
+    { concurrency: "unbounded" },
+  )
+  return parts.join("|")
+})
+
+/** Per-instance state is cheap; the module-level caches are not, so keep them bounded. */
+const MAX_DISCOVERY_ENTRIES = 32
+const MAX_SKILL_ENTRIES = 1024
+
+const rememberDiscovery = (key: string, value: CachedDiscovery) => {
+  if (discoveryCache.size >= MAX_DISCOVERY_ENTRIES) discoveryCache.clear()
+  discoveryCache.set(key, value)
+}
+
+const rememberSkill = (key: string, value: CachedSkill) => {
+  if (skillCache.size >= MAX_SKILL_ENTRIES) skillCache.clear()
+  skillCache.set(key, value)
+}
+
+const discoverCached = Effect.fnUntraced(function* (
+  config: Config.Interface,
+  discovery: Discovery.Interface,
+  fsys: AppFileSystem.Interface,
+  global: Global.Interface,
+  directory: string,
+  worktree: string,
+) {
+  const key = [
+    directory,
+    worktree,
+    global.home,
+    Flag.NAVI_DISABLE_EXTERNAL_SKILLS ? "no-ext" : "",
+    Flag.NAVI_DISABLE_CLAUDE_CODE_SKILLS ? "no-claude" : "",
+  ].join("\u0000")
+
+  const cached = discoveryCache.get(key)
+  if (cached && Date.now() - cached.at < DISCOVERY_TTL_MS) {
+    const stamp = yield* rootStamp(fsys, cached.roots)
+    if (stamp === cached.stamp) return { matches: cached.matches, dirs: cached.dirs }
+  }
+
+  const result = yield* discoverSkills(config, discovery, fsys, global, directory, worktree)
+  const stamp = yield* rootStamp(fsys, result.roots)
+  rememberDiscovery(key, {
+    at: Date.now(),
+    stamp,
+    roots: result.roots,
+    matches: result.matches,
+    dirs: result.dirs,
+  })
+  return { matches: result.matches, dirs: result.dirs }
+})
+
+const loadSkills = Effect.fnUntraced(function* (
+  state: State,
+  discovered: DiscoveryState,
+  bus: Bus.Interface,
+  fsys: AppFileSystem.Interface,
+) {
+  yield* Effect.forEach(discovered.matches, (match) => add(state, match, bus, fsys), {
     concurrency: "unbounded",
     discard: true,
   })
@@ -235,7 +364,7 @@ export const layer = Layer.effect(
     const global = yield* Global.Service
     const discovered = yield* InstanceState.make(
       Effect.fn("Skill.discovery")(function* (ctx) {
-        return yield* discoverSkills(config, discovery, fsys, global, ctx.directory, ctx.worktree)
+        return yield* discoverCached(config, discovery, fsys, global, ctx.directory, ctx.worktree)
       }),
     )
     const state = yield* InstanceState.make(
@@ -257,7 +386,7 @@ export const layer = Layer.effect(
             s.skills[item.name] = item
           }
         }
-        yield* loadSkills(s, yield* InstanceState.get(discovered), bus)
+        yield* loadSkills(s, yield* InstanceState.get(discovered), bus, fsys)
         return s
       }),
     )

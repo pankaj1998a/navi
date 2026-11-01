@@ -1,10 +1,9 @@
 import type { Argv } from "yargs"
 import { Effect, Schema } from "effect"
-import { AppRuntime, type AppServices } from "@/effect/app-runtime"
-import { InstanceStore } from "@/project/instance-store"
-import { InstanceRef } from "@/effect/instance-ref"
-import { Instance } from "@/project/instance"
+import type { AppServices } from "@/effect/app-runtime"
+import type { InstanceStore } from "@/project/instance-store"
 import { cmd, type WithDoubleDash } from "./cmd/cmd"
+import { loadAppRuntime } from "./app-runtime"
 
 /**
  * User-visible command failure. Throw via `fail("...")` from an effectCmd handler
@@ -78,11 +77,20 @@ export const effectCmd = <Args, A>(opts: EffectCmdOpts<Args, A>) =>
       // yargs typing wraps Args in ArgumentsCamelCase<WithDoubleDash<...>>; cast at the boundary.
       const args = rawArgs as unknown as WithDoubleDash<Args>
       const useInstance = typeof opts.instance === "function" ? opts.instance(args) : opts.instance !== false
+      // Load the service layer only once a handler actually runs. `--help`,
+      // `--version`, and command registration must never instantiate the
+      // 55-service AppRuntime graph (it is ~90% of CLI startup cost).
+      const { AppRuntime } = await loadAppRuntime()
       if (!useInstance) {
         await AppRuntime.runPromise(opts.handler(args))
         return
       }
       const directory = opts.directory?.(args) ?? process.cwd()
+      const [{ InstanceStore }, { Instance }, { InstanceRef }] = await Promise.all([
+        import("@/project/instance-store"),
+        import("@/project/instance"),
+        import("@/effect/instance-ref"),
+      ])
       // Two-phase: load ctx, then run body inside Instance.current ALS.
       // Effect's InstanceRef is provided via fiber context, but that context is
       // lost across `await` inside `Effect.promise(async () => ...)` callbacks

@@ -6,6 +6,7 @@
  */
 import * as Log from "@navi-ai/core/util/log"
 import type { SearchExecution, SearchProvider, SearchResult } from "./search-pipeline"
+import { assertAllowed, guardedFetch, isNetworkBlocked, type Policy } from "./net-guard"
 
 const log = Log.create({ service: "http-search" })
 
@@ -31,11 +32,15 @@ function stripTags(html: string): string {
         .trim()
 }
 
-async function httpGet(url: string, timeoutMs = 12_000): Promise<string | null> {
+async function httpGet(url: string, timeoutMs = 12_000, policy?: Policy): Promise<string | null> {
+    // Fail before opening a socket when the egress policy denies the host.
+    assertAllowed(url, policy)
     const controller = new AbortController()
     const timer = setTimeout(() => controller.abort(), timeoutMs)
     try {
-        const res = await fetch(url, {
+        // Redirects are manual: every hop is re-validated against the policy.
+        const res = await guardedFetch(url, {
+            policy,
             signal: controller.signal,
             headers: {
                 "User-Agent": USER_AGENT,
@@ -48,7 +53,8 @@ async function httpGet(url: string, timeoutMs = 12_000): Promise<string | null> 
         clearTimeout(timer)
         if (!res.ok) return null
         return await res.text()
-    } catch {
+    } catch (err) {
+        if (isNetworkBlocked(err)) throw err
         return null
     } finally {
         clearTimeout(timer)
@@ -57,9 +63,9 @@ async function httpGet(url: string, timeoutMs = 12_000): Promise<string | null> 
 
 // ─── Google ──────────────────────────────────────────────────────────────────
 
-async function searchGoogle(query: string, num: number): Promise<SearchResult[]> {
+async function searchGoogle(query: string, num: number, policy?: Policy): Promise<SearchResult[]> {
     const url = `https://www.google.com/search?q=${encodeURIComponent(query)}&num=${Math.min(num + 3, 20)}&hl=en&gl=us`
-    const html = await httpGet(url)
+    const html = await httpGet(url, undefined, policy)
     if (!html) return []
 
     const results: SearchResult[] = []
@@ -125,9 +131,9 @@ async function searchGoogle(query: string, num: number): Promise<SearchResult[]>
 
 // ─── Bing ────────────────────────────────────────────────────────────────────
 
-async function searchBing(query: string, num: number): Promise<SearchResult[]> {
+async function searchBing(query: string, num: number, policy?: Policy): Promise<SearchResult[]> {
     const url = `https://www.bing.com/search?q=${encodeURIComponent(query)}&count=${Math.min(num + 3, 20)}&setlang=en-US&mkt=en-US&cc=US`
-    const html = await httpGet(url)
+    const html = await httpGet(url, undefined, policy)
     if (!html) return []
 
     const results: SearchResult[] = []
@@ -163,10 +169,10 @@ async function searchBing(query: string, num: number): Promise<SearchResult[]> {
 
 // ─── DuckDuckGo ──────────────────────────────────────────────────────────────
 
-async function searchDuckDuckGo(query: string, num: number): Promise<SearchResult[]> {
+async function searchDuckDuckGo(query: string, num: number, policy?: Policy): Promise<SearchResult[]> {
     // kl=wt-wt = worldwide / no region (English), kp=-2 = safe off, df= no date filter
     const url = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}&kl=wt-wt&kp=-2`
-    const html = await httpGet(url)
+    const html = await httpGet(url, undefined, policy)
     if (!html) return []
 
     const results: SearchResult[] = []
@@ -212,9 +218,14 @@ async function searchDuckDuckGo(query: string, num: number): Promise<SearchResul
 
 // ─── Main export ─────────────────────────────────────────────────────────────
 
-export async function searchWithProvider(provider: Exclude<SearchProvider, "browser" | "google-api">, query: string, numResults = 8): Promise<SearchResult[]> {
+export async function searchWithProvider(
+    provider: Exclude<SearchProvider, "browser" | "google-api">,
+    query: string,
+    numResults = 8,
+    policy?: Policy,
+): Promise<SearchResult[]> {
     if (provider === "google") {
-        const googleResults = await searchGoogle(query, numResults)
+        const googleResults = await searchGoogle(query, numResults, policy)
         if (googleResults.length >= 1) {
             log.info(`google returned ${googleResults.length} results`)
         }
@@ -222,14 +233,14 @@ export async function searchWithProvider(provider: Exclude<SearchProvider, "brow
     }
 
     if (provider === "bing") {
-        const bingResults = await searchBing(query, numResults)
+        const bingResults = await searchBing(query, numResults, policy)
         if (bingResults.length >= 1) {
             log.info(`bing returned ${bingResults.length} results`)
         }
         return bingResults.slice(0, numResults)
     }
 
-    const ddgResults = await searchDuckDuckGo(query, numResults)
+    const ddgResults = await searchDuckDuckGo(query, numResults, policy)
     if (ddgResults.length >= 1) {
         log.info(`duckduckgo returned ${ddgResults.length} results`)
     }
@@ -240,17 +251,18 @@ export async function searchWithProvider(provider: Exclude<SearchProvider, "brow
  * Search the web via HTTP only (no browser needed).
  * Tries Google → Bing → DuckDuckGo in order.
  */
-export async function httpSearchDetailed(query: string, numResults = 8): Promise<SearchExecution> {
+export async function httpSearchDetailed(query: string, numResults = 8, policy?: Policy): Promise<SearchExecution> {
     const attemptedProviders: SearchProvider[] = []
 
     for (const provider of ["google", "bing", "duckduckgo"] as const) {
         attemptedProviders.push(provider)
         try {
-            const results = await searchWithProvider(provider, query, numResults)
+            const results = await searchWithProvider(provider, query, numResults, policy)
             if (results.length > 0) {
                 return { provider, attemptedProviders, results }
             }
         } catch (e) {
+            if (isNetworkBlocked(e)) throw e
             log.warn(`${provider} search failed`, { error: String(e) })
         }
     }
@@ -258,8 +270,8 @@ export async function httpSearchDetailed(query: string, numResults = 8): Promise
     return { provider: "none", attemptedProviders, results: [] }
 }
 
-export async function httpSearch(query: string, numResults = 8): Promise<SearchResult[]> {
-    const result = await httpSearchDetailed(query, numResults)
+export async function httpSearch(query: string, numResults = 8, policy?: Policy): Promise<SearchResult[]> {
+    const result = await httpSearchDetailed(query, numResults, policy)
     return result.results
 }
 

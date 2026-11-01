@@ -3,6 +3,7 @@ import { HttpClient } from "effect/unstable/http"
 import * as Tool from "./tool"
 import { Env } from "../env"
 import * as McpWebSearch from "./mcp-websearch"
+import { assertAllowed, guardedFetch, resolvePolicy } from "./net-guard"
 
 export const Parameters = Schema.Struct({
   query: Schema.String.annotate({ description: "Search query string." }),
@@ -47,6 +48,10 @@ export const ExaSearchTool = Tool.define(
         Effect.gen(function* () {
           const apiKey = yield* Effect.promise(() => Env.get("EXA_API_KEY"))
 
+          // Both backends (MCP bridge and direct API) must be allowed by the
+          // egress policy before anything is requested.
+          const policy = yield* resolvePolicy()
+
           yield* ctx.ask({
             permission: "websearch",
             patterns: [params.query],
@@ -68,6 +73,8 @@ export const ExaSearchTool = Tool.define(
                 livecrawl: "fallback",
               },
               "25 seconds",
+              undefined,
+              { policy },
             )
 
             return {
@@ -76,6 +83,9 @@ export const ExaSearchTool = Tool.define(
               metadata: { count: result ? 1 : 0 },
             }
           }
+
+          const endpoint = "https://api.exa.ai/search"
+          assertAllowed(endpoint, policy)
 
           // Direct API call if API key is present (supports more features)
           const body = {
@@ -104,7 +114,8 @@ export const ExaSearchTool = Tool.define(
           }
 
           const response = yield* Effect.promise(() =>
-            fetch("https://api.exa.ai/search", {
+            guardedFetch(endpoint, {
+              policy,
               method: "POST",
               headers: { "Content-Type": "application/json", "x-api-key": apiKey },
               body: JSON.stringify(body),

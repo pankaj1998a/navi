@@ -31,9 +31,92 @@ function hasTaskTool(agent?: Agent.Info) {
   return evaluate("task", "*", agent.permission).action !== "deny"
 }
 
+/** Number of `\n` bytes in `[start, end)`. Native `indexOf` — no JS per-byte loop. */
+function countNewlines(buf: Uint8Array, start = 0, end = buf.length) {
+  let count = 0
+  let at = buf.indexOf(0x0a, start)
+  while (at !== -1 && at < end) {
+    count++
+    at = buf.indexOf(0x0a, at + 1)
+  }
+  return count
+}
+
+const COUNT_CHUNK_BYTES = 4 * 1024 * 1024
+
+/** Same count, but yields to the event loop between 4MB chunks. */
+async function countNewlinesAsync(buf: Uint8Array) {
+  if (buf.length <= COUNT_CHUNK_BYTES) return countNewlines(buf)
+  let count = 0
+  for (let base = 0; base < buf.length; base += COUNT_CHUNK_BYTES) {
+    const end = Math.min(buf.length, base + COUNT_CHUNK_BYTES)
+    count += countNewlines(buf, base, end)
+    await new Promise((resolve) => setImmediate(resolve))
+  }
+  return count
+}
+
+type Window = {
+  /** Lines to render, in document order. */
+  lines: string[]
+  /** Bytes consumed by `lines` including the separators that used to join them. */
+  bytes: number
+  /** True when the byte budget — not the line budget — stopped the window. */
+  hitBytes: boolean
+}
+
+/**
+ * Collect at most `maxLines` / `maxBytes` of lines from one end of the buffer.
+ *
+ * Works on the encoded bytes so a single `Buffer.from` covers byte counting and
+ * the spill write, and so the window stops as soon as a budget is hit instead of
+ * walking the whole payload.
+ */
+function window(buf: Uint8Array, direction: "head" | "tail", maxLines: number, maxBytes: number): Window {
+  const out: string[] = []
+  let bytes = 0
+  let hitBytes = false
+  const decoder = new TextDecoder()
+
+  if (direction === "head") {
+    let start = 0
+    while (start < buf.length && out.length < maxLines) {
+      const nl = buf.indexOf(0x0a, start)
+      const end = nl === -1 ? buf.length : nl
+      const size = end - start + (out.length > 0 ? 1 : 0)
+      if (bytes + size > maxBytes) {
+        hitBytes = true
+        break
+      }
+      out.push(decoder.decode(buf.subarray(start, end)))
+      bytes += size
+      if (nl === -1) break
+      start = nl + 1
+    }
+    return { lines: out, bytes, hitBytes }
+  }
+
+  let end = buf.length
+  while (end > 0 && out.length < maxLines) {
+    const prev = buf.lastIndexOf(0x0a, end - 1)
+    const start = prev === -1 ? 0 : prev + 1
+    const size = end - start + (out.length > 0 ? 1 : 0)
+    if (bytes + size > maxBytes) {
+      hitBytes = true
+      break
+    }
+    out.push(decoder.decode(buf.subarray(start, end)))
+    bytes += size
+    if (prev === -1) break
+    end = prev
+  }
+  out.reverse()
+  return { lines: out, bytes, hitBytes }
+}
+
 export interface Interface {
   readonly cleanup: () => Effect.Effect<void>
-  readonly write: (text: string) => Effect.Effect<string>
+  readonly write: (text: string | Uint8Array) => Effect.Effect<string>
   /**
    * Returns output unchanged when it fits within the limits, otherwise writes the full text
    * to the truncation directory and returns a preview plus a hint to inspect the saved file.
@@ -66,10 +149,12 @@ export const layer = Layer.effect(
       }
     })
 
-    const write = Effect.fn("Truncate.write")(function* (text: string) {
+    const write = Effect.fn("Truncate.write")(function* (text: string | Uint8Array) {
       const file = path.join(TRUNCATION_DIR, ToolID.ascending())
       yield* fs.ensureDir(TRUNCATION_DIR).pipe(Effect.orDie)
-      yield* fs.writeFileString(file, text).pipe(Effect.orDie)
+      // Bytes go straight to disk: no second UTF-8 encoding of a possibly
+      // 100MB+ string, and the write itself is async (never blocks the loop).
+      yield* (typeof text === "string" ? fs.writeFileString(file, text) : fs.writeFile(file, text)).pipe(Effect.orDie)
       return file
     })
 
@@ -88,48 +173,31 @@ export const layer = Layer.effect(
       const maxLines = options.maxLines ?? resolved.maxLines
       const maxBytes = options.maxBytes ?? resolved.maxBytes
       const direction = options.direction ?? "head"
-      const lines = text.split("\n")
-      const totalBytes = Buffer.byteLength(text, "utf-8")
 
-      if (lines.length <= maxLines && totalBytes <= maxBytes) {
+      // One encode covers the exact byte count, the window scan and the spill
+      // write. `text.length` is a cheap lower bound on the UTF-8 byte length, so
+      // payloads that cannot possibly fit skip the encode entirely.
+      const buf = text.length > maxBytes ? undefined : Buffer.from(text, "utf-8")
+      if (buf && buf.length <= maxBytes && 1 + countNewlines(buf) <= maxLines) {
         return { content: text, truncated: false } as const
       }
 
-      const out: string[] = []
-      let i = 0
-      let bytes = 0
-      let hitBytes = false
+      const full = buf ?? Buffer.from(text, "utf-8")
+      const totalBytes = full.length
+      const preview = window(full, direction, maxLines, maxBytes)
 
-      if (direction === "head") {
-        for (i = 0; i < lines.length && i < maxLines; i++) {
-          const line = lines[i]
-          if (line === undefined) break
-          const size = Buffer.byteLength(line, "utf-8") + (i > 0 ? 1 : 0)
-          if (bytes + size > maxBytes) {
-            hitBytes = true
-            break
-          }
-          out.push(line)
-          bytes += size
-        }
-      } else {
-        for (i = lines.length - 1; i >= 0 && out.length < maxLines; i--) {
-          const line = lines[i]
-          if (line === undefined) break
-          const size = Buffer.byteLength(line, "utf-8") + (out.length > 0 ? 1 : 0)
-          if (bytes + size > maxBytes) {
-            hitBytes = true
-            break
-          }
-          out.unshift(line)
-          bytes += size
-        }
-      }
-
-      const removed = hitBytes ? totalBytes - bytes : lines.length - out.length
-      const unit = hitBytes ? "bytes" : "lines"
-      const preview = out.join("\n")
-      const file = yield* write(text)
+      // Byte-truncated output never needs the total line count: the marker is in
+      // bytes. Only line-truncated payloads pay for a full newline count.
+      const totalLines = preview.hitBytes
+        ? 0
+        : 1 +
+          (full.length > COUNT_CHUNK_BYTES
+            ? yield* Effect.promise(() => countNewlinesAsync(full))
+            : countNewlines(full))
+      const removed = preview.hitBytes ? totalBytes - preview.bytes : totalLines - preview.lines.length
+      const unit = preview.hitBytes ? "bytes" : "lines"
+      const rendered = preview.lines.join("\n")
+      const file = yield* write(full)
 
       const hint = hasTaskTool(agent)
         ? `The tool call succeeded but the output was truncated. Full output saved to: ${file}\nUse the Task tool to have explore agent process this file with Grep and Read (with offset/limit). Do NOT read the full file yourself - delegate to save context.`
@@ -138,8 +206,8 @@ export const layer = Layer.effect(
       return {
         content:
           direction === "head"
-            ? `${preview}\n\n...${removed} ${unit} truncated...\n\n${hint}`
-            : `...${removed} ${unit} truncated...\n\n${hint}\n\n${preview}`,
+            ? `${rendered}\n\n...${removed} ${unit} truncated...\n\n${hint}`
+            : `...${removed} ${unit} truncated...\n\n${hint}\n\n${rendered}`,
         truncated: true,
         outputPath: file,
       } as const

@@ -9,6 +9,7 @@ import path from "path"
 let CLOUDFLARE_SKILLS_URL: string
 let server: ReturnType<typeof Bun.serve>
 let downloadCount = 0
+const ORIGINAL_ALLOW_INSECURE = process.env["NAVI_SKILLS_ALLOW_INSECURE"]
 
 const fixturePath = path.join(import.meta.dir, "../fixture/skills")
 const cacheDir = path.join(Global.Path.cache, "skills")
@@ -39,10 +40,15 @@ beforeAll(async () => {
   })
 
   CLOUDFLARE_SKILLS_URL = `http://localhost:${server.port}/.well-known/skills/`
+  // Plain http:// on loopback is a local-dev convenience that requires an
+  // explicit opt-in; the fixture server cannot serve https.
+  process.env["NAVI_SKILLS_ALLOW_INSECURE"] = "1"
 })
 
 afterAll(async () => {
   void server?.stop()
+  if (ORIGINAL_ALLOW_INSECURE === undefined) delete process.env["NAVI_SKILLS_ALLOW_INSECURE"]
+  else process.env["NAVI_SKILLS_ALLOW_INSECURE"] = ORIGINAL_ALLOW_INSECURE
   await rm(cacheDir, { recursive: true, force: true })
 })
 
@@ -80,6 +86,15 @@ describe("Discovery.pull", () => {
     expect(dirs).toEqual([])
   })
 
+  test("rejects plain http:// loopback without the explicit opt-in", async () => {
+    delete process.env["NAVI_SKILLS_ALLOW_INSECURE"]
+    try {
+      expect(await pull(CLOUDFLARE_SKILLS_URL)).toEqual([])
+    } finally {
+      process.env["NAVI_SKILLS_ALLOW_INSECURE"] = "1"
+    }
+  })
+
   test("downloads reference files alongside SKILL.md", async () => {
     const dirs = await pull(CLOUDFLARE_SKILLS_URL)
     // find a skill dir that should have reference files (e.g. agents-sdk)
@@ -112,5 +127,9 @@ describe("Discovery.pull", () => {
 
     // second pull should NOT increment download count
     expect(downloadCount).toBe(firstCount)
+
+    // cached files are not re-sanitized, so the untrusted wrapper stays single
+    const cached = await Bun.file(path.join(cacheDir, "agents-sdk", "SKILL.md")).text()
+    expect(cached.match(/<untrusted_external_content/g)?.length).toBe(1)
   })
 })

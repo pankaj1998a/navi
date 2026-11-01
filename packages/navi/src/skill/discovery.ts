@@ -81,7 +81,21 @@ export const layer: Layer.Layer<Service, never, AppFileSystem.Service | Path.Pat
       const SAFE_SKILL_NAME_RE = /^[a-zA-Z0-9_-]+$/
 
       const pull = Effect.fn("Discovery.pull")(function* (url: string) {
-        if (!url.startsWith("https://")) {
+        // Loopback http:// is a local-development convenience: it stays blocked
+        // unless the operator opts in. Every remote host must use https://.
+        const allowInsecure = process.env["NAVI_SKILLS_ALLOW_INSECURE"] === "1"
+        const parsed = URL.canParse(url) ? new URL(url) : undefined
+        if (!parsed) {
+          log.error("skill pull rejected: invalid url", { url })
+          return []
+        }
+        const hostname = parsed.hostname.toLowerCase().replace(/^\[|\]$/g, "")
+        const loopback =
+          hostname === "localhost" ||
+          hostname === "127.0.0.1" ||
+          hostname === "::1" ||
+          hostname.endsWith(".localhost")
+        if (parsed.protocol !== "https:" && !(allowInsecure && loopback)) {
           log.error("skill pull rejected: URL must use secure https:// scheme", { url })
           return []
         }
@@ -92,10 +106,12 @@ export const layer: Layer.Layer<Service, never, AppFileSystem.Service | Path.Pat
 
         const { assertSafeExternalUrl } = yield* Effect.promise(() => import("@/util/ssrf"))
         const ssrfCheck = yield* Effect.promise(() =>
-          assertSafeExternalUrl(index).then(() => true).catch((e) => {
-            log.error("skill pull SSRF check failed", { url: index, error: String(e) })
-            return false
-          }),
+          assertSafeExternalUrl(index, { allowLocalhost: allowInsecure && loopback })
+            .then(() => true)
+            .catch((e) => {
+              log.error("skill pull SSRF check failed", { url: index, error: String(e) })
+              return false
+            }),
         )
         if (!ssrfCheck) return []
 
@@ -132,11 +148,48 @@ export const layer: Layer.Layer<Service, never, AppFileSystem.Service | Path.Pat
           return true
         })
 
+        // Neutralize prompt-injection vectors in markdown and text files. Only
+        // applied to freshly downloaded bytes: re-running it on a cached file
+        // would wrap an already wrapped body again.
+        const sanitizeInPlace = Effect.fnUntraced(function* (file: string, root: string, name: string) {
+          const ext = path.extname(file).toLowerCase()
+          if (ext !== ".md" && ext !== ".txt") return
+          const filePath = path.join(root, file)
+          if (!(yield* fs.exists(filePath).pipe(Effect.orDie))) return
+          const rawText = yield* fs.readFileString(filePath).pipe(Effect.orDie)
+          if (file !== "SKILL.md") {
+            yield* fs.writeWithDirs(filePath, sanitizeUntrustedText(rawText)).pipe(Effect.orDie)
+            return
+          }
+          const match = /^---\r?\n([\s\S]*?)\r?\n---\r?\n([\s\S]*)$/.exec(rawText)
+          const frontmatter = match?.[1]
+          const body = match?.[2]
+          if (frontmatter === undefined || body === undefined) {
+            yield* fs.writeWithDirs(filePath, wrapUntrustedContent(rawText, `remote-skill:${name}`)).pipe(Effect.orDie)
+            return
+          }
+          yield* fs
+            .writeWithDirs(
+              filePath,
+              `---\n${sanitizeUntrustedText(frontmatter)}\n---\n\n${wrapUntrustedContent(body, `remote-skill:${name}`)}`,
+            )
+            .pipe(Effect.orDie)
+        })
+
         const dirs = yield* Effect.forEach(
           list,
           (skill) =>
             Effect.gen(function* () {
               const root = path.join(cache, skill.name)
+              // Written after a file is downloaded and verified. Checksums alone
+              // cannot identify a cached file because sanitizing rewrites it, and
+              // an unverified on-disk cache entry is never trusted.
+              const manifestPath = path.join(cache, ".verified", `${skill.name}.json`)
+              const verified: Record<string, string | undefined> = (yield* fs.exists(manifestPath).pipe(Effect.orDie))
+                ? ((yield* fs
+                    .readJson(manifestPath)
+                    .pipe(Effect.orElseSucceed(() => ({})))) as Record<string, string | undefined>)
+                : {}
 
               // Filter only allowed file extensions and prevent path traversal
               const safeFiles = skill.files.filter((file) => {
@@ -162,11 +215,18 @@ export const layer: Layer.Layer<Service, never, AppFileSystem.Service | Path.Pat
                       log.error("missing checksum for skill file in index", { skill: skill.name, file })
                       return false
                     }
-                    return yield* download(
-                      new URL(file, `${host}/${skill.name}/`).href,
-                      path.join(root, file),
-                      expectedHash,
-                    )
+                    const dest = path.join(root, file)
+                    // Only files this process verified under the same hash are
+                    // reusable; anything else is refetched and re-verified.
+                    if (
+                      verified[file]?.toLowerCase() === expectedHash.toLowerCase() &&
+                      (yield* fs.exists(dest).pipe(Effect.orDie))
+                    ) {
+                      return true
+                    }
+                    if (!(yield* download(new URL(file, `${host}/${skill.name}/`).href, dest, expectedHash))) return false
+                    yield* sanitizeInPlace(file, root, skill.name)
+                    return true
                   }),
                 { concurrency: fileConcurrency },
               )
@@ -178,35 +238,17 @@ export const layer: Layer.Layer<Service, never, AppFileSystem.Service | Path.Pat
                 return null
               }
 
-              // Neutralize prompt-injection vectors in markdown and text files
-              for (const file of safeFiles) {
-                const ext = path.extname(file).toLowerCase()
-                if (ext === ".md" || ext === ".txt") {
-                  const filePath = path.join(root, file)
-                  if (yield* fs.exists(filePath).pipe(Effect.orDie)) {
-                    const rawText = yield* fs.readFileString(filePath).pipe(Effect.orDie)
-                    if (file === "SKILL.md") {
-                      const match = /^---\r?\n([\s\S]*?)\r?\n---\r?\n([\s\S]*)$/.exec(rawText)
-                      if (match && match[1] !== undefined && match[2] !== undefined) {
-                        const frontmatter = sanitizeUntrustedText(match[1])
-                        const body = match[2]
-                        const wrappedBody = wrapUntrustedContent(body, `remote-skill:${skill.name}`)
-                        const sanitizedFull = `---\n${frontmatter}\n---\n\n${wrappedBody}`
-                        yield* fs.writeWithDirs(filePath, sanitizedFull).pipe(Effect.orDie)
-                      } else {
-                        const wrapped = wrapUntrustedContent(rawText, `remote-skill:${skill.name}`)
-                        yield* fs.writeWithDirs(filePath, wrapped).pipe(Effect.orDie)
-                      }
-                    } else {
-                      const sanitized = sanitizeUntrustedText(rawText)
-                      yield* fs.writeWithDirs(filePath, sanitized).pipe(Effect.orDie)
-                    }
-                  }
-                }
-              }
-
               const md = path.join(root, "SKILL.md")
-              return (yield* fs.exists(md).pipe(Effect.orDie)) ? root : null
+              if (!(yield* fs.exists(md).pipe(Effect.orDie))) return null
+              yield* fs
+                .writeWithDirs(
+                  manifestPath,
+                  JSON.stringify(
+                    Object.fromEntries(safeFiles.map((file) => [file, skill.checksums[file]])),
+                  ),
+                )
+                .pipe(Effect.orDie)
+              return root
             }),
           { concurrency: skillConcurrency },
         )

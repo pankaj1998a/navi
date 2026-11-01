@@ -1,64 +1,58 @@
 import yargs from "yargs"
+import type { CommandModule } from "yargs"
 import { hideBin } from "yargs/helpers"
-import { RunCommand } from "./cli/cmd/run"
-import { GenerateCommand } from "./cli/cmd/generate"
-import * as Log from "@navi-ai/core/util/log"
-import { ConsoleCommand } from "./cli/cmd/account"
-import { ProvidersCommand } from "./cli/cmd/providers"
-import { AgentCommand } from "./cli/cmd/agent"
-import { UpgradeCommand } from "./cli/cmd/upgrade"
-import { UninstallCommand } from "./cli/cmd/uninstall"
-import { ModelsCommand } from "./cli/cmd/models"
+import { commandUsesAppRuntimeDirectly, deferredCommand } from "./cli/deferred-command"
+import { appRuntimeLoaded, loadAppRuntime } from "./cli/app-runtime"
+import type { Log as LogNamespace } from "@navi-ai/core/util/log"
 import { UI } from "./cli/ui"
-import { Installation } from "./installation"
 import { InstallationVersion } from "@navi-ai/core/installation/version"
 import { NamedError } from "@navi-ai/core/util/error"
-import { FormatError } from "./cli/error"
-import { ServeCommand } from "./cli/cmd/serve"
-import { Filesystem } from "./util/filesystem"
-import { DebugCommand } from "./cli/cmd/debug"
-import { StatsCommand } from "./cli/cmd/stats"
-import { McpCommand } from "./cli/cmd/mcp"
-import { GithubCommand } from "./cli/cmd/github"
-import { ExportCommand } from "./cli/cmd/export"
-import { ImportCommand } from "./cli/cmd/import"
-import { AttachCommand } from "./cli/cmd/tui/attach"
-import { TuiThreadCommand } from "./cli/cmd/tui/thread"
-import { AcpCommand } from "./cli/cmd/acp"
 import { EOL } from "os"
-import { WebCommand } from "./cli/cmd/web"
-import { BrowserCommand } from "./cli/cmd/browser"
-import { StructureCommand } from "./cli/cmd/structure"
-import { AgentationCommand } from "./cli/cmd/agentation"
-import { TrashCommand } from "./cli/cmd/trash"
-import { PrCommand } from "./cli/cmd/pr"
-import { SessionCommand } from "./cli/cmd/session"
-import { DbCommand } from "./cli/cmd/db"
 import path from "path"
-import { Global } from "@navi-ai/core/global"
-import * as JsonMigration from "./storage/json-migration"
-import { Database } from "./storage/db"
+import type { JsonMigration as JsonMigrationModule } from "./storage/json-migration"
 import { errorMessage } from "./util/error"
-import { PluginCommand } from "./cli/cmd/plug"
-import { Heap } from "./cli/heap"
-import { drizzle } from "drizzle-orm/bun-sqlite"
 import { ensureProcessMetadata } from "@navi-ai/core/util/navi-process"
 
 const processMetadata = ensureProcessMetadata("main")
 
+// Only the modules needed to render `--help`/`--version` are imported eagerly.
+// Logging, the logger/file layer, the service runtime, and the DB migration are
+// loaded on demand (process-wide crash handlers or the command middleware).
+
+/** Log from a process-level handler without paying the logger import at startup. */
+function logAsync(event: string, data: Record<string, unknown>) {
+  void import("@navi-ai/core/util/log").then(({ Log }) => Log.Default.error(event, data))
+}
+
 process.on("unhandledRejection", (e) => {
-  Log.Default.error("rejection", {
+  logAsync("rejection", {
     e: errorMessage(e),
   })
 })
 
 process.on("uncaughtException", (e) => {
-  Log.Default.error("exception", {
+  logAsync("exception", {
     e: errorMessage(e),
   })
 })
 
 const args = hideBin(process.argv)
+
+// yargs applies global middleware even when it is only going to print help or
+// the version, so guard the expensive setup (logging, heap monitor, one-time DB
+// migration) behind this flag: `--help`/`--version` must stay off the service graph.
+const helpOrVersion = args.some((arg) => ["-h", "--help", "-v", "--version"].includes(arg))
+
+/**
+ * Commands that keep running after their handler starts (servers, interactive
+ * clients). They own their lifecycle and must never be force-exited by the
+ * one-shot shutdown watchdog — e.g. `serve` blocks on `Effect.never`, so its
+ * teardown path only runs when the server is already stopping.
+ */
+const LONG_LIVED_COMMANDS = new Set(["serve", "web", "acp", "attach"])
+
+/** Command resolved from yargs; `undefined` for `--help`/`--version`. */
+let command: string | undefined
 
 function show(out: string) {
   const text = out.trimStart()
@@ -69,6 +63,261 @@ function show(out: string) {
   }
   process.stderr.write(out)
 }
+
+// Default command. yargs does not await async default builders, so its builder
+// stays synchronous; the option set is mirrored from
+// `src/cli/cmd/tui/thread.ts` (`TuiThreadCommand.builder`) to avoid importing
+// that module (TuiConfig/Config, ~1.2s) just to render help. Keep both in sync.
+// The implementation itself is still imported lazily by the handler.
+const TuiCommand: CommandModule = {
+  command: "$0 [project]",
+  describe: "start navi tui",
+  builder: (yargs) =>
+    yargs
+      .options({
+        port: { type: "number", describe: "port to listen on", default: 0 },
+        hostname: { type: "string", describe: "hostname to listen on", default: "127.0.0.1" },
+        mdns: {
+          type: "boolean",
+          describe: "enable mDNS service discovery (defaults hostname to 0.0.0.0)",
+          default: false,
+        },
+        "mdns-domain": {
+          type: "string",
+          describe: "custom domain name for mDNS service (default: navi.local)",
+          default: "navi.local",
+        },
+        cors: { type: "string", array: true, describe: "additional domains to allow for CORS", default: [] },
+      })
+      .positional("project", {
+        type: "string",
+        describe: "path to start navi in",
+      })
+      .option("model", {
+        type: "string",
+        alias: ["m"],
+        describe: "model to use in the format of provider/model",
+      })
+      .option("continue", {
+        alias: ["c"],
+        describe: "continue the last session",
+        type: "boolean",
+      })
+      .option("session", {
+        alias: ["s"],
+        type: "string",
+        describe: "session id to continue",
+      })
+      .option("fork", {
+        type: "boolean",
+        describe: "fork the session when continuing (use with --continue or --session)",
+      })
+      .option("prompt", {
+        type: "string",
+        describe: "prompt to use",
+      })
+      .option("agent", {
+        type: "string",
+        describe: "agent to use",
+      }),
+  handler: async (args) => (await import("./cli/cmd/tui/thread")).TuiThreadCommand.handler(args as never),
+}
+
+// Command implementations are imported lazily: yargs only needs name/describe at
+// registration time, so `--help`/`--version` no longer pay for the command graph
+// (which transitively pulls the 55-service AppRuntime through effect-cmd).
+const commands = [
+  deferredCommand({
+    command: "acp",
+    describe: "start ACP (Agent Client Protocol) server",
+    load: () => import("./cli/cmd/acp").then((m) => m.AcpCommand),
+  }),
+  deferredCommand({
+    command: "mcp",
+    describe: "manage MCP (Model Context Protocol) servers",
+    load: () => import("./cli/cmd/mcp").then((m) => m.McpCommand),
+  }),
+  // Default command ($0): see TuiCommand above.
+  TuiCommand,
+  deferredCommand({
+    command: "attach <url>",
+    describe: "attach to a running navi server",
+    load: () => import("./cli/cmd/tui/attach").then((m) => m.AttachCommand),
+  }),
+  deferredCommand({
+    command: "run [message..]",
+    describe: "run navi with a message",
+    load: () => import("./cli/cmd/run").then((m) => m.RunCommand),
+  }),
+  deferredCommand({
+    command: "review",
+    describe: "review code changes with a headless agent session",
+    load: () => import("./cli/cmd/review").then((m) => m.ReviewCommand),
+  }),
+  deferredCommand({
+    command: "generate",
+    describe: false,
+    load: () => import("./cli/cmd/generate").then((m) => m.GenerateCommand),
+  }),
+  deferredCommand({
+    command: "debug",
+    describe: "debugging and troubleshooting tools",
+    load: () => import("./cli/cmd/debug").then((m) => m.DebugCommand),
+  }),
+  deferredCommand({
+    command: "console",
+    describe: false,
+    load: () => import("./cli/cmd/account").then((m) => m.ConsoleCommand),
+  }),
+  deferredCommand({
+    command: "providers",
+    aliases: ["auth"],
+    describe: "manage AI providers and credentials",
+    load: () => import("./cli/cmd/providers").then((m) => m.ProvidersCommand),
+  }),
+  deferredCommand({
+    command: "agent",
+    describe: "manage agents",
+    load: () => import("./cli/cmd/agent").then((m) => m.AgentCommand),
+  }),
+  deferredCommand({
+    command: "upgrade [target]",
+    describe: "upgrade navi to the latest or a specific version",
+    load: () => import("./cli/cmd/upgrade").then((m) => m.UpgradeCommand),
+  }),
+  deferredCommand({
+    command: "uninstall",
+    describe: "uninstall navi and remove all related files",
+    load: () => import("./cli/cmd/uninstall").then((m) => m.UninstallCommand),
+  }),
+  deferredCommand({
+    command: "serve",
+    describe: "starts a headless navi server",
+    load: () => import("./cli/cmd/serve").then((m) => m.ServeCommand),
+  }),
+  deferredCommand({
+    command: "web",
+    describe: "start navi server and open web interface",
+    load: () => import("./cli/cmd/web").then((m) => m.WebCommand),
+  }),
+  deferredCommand({
+    command: "browser <action> [target]",
+    describe:
+      "Headless Chrome DevTools CLI (check, open, content, scrape, screenshot, eval, console, network, pick)",
+    load: () => import("./cli/cmd/browser").then((m) => m.BrowserCommand),
+  }),
+  deferredCommand({
+    command: "structure [target]",
+    describe: "Compress TypeScript, Swift, Python, Go, and Rust projects into dense AST symbol maps for LLM agents",
+    load: () => import("./cli/cmd/structure").then((m) => m.StructureCommand),
+  }),
+  deferredCommand({
+    command: "agentation <action> [id]",
+    describe: "Inspect and manage live Agentation visual annotations (status, pending, resolve)",
+    load: () => import("./cli/cmd/agentation").then((m) => m.AgentationCommand),
+  }),
+  deferredCommand({
+    command: "trash <paths..>",
+    describe: "Safely move files or directories to system Trash instead of permanent rm -rf",
+    load: () => import("./cli/cmd/trash").then((m) => m.TrashCommand),
+  }),
+  deferredCommand({
+    command: "models [provider]",
+    describe: "list all available models",
+    load: () => import("./cli/cmd/models").then((m) => m.ModelsCommand),
+  }),
+  deferredCommand({
+    command: "stats",
+    describe: "show token usage and cost statistics",
+    load: () => import("./cli/cmd/stats").then((m) => m.StatsCommand),
+  }),
+  deferredCommand({
+    command: "export [sessionID]",
+    describe: "export session data as JSON",
+    load: () => import("./cli/cmd/export").then((m) => m.ExportCommand),
+  }),
+  deferredCommand({
+    command: "import <file>",
+    describe: "import session data from JSON file or URL",
+    load: () => import("./cli/cmd/import").then((m) => m.ImportCommand),
+  }),
+  deferredCommand({
+    command: "github",
+    describe: "manage GitHub agent",
+    load: () => import("./cli/cmd/github").then((m) => m.GithubCommand),
+  }),
+  deferredCommand({
+    command: "pr <number>",
+    describe: "fetch and checkout a GitHub PR branch, then run navi",
+    load: () => import("./cli/cmd/pr").then((m) => m.PrCommand),
+  }),
+  deferredCommand({
+    command: "session",
+    describe: "manage sessions",
+    load: () => import("./cli/cmd/session").then((m) => m.SessionCommand),
+  }),
+  deferredCommand({
+    command: "plugin <module>",
+    aliases: ["plug"],
+    describe: "install plugin and update config",
+    load: () => import("./cli/cmd/plug").then((m) => m.PluginCommand),
+  }),
+  deferredCommand({
+    command: "db",
+    describe: "database tools",
+    load: () => import("./cli/cmd/db").then((m) => m.DbCommand),
+  }),
+  deferredCommand({
+    command: "memory <command>",
+    describe: "inspect, search, and manage Navi durable memory, handoffs, and wiki",
+    load: () => import("./cli/cmd/memory").then((m) => m.MemoryCommand),
+  }),
+  deferredCommand({
+    command: "agency [action] [arg]",
+    describe: "Interact with The Agency's 282 AI specialists and NEXUS multi-agent pipeline",
+    load: () => import("./cli/cmd/agency").then((m) => m.AgencyCommand),
+  }),
+  deferredCommand({
+    command: "audit [action]",
+    describe: "Run Cloudflare-style structured security audit (6-phase coverage, validation, and reporting)",
+    load: () => import("./cli/cmd/audit").then((m) => m.AuditCommand),
+  }),
+  deferredCommand({
+    command: "pentest",
+    describe: "run autonomous security penetration test on target codebase or web application",
+    load: () => import("./cli/cmd/pentest").then((m) => m.PentestCommand),
+  }),
+  deferredCommand({
+    command: "graph [action] [arg1] [arg2]",
+    describe: "Codebase Knowledge Graph & Architecture Intelligence (Graphify Engine)",
+    load: () => import("./cli/cmd/graph").then((m) => m.GraphCommand),
+  }),
+  deferredCommand({
+    command: "headroom [action] [arg]",
+    describe: "Headroom AI — Context Compression Layer & Lossless CCR Store",
+    load: () => import("./cli/cmd/headroom").then((m) => m.HeadroomCommand),
+  }),
+  deferredCommand({
+    command: "recipe [action] [target]",
+    describe: "Manage and run deterministic AI workflow recipes (Goose-style structured automation)",
+    load: () => import("./cli/cmd/recipe").then((m) => m.RecipeCommand),
+  }),
+  deferredCommand({
+    command: "bridge",
+    describe: "connect web-based AIs (Claude, ChatGPT, Gemini) to your local Navi workspace via remote MCP",
+    load: () => import("./cli/cmd/bridge").then((m) => m.BridgeCommand),
+  }),
+  deferredCommand({
+    command: "api <method> <path>",
+    describe: "make a request to a running navi server",
+    load: () => import("./cli/cmd/api").then((m) => m.ApiCommand),
+  }),
+  deferredCommand({
+    command: "doctor [action]",
+    describe: "Diagnose system health, native Rust bindings, AI providers, and environment (Goose-style /doctor)",
+    load: () => import("./cli/cmd/doctor").then((m) => m.DoctorCommand),
+  }),
+]
 
 const cli = yargs(args)
   .parserConfiguration({ "populate--": true })
@@ -92,20 +341,32 @@ const cli = yargs(args)
     type: "boolean",
   })
   .middleware(async (opts) => {
+    if (helpOrVersion) return
+
     if (opts.pure) {
       process.env.NAVI_PURE = "1"
     }
+
+    // Deferred: `effect`, the http client, and the v8 heap monitor are only
+    // needed once a command actually runs (never for `--help`/`--version`).
+    const [{ Installation }, { Heap }, { Log }, { Filesystem }, { Global }] = await Promise.all([
+      import("./installation"),
+      import("./cli/heap"),
+      import("@navi-ai/core/util/log"),
+      import("./util/filesystem"),
+      import("@navi-ai/core/global"),
+    ])
 
     await Log.init({
       print: process.argv.includes("--print-logs"),
       dev: Installation.isLocal(),
       level: (() => {
-        if (opts.logLevel) return opts.logLevel as Log.Level
+        if (opts.logLevel) return opts.logLevel as LogNamespace.Level
         if (Installation.isLocal()) return "DEBUG"
         return "INFO"
       })(),
     })
-    
+
     Heap.start()
 
     process.env.AGENT = "1"
@@ -130,8 +391,13 @@ const cli = yargs(args)
       let last = -1
       if (tty) process.stderr.write("\x1b[?25l")
       try {
+        const [{ JsonMigration }, { Database }, { drizzle }] = await Promise.all([
+          import("./storage/json-migration"),
+          import("./storage/db"),
+          import("drizzle-orm/bun-sqlite"),
+        ])
         await JsonMigration.run(drizzle({ client: Database.Client().$client }), {
-          progress: (event: JsonMigration.Progress) => {
+          progress: (event: JsonMigrationModule.Progress) => {
             const percent = Math.floor((event.current / event.total) * 100)
             if (percent === last && event.current !== event.total) return
             last = percent
@@ -158,33 +424,10 @@ const cli = yargs(args)
   })
   .usage("")
   .completion("completion", "generate shell completion script")
-  .command(AcpCommand)
-  .command(McpCommand)
-  .command(TuiThreadCommand)
-  .command(AttachCommand)
-  .command(RunCommand)
-  .command(GenerateCommand)
-  .command(DebugCommand)
-  .command(ConsoleCommand)
-  .command(ProvidersCommand)
-  .command(AgentCommand)
-  .command(UpgradeCommand)
-  .command(UninstallCommand)
-  .command(ServeCommand)
-  .command(WebCommand)
-  .command(BrowserCommand)
-  .command(StructureCommand)
-  .command(AgentationCommand)
-  .command(TrashCommand)
-  .command(ModelsCommand)
-  .command(StatsCommand)
-  .command(ExportCommand)
-  .command(ImportCommand)
-  .command(GithubCommand)
-  .command(PrCommand)
-  .command(SessionCommand)
-  .command(PluginCommand)
-  .command(DbCommand)
+
+for (const command of commands) cli.command(command as never)
+
+cli
   .fail((msg, err) => {
     if (
       msg?.startsWith("Unknown argument") ||
@@ -207,9 +450,12 @@ try {
       show(out)
     })
   } else {
-    await cli.parse()
+    const parsed = await cli.parse()
+    const first = parsed?._?.[0]
+    command = typeof first === "string" ? first : undefined
   }
 } catch (e) {
+  const [{ Log }, { FormatError }] = await Promise.all([import("@navi-ai/core/util/log"), import("./cli/error")])
   let data: Record<string, any> = {}
   if (e instanceof NamedError) {
     const obj = e.toObject()
@@ -248,25 +494,32 @@ try {
   process.exitCode = 1
 } finally {
   process.exitCode ??= 0
-  try {
-    const { AppRuntime } = await import("@/effect/app-runtime")
-    await AppRuntime.dispose()
-  } catch {
-    // Ignore disposal errors during shutdown; nothing left to route them to
+  const usedRuntime = appRuntimeLoaded() || commandUsesAppRuntimeDirectly()
+  // One-shot CLI commands arm the forced-shutdown watchdog here, from the
+  // entry/teardown path — never from an InstanceStore layer finalizer, so an
+  // embedder that disposes the runtime mid-life keeps running. Long-lived
+  // commands own their lifecycle and are never force-exited by this process.
+  const oneShot = usedRuntime && !LONG_LIVED_COMMANDS.has(command ?? "")
+  const watchdog = oneShot ? await import("./effect/instance-registry") : undefined
+  // Safety net while teardown runs: a wedged finalizer (dockerd-backed MCP
+  // server, LSP shutdown) must not hang a one-shot CLI forever.
+  const disarm = watchdog?.scheduleShutdownExit(watchdog.disposeTimeoutMs() + watchdog.shutdownTimeoutMs())
+  // Only dispose when a handler actually loaded the runtime: importing it here
+  // unconditionally cost ~5s on every `--help`/`--version`/light command.
+  if (usedRuntime) {
+    try {
+      const { AppRuntime } = await loadAppRuntime()
+      await AppRuntime.dispose()
+    } catch {
+      // Ignore disposal errors during shutdown; nothing left to route them to
+    }
   }
-  // Grace: allow scopes/finalizers to flush and the event loop to drain naturally.
-  // Force-exit after 5s only if handles (e.g. docker-based MCP servers that ignore
-  // SIGTERM without `docker run --init`) are still open.
-  const procFields = process as unknown as Record<string, unknown>
-  const getHandles = procFields._getActiveHandles
-  const handles = typeof getHandles === "function" ? (getHandles as () => unknown[]).call(process) : []
-  if (handles.length > 0) {
-    const timer = setTimeout(() => {
-      const fields = process as unknown as Record<string, unknown>
-      const next = fields._getActiveHandles
-      const open = typeof next === "function" ? (next as () => unknown[]).call(process) : []
-      if (open.length > 0) process.exit(process.exitCode ?? 0)
-    }, 5000)
-    timer.unref?.()
+  // Disposal is done: shorten the grace so leftover handles (native watchers,
+  // detached fibers) cannot keep the process resident. The forced exit drains
+  // stdio first; grace is NAVI_SHUTDOWN_TIMEOUT_MS (default 3s, clamped
+  // 500ms..30s).
+  if (watchdog) {
+    disarm?.()
+    watchdog.scheduleShutdownExit()
   }
 }

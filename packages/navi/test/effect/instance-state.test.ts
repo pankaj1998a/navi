@@ -1,14 +1,35 @@
-import { afterEach, expect } from "bun:test"
+import { afterEach, describe, expect, test } from "bun:test"
 import { CrossSpawnSpawner } from "@navi-ai/core/cross-spawn-spawner"
 import { $ } from "bun"
 import { Context, Deferred, Duration, Effect, Exit, Fiber, Layer } from "effect"
+import { pathToFileURL } from "node:url"
+import path from "node:path"
 import { InstanceState } from "@/effect/instance-state"
+import {
+  cancelShutdownExit,
+  flushStdio,
+  scheduleShutdownExit,
+  shutdownExitArmed,
+  shutdownTimeoutMs,
+} from "@/effect/instance-registry"
 import { Instance } from "../../src/project/instance"
 import { disposeAllInstances, provideInstance, reloadTestInstance, tmpdirScoped } from "../fixture/fixture"
 import { testEffect } from "../lib/effect"
 import { deterministicDelayMs } from "../lib/names"
 
 const it = testEffect(CrossSpawnSpawner.defaultLayer)
+
+const withEnv = <A>(name: string, value: string | undefined, fn: () => A): A => {
+  const previous = process.env[name]
+  try {
+    if (value === undefined) delete process.env[name]
+    else process.env[name] = value
+    return fn()
+  } finally {
+    if (previous === undefined) delete process.env[name]
+    else process.env[name] = previous
+  }
+}
 
 const access = <A, E>(state: InstanceState.InstanceState<A, E>, dir: string) =>
   InstanceState.get(state).pipe(provideInstance(dir))
@@ -98,6 +119,30 @@ it.live("InstanceState invalidates on disposeAll", () =>
     yield* Effect.promise(disposeAllInstances)
 
     expect(seen.sort()).toEqual([one, two].sort())
+  }),
+)
+
+it.live("InstanceState disposal completes when a finalizer hangs", () =>
+  Effect.gen(function* () {
+    const dir = yield* tmpdirScoped()
+    const previous = process.env.NAVI_DISPOSE_TIMEOUT_MS
+    process.env.NAVI_DISPOSE_TIMEOUT_MS = "50"
+    yield* Effect.addFinalizer(() =>
+      Effect.sync(() => {
+        if (previous === undefined) delete process.env.NAVI_DISPOSE_TIMEOUT_MS
+        else process.env.NAVI_DISPOSE_TIMEOUT_MS = previous
+      }),
+    )
+
+    const state = yield* InstanceState.make((ctx) =>
+      Effect.acquireRelease(Effect.succeed(ctx.directory), () => Effect.never),
+    )
+    yield* access(state, dir)
+
+    const started = Date.now()
+    yield* Effect.promise(disposeAllInstances)
+
+    expect(Date.now() - started).toBeLessThan(2_000)
   }),
 )
 
@@ -398,3 +443,76 @@ it.live("InstanceState survives deferred resume outside ALS when InstanceRef is 
     }).pipe(Effect.provide(Test.layer))
   }),
 )
+
+describe("shutdown watchdog", () => {
+  test("grace defaults to 3s and is clamped to 500ms..30s", () => {
+    expect(withEnv("NAVI_SHUTDOWN_TIMEOUT_MS", undefined, shutdownTimeoutMs)).toBe(3_000)
+    expect(withEnv("NAVI_SHUTDOWN_TIMEOUT_MS", "750", shutdownTimeoutMs)).toBe(750)
+    expect(withEnv("NAVI_SHUTDOWN_TIMEOUT_MS", "10", shutdownTimeoutMs)).toBe(500)
+    expect(withEnv("NAVI_SHUTDOWN_TIMEOUT_MS", "120000", shutdownTimeoutMs)).toBe(30_000)
+    expect(withEnv("NAVI_SHUTDOWN_TIMEOUT_MS", "not-a-number", shutdownTimeoutMs)).toBe(3_000)
+  })
+
+  test("is a no-op under NODE_ENV=test", () => {
+    withEnv("NODE_ENV", "test", () => {
+      const disarm = scheduleShutdownExit(500)
+      expect(shutdownExitArmed()).toBe(false)
+      disarm()
+      cancelShutdownExit()
+    })
+  })
+
+  test("flushStdio waits for the pending write to drain", async () => {
+    const original = process.stdout.write
+    let release: (() => void) | undefined
+    const order: string[] = []
+    // Intercept only the drain write so the bounded race is observable.
+    process.stdout.write = ((_chunk: never, callback?: never) => {
+      if (typeof callback === "function") release = callback as () => void
+      return true
+    }) as typeof process.stdout.write
+    try {
+      const flushing = flushStdio().then(() => order.push("flushed"))
+      await Bun.sleep(10)
+      expect(release).toBeDefined()
+      expect(order).toEqual([])
+      release!()
+      await flushing
+      expect(order).toEqual(["flushed"])
+    } finally {
+      process.stdout.write = original
+    }
+  })
+
+  test("forces exit after the configured grace without losing buffered output", async () => {
+    const registry = pathToFileURL(path.join(import.meta.dir, "../../src/effect/instance-registry.ts")).href
+    const script = [
+      `import { scheduleShutdownExit } from ${JSON.stringify(registry)}`,
+      `process.stdout.write("out-before-exit\\n")`,
+      `process.stderr.write("err-before-exit\\n")`,
+      `process.exitCode = 7`,
+      `scheduleShutdownExit(500)`,
+      // Keep the event loop alive so only the watchdog can end the process.
+      `setInterval(() => {}, 1000)`,
+    ].join("\n")
+    const started = Date.now()
+    const proc = Bun.spawn([process.execPath, "--eval", script], {
+      cwd: path.join(import.meta.dir, "../.."),
+      env: { ...process.env, NODE_ENV: "production", NAVI_SHUTDOWN_TIMEOUT_MS: "500" },
+      stdout: "pipe",
+      stderr: "pipe",
+    })
+    const [stdout, stderr, code] = await Promise.all([
+      new Response(proc.stdout).text(),
+      new Response(proc.stderr).text(),
+      proc.exited,
+    ])
+    const elapsed = Date.now() - started
+
+    expect(code).toBe(7)
+    expect(stdout).toContain("out-before-exit")
+    expect(stderr).toContain("err-before-exit")
+    expect(elapsed).toBeGreaterThanOrEqual(400)
+    expect(elapsed).toBeLessThan(20_000)
+  })
+})

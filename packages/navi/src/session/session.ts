@@ -39,6 +39,7 @@ import { Global } from "@navi-ai/core/global"
 import { Effect, Layer, Option, Context, Schema, Types } from "effect"
 import { zod } from "@navi-ai/core/effect-zod"
 import { NonNegativeInt, optionalOmitUndefined, withStatics } from "@navi-ai/core/schema"
+import { HookEffect } from "@/hook/effect"
 
 const log = Log.create({ service: "session" })
 
@@ -531,6 +532,8 @@ export const layer: Layer.Layer<Service, never, Bus.Service | Storage.Service | 
         })
       }
 
+      yield* HookEffect.sessionStart(result.id, ctx.directory, input.agent)
+
       return result
     })
 
@@ -576,6 +579,7 @@ export const layer: Layer.Layer<Service, never, Bus.Service | Storage.Service | 
 
         yield* sync.run(Event.Deleted, { sessionID, info: session }, { publish: hasInstance })
         yield* sync.remove(sessionID)
+        yield* HookEffect.sessionEnd(sessionID, session.directory)
       } catch (e) {
         log.error(e)
       }
@@ -591,7 +595,7 @@ export const layer: Layer.Layer<Service, never, Bus.Service | Storage.Service | 
       Effect.gen(function* () {
         yield* sync.run(MessageV2.Event.PartUpdated, {
           sessionID: part.sessionID,
-          part: structuredClone(part),
+          part: { ...part },
           time: Date.now(),
         })
         return part

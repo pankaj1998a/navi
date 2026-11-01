@@ -1,0 +1,67 @@
+/* styles.css: the starter's stage. The three colours are placeholders: lint fails while --ground, --ink and --accent
+   all keep these values, or while any [data-placeholder] element shows. Set them from the look (the card's roles, or
+   plan.md's Look line) and design the stage; keep the mechanics.
+   Author at delivery size: 1 CSS px = 1 video px at a 1080 px short side. lib/look.js sets --w and --h (1920x1080, or
+   the frame's own shape, 1080x1920 under .portrait) and scales #stage for larger frames. */
+
+/* Inter and JetBrains Mono (SIL OFL 1.1; fonts/OFL.txt): Latin subsets, vendored so a render works offline. Use the
+   faces of plan.md's Look line, the card or the brand (files in fonts/; references/cjk.md's css2 fetch works for any
+   face); offline, keep these and say so. */
+@font-face { font-family: "Inter"; src: url(fonts/inter-latin.woff2) format("woff2"); font-weight: 100 900; font-display: block; }
+@font-face { font-family: "JetBrains Mono"; src: url(fonts/jetbrainsmono-latin.woff2) format("woff2"); font-weight: 100 800; font-display: block; }
+
+:root {
+  --ground: #808080; /* placeholder: mid grey */
+  --ink: #000000;    /* placeholder: black */
+  --accent: #ff00ff; /* placeholder: magenta */
+  --sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, monospace;
+}
+html, body { margin: 0; overflow: hidden; background: #000; }
+
+/* The frame. The preview player may scale #stage; animate elements inside it, never #stage itself. */
+#stage {
+  position: relative; width: var(--w); height: var(--h); overflow: hidden;
+  background: var(--ground); color: var(--ink); font-family: var(--sans);
+}
+
+/* The placeholder: delete it with its markup and its lines in film.js. */
+[data-placeholder] {
+  position: absolute; left: 50%; top: 50%; translate: -50% -50%; padding: 48px 72px; white-space: nowrap;
+  background: #c0c0c0; border: 8px solid var(--accent); font: 800 96px/1 var(--sans); letter-spacing: 0.02em;
+}
+
+/* Stage recipes: lib/look.js puts .stage-<value> on #stage from the look's stage. Each sets how the stage is built,
+   never its palette: every colour comes from the three properties above. */
+#stage.stage-flat, #stage.stage-medium-paper, #stage.stage-medium-cutpaper, #stage.stage-medium-print,
+#stage.stage-medium-pixel, #stage.stage-emissive, #stage.stage-lit { background: var(--ground); }
+/* flat: the ground, no light. lit: one key light from the upper left, and form shading on elements marked .form (a
+   lit top edge, a darker underside, one soft cast shadow). */
+#stage.stage-lit::before {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: radial-gradient(ellipse 70% 80% at 22% 18%, rgb(255 255 255 / 0.16), rgb(255 255 255 / 0) 70%);
+}
+.stage-lit .form {
+  background-image: linear-gradient(165deg, rgb(255 255 255 / 0.2), rgb(255 255 255 / 0) 45%, rgb(0 0 0 / 0.24));
+  box-shadow: inset 0 2px 0 rgb(255 255 255 / 0.3), 0 24px 48px -12px rgb(0 0 0 / 0.35);
+}
+/* medium-paper: the look's paper texture sits under everything (lib/look.js); line work in ink, round ends. */
+.stage-medium-paper .ink { fill: none; stroke: var(--ink); stroke-linecap: round; stroke-linejoin: round; }
+/* medium-cutpaper: each .piece is a cut-out with one short paper-lift shadow, never two layers. */
+.stage-medium-cutpaper .piece { filter: drop-shadow(0 3px 2px rgb(0 0 0 / 0.3)); }
+/* medium-print: inks overprint on the paper. */
+.stage-medium-print .print { mix-blend-mode: multiply; }
+/* medium-pixel: art authored on a low-resolution grid and scaled by a whole number, never smoothed. */
+.stage-medium-pixel canvas, .stage-medium-pixel img { image-rendering: pixelated; }
+.stage-medium-pixel { -webkit-font-smoothing: none; }
+/* emissive: light on a dark ground; .glow strokes share one uniform bloom. */
+.stage-emissive .glow { filter: drop-shadow(0 0 0.35em currentColor); }
+/* footage: a full-frame .plate (image or video frames) under the graphics. */
+#stage.stage-footage { background: #000; }
+.stage-footage .plate { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+/* transparent: an overlay; nothing paints the frame (render.mjs --alpha). */
+#stage.stage-transparent, html[data-stage="transparent"], html[data-stage="transparent"] body { background: transparent; }
+
+/* Frames taller than wide (9:16): the same timeline re-composed, never cropped. Read text stays inside the cross-app
+   clear box, x 65-900 and y 269-1248 at 1080x1920. */
+.portrait [data-placeholder] { left: 44.6%; top: 39.5%; padding: 40px 48px; font-size: 80px; }

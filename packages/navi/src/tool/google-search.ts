@@ -2,6 +2,7 @@ import { Effect, Schema } from "effect"
 import * as Tool from "./tool"
 import { executeSearchPipeline, normalizeSearchQuery } from "./search-pipeline"
 import { summarizeWithGoogleAi } from "./google-search-summarizer"
+import { resolvePolicy } from "./net-guard"
 
 export const Parameters = Schema.Struct({
   query: Schema.String.annotate({ description: "Search query" }),
@@ -28,6 +29,9 @@ export const GoogleSearchTool = Tool.define<typeof Parameters, GoogleSearchMetad
         Effect.gen(function* () {
           const query = normalizeSearchQuery(params.query)
           const numResults = Math.min(Math.max(params.numResults ?? 8, 1), 15)
+          // Each backend (search and the Gemini summarizer) validates its own
+          // endpoint against this policy before issuing a request.
+          const policy = yield* resolvePolicy()
 
           yield* ctx.ask({
             permission: "websearch",
@@ -37,7 +41,7 @@ export const GoogleSearchTool = Tool.define<typeof Parameters, GoogleSearchMetad
           })
 
           const search = yield* Effect.promise(() =>
-            executeSearchPipeline(query, numResults, ["google", "browser", "bing", "duckduckgo"]),
+            executeSearchPipeline(query, numResults, ["google", "browser", "bing", "duckduckgo"], policy),
           )
           const searchResults = search.results
 
@@ -55,7 +59,7 @@ export const GoogleSearchTool = Tool.define<typeof Parameters, GoogleSearchMetad
             }
           }
 
-          const aiSummary = yield* Effect.promise(() => summarizeWithGoogleAi(query, searchResults, ctx.abort))
+          const aiSummary = yield* Effect.promise(() => summarizeWithGoogleAi(query, searchResults, ctx.abort, policy))
 
           const lines: string[] = [
             `Google-style search results for: "${params.query}"`,

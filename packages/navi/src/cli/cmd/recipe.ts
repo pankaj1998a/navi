@@ -55,7 +55,8 @@ export const RecipeCommand = effectCmd({
         describe: "Recipe variables in key=value format (repeatable)",
         type: "array",
         default: [],
-      }),
+      })
+      .strict(),
   handler: Effect.fn("Cli.recipe")(function* (args) {
     const cwd = process.cwd()
     const customDir = args.dir ? (path.isAbsolute(args.dir) ? args.dir : path.resolve(cwd, args.dir)) : null
@@ -250,7 +251,7 @@ export const RecipeCommand = effectCmd({
               UI.println(`      ${UI.Style.TEXT_DANGER}Error: recipe command rejected (shell metacharacters or empty after splitting)`)
               success = false
             } else {
-              DestructiveCommandGuard.assertCommandSafe(argv.join(" "), cwd)
+              DestructiveCommandGuard.assertCommandSafe(argv.join(" "))
               const res = Bun.spawnSync({
                 cmd: argv,
                 cwd,

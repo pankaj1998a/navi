@@ -1,12 +1,12 @@
 import { describe, expect, beforeAll, beforeEach, afterAll } from "bun:test"
 import { Effect, Layer, Ref } from "effect"
-import { HttpClient, HttpClientResponse } from "effect/http"
+import { HttpClient, HttpClientError, HttpClientResponse } from "effect/http"
 import { AppFileSystem } from "@navi-ai/core/filesystem"
 import { Flag } from "@navi-ai/core/flag/flag"
 import { Global } from "@navi-ai/core/global"
 import { ModelsDev } from "../../src/provider/models"
 import { it } from "../lib/effect"
-import { rm, writeFile, utimes, mkdir } from "fs/promises"
+import { rm, writeFile, utimes, mkdir, readFile } from "fs/promises"
 import path from "path"
 
 // test/preload.ts pins NAVI_MODELS_PATH to a fixture so other tests can
@@ -16,16 +16,25 @@ import path from "path"
 // bun process.
 const ORIGINAL_MODELS_PATH = Flag.NAVI_MODELS_PATH
 const ORIGINAL_DISABLE_FETCH = Flag.NAVI_DISABLE_MODELS_FETCH
+const ORIGINAL_SNAPSHOT_PATH = process.env["NAVI_MODELS_SNAPSHOT_PATH"]
+// The bundled snapshot (src/provider/models-snapshot.js) is a gitignored build
+// artifact, so a dev checkout must not leak it into the empty-disk case. Pin the
+// snapshot to a path inside the isolated test cache dir instead.
+const snapshotFile = path.join(Global.Path.cache, "models-snapshot.test.json")
 beforeAll(() => {
   Flag.NAVI_MODELS_PATH = undefined
   Flag.NAVI_DISABLE_MODELS_FETCH = true
+  process.env["NAVI_MODELS_SNAPSHOT_PATH"] = snapshotFile
 })
 afterAll(() => {
   Flag.NAVI_MODELS_PATH = ORIGINAL_MODELS_PATH
   Flag.NAVI_DISABLE_MODELS_FETCH = ORIGINAL_DISABLE_FETCH
+  if (ORIGINAL_SNAPSHOT_PATH === undefined) delete process.env["NAVI_MODELS_SNAPSHOT_PATH"]
+  else process.env["NAVI_MODELS_SNAPSHOT_PATH"] = ORIGINAL_SNAPSHOT_PATH
 })
 
 const cacheFile = path.join(Global.Path.cache, "models.json")
+const metaFile = `${cacheFile}.meta.json`
 
 const fixture: Record<string, ModelsDev.Provider> = {
   acme: {
@@ -70,15 +79,33 @@ const fixture2: Record<string, ModelsDev.Provider> = {
 interface MockState {
   body: string
   status: number
-  calls: Array<{ url: string }>
+  calls: Array<{ url: string; headers: Record<string, string> }>
+  /** Response headers (etag / last-modified) to send with the mocked response. */
+  responseHeaders?: Record<string, string>
+  /** Simulate a transport failure instead of an HTTP response. */
+  fail?: boolean
 }
 
 const makeMockClient = (state: Ref.Ref<MockState>) =>
   HttpClient.make((request) =>
     Effect.gen(function* () {
-      yield* Ref.update(state, (s) => ({ ...s, calls: [...s.calls, { url: request.url }] }))
+      yield* Ref.update(state, (s) => ({
+        ...s,
+        calls: [...s.calls, { url: request.url, headers: { ...request.headers } }],
+      }))
       const s = yield* Ref.get(state)
-      return HttpClientResponse.fromWeb(request, new Response(s.body, { status: s.status }))
+      if (s.fail)
+        return yield* Effect.fail(
+          // Non-transient reason: `withTransientReadRetry` fails fast instead of
+          // retrying, which keeps the offline test deterministic and quick.
+          new HttpClientError.HttpClientError({
+            reason: new HttpClientError.InvalidUrlError({ request, description: "offline" }),
+          }),
+        )
+      return HttpClientResponse.fromWeb(
+        request,
+        new Response(s.status === 304 ? null : s.body, { status: s.status, headers: s.responseHeaders }),
+      )
     }),
   )
 
@@ -104,12 +131,24 @@ const writeCache = (data: object, mtimeMs?: number) =>
 const provided = <A, E>(state: Ref.Ref<MockState>, eff: Effect.Effect<A, E, ModelsDev.Service>) =>
   eff.pipe(Effect.provide(buildLayer(state)))
 
+const writeMeta = (meta: object) =>
+  Effect.promise(async () => {
+    await mkdir(Global.Path.cache, { recursive: true })
+    await writeFile(metaFile, JSON.stringify(meta))
+  })
+
+const readMeta = () => Effect.promise(() => readFile(metaFile, "utf-8").then((text) => JSON.parse(text) as any))
+
 beforeEach(async () => {
   await rm(cacheFile, { force: true })
+  await rm(metaFile, { force: true })
+  await rm(snapshotFile, { force: true })
 })
 
 afterAll(async () => {
   await rm(cacheFile, { force: true })
+  await rm(metaFile, { force: true })
+  await rm(snapshotFile, { force: true })
 })
 
 const initialState: MockState = {
@@ -141,6 +180,23 @@ describe("ModelsDev Service", () => {
         ModelsDev.Service.use((s) => s.get()),
       )
       expect(result).toEqual({})
+      const final = yield* Ref.get(state)
+      expect(final.calls).toEqual([])
+    }),
+  )
+
+  it.live("get() falls back to the pinned snapshot when disk is empty", () =>
+    Effect.gen(function* () {
+      yield* Effect.promise(async () => {
+        await mkdir(Global.Path.cache, { recursive: true })
+        await writeFile(snapshotFile, JSON.stringify(fixture2))
+      })
+      const state = yield* Ref.make(initialState)
+      const result = yield* provided(
+        state,
+        ModelsDev.Service.use((s) => s.get()),
+      )
+      expect(result).toEqual(fixture2)
       const final = yield* Ref.get(state)
       expect(final.calls).toEqual([])
     }),
@@ -258,4 +314,149 @@ describe("ModelsDev Service", () => {
       expect(final.calls.length).toBeGreaterThanOrEqual(1)
     }),
   )
+
+  it.live("refresh(false) sends no validators when there is no cached payload (first run)", () =>
+    Effect.gen(function* () {
+      const state = yield* Ref.make({ ...initialState, body: JSON.stringify(fixture2) })
+      const result = yield* provided(
+        state,
+        Effect.gen(function* () {
+          const svc = yield* ModelsDev.Service
+          yield* svc.refresh(false)
+          return yield* svc.get()
+        }),
+      )
+      expect(result).toEqual(fixture2)
+      const final = yield* Ref.get(state)
+      expect(final.calls.length).toBe(1)
+      const headers = final.calls[0]!.headers
+      expect(header(headers, "if-none-match")).toBeUndefined()
+      expect(header(headers, "if-modified-since")).toBeUndefined()
+    }),
+  )
+
+  it.live("revalidates with If-None-Match and keeps the payload on 304", () =>
+    Effect.gen(function* () {
+      // Stale payload + validators from a previous run.
+      yield* writeCache(fixture, Date.now() - 10 * 60 * 1000)
+      yield* writeMeta({ etag: '"v1"', lastModified: "Tue, 01 Jan 2026 00:00:00 GMT", fetchedAt: 1 })
+      const before = yield* Effect.promise(() => readFile(cacheFile, "utf-8"))
+
+      const state = yield* Ref.make({ body: "", status: 304, calls: [] as MockState["calls"] })
+      const result = yield* provided(
+        state,
+        Effect.gen(function* () {
+          const svc = yield* ModelsDev.Service
+          yield* svc.refresh(false)
+          const first = yield* svc.get()
+          // The 304 refreshed the freshness clock, so a second call is a no-op.
+          yield* svc.refresh(false)
+          return first
+        }),
+      )
+
+      expect(result).toEqual(fixture)
+      const final = yield* Ref.get(state)
+      expect(final.calls.length).toBe(1)
+      expect(header(final.calls[0]!.headers, "if-none-match")).toBe('"v1"')
+      expect(header(final.calls[0]!.headers, "if-modified-since")).toBe("Tue, 01 Jan 2026 00:00:00 GMT")
+
+      // 304 must not rewrite the catalog bytes.
+      expect(yield* Effect.promise(() => readFile(cacheFile, "utf-8"))).toBe(before)
+      const meta = yield* readMeta()
+      expect(meta.etag).toBe('"v1"')
+      expect(meta.fetchedAt).toBeGreaterThan(1)
+    }),
+  )
+
+  it.live("304 without a cached payload is not possible: catalog is refetched", () =>
+    Effect.gen(function* () {
+      // Meta exists but the payload was deleted: conditional headers must be
+      // suppressed, otherwise a 304 would leave us with no catalog at all.
+      yield* writeMeta({ etag: '"v1"', fetchedAt: 1 })
+      const state = yield* Ref.make({ ...initialState, body: JSON.stringify(fixture2) })
+      const result = yield* provided(
+        state,
+        Effect.gen(function* () {
+          const svc = yield* ModelsDev.Service
+          yield* svc.refresh(true)
+          return yield* svc.get()
+        }),
+      )
+      expect(result).toEqual(fixture2)
+      const final = yield* Ref.get(state)
+      expect(final.calls.length).toBe(1)
+      expect(header(final.calls[0]!.headers, "if-none-match")).toBeUndefined()
+    }),
+  )
+
+  it.live("stale cache survives a transport failure and is reported as fresh afterwards", () =>
+    Effect.gen(function* () {
+      yield* writeCache(fixture, Date.now() - 10 * 60 * 1000)
+      const state = yield* Ref.make<MockState>({ ...initialState, fail: true })
+      const result = yield* provided(
+        state,
+        Effect.gen(function* () {
+          const svc = yield* ModelsDev.Service
+          yield* svc.refresh(true)
+          return yield* svc.get()
+        }),
+      )
+      expect(result).toEqual(fixture)
+      const final = yield* Ref.get(state)
+      expect(final.calls.length).toBe(1)
+    }),
+  )
+
+  it.live("stores validators from a 200 and sends them on the next revalidation", () =>
+    Effect.gen(function* () {
+      yield* writeCache(fixture, Date.now() - 10 * 60 * 1000)
+      const state = yield* Ref.make<MockState>({
+        body: JSON.stringify(fixture2),
+        status: 200,
+        calls: [],
+        responseHeaders: { etag: '"v2"' },
+      })
+      const first = yield* provided(
+        state,
+        Effect.gen(function* () {
+          const svc = yield* ModelsDev.Service
+          yield* svc.refresh(true)
+          return yield* svc.get()
+        }),
+      )
+      expect(first).toEqual(fixture2)
+
+      const meta = yield* readMeta()
+      expect(meta.etag).toBe('"v2"')
+      expect(meta.fetchedAt).toBeGreaterThan(1000)
+
+      // Age the payload again and turn the mock into a 304: the stored etag must
+      // be replayed verbatim.
+      const old = (Date.now() - 10 * 60 * 1000) / 1000
+      yield* Effect.promise(() => utimes(cacheFile, old, old))
+      yield* writeMeta({ ...meta, fetchedAt: 1 })
+      yield* Ref.set(state, { body: "", status: 304, calls: [] })
+
+      const second = yield* provided(
+        state,
+        Effect.gen(function* () {
+          const svc = yield* ModelsDev.Service
+          yield* svc.refresh(false)
+          return yield* svc.get()
+        }),
+      )
+      expect(second).toEqual(fixture2)
+      const final = yield* Ref.get(state)
+      expect(final.calls.length).toBe(1)
+      expect(header(final.calls[0]!.headers, "if-none-match")).toBe('"v2"')
+    }),
+  )
 })
+
+function header(headers: Record<string, string>, name: string) {
+  const direct = headers[name]
+  if (direct !== undefined) return direct
+  const key = Object.keys(headers).find((candidate) => candidate.toLowerCase() === name)
+  return key === undefined ? undefined : headers[key]
+}

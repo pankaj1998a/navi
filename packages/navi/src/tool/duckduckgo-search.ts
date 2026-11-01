@@ -1,5 +1,6 @@
 import { Effect, Schema } from "effect"
 import * as Tool from "./tool"
+import { assertAllowed, guardedFetch, resolvePolicy } from "./net-guard"
 
 export const Parameters = Schema.Struct({
   query: Schema.String.annotate({ description: "Search query string." }),
@@ -16,6 +17,12 @@ export const DuckDuckGoSearchTool = Tool.define(
       parameters: Parameters,
       execute: (params: Schema.Schema.Type<typeof Parameters>, ctx: Tool.Context) =>
         Effect.gen(function* () {
+          // Cheap policy check on the fixed provider endpoint so a policy can
+          // block this backend before the permission prompt and the request.
+          const policy = yield* resolvePolicy()
+          const url = `https://api.duckduckgo.com/?q=${encodeURIComponent(params.query)}&format=json&no_html=1&skip_disambig=1`
+          assertAllowed(url, policy)
+
           yield* ctx.ask({
             permission: "websearch",
             patterns: [params.query],
@@ -23,11 +30,8 @@ export const DuckDuckGoSearchTool = Tool.define(
             metadata: { query: params.query, provider: "duckduckgo" },
           })
 
-          const response = yield* Effect.promise(() =>
-            fetch(
-              `https://api.duckduckgo.com/?q=${encodeURIComponent(params.query)}&format=json&no_html=1&skip_disambig=1`,
-            ),
-          )
+          // No automatic redirects: each hop is re-validated against the policy.
+          const response = yield* Effect.promise(() => guardedFetch(url, { policy }))
 
           if (!response.ok) {
             throw new Error(`DuckDuckGo API error: ${response.statusText}`)

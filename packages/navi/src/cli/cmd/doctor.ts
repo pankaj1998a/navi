@@ -28,7 +28,6 @@ export const DoctorCommand = effectCmd({
         default: "check",
       })
       .option("verbose", {
-        alias: "v",
         describe: "Show full debug output and trace details",
         type: "boolean",
         default: false,

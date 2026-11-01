@@ -2,6 +2,7 @@ import { Effect, Schema } from "effect"
 import { HttpClient } from "effect/unstable/http"
 import * as Tool from "./tool"
 import * as McpWebSearch from "./mcp-websearch"
+import { assertAllowed, resolvePolicy } from "./net-guard"
 import DESCRIPTION from "./codesearch.txt"
 
 export const Parameters = Schema.Struct({
@@ -28,6 +29,9 @@ export const CodeSearchTool = Tool.define(
       parameters: Parameters,
       execute: (params: { query: string; tokensNum: number }, ctx: Tool.Context) =>
         Effect.gen(function* () {
+          const policy = yield* resolvePolicy()
+          assertAllowed(McpWebSearch.EXA_URL, policy)
+
           yield* ctx.ask({
             permission: "codesearch",
             patterns: [params.query],
@@ -48,6 +52,8 @@ export const CodeSearchTool = Tool.define(
               tokensNum: params.tokensNum,
             },
             "30 seconds",
+            undefined,
+            { policy },
           )
 
           return {
