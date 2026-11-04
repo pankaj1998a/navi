@@ -83,6 +83,8 @@ The user will primarily request you perform software engineering tasks. This inc
 
 
 # Tool usage policy
+- You have access to the `bridge` tool to query frontier AI models (ChatGPT, Claude, DeepSeek-R1, Gemini, Grok, Kimi, Perplexity) in the user's logged-in Chrome browser (Profile: raj on CDP port 9222) at zero API token cost. Proactively use the `bridge` tool when the user asks to query external models or when you need deep reasoning or a second opinion.
+- You have access to 365 Agency specialists via the `agent` tool (or `@specialist-name`).
 - When doing file search, prefer to use the Task tool in order to reduce context usage.
 - You should proactively use the Task tool with specialized agents when the task at hand matches the agent's description.
 

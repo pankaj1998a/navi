@@ -1,2 +1,10 @@
-Consult frontier AI models (ChatGPT, Claude 3.7, DeepSeek-R1, Gemini, Grok, Kimi) in the user's logged-in browser at zero token cost via NaviBridge. Use this tool when you need deep reasoning, complex mathematical analysis, architecture reviews, or specialized code generation from frontier web models without exhausting your own context window or paying API fees.
-
+Consult frontier AI models (ChatGPT, Claude 3.7 Sonnet, DeepSeek-R1, Gemini 2.5 Pro, Grok, Kimi, Perplexity) in the user's logged-in Chrome browser (Profile: raj on CDP port 9222) at zero token cost via NaviBridge.
+Use this tool whenever:
+1. The user mentions querying or asking ChatGPT, Claude, DeepSeek, Gemini, Grok, Kimi, or Perplexity.
+2. You need complex mathematical analysis, deep reasoning (DeepSeek-R1), second-opinion code reviews, architecture feedback, or specialized code generation from another frontier model without exhausting API tokens or context window.
+3. You need web-grounded research or consensus across multiple AI models.
+Parameters:
+- `prompt`: The question, instructions, or task to send to the browser AI.
+- `provider`: Target AI service (`chatgpt`, `claude`, `deepseek`, `gemini`, `grok`, `kimi`, `perplexity`). Defaults to `chatgpt`.
+- `apply`: (optional boolean) When true, automatically extracts code patches/edits returned by the browser AI and applies them directly to local files.
+- `timeoutSecs`: (optional number) Timeout in seconds (default: 60, use 120-180 for DeepSeek-R1 or extended reasoning).

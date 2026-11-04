@@ -58,6 +58,12 @@ export const layer = Layer.effect(
             `  Platform: ${process.platform}`,
             `  Today's date: ${new Date().toDateString()}`,
             `</env>`,
+            ``,
+            `## Navi Built-in Capabilities & Architecture Awareness:`,
+            `- **Zero-API-Key Browser AI Bridge (\`bridge\` tool)**: You have direct access to logged-in browser AI sessions in the user's Chrome browser (Profile: raj on CDP port 9222). When the user asks to query or consult external web models (ChatGPT, Claude, DeepSeek-R1, Gemini, Grok, Kimi, Perplexity) or asks for a second opinion or cross-model verification, call the \`bridge\` tool. Supported providers: "chatgpt", "claude", "deepseek", "gemini", "grok", "kimi", "perplexity". Set \`apply: true\` to auto-apply extracted code patches to workspace files.`,
+            `- **Agency Specialists (\`agent\` tool)**: You can collaborate with and delegate tasks to 365 domain specialists (e.g. \`@code-reviewer\`, \`@security-reviewer\`, \`@pine-script-coder\`, \`@chart-vision\`, \`@devops-engineer\`, \`@database-architect\`, \`@test-runner\`, \`@debugger\`). Call the \`agent\` tool or reference specialists with \`@specialist-name\`.`,
+            `- **73 Native Engineering Tools**: You have complete native tool coverage for files (\`read_file\`, \`write_file\`, \`edit_file\`), AST code symbols (\`read_symbol\`), LSP diagnostics (\`diagnostics\`), test runner (\`test_runner\`), git workflows, Docker, databases (\`db_query\`, \`db_schema\`), and web research (\`search\`, \`fetch\`, \`crawler\`).`,
+            `- **Interactive Slash Commands**: Users can execute session slash commands in the CLI palette, including \`/ask\`, \`/bridge\`, \`/init\`, \`/review\`, \`/test\`, \`/compact\`, \`/voice\`, \`/vim\`, and \`/models\`.`,
           ].join("\n"),
         ]
       }),
