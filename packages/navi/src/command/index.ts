@@ -117,6 +117,27 @@ export const COMMAND_ALIASES: Record<string, string> = {
   prototype: "prototype",
   grep: "search",
   glob: "search",
+  "domain-model": "domain-modeling",
+  constraints: "constraint-driven-development",
+  arch: "improve-codebase-architecture",
+  usage: "cost",
+  web: "browse",
+  google: "search",
+  duck: "search",
+  tavily: "search",
+  exa: "search",
+  crawl: "scrape",
+  fetch: "scrape",
+  firecrawl: "scrape",
+  thinkback: "recap",
+  ctx: "context",
+  "context-epoch": "checkpoint",
+  grounding: "search",
+  lsp: "improve-codebase-architecture",
+  question: "ask",
+  terminal: "shell",
+  sandbox: "guard",
+  prompt: "history",
 }
 
 export interface Interface {
@@ -633,6 +654,168 @@ export const layer = Layer.effect(
           return "Run test suite: $ARGUMENTS\n\nAnalyze failures and ensure 100% passing tests."
         },
         hints: ["$ARGUMENTS"],
+      }
+      commands["image"] = {
+        name: "image",
+        description: "Generate multimodal images using OpenAI DALL-E 3",
+        source: "command",
+        get template() {
+          return "Generate image from description: $ARGUMENTS"
+        },
+        hints: ["$ARGUMENTS"],
+      }
+      commands["vcr"] = {
+        name: "vcr",
+        description: "Deterministic cassette recording and playback of tool executions",
+        source: "command",
+        get template() {
+          return "Manage VCR tool execution cassettes: $ARGUMENTS"
+        },
+        hints: ["record", "replay", "status"],
+      }
+      commands["branch"] = {
+        name: "branch",
+        description: "List, create, or switch git branches",
+        source: "command",
+        get template() {
+          return "Context:\n- Git status: !git status\n- Current branch: !git branch -a\n\nPerform git branch operations: $ARGUMENTS"
+        },
+        hints: ["$ARGUMENTS"],
+      }
+      commands["edit"] = {
+        name: "edit",
+        description: "Direct file editing and refactoring",
+        source: "command",
+        get template() {
+          return "Edit the target file according to instructions: $ARGUMENTS"
+        },
+        hints: ["$ARGUMENTS"],
+      }
+      commands["read"] = {
+        name: "read",
+        description: "Read and analyze file contents",
+        source: "command",
+        get template() {
+          return "Read and inspect contents of: $ARGUMENTS"
+        },
+        hints: ["$ARGUMENTS"],
+      }
+      commands["write"] = {
+        name: "write",
+        description: "Write or create new file with content",
+        source: "command",
+        get template() {
+          return "Write and save content to file: $ARGUMENTS"
+        },
+        hints: ["$ARGUMENTS"],
+      }
+      commands["shell"] = {
+        name: "shell",
+        description: "Execute shell command in workspace",
+        source: "command",
+        get template() {
+          return "Execute shell command and analyze output: $ARGUMENTS"
+        },
+        hints: ["$ARGUMENTS"],
+      }
+      commands["todo"] = {
+        name: "todo",
+        description: "Inspect or manage pending session tasks and deliverables",
+        source: "command",
+        get template() {
+          return "Review and manage pending session tasks and deliverables: $ARGUMENTS"
+        },
+        hints: ["$ARGUMENTS"],
+      }
+      commands["context"] = {
+        name: "context",
+        description: "Inspect active context window tokens, cache ratio, and memory",
+        source: "command",
+        get template() {
+          return "Inspect active session context window, token metrics, and memory status: $ARGUMENTS"
+        },
+        hints: ["tokens", "cache", "memory"],
+      }
+      commands["retry"] = {
+        name: "retry",
+        description: "Retry previous failed turn with revised strategy",
+        source: "command",
+        get template() {
+          return "Analyze the previous failure and retry execution with a revised strategy: $ARGUMENTS"
+        },
+        hints: ["$ARGUMENTS"],
+      }
+      commands["help"] = {
+        name: "help",
+        description: "Display help cheatsheet and command reference",
+        source: "command",
+        get template() {
+          return "Display help overview of available commands, agents, and shortcuts: $ARGUMENTS"
+        },
+        hints: ["$ARGUMENTS"],
+      }
+      commands["status"] = {
+        name: "status",
+        description: "Display system and session status",
+        source: "command",
+        get template() {
+          return "Report active session status, model, and system health."
+        },
+        hints: [],
+      }
+      commands["session"] = {
+        name: "session",
+        description: "Manage or inspect current session",
+        source: "command",
+        get template() {
+          return "Inspect current session details: $ARGUMENTS"
+        },
+        hints: ["$ARGUMENTS"],
+      }
+      commands["clear"] = {
+        name: "clear",
+        description: "Reset or clear session context",
+        source: "command",
+        get template() {
+          return "Reset session context and start fresh."
+        },
+        hints: [],
+      }
+      commands["theme"] = {
+        name: "theme",
+        description: "Inspect or configure visual theme",
+        source: "command",
+        get template() {
+          return "Configure visual theme: $ARGUMENTS"
+        },
+        hints: ["$ARGUMENTS"],
+      }
+      commands["config"] = {
+        name: "config",
+        description: "Inspect or configure Navi settings",
+        source: "command",
+        get template() {
+          return "Inspect and configure settings: $ARGUMENTS"
+        },
+        hints: ["$ARGUMENTS"],
+      }
+      commands["voice"] = {
+        name: "voice",
+        description: "Voice input and speech-to-text mode",
+        source: "command",
+        get template() {
+          return "Activate voice interaction mode: $ARGUMENTS"
+        },
+        hints: ["start", "stop", "toggle"],
+      }
+      commands["vim"] = {
+        name: "vim",
+        description: "Vim modal editing emulation and status",
+        source: "command",
+        get template() {
+          return "Configure vim modal editing mode: $ARGUMENTS"
+        },
+        hints: ["toggle", "status"],
       }
 
       for (const [name, command] of Object.entries(cfg.command ?? {})) {
