@@ -1,0 +1,25 @@
+[package]
+name = "navi-bridge"
+version = "0.1.0"
+edition = "2021"
+authors = ["Navi Team"]
+description = "NaviBridge local background daemon, CLI router and MCP server"
+license = "MIT"
+
+[[bin]]
+name = "navi-bridge"
+path = "src/main.rs"
+
+[dependencies]
+tokio = { version = "1", features = ["full"] }
+tokio-tungstenite = "0.24"
+futures-util = "0.3"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+clap = { version = "4.5", features = ["derive"] }
+uuid = { version = "1.10", features = ["v4"] }
+sha2 = "0.10"
+subtle = "2.6"
+dirs = "5.0"
+rand = "0.8"
+

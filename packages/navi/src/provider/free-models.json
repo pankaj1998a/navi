@@ -1,4 +1,57 @@
 {
+        "bridge": {
+        "id": "bridge",
+        "name": "NaviBridge (Browser AI)",
+        "api": "http://127.0.0.1:10086/v1",
+        "env": [],
+        "npm": "@ai-sdk/openai-compatible",
+        "models": {
+            "claude": {
+                "id": "claude",
+                "name": "Claude 3.7 Sonnet (Browser)",
+                "attachment": false,
+                "reasoning": true,
+                "temperature": true,
+                "tool_call": true,
+                "cost": { "input": 0, "output": 0, "cache_read": 0 },
+                "limit": { "context": 128000, "output": 8192 },
+                "options": {}
+            },
+            "chatgpt": {
+                "id": "chatgpt",
+                "name": "ChatGPT-4o (Browser)",
+                "attachment": false,
+                "reasoning": true,
+                "temperature": true,
+                "tool_call": true,
+                "cost": { "input": 0, "output": 0, "cache_read": 0 },
+                "limit": { "context": 128000, "output": 8192 },
+                "options": {}
+            },
+            "deepseek": {
+                "id": "deepseek",
+                "name": "DeepSeek R1 (Browser)",
+                "attachment": false,
+                "reasoning": true,
+                "temperature": true,
+                "tool_call": true,
+                "cost": { "input": 0, "output": 0, "cache_read": 0 },
+                "limit": { "context": 64000, "output": 8192 },
+                "options": {}
+            },
+            "gemini": {
+                "id": "gemini",
+                "name": "Gemini 2.5 Flash (Browser)",
+                "attachment": false,
+                "reasoning": true,
+                "temperature": true,
+                "tool_call": true,
+                "cost": { "input": 0, "output": 0, "cache_read": 0 },
+                "limit": { "context": 128000, "output": 8192 },
+                "options": {}
+            }
+        }
+    },
     "aihubmix": {
         "id": "aihubmix",
         "name": "AiHubMix",

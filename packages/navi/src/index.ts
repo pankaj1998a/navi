@@ -302,10 +302,15 @@ const commands = [
     describe: "Manage and run deterministic AI workflow recipes (Goose-style structured automation)",
     load: () => import("./cli/cmd/recipe").then((m) => m.RecipeCommand),
   }),
-  deferredCommand({
-    command: "bridge",
-    describe: "connect web-based AIs (Claude, ChatGPT, Gemini) to your local Navi workspace via remote MCP",
+    deferredCommand({
+    command: "bridge [action]",
+    describe: "Zero-API-key browser AI bridge daemon & remote MCP tunnel (status, start, doctor, token, install, tunnel)",
     load: () => import("./cli/cmd/bridge").then((m) => m.BridgeCommand),
+  }),
+  deferredCommand({
+    command: "ask <prompt..>",
+    describe: "Zero-API-key query to logged-in web AI (ChatGPT, Claude, DeepSeek, Gemini) with optional file editing",
+    load: () => import("./cli/cmd/ask").then((m) => m.AskCommand),
   }),
   deferredCommand({
     command: "api <method> <path>",
@@ -429,6 +434,8 @@ for (const command of commands) cli.command(command as never)
 
 cli
   .fail((msg, err) => {
+    process.stderr.write("YARGS_FAIL_MSG: " + msg + "\n")
+    if (err) process.stderr.write("YARGS_FAIL_ERR: " + (err.stack || err) + "\n")
     if (
       msg?.startsWith("Unknown argument") ||
       msg?.startsWith("Not enough non-option arguments") ||
@@ -450,7 +457,7 @@ try {
       show(out)
     })
   } else {
-    const parsed = await cli.parse()
+    const parsed = await cli.parse(args)
     const first = parsed?._?.[0]
     command = typeof first === "string" ? first : undefined
   }

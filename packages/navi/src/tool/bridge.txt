@@ -1,0 +1,2 @@
+Consult frontier AI models (ChatGPT, Claude 3.7, DeepSeek-R1, Gemini, Grok, Kimi) in the user's logged-in browser at zero token cost via NaviBridge. Use this tool when you need deep reasoning, complex mathematical analysis, architecture reviews, or specialized code generation from frontier web models without exhausting your own context window or paying API fees.
+

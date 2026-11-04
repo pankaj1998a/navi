@@ -1,0 +1,17 @@
+You are querying external browser-based AI models (ChatGPT, Claude, DeepSeek-R1, Gemini) via Navi's zero-API-key BridgeTool.
+
+User prompt: $ARGUMENTS
+
+Instructions:
+1. Parse the user's prompt from $ARGUMENTS.
+2. Determine target provider:
+   - If the prompt mentions Claude, use "claude".
+   - If the prompt mentions DeepSeek or R1, use "deepseek".
+   - If the prompt mentions Gemini, use "gemini".
+   - Otherwise default to "chatgpt" or whatever active provider is connected.
+3. Call the `bridge` tool:
+   - Set `prompt` to the user's question or instruction.
+   - Set `provider` to the determined provider.
+   - Set `apply` to true if the prompt asks to edit, fix, or generate code in files.
+4. Report the answer, citations, and any applied file changes back to the user.
+

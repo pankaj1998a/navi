@@ -36,6 +36,8 @@ import PROMPT_HANDOFF from "./template/handoff.txt"
 import PROMPT_PICKUP from "./template/pickup.txt"
 import PROMPT_RAISE from "./template/raise.txt"
 import PROMPT_SECTRIAGE from "./template/sectriage.txt"
+import PROMPT_BRIDGE from "./template/bridge.txt"
+import PROMPT_ASK from "./template/ask.txt"
 
 type State = {
   commands: Record<string, Info>
@@ -366,6 +368,24 @@ export const layer = Layer.effect(
         hints: hints(PROMPT_SECTRIAGE),
       }
 
+      commands["bridge"] = {
+        name: "bridge",
+        description: "Zero-API-key browser AI bridge daemon & queries (start, status, doctor, tunnel, query)",
+        source: "command",
+        get template() {
+          return PROMPT_BRIDGE
+        },
+        hints: hints(PROMPT_BRIDGE),
+      }
+      commands["ask"] = {
+        name: "ask",
+        description: "Zero-API-key query to browser AI (ChatGPT, Claude, DeepSeek-R1, Gemini)",
+        source: "command",
+        get template() {
+          return PROMPT_ASK
+        },
+        hints: hints(PROMPT_ASK),
+      }
       if (!Flag.NAVI_DISABLE_DEFAULT_PLUGINS) {
         const { getOfficialCommands } = yield* Effect.promise(() => import("@/plugin/official"))
         Object.assign(commands, getOfficialCommands())

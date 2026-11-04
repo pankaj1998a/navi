@@ -1,0 +1,22 @@
+<!doctype html><html><head><meta charset="utf-8"><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"><style>
+*{box-sizing:border-box}body{width:360px;margin:0;font-family:Inter,system-ui;background:#0f141b;color:#e6edf3}
+.hd{display:flex;align-items:center;gap:8px;padding:12px 14px;border-bottom:1px solid rgba(255,255,255,.08)}.logo{width:26px;height:26px;border-radius:8px;background:linear-gradient(135deg,#7c6cff,#3ee6c4);display:grid;place-items:center;font-weight:700;color:#0f141b}.t{font-weight:700;font-size:14px}.v{font-size:11px;color:#8b98a9}.pill{margin-left:auto;font-size:11px;padding:3px 8px;border-radius:99px;background:rgba(62,230,196,.12);color:#3ee6c4;border:1px solid rgba(62,230,196,.3)}
+.bd{padding:12px 14px}.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:8px 0}.chip{border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04);color:#e6edf3;border-radius:10px;padding:7px 0;font-size:12px;cursor:pointer;transition:all .2s}.chip.on{background:linear-gradient(135deg,rgba(124,108,255,.35),rgba(62,230,196,.25));border-color:#7c6cff}
+textarea{width:100%;background:#161d27;border:1px solid rgba(255,255,255,.1);border-radius:12px;color:#e6edf3;padding:10px;resize:vertical;outline:none}textarea:focus{border-color:#7c6cff}
+.row{display:flex;gap:6px;margin-top:8px}.btn{flex:1;border:0;border-radius:10px;padding:9px;cursor:pointer;font-weight:600;transition:all .2s}.go{background:linear-gradient(135deg,#7c6cff,#3ee6c4);color:#0b0f14}.ghost{background:rgba(255,255,255,.06);color:#e6edf3;border:1px solid rgba(255,255,255,.1)}
+#chat{display:flex;flex-direction:column;gap:6px;margin-top:8px;max-height:260px;overflow:auto}.msg{padding:8px 10px;border-radius:12px;font-size:13px;line-height:1.5;white-space:pre-wrap}.me{background:linear-gradient(135deg,rgba(124,108,255,.4),rgba(62,230,196,.25));align-self:flex-end}.ai{background:#161d27;border:1px solid rgba(255,255,255,.08);align-self:flex-start}#r{display:none}
+.ft{display:flex;align-items:center;gap:6px;font-size:11px;color:#8b98a9;margin-top:8px}
+</style></head><body>
+<div class="hd"><div class="logo">S</div><div><div class="t">NaviBridge</div><div class="v">v<span id="ver">…</span> · any web AI</div></div><div class="pill" id="st">ready</div></div>
+<div class="bd">
+<div class="grid" id="providers"></div>
+<textarea id="q" rows="3" placeholder="Ask... (Enter to send)"></textarea>
+<div class="row"><button class="btn go" id="go">Send</button><button class="btn ghost" id="open">Open</button><button class="btn ghost" id="read">Read</button><button class="btn ghost" id="copy">Copy</button></div>
+<div id="chat"></div>
+<pre id="r">Pick a provider above, then Send.</pre>
+<div class="ft" style="display:flex;align-items:center;gap:6px"><input type="checkbox" id="agent"> <label for="agent" style="display:flex;align-items:center;gap:5px">Link local CLI <span id="bdot" style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#8b98a9" title="CLI Bridge status"></span></label><button class="btn ghost" id="open-panel" style="flex:0 0 auto;padding:3px 7px;font-size:10.5px;margin-left:auto" title="Open sidebar with CLI Guide">Sidebar ⤢</button><button class="btn ghost" id="dlbugs" style="flex:0 0 auto;padding:3px 7px;font-size:10.5px">🐞 debug</button></div>
+<div class="ft"><input type="text" id="btoken" placeholder="bridge token (~/.navibridge/token)" autocomplete="off" spellcheck="false" style="flex:1 1 auto;min-width:0;padding:4px 8px;font-size:11px;border-radius:6px;border:1px solid rgba(255,255,255,.1);background:#161d27;color:#e6edf3"> <button class="btn ghost" id="btoken-save" style="flex:0 0 auto;padding:4px 8px;font-size:11px">Save</button></div>
+</div>
+<script src="debug-shared.js"></script>
+<script src="popup.js"></script>
+</body></html>

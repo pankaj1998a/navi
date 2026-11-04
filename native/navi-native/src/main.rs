@@ -1,12 +1,7 @@
 use std::io::{self, Read};
 use std::path::PathBuf;
 
-mod seek_sequence;
-mod patch;
-mod sanitizer;
-mod structure;
-mod compactor;
-mod binary_inspect;
+use navi_native_cli::{binary_inspect, compactor, patch, sanitizer, structure};
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();

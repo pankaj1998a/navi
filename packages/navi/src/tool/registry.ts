@@ -51,6 +51,7 @@ import { CheckpointTool } from "./checkpoint"
 import { TrashTool } from "./trash"
 import { GithubUploadTool } from "./github-upload"
 import { AgentationTool } from "./agentation"
+import { BridgeTool } from "./bridge"
 import { ReverseAnalyzeJavascriptTool } from "./reverse-analyze-javascript"
 import { ReverseAnalyzeManagedTool } from "./reverse-analyze-managed"
 import { ReverseAnalyzeApkTool } from "./reverse-analyze-apk"
@@ -259,6 +260,7 @@ export const layer: Layer.Layer<
     const trashtool = yield* TrashTool
     const githubupload = yield* GithubUploadTool
     const agentationtool = yield* AgentationTool
+    const bridgetool = yield* BridgeTool
     const reversejs = yield* ReverseAnalyzeJavascriptTool
     const reversemanaged = yield* ReverseAnalyzeManagedTool
     const reverseapk = yield* ReverseAnalyzeApkTool
@@ -404,6 +406,7 @@ export const layer: Layer.Layer<
           trash: Tool.init(trashtool),
           github_upload: Tool.init(githubupload),
           agentation: Tool.init(agentationtool),
+          bridge: Tool.init(bridgetool),
           reverse_js: Tool.init(reversejs),
           reverse_managed: Tool.init(reversemanaged),
           reverse_apk: Tool.init(reverseapk),

@@ -158,7 +158,7 @@ export const ReviewCommand = effectCmd({
         const request = new Request(input, init)
         return await Server.Default().app.fetch(request)
       },
-      { preconnect: globalThis.fetch.preconnect.bind(globalThis.fetch) },
+      { preconnect: typeof globalThis.fetch.preconnect === 'function' ? globalThis.fetch.preconnect.bind(globalThis.fetch) : () => {} },
     )
     const sdk = createNaviClient({
       baseUrl: "http://navi.internal",

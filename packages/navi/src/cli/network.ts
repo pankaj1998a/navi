@@ -1,3 +1,4 @@
+import { Flag } from "@navi-ai/core/flag/flag"
 import type { Argv, InferredOptionTypes } from "yargs"
 import { Config } from "@/config/config"
 import { Effect } from "effect"
@@ -23,6 +24,19 @@ const options = {
     describe: "custom domain name for mDNS service (default: navi.local)",
     default: "navi.local",
   },
+  password: {
+    type: "string" as const,
+    describe: "password to authenticate against the server",
+  },
+  auth: {
+    type: "boolean" as const,
+    hidden: true,
+  },
+  "no-auth": {
+    type: "boolean" as const,
+    describe: "disable password authentication",
+    default: false,
+  },
   cors: {
     type: "string" as const,
     array: true,
@@ -42,6 +56,17 @@ export const resolveNetworkOptions = Effect.fn("Cli.resolveNetworkOptions")(func
 })
 
 export function resolveNetworkOptionsNoConfig(args: NetworkOptions, config?: Config.Info) {
+  const noAuthExplicitlySet = process.argv.includes("--no-auth") || args.auth === false
+  const passwordExplicitlySet = process.argv.includes("--password")
+  if (noAuthExplicitlySet || args["no-auth"] || args.auth === false) {
+    Flag.NAVI_SERVER_PASSWORD = ""
+    process.env.NAVI_SERVER_PASSWORD = ""
+    process.env.NAVI_DISABLE_SERVER_AUTH = "1"
+  } else if (passwordExplicitlySet && args.password !== undefined) {
+    Flag.NAVI_SERVER_PASSWORD = args.password
+    process.env.NAVI_SERVER_PASSWORD = args.password
+  }
+
   const portExplicitlySet = process.argv.includes("--port")
   const hostnameExplicitlySet = process.argv.includes("--hostname")
   const mdnsExplicitlySet = process.argv.includes("--mdns")

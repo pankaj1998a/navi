@@ -1,0 +1,50 @@
+%% Navi slash commands — generated from source
+%% Wired TUI: packages/navi/src/cli/cmd/tui  (packages/tui is a separate, unused copy)
+%% Companion document: slash-commands.md
+flowchart LR
+  ROOT["Navi slash commands<br/>~94 static + dynamic sources<br/>+ 128 dead stubs"]
+
+  ROOT --> NATIVE["Native TUI<br/>32"]
+  ROOT --> PROMPT["Prompt commands<br/>33 core + 31 official plugins"]
+  ROOT --> DYN["Dynamic (unbounded)"]
+  ROOT --> STUBS["Dead stubs<br/>128 (unregistered)"]
+
+  subgraph N["Native TUI — executes immediately"]
+    N1["Session 12<br/>/new /clear<br/>/sessions /resume /continue<br/>/share /unshare /rename<br/>/timeline /fork<br/>/compact /summarize<br/>/undo /redo /copy /export"]
+    N2["Editing 5<br/>/editor /skills /warp<br/>/timestamps /thinking"]
+    N3["View 5<br/>/help /status /themes<br/>/viz /exit /quit /q"]
+    N4["Config / Model / Agent 10<br/>/models /variants /agents /agent<br/>/buddy /mcps /connect<br/>/org /plan /build"]
+    N1 --> N2 --> N3 --> N4
+  end
+
+  subgraph P["Prompt commands — inserted as /name, sent via session.command"]
+    P1["Core 33<br/>/init /review /forge /teleport<br/>/github-pr-review /github-issue-triage<br/>/release-notes /loop /karpathy-loop<br/>/goal /grill-me /learn /schedule<br/>/cost /checkpoint /rewind /diff<br/>/doctor /recap /watch-ui /agentation<br/>/acceptpr /landpr /fixissue<br/>/handoff /pickup /raise /sectriage<br/>/plan /build /permissions /swarm /magicdocs"]
+    P2["Official plugins 31<br/>/code-review /review-pr /feature-dev<br/>/code-simplifier /commit /commit-push-pr<br/>/clean_gone /hookify /create-plugin<br/>/ralph-loop /cancel-ralph /new-sdk-app<br/>/modernize /create-docker-mcp-tunnel<br/>/revise-claude-md /skill-up /security-audit<br/>/diagnose /grill /to-spec /codebase-design<br/>/validate /solo-plan /spec /tdd-build<br/>/cso /qa /webperf /ship /investigate /guard"]
+    P1 --> P2
+  end
+
+  subgraph D["Dynamic sources"]
+    D1["Config command.*<br/>project / global navi config"]
+    D2["Files<br/>{command,commands}/**/*.md<br/>frontmatter: description, agent,<br/>model, subtask; body = template"]
+    D3["MCP prompts<br/>shown as name:mcp<br/>args map to $1..$n"]
+    D4["Skills<br/>typed-only, no autocomplete"]
+    D5["TUI plugins<br/>runtime palette commands"]
+  end
+
+  subgraph S["Dead stubs — src/slash/extra-commands.ts"]
+    S1["128 names, imported nowhere<br/>not registered in TUI or autocomplete"]
+    S2["Groups: nav 6, setup 4, git 5,<br/>context 5, config 6, automation 12,<br/>experimental 6, extended 84"]
+    S1 --> S2
+  end
+
+  NATIVE --- N
+  PROMPT --- P
+  DYN --- D
+  STUBS --- S
+
+  PREC["Precedence:<br/>MCP prompt > config/file command<br/>> built-in > skill"]:::note
+  HIDDEN["Conditional:<br/>/variants /org /warp /share /unshare /redo /exit"]:::note
+  DYN --> PREC
+  NATIVE --> HIDDEN
+
+  classDef note fill:#fff3cd,stroke:#b8860b,color:#000

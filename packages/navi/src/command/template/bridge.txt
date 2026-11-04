@@ -1,10 +1,24 @@
-You are configuring or managing the Navi Web Bridge to connect web-based AI assistants (Claude.ai, ChatGPT, Google Gemini) to this local workspace via remote Model Context Protocol (MCP).
+You are managing and operating NaviBridge — the zero-API-key bridge connecting Navi to your logged-in browser AI assistants (ChatGPT, Claude, DeepSeek, Gemini).
 
-Task:
-- If the user wants to start or run the bridge, explain how to launch `navi bridge` in terminal or inspect if a bridge process is currently running.
-- Provide the clear step-by-step connection guide for:
-  1. Claude.ai (Custom Web Connector using SSE at `/sse` with Bearer auth)
-  2. ChatGPT (Developer Mode / Custom Actions with Bearer auth)
-  3. Google Gemini (Remote MCP Server using Streamable HTTP at `/mcp` with Bearer auth)
-- Explain that all actions from the web AI are guarded by Navi's SandboxPathGuard and DestructiveCommandGuard.
-$ARGUMENTS
+User request: $ARGUMENTS
+
+Follow these steps based on the user's intent:
+
+1. If the user wants to START or ACTIVATE the bridge (e.g. "start", "run", "activate", "up"):
+   - Execute the shell command: `navi bridge start`
+   - Verify if the daemon is online at http://127.0.0.1:10086/health
+   - If it is online, confirm: "NaviBridge daemon is running on port 10086. Please make sure the NaviBridge Chrome Extension is active in your browser."
+
+2. If the user wants to CHECK STATUS or DOCTOR (e.g. "status", "check", "doctor"):
+   - Execute `navi bridge doctor` or query http://127.0.0.1:10086/health
+   - Report whether the daemon is online and which browser AI tabs (Claude, ChatGPT, DeepSeek, Gemini) are connected.
+
+3. If the user wants to TUNNEL or EXPOSE local workspace to web AI (e.g. "tunnel"):
+   - Run `navi bridge tunnel --tunnel cloudflare` to establish an authenticated MCP tunnel.
+   - Present the connection instructions and tunnel endpoint URL.
+
+4. If the user provided a question or task to ask the browser AI:
+   - Call the `bridge` tool with the user's prompt.
+   - Provider defaults to "chatgpt" unless "claude", "deepseek", or "gemini" is specified.
+   - Set `apply: true` if the user wants code edits automatically applied to the workspace.
+   - Present the answer clearly to the user.

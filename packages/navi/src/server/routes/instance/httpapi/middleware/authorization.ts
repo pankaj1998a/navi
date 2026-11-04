@@ -68,18 +68,13 @@ function credentialFromRequest(request: HttpServerRequest.HttpServerRequest) {
 }
 
 function credentialFromURL(url: URL, request: HttpServerRequest.HttpServerRequest) {
+  const token = url.searchParams.get(AUTH_TOKEN_QUERY)
+  if (token) return decodeCredential(token)
   const match = /^Basic\s+(.+)$/i.exec(request.headers.authorization ?? "")
   if (match) {
     const raw = match[1]
     if (!raw) return Effect.succeed(emptyCredential())
     return decodeCredential(raw)
-  }
-  // Disallow query credentials for standard HTTP requests to prevent leak in logs/history;
-  // only permit for WebSocket upgrade requests where browser client cannot set custom headers.
-  const isWsUpgrade = request.headers.upgrade?.toLowerCase() === "websocket"
-  const token = url.searchParams.get(AUTH_TOKEN_QUERY)
-  if (token && isWsUpgrade) {
-    return decodeCredential(token)
   }
   return Effect.succeed(emptyCredential())
 }

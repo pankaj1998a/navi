@@ -1,0 +1,609 @@
+<!doctype html><html><head><meta charset="utf-8"><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"><style>
+:root{--bg:#0c1016;--panel:#10151c;--card:#151c26;--card2:#0e141d;--line:rgba(255,255,255,.08);--line2:rgba(255,255,255,.14);--txt:#e7eef6;--mut:#8b98a9;--acc:#8b7cff;--acc-soft:rgba(139,124,255,.16);--ok:#3ee6c4;--ok-soft:rgba(62,230,196,.12);--warn:#ffb454;--glow:0 0 0 1px rgba(139,124,255,.35),0 8px 30px rgba(92,74,255,.18)}
+*{box-sizing:border-box}html,body{height:100%}
+body{margin:0;font-family:Inter,system-ui;background:var(--bg);color:var(--txt);display:flex;min-height:100vh;font-size:13.5px}
+button{transition:background .18s,border-color .18s,color .18s,box-shadow .18s,transform .05s}
+::selection{background:var(--acc);color:#fff}
+button:disabled{opacity:.45;cursor:not-allowed}
+button:not(:disabled):active{transform:translateY(1px)}
+button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-visible{outline:2px solid rgba(139,124,255,.65);outline-offset:1px}
+
+/* ===== rail ===== */
+aside{width:234px;flex:0 0 234px;border-right:1px solid var(--line);background:var(--panel);display:flex;flex-direction:column;min-height:100vh;transition:margin .25s cubic-bezier(.16,1,.3,1)}body.closed aside{margin-left:-234px}
+.s-hd{padding:14px 12px 8px;display:flex;gap:8px;align-items:center;font-weight:600;letter-spacing:.01em}
+#count{color:var(--mut);font-weight:400;font-size:11px}
+#ssearch{margin:0 12px;background:var(--card2);border:1px solid var(--line);border-radius:9px;color:var(--txt);padding:8px 10px;width:calc(100% - 24px);outline:none;transition:border-color .18s}
+#ssearch:focus{border-color:var(--acc)}
+.s-actions{display:flex;gap:6px;padding:10px 12px}
+#sessions{flex:1;overflow:auto;padding:0 8px 12px;display:flex;flex-direction:column;gap:2px}
+#sessions::-webkit-scrollbar,#chat::-webkit-scrollbar,#monlist::-webkit-scrollbar,#pl-list::-webkit-scrollbar{width:8px}#sessions::-webkit-scrollbar-thumb,#chat::-webkit-scrollbar-thumb,#monlist::-webkit-scrollbar-thumb,#pl-list::-webkit-scrollbar-thumb{background:rgba(255,255,255,.12);border-radius:99px}
+::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,.22)}
+body.light ::-webkit-scrollbar-thumb{background:rgba(10,20,30,.18)}
+body.light ::-webkit-scrollbar-thumb:hover{background:rgba(10,20,30,.32)}
+.grp{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--mut);padding:10px 6px 3px;font-weight:600}
+.sess{display:flex;gap:6px;align-items:center;border:1px solid transparent;border-radius:9px;padding:7px 9px;font-size:12.5px;cursor:pointer;text-align:left;background:transparent;color:var(--txt);width:100%;position:relative}
+.sess:hover{background:rgba(255,255,255,.05)}
+.sess.on{background:var(--acc-soft);border-color:rgba(139,124,255,.4)}
+.sess.on::before{content:"";position:absolute;left:-1px;top:6px;bottom:6px;width:3px;border-radius:99px;background:var(--acc)}
+.sess .tt{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.sess .dt{font-size:10px;color:var(--mut)}
+
+/* ===== main/header ===== */
+main{flex:1;display:flex;flex-direction:column;min-width:0;min-height:100vh}
+.hd{position:sticky;top:0;z-index:5;background:rgba(12,16,22,.92);backdrop-filter:blur(14px);display:flex;align-items:center;gap:8px;padding:9px 14px;border-bottom:1px solid var(--line)}
+.iconbtn{background:rgba(255,255,255,.06);border:1px solid var(--line);color:var(--txt);border-radius:8px;padding:6px 9px;font-size:12px;cursor:pointer}
+.iconbtn:hover{border-color:var(--line2);background:rgba(255,255,255,.1)}
+.modelpick{position:relative}.modelbtn{display:flex;align-items:center;gap:8px;background:transparent;border:1px solid var(--line);color:var(--txt);border-radius:10px;padding:7px 12px;font-weight:600;font-size:13px;cursor:pointer}
+.modelbtn:hover{border-color:var(--acc)}
+.modelbtn b{color:var(--acc)}
+.mdrop{position:absolute;top:42px;left:0;background:#1a222d;border:1px solid var(--line);border-radius:12px;min-width:240px;padding:6px;display:none;box-shadow:0 16px 48px rgba(0,0,0,.55)}
+.mdrop.open{display:block}
+.mopt{display:flex;gap:8px;align-items:center;width:100%;background:transparent;border:0;color:var(--txt);border-radius:8px;padding:8px;font-size:13px;cursor:pointer;text-align:left}
+.mopt:hover{background:var(--acc-soft)}
+.mopt small{color:var(--mut);margin-left:auto}
+.pill{margin-left:auto;font-size:11px;padding:4px 10px;border-radius:99px;background:var(--ok-soft);color:var(--ok);border:1px solid rgba(62,230,196,.3);font-weight:500;white-space:nowrap}
+#curtitle{font-size:11px;color:var(--mut);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:130px}
+#ver{font-size:10px;color:var(--mut)}
+
+/* ===== chat ===== */
+#chat{flex:1;overflow:auto;padding:18px 14px;display:flex;flex-direction:column;gap:12px;max-width:860px;width:100%;margin:0 auto}
+.day{align-self:center;font-size:10.5px;color:var(--mut);background:rgba(255,255,255,.05);padding:3px 10px;border-radius:99px}
+.msg{display:flex;gap:10px;max-width:100%}
+.av{flex:0 0 28px;width:28px;height:28px;border-radius:9px;display:grid;place-items:center;font-size:11px;font-weight:700}
+.me-row{align-self:flex-end;flex-direction:row-reverse}
+.me-row .av{background:linear-gradient(135deg,var(--acc),var(--ok));color:#0b0f14;border-radius:99px}
+.ai-row .av{background:#222c3a;color:#cfd8e3}
+.bub{padding:10px 13px;border-radius:6px 14px 14px 14px;font-size:13.5px;line-height:1.65;white-space:pre-wrap;overflow-wrap:anywhere;max-width:640px;box-shadow:0 1px 10px rgba(0,0,0,.15)}
+.me-row .bub{background:linear-gradient(135deg,rgba(139,124,255,.32),rgba(62,230,196,.12));border:1px solid rgba(139,124,255,.3);border-radius:14px 6px 14px 14px}
+.ai-row .bub{background:var(--card);border:1px solid var(--line)}
+.bub pre{background:var(--card2);border:1px solid var(--line);border-radius:9px;padding:9px;font-family:'JetBrains Mono',monospace;font-size:12px;overflow:auto}
+.bub.wide{max-width:100%}
+.meta{font-size:10px;color:var(--mut);margin-top:5px}
+.acts{display:flex;gap:6px;margin-top:6px}
+.acts button{background:rgba(255,255,255,.07);border:1px solid var(--line);color:var(--txt);border-radius:7px;font-size:11px;padding:3px 9px;cursor:pointer}
+.acts button:hover{border-color:var(--line2);background:rgba(255,255,255,.1)}
+.typing{display:inline-flex;gap:4px;padding:6px 2px}
+.typing i{width:6px;height:6px;border-radius:50%;background:var(--mut);animation:b 1s infinite}
+.typing i:nth-child(2){animation-delay:.15s}.typing i:nth-child(3){animation-delay:.3s}
+@keyframes b{0%,100%{opacity:.3}50%{opacity:1}}
+.empty{margin:auto;text-align:center;color:var(--mut);font-size:13px;max-width:340px;line-height:1.7}
+.empty b{color:var(--txt);font-size:15px}
+
+/* ===== composer ===== */
+.composer{border-top:1px solid var(--line);background:var(--panel);padding:10px 14px 12px;box-shadow:0 -8px 24px rgba(0,0,0,.25)}
+.cwrap{max-width:860px;margin:0 auto}
+#attachrow{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px}
+#attachrow img{border-radius:8px;border:1px solid var(--line2)}
+textarea{width:100%;background:var(--card);border:1px solid var(--line);border-radius:14px;color:var(--txt);padding:11px 12px;resize:vertical;outline:none;font-family:inherit;font-size:13.5px;line-height:1.55;min-height:74px;transition:border-color .18s,box-shadow .18s;caret-color:var(--acc)}
+textarea:focus{border-color:var(--acc);box-shadow:0 0 0 3px rgba(139,124,255,.15)}
+#ctxchip{display:none;font-size:11px;color:var(--ok);margin-top:6px}
+.toolbar{display:flex;gap:10px;margin-top:9px;align-items:center;flex-wrap:wrap}
+.tgroup{display:flex;gap:4px;align-items:center;background:var(--card2);border:1px solid var(--line);border-radius:11px;padding:4px;transition:border-color .18s}
+.tgroup:hover{border-color:var(--line2)}
+.tgroup .tlabel{font-size:8.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--mut);padding:0 4px 0 8px;user-select:none}
+.tsep{width:8px}
+.tool{width:30px;height:30px;padding:0;display:grid;place-items:center;background:transparent;border:0;border-radius:8px;color:var(--txt);font-size:14px;cursor:pointer}
+.tool:hover{background:var(--acc-soft);color:var(--txt)}
+.go{border:0;border-radius:11px;padding:0 16px;height:38px;display:flex;align-items:center;gap:7px;cursor:pointer;font-weight:700;font-size:13px;color:#0b0f14;background:linear-gradient(135deg,var(--acc),var(--ok));flex:0 0 auto;box-shadow:0 6px 18px rgba(92,74,255,.25)}
+.go:hover{filter:brightness(1.08)}
+#stop{width:34px;height:38px;border-radius:11px;border:1px solid var(--line2);background:rgba(255,180,84,.12);color:var(--warn);cursor:pointer;font-size:12px}
+#stop:not(:disabled):hover{background:rgba(255,180,84,.22)}
+#freebar{display:flex;gap:6px;margin-top:8px;align-items:center;flex-wrap:wrap}
+.libpick{flex:0 0 auto;background:var(--card2);border:1px solid var(--line);color:var(--txt);border-radius:9px;font-size:12px;padding:6px 9px}
+#pins{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+.ft{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--mut);margin-top:8px;flex-wrap:wrap}
+.ftlabel{display:inline-flex;gap:6px;align-items:center;border:1px solid var(--line);border-radius:99px;padding:4px 10px;cursor:pointer;user-select:none}
+.ftlabel:hover{border-color:var(--line2)}
+.ft input{accent-color:var(--acc)}
+.kbd{background:rgba(255,255,255,.08);border-radius:5px;padding:1px 6px;font-size:10px}
+
+/* ===== toast / modals ===== */
+#toast{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:#1d2632;border:1px solid var(--acc);color:var(--txt);border-radius:10px;padding:9px 14px;font-size:12px;display:none;gap:10px;align-items:center;box-shadow:0 10px 30px rgba(0,0,0,.45);z-index:50}
+#toast button{background:var(--acc);border:0;border-radius:7px;padding:4px 10px;cursor:pointer;font-weight:600;color:#0b0f14}
+.modal{position:fixed;inset:0;background:rgba(5,8,12,.62);backdrop-filter:blur(3px);display:none;place-items:center;z-index:40}
+.modal.open{display:grid}
+.card{background:var(--card);border:1px solid var(--line2);border-radius:16px;padding:20px;width:400px;max-height:86vh;overflow:auto;box-shadow:0 24px 80px rgba(0,0,0,.6)}
+.card h3{margin:0 0 4px;font-size:15px}
+.sect{font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--mut);margin:14px 0 4px;font-weight:600}
+.sect:first-of-type{margin-top:10px}
+.card label{display:flex;gap:8px;align-items:center;font-size:13px;margin:8px 0}
+.card input[type=text],.card textarea{width:100%;background:var(--card2);border:1px solid var(--line);border-radius:8px;color:var(--txt);padding:8px;font-size:12.5px;outline:none}
+.card input[type=text]:focus,.card textarea:focus{border-color:var(--acc)}
+.card input[type=checkbox]{accent-color:var(--acc)}
+.mrow{display:flex;gap:6px;margin-top:8px;align-items:center;flex-wrap:wrap}
+.monrow{display:flex;gap:6px}
+#monkind{background:var(--card2);border:1px solid var(--line);border-radius:8px;color:var(--txt);padding:7px;font-size:12px}
+#monint{width:44px;background:var(--card2);border:1px solid var(--line);border-radius:7px;color:var(--txt);padding:4px}
+#pl-list,#monlist{max-height:190px;overflow:auto;font-size:12px;margin-top:8px}
+#pl-list>div,#monlist>div{border-bottom:1px solid var(--line);padding:5px 0}
+.pbtn{background:rgba(255,255,255,.06);border:1px solid var(--line);color:var(--txt);border-radius:8px;font-size:12px;padding:6px 11px;cursor:pointer}
+.pbtn:hover{border-color:var(--line2);background:rgba(255,255,255,.1)}
+.pbtn.primary{background:var(--acc);border-color:var(--acc);color:#0b0f14;font-weight:700}
+.pbtn.primary:hover{filter:brightness(1.08)}
+.mclose{margin-left:auto}
+
+/* ===== light theme ===== */
+body.light{--bg:#f4f6f9;--panel:#ffffff;--card:#eef1f6;--card2:#e7ebf2;--line:rgba(10,20,30,.12);--line2:rgba(10,20,30,.2);--txt:#17202b;--mut:#5a6a7a;--acc:#6c5cff;--acc-soft:rgba(108,92,255,.12);--ok:#00a389;--ok-soft:rgba(0,163,137,.1);--warn:#c17b12}
+body.light .ai-row .av{background:#dde4ee;color:#31404f}
+body.light .bub{box-shadow:0 1px 6px rgba(10,20,30,.08)}
+body.light .bub pre{background:#fff}
+body.light .sess:hover,body.light .iconbtn:hover{background:rgba(0,0,0,.05)}
+body.light .me-row .bub{background:linear-gradient(135deg,rgba(108,92,255,.14),rgba(0,163,137,.08))}
+body.light .hd{background:rgba(244,246,249,.92)}
+body.light .mdrop{background:#fff;box-shadow:0 16px 48px rgba(0,0,0,.14)}
+body.light .iconbtn,body.light .tool,body.light .pbtn{background:rgba(0,0,0,.04)}
+body.light .tgroup{background:rgba(0,0,0,.03)}
+body.light .composer{box-shadow:0 -8px 24px rgba(10,20,30,.08)}
+body.light .day{background:rgba(0,0,0,.05)}
+body.light #toast{background:#fff;color:var(--txt)}
+body.light .card{background:#fff}
+body.light .card input[type=text],body.light textarea,body.light .card textarea{background:#fff}
+body.light .acts button{background:rgba(0,0,0,.05);color:#31404f}
+body.light .typing i{background:#8899aa}
+body.light .go,body.light .pbtn.primary,#toast button{color:#fff}
+body.light .go{color:#fff}
+
+/* markdown in bubbles */
+.bub h2,.bub h3,.bub h4{margin:12px 0 6px;line-height:1.35}
+.bub h2{font-size:17px}.bub h3{font-size:15px}.bub h4{font-size:13.5px;color:var(--mut);text-transform:none}
+.bub p{margin:0 0 9px}
+.bub ul,.bub ol{margin:4px 0 10px;padding-left:22px;display:flex;flex-direction:column;gap:3px}
+.bub li{line-height:1.5}
+.bub code{font-family:'JetBrains Mono',monospace;font-size:11.5px;background:rgba(124,108,255,.16);border:1px solid rgba(124,108,255,.25);border-radius:5px;padding:1px 5px}
+.bub a{color:var(--acc);text-decoration:underline;text-underline-offset:2px}
+.bub a:hover{filter:brightness(1.2)}
+.bub blockquote{margin:8px 0;padding:6px 12px;border-left:3px solid var(--acc);background:rgba(124,108,255,.08);border-radius:0 8px 8px 0;color:var(--txt)}
+.bub hr{border:0;border-top:1px solid var(--line2);margin:10px 0}
+.bub table{border-collapse:collapse;margin:8px 0;font-size:12.5px;width:100%;display:block;overflow-x:auto}
+.bub th,.bub td{border:1px solid var(--line2);padding:6px 10px;text-align:left;white-space:nowrap}
+.bub th{background:rgba(255,255,255,.05);font-weight:600}
+.bub pre{margin:6px 0 0}
+/* suggestions + scroll */
+.suggs{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:16px}
+.sugg{background:var(--card2);border:1px solid var(--line);border-radius:99px;color:var(--txt);font-size:12px;padding:7px 14px;cursor:pointer}
+.sugg:hover{border-color:var(--acc);background:var(--acc-soft)}
+#scrollb{position:fixed;right:18px;bottom:170px;width:34px;height:34px;border-radius:50%;background:var(--card);border:1px solid var(--line2);color:var(--txt);cursor:pointer;display:none;z-index:6;box-shadow:0 6px 20px rgba(0,0,0,.4);font-size:15px}
+#scrollb.show{display:block}
+#scrollb:hover{border-color:var(--acc)}
+/* syntax tokens (dark) */
+.tok-str{color:#8ee6a8}.tok-com{color:#6b7c93;font-style:italic}.tok-key{color:#c792ea}.tok-num{color:#f78c6c}
+/* streaming bubble */
+.bub.streaming{opacity:.94}
+.caret{display:inline-block;width:9px;height:16px;vertical-align:-3px;margin-left:2px;background:var(--acc);border-radius:2px;animation:ck .9s steps(2) infinite}
+@keyframes ck{50%{opacity:0}}
+/* sticky chat header */
+#chipbar{position:sticky;top:0;z-index:3;display:none;align-items:center;gap:8px;padding:8px 18px;background:rgba(12,16,22,.9);backdrop-filter:blur(10px);border-bottom:1px solid var(--line);font-size:12px;color:var(--mut)}
+#chipbar.show{display:flex}
+body.light #chipbar{background:rgba(244,246,249,.9)}
+#chipprov{display:inline-grid;place-items:center;width:20px;height:20px;border-radius:6px;font-size:10px;font-weight:700;border:1px solid var(--acc)}
+#chiptitle{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500;color:var(--txt)}
+/* reader canvas */
+#canvas{position:fixed;top:0;right:0;bottom:0;width:min(660px,88vw);background:var(--panel);border-left:1px solid var(--line2);box-shadow:-24px 0 60px rgba(0,0,0,.5);transform:translateX(100%);transition:transform .3s cubic-bezier(.16,1,.3,1);z-index:30;display:flex;flex-direction:column}
+#canvas.open{transform:translateX(0)}
+.chead{display:flex;align-items:center;gap:8px;padding:12px 16px;border-bottom:1px solid var(--line);background:var(--panel);flex:0 0 auto}
+#ctitle{flex:1;font-weight:700;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#cbody{flex:1;overflow:auto;padding:22px 26px;font-size:14px;line-height:1.75;max-width:760px}
+#cbody pre{position:relative}
+#cbody .bub pre{background:var(--card2)}
+body.light #canvas{box-shadow:-24px 0 60px rgba(10,20,30,.15)}
+body.light .tok-str{color:#0a7d3b}body.light .tok-com{color:#8899aa}body.light .tok-key{color:#8b30d9}body.light .tok-num{color:#c56a1a}
+/* tab context chips + picker */
+#tabchips{display:none;gap:6px;flex-wrap:wrap;margin-top:6px}
+#tabchips.show{display:flex}
+.tchip{display:inline-flex;gap:6px;align-items:center;max-width:240px;background:var(--acc-soft);border:1px solid rgba(139,124,255,.4);border-radius:99px;padding:4px 10px;font-size:11px;color:var(--txt)}
+.tchip .tt{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tchip .tx{cursor:pointer;color:var(--mut);font-weight:700}
+.tchip .tx:hover{color:var(--txt)}
+#tablist>label{display:flex;gap:8px;align-items:center;font-size:12.5px;margin:5px 0;border-bottom:1px solid var(--line);padding-bottom:5px;cursor:pointer}
+#tablist input{accent-color:var(--acc);flex:0 0 auto}
+#tablist .thost{color:var(--mut);font-size:10.5px;max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#tablist .tnone{color:var(--mut);font-size:12px;cursor:default}
+body.light #tablist>label{border-bottom:1px solid rgba(10,20,30,.1)}
+/* follow-up chips */
+.fus{display:flex;gap:6px;flex-wrap:wrap;margin:-4px 0 0 38px}
+.fuc{background:var(--card2);border:1px solid var(--line);border-radius:99px;color:var(--txt);font-size:11px;padding:4px 11px;cursor:pointer}
+.fuc:hover{border-color:var(--acc);background:var(--acc-soft)}
+/* quote-reply floating button */
+#qsel{position:fixed;display:none;z-index:60;background:var(--acc);border:0;border-radius:7px;color:#0b0f14;font-weight:700;font-size:11px;padding:5px 9px;cursor:pointer;box-shadow:0 6px 20px rgba(0,0,0,.4)}
+#qsel.show{display:block}
+body.light #qsel{color:#fff}
+.bridge-dot{width:7px;height:7px;border-radius:50%;background:#56617a;display:inline-block;transition:all .2s;flex-shrink:0}
+.bridge-dot.connected{background:#3ecf8e;box-shadow:0 0 6px rgba(62,207,142,.6)}
+.bridge-dot.connecting{background:#ffb454}
+.bridge-dot.bad_token{background:#ff6b7a}
+.code-box{background:var(--card2);border:1px solid var(--line);border-radius:8px;padding:7px 10px;margin:4px 0 8px;display:flex;align-items:center;justify-content:space-between;gap:8px}
+.code-box code{font-family:ui-monospace,monospace;font-size:11.5px;color:var(--txt);overflow-x:auto}
+.copy-code-btn{background:rgba(255,255,255,.08);border:1px solid var(--line);border-radius:6px;color:var(--txt);font-size:11px;padding:3px 8px;cursor:pointer;flex-shrink:0}
+.copy-code-btn:hover{background:var(--acc);color:#0b0f14;border-color:var(--acc)}
+
+/* ===== Multi-Mode Cockpit / Terminal ===== */
+.multi-terminal{background:linear-gradient(180deg,rgba(21,28,38,.98),rgba(14,20,29,.98));border:1px solid rgba(139,124,255,.35);border-radius:13px;padding:9px 11px;margin-bottom:8px;box-shadow:0 4px 20px rgba(0,0,0,.35),0 0 10px rgba(139,124,255,.1);display:none;animation:mtFadeIn .2s ease-out}
+.multi-terminal.open{display:block}
+@keyframes mtFadeIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:translateY(0)}}
+.mt-top{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:7px;border-bottom:1px solid rgba(255,255,255,.07);padding-bottom:6px}
+.mt-title{font-size:11px;font-weight:700;color:var(--acc);letter-spacing:.03em;text-transform:uppercase;margin-right:4px}
+.mt-modes{display:flex;gap:4px;flex:1;flex-wrap:wrap}
+.mt-mbtn{background:rgba(255,255,255,.05);border:1px solid var(--line);color:var(--txt);border-radius:7px;padding:3px 8px;font-size:11px;font-weight:500;cursor:pointer;transition:all .16s ease}
+.mt-mbtn:hover{background:rgba(139,124,255,.15);border-color:rgba(139,124,255,.4)}
+.mt-mbtn.on{background:linear-gradient(135deg,rgba(139,124,255,.35),rgba(62,230,196,.22));border-color:var(--acc);color:#fff;font-weight:600;box-shadow:0 0 8px rgba(139,124,255,.3)}
+body.light .mt-mbtn.on{color:var(--txt)}
+.mt-actions{display:flex;gap:4px;margin-left:auto;align-items:center}
+.mt-qbtn{background:transparent;border:1px solid var(--line);color:var(--mut);border-radius:6px;padding:2px 6px;font-size:10px;cursor:pointer;transition:all .14s ease}
+.mt-qbtn:hover{color:var(--txt);border-color:var(--line2);background:rgba(255,255,255,.08)}
+.mt-close{background:rgba(255,107,107,.12);border:1px solid rgba(255,107,107,.28);color:#ff9d9d;border-radius:6px;padding:2px 7px;font-size:10.5px;font-weight:600;cursor:pointer}
+.mt-close:hover{background:rgba(255,107,107,.25)}
+.mt-prov-row{display:flex;gap:5px;flex-wrap:wrap;align-items:center}
+.mt-label{font-size:10px;color:var(--mut);font-weight:600;text-transform:uppercase;margin-right:2px}
+.mt-pchip{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:99px;font-size:11px;cursor:pointer;user-select:none;background:rgba(255,255,255,.04);border:1px solid var(--line);color:var(--mut);transition:all .16s ease}
+.mt-pchip:hover{border-color:var(--line2);color:var(--txt)}
+.mt-pchip input{display:none}
+.mt-pchip.on{background:rgba(139,124,255,.16);border-color:rgba(139,124,255,.45);color:#f0f4fc;font-weight:500}
+.mt-pchip .mt-dot{width:6px;height:6px;border-radius:50%;display:inline-block;opacity:.5}
+.mt-pchip.on .mt-dot{opacity:1;box-shadow:0 0 5px currentColor}
+.mt-hint{font-size:10.5px;color:var(--mut);margin-top:5px;padding-top:4px;border-top:1px dashed rgba(255,255,255,.05);display:flex;align-items:center;gap:4px}
+
+/* Multi-Model Grid, Split Columns & Cards */
+.multi-grid-wrap{display:flex;flex-direction:column;gap:10px;width:100%;margin:6px 0}
+.consensus-banner{background:linear-gradient(135deg,rgba(139,124,255,.14),rgba(62,230,196,.1));border:1px solid rgba(139,124,255,.35);border-radius:12px;padding:11px 14px;box-shadow:0 4px 16px rgba(0,0,0,.25)}
+.consensus-head{display:flex;align-items:center;justify-content:space-between;font-size:12px;font-weight:700;color:var(--txt);margin-bottom:6px}
+.consensus-badge{font-size:11px;padding:3px 9px;border-radius:99px;background:rgba(62,230,196,.18);border:1px solid rgba(62,230,196,.4);color:var(--ok);font-weight:600;display:inline-flex;align-items:center;gap:4px}
+.consensus-body{font-size:12px;line-height:1.6;color:var(--txt);opacity:.88}
+.consensus-points{margin:6px 0 0;padding-left:18px;display:flex;flex-direction:column;gap:3px;font-size:11.5px}
+.power-grid-bar{display:flex;justify-content:space-between;align-items:center;font-size:11px;color:var(--mut);padding:0 2px}
+.power-grid-btns{display:flex;gap:4px}
+.view-btn{background:rgba(255,255,255,.04);border:1px solid var(--line);color:var(--mut);border-radius:6px;padding:2px 7px;font-size:10.5px;cursor:pointer;transition:all .14s}
+.view-btn.on,.view-btn:hover{background:var(--acc-soft);border-color:var(--acc);color:var(--txt)}
+
+.power-cards-container{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:10px;width:100%}
+.power-cards-container.columns-view{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;padding-bottom:6px}
+.power-cards-container.columns-view .power-card{flex:0 0 310px;scroll-snap-align:start}
+
+.power-card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:11px;display:flex;flex-direction:column;gap:7px;min-height:90px;transition:border-color .18s,box-shadow .18s;box-shadow:0 2px 10px rgba(0,0,0,.2)}
+.power-card:hover{border-color:rgba(139,124,255,.45);box-shadow:0 4px 20px rgba(0,0,0,.35)}
+.power-card-hd{display:flex;align-items:center;gap:6px;font-weight:600;font-size:12.5px}
+.power-card-meta{margin-left:auto;font-size:10px;color:var(--mut);display:flex;align-items:center;gap:5px}
+.power-dot{width:7px;height:7px;border-radius:50%;display:inline-block;flex-shrink:0}
+.power-dot.pulse{animation:pulseAmber 1.2s infinite}
+@keyframes pulseAmber{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.35;transform:scale(1.25)}}
+.power-card-body{font-size:12px;line-height:1.55;max-height:340px;overflow:auto;overflow-wrap:anywhere}
+.power-card-foot{display:flex;align-items:center;gap:5px;margin-top:auto;padding-top:7px;border-top:1px solid var(--line)}
+.power-card-act{background:rgba(255,255,255,.05);border:1px solid var(--line);color:var(--txt);border-radius:6px;font-size:10px;padding:2px 7px;cursor:pointer;transition:all .14s}
+.power-card-act:hover{background:var(--acc-soft);border-color:var(--acc);color:var(--txt)}
+.power-card-act.primary{background:rgba(139,124,255,.18);border-color:rgba(139,124,255,.4);color:var(--acc);font-weight:600}
+
+/* ===== YouTube Video Copilot ===== */
+.yt-banner{background:linear-gradient(135deg,rgba(255,50,50,.13),rgba(139,124,255,.14));border:1px solid rgba(255,80,80,.35);border-radius:12px;padding:9px 12px;margin-bottom:8px;animation:mtFadeIn .2s ease-out;display:none}
+.yt-banner.show{display:block}
+.yt-head{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.yt-badge{font-size:10px;font-weight:700;color:#ff6e6e;text-transform:uppercase;letter-spacing:.05em;display:flex;align-items:center;gap:4px}
+.yt-title{font-size:11.5px;color:var(--txt);font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
+.yt-actions{display:flex;gap:5px;flex-wrap:wrap}
+.yt-btn{background:rgba(255,255,255,.06);border:1px solid var(--line);color:var(--txt);border-radius:7px;padding:3px 9px;font-size:11px;font-weight:500;cursor:pointer;transition:all .15s}
+.yt-btn:hover{background:rgba(255,255,255,.12);border-color:var(--line2)}
+.yt-btn.primary{background:linear-gradient(135deg,rgba(255,70,70,.38),rgba(139,124,255,.3));border-color:rgba(255,90,90,.55);color:#fff;font-weight:600}
+.yt-btn.primary:hover{filter:brightness(1.1)}
+
+/* ===== Page Intelligence Bar ===== */
+.page-intel-bar{display:flex;gap:5px;align-items:center;flex-wrap:wrap}
+.intel-label{font-size:9.5px;text-transform:uppercase;letter-spacing:.1em;color:var(--mut);font-weight:600}
+.intel-btn{background:var(--card2);border:1px solid var(--line);color:var(--txt);border-radius:99px;font-size:11px;padding:3px 9px;cursor:pointer;transition:all .15s}
+.intel-btn:hover{background:var(--acc-soft);border-color:var(--acc);color:var(--txt);transform:translateY(-1px)}
+
+/* ===== Code Block Wrapper ===== */
+.code-wrap{border-radius:10px;overflow:hidden;border:1px solid var(--line);margin:8px 0;background:var(--card2)}
+.code-wrap-bar{display:flex;justify-content:space-between;align-items:center;padding:5px 10px;background:rgba(255,255,255,.04);border-bottom:1px solid var(--line);font-size:11px}
+.code-wrap-lang{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--acc);text-transform:uppercase;font-weight:600;letter-spacing:.05em}
+.code-wrap-copy{background:transparent;border:1px solid var(--line);color:var(--mut);border-radius:5px;padding:2px 8px;font-size:10.5px;cursor:pointer;transition:all .15s}
+.code-wrap-copy:hover{color:var(--txt);background:rgba(255,255,255,.08);border-color:var(--line2)}
+.code-wrap-copy.copied{color:var(--ok);border-color:var(--ok)}
+body.light .code-ln{border-right-color:rgba(10,20,30,.08)}
+.code-wrap pre{margin:0!important;border:0!important;border-radius:0!important;padding:8px 10px!important;overflow-x:auto;font-family:'JetBrains Mono',Consolas,monospace;font-size:12px;line-height:1.55}
+.code-line{display:flex;min-height:18px}
+.code-ln{user-select:none;color:var(--mut);text-align:right;min-width:28px;padding-right:12px;opacity:.55;font-size:11px;border-right:1px solid rgba(255,255,255,.06);margin-right:10px}
+.code-content{flex:1;white-space:pre}
+.code-wrap.wrapped pre, .code-wrap.wrapped .code-content{white-space:pre-wrap;word-break:break-all}
+body.compact .row{margin-bottom:8px}
+body.compact .bub{padding:7px 11px;font-size:12.5px;line-height:1.45}
+body.compact .code-wrap pre{padding:6px 8px!important;font-size:11.5px}
+body.compact .power-card{padding:8px 10px}
+
+/* ===== Omni Command Palette ===== */
+.palette-modal{position:fixed;inset:0;background:rgba(5,8,12,.72);backdrop-filter:blur(6px);display:none;place-items:flex-start;justify-content:center;padding-top:10vh;z-index:100}
+.palette-modal.open{display:grid}
+.palette-card{background:var(--card);border:1px solid rgba(139,124,255,.4);border-radius:14px;width:min(480px,94vw);box-shadow:0 24px 80px rgba(0,0,0,.7),0 0 25px rgba(139,124,255,.15);overflow:hidden;display:flex;flex-direction:column}
+.palette-head{display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--line);background:rgba(255,255,255,.02)}
+.palette-head input{flex:1;background:transparent;border:0;outline:none;color:var(--txt);font-size:14px;font-family:inherit}
+.palette-head .palette-badge{font-size:10px;background:rgba(255,255,255,.08);border:1px solid var(--line);padding:2px 6px;border-radius:5px;color:var(--mut)}
+.palette-list{max-height:340px;overflow-y:auto;padding:6px;display:flex;flex-direction:column;gap:2px}
+.palette-item{display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:9px;color:var(--txt);background:transparent;border:0;cursor:pointer;text-align:left;font-size:13px;transition:background .12s}
+.palette-item:hover,.palette-item.selected{background:rgba(139,124,255,.18);color:var(--txt)}
+.palette-item .p-icon{font-size:16px;width:22px;display:grid;place-items:center}
+.palette-item .p-title{flex:1;font-weight:500}
+.palette-item .p-desc{font-size:11px;color:var(--mut)}
+.palette-foot{padding:7px 14px;border-top:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;font-size:10.5px;color:var(--mut);background:rgba(0,0,0,.15)}
+.btn-accent{background:rgba(139,124,255,.16);border-color:rgba(139,124,255,.35);color:#a9a0ff}
+body.light .btn-accent{color:var(--acc)}
+.btn-ghost{background:rgba(255,255,255,.08)}
+body.light .btn-ghost{background:rgba(0,0,0,.05)}
+.btn-ok{background:var(--ok);color:#0c1016}
+body.light .btn-ok{color:#fff}
+.go:hover{transform:translateY(-1px)}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
+</style></head><body>
+<aside id="rail"><div class="s-hd"><button class="iconbtn" id="togglerail" aria-label="Toggle chats sidebar">☰</button><span>Chats</span><span id="count"></span></div><input id="ssearch" placeholder="Search all chats…"><div class="s-actions"><button class="iconbtn" id="newchat" style="flex:1">+ New chat</button><button class="iconbtn btn-accent" id="newmultichat" title="Start new Multi-Mode chat" style="font-size:11px;padding:5px 8px;font-weight:600">⚡ Multi</button><button class="iconbtn" id="fetch" title="⤓ Fetch chats">⤓</button><button class="iconbtn" id="diag" title="🩺 Diagnose fetch">🩺</button><button class="iconbtn" id="export" title="Export all chats as .md">.md</button><button class="iconbtn" id="sdeep" title="Deep search — fetch full threads of unmatched chats" style="display:none">⌕</button></div><div id="sessions"></div></aside>
+<main><div class="hd"><button class="iconbtn" id="togglerail2" aria-label="Show sidebar">☰</button><button class="iconbtn" id="themebtn" title="Theme: auto → light → dark" aria-label="Theme">◐</button><button class="iconbtn btn-ghost" id="cmdpalettebtn" title="Omni Command Palette (Ctrl+K)" style="font-weight:600;display:flex;align-items:center;gap:3px"><span style="font-size:10px;color:var(--acc)">⌘</span>K</button><div class="modelpick"><button class="modelbtn" id="modelbtn"><b>⚡</b><span id="modelname">ChatGPT</span> ▾</button><div class="mdrop" id="mdrop"></div></div><button class="iconbtn" id="multimode-toggle" title="Toggle Multi-Mode Terminal" style="font-weight:600;display:flex;align-items:center;gap:4px;border-color:rgba(139,124,255,.4);background:rgba(139,124,255,.12);color:var(--acc)">⚡ Multi-Mode</button><div class="pill" id="st">ready</div><span id="curtitle"></span><button class="iconbtn" id="refreshchat" title="Refresh current chat — load full messages" aria-label="Refresh chat">⟳</button><span id="ver" title="Loaded build">…</span><button class="iconbtn" id="clear" title="Clear current chat" aria-label="Clear">🗑</button><button class="iconbtn" id="settingsbtn" title="⚙ Settings" aria-label="Settings">⚙</button></div>
+<div id="chipbar"><span id="chipprov"></span><span id="chiptitle"></span></div>
+<div id="chat"><div class="empty"><b>Bridge your AIs.</b><br>Pick a model, attach page context, press Enter.<div class="suggs"><button class="sugg" data-q="Summarize the current page in 5 bullets">✨ Summarize this page</button><button class="sugg" data-q="🔬 ">🔬 Deep research a topic</button><button class="sugg" data-q="/pros ">⚖ Pros &amp; cons of the selection</button><button class="sugg" data-q="⚡ ">⚡ Power-ask all models</button></div></div></div>
+<div class="composer"><div class="cwrap">
+<div id="yt-copilot-banner" class="yt-banner">
+  <div class="yt-head">
+    <span class="yt-badge">🎬 YouTube Copilot</span>
+    <span id="yt-title" class="yt-title">Watching YouTube</span>
+    <button class="iconbtn" id="yt-dismiss" title="Dismiss" style="padding:1px 5px;font-size:10px;margin-left:auto">✕</button>
+  </div>
+  <div class="yt-actions">
+    <button class="yt-btn primary" id="yt-sum-btn">⚡ 1-Click Video Summary</button>
+    <button class="yt-btn" id="yt-time-btn">⏱ Timestamp Takeaways</button>
+    <button class="yt-btn" id="yt-copy-btn">📋 Copy Transcript</button>
+  </div>
+</div>
+<div id="multi-terminal" class="multi-terminal">
+  <div class="mt-top">
+    <span class="mt-title">⚡ Multi-Mode</span>
+    <div class="mt-modes">
+      <button class="mt-mbtn" data-mode="council" id="mt-btn-council">🏛 Council</button>
+      <button class="mt-mbtn" data-mode="debate" id="mt-btn-debate">🗣 Debate</button>
+      <button class="mt-mbtn" data-mode="compare" id="mt-btn-compare">⚔ Compare</button>
+      <button class="mt-mbtn on" data-mode="power" id="mt-btn-power">⚡ Power Ask</button>
+    </div>
+    <div class="mt-actions">
+      <span id="mt-rounds-wrap" style="display:none;font-size:11px;color:var(--mut);align-items:center;gap:3px">Rounds: <input type="number" id="mt-rounds-input" min="1" max="3" value="2" style="width:34px;background:var(--card2);border:1px solid var(--line);border-radius:5px;color:var(--txt);padding:2px 4px;font-size:11px"></span>
+      <button class="mt-qbtn" id="mt-top3-provs" title="Top 3 (ChatGPT, Claude, Gemini)">Top 3</button>
+      <button class="mt-qbtn" id="mt-code-provs" title="Coding elite (DeepSeek, Claude, ChatGPT)">💻 Code</button>
+      <button class="mt-qbtn" id="mt-search-provs" title="Search & fact (Perplexity, Gemini, Grok)">🔍 Search</button>
+      <button class="mt-qbtn" id="mt-all-provs" title="Select all providers">All</button>
+      <button class="mt-qbtn" id="mt-none-provs" title="Clear provider selection">Clear</button>
+      <button class="mt-close" id="mt-close-btn" title="Close Multi-Mode Cockpit">✕ Close</button>
+    </div>
+  </div>
+  <div class="mt-prov-row" id="mt-prov-row">
+    <span class="mt-label">Models:</span>
+  </div>
+  <div class="mt-hint" id="mt-hint">
+    ⚡ <b>Power Ask:</b> Queries selected models simultaneously and streams side-by-side responses.
+  </div>
+</div>
+<div id="attachrow"></div><input type="file" id="ifile" accept="image/*" multiple style="display:none">
+<textarea id="q" rows="3" placeholder="Message — select text on any page for the popup, /alias expands your library, {{page}} / {{clip}} / {{text}} fill from context…"></textarea>
+<div id="ctxchip"></div>
+<div id="tabchips"></div>
+<div class="toolbar">
+  <button class="go" id="go">Send ➤</button>
+  <button id="stop" disabled aria-label="Stop">■</button>
+  <button class="tool" id="micbtn" title="🎙 Voice Dictation (Ctrl+Shift+V)">🎙</button>
+  <div class="tgroup"><span class="tlabel">attach</span><button class="tool" id="imgbtn" title="📎 Attach images (max 5)">📎</button><button class="tool" id="shot" title="📸 Full screenshot of current tab → attach">📸</button><button class="tool" id="snip" title="✂ Crop a region of the page → attach">✂</button><button class="tool" id="tabctxbtn" title="🗂 Add tabs as context (max 3) — read their pages into your next message">🗂</button></div>
+  <div class="tsep"></div>
+  <div class="tgroup"><span class="tlabel">studio</span><button class="tool" id="pinebtn" title="🌲 Pine Script v6 Studio — build & fix TradingView indicators/strategies">🌲</button><button class="tool" id="scrapebtn" title="🕸️ Web Scraper — extract clean structured JSON from page">🕸️</button><button class="tool" id="chainbtn" title="⛓ Multi-Model Pipeline Chain">⛓</button><button class="tool" id="arenabtn" title="🎭 Blind Arena — vote between 2 anonymous models">🎭</button></div>
+  <div class="tsep"></div>
+  <div class="tgroup"><span class="tlabel">web</span><button class="tool" id="chartbtn" title="📈 Chart Vision Analyst — SMC & Technical analysis on active chart">📈</button><button class="tool" id="research" title="🔬 Deep research — searches, AI answers, cited page reads">🔬</button><button class="tool" id="gsearch" title="🔍 Google AI answer for this prompt">🔍</button></div>
+  <div class="tsep"></div>
+  <div class="tgroup"><span class="tlabel">page</span><button class="tool" id="open" title="🌐 Open the provider tab">🌐</button><button class="tool" id="read" title="📖 Read the current page into context">📖</button><button class="tool" id="exportbtn" title="📦 Export — Save as Obsidian, Markdown, or Gist">📦</button><button class="tool" id="copy" title="📋 Copy — capture selection or page">📋</button></div>
+  <div class="tsep"></div>
+  <div class="tgroup"><span class="tlabel">fast</span><button class="tool" id="localbtn" title="💻 Local AI (Offline Gemini Nano / Ollama)">💻</button><button class="tool" id="enhance-btn" title="🪄 Magic Prompt Enhancer — transform raw query into an expert structured prompt">🪄</button><button class="tool" id="sum" title="✨ One-click page summary">✨</button><button class="tool" id="skills" title="⚡ Skills menu">⚙</button></div>
+</div>
+<div id="freebar"><select id="lib" class="libpick" title="Quick prompts"><option value="">📚 Quick prompts…</option><option value="Summarize this page in 5 bullets">Summarize page</option><option value="Explain like I'm 5: ">Explain simply</option><option value="Translate to English: ">Translate EN</option><option value="Find bugs in this code: ">Review code</option><option value="Compare pros/cons: ">Pros/cons</option></select><div class="page-intel-bar" id="page-intel-bar"><span class="intel-label">Intel:</span><button class="intel-btn" id="pi-takeaways" title="Extract 5 key takeaways from this page">📑 5 Takeaways</button><button class="intel-btn" id="pi-questions" title="Top 5 questions answered by this page">❓ 5 Q&amp;As</button><button class="intel-btn" id="pi-proscons" title="Objective pros &amp; cons analysis">⚖ Pros &amp; Cons</button><button class="intel-btn" id="pi-actions" title="Actionable checklist &amp; to-dos">🎯 Action Items</button></div></div>
+<div id="pins"></div><div class="ft"><label class="ftlabel"><input type="checkbox" id="attach"> Attach page</label><label class="ftlabel" style="display:flex;align-items:center;gap:5px"><input type="checkbox" id="agent"> Link CLI <span id="bridge-dot" class="bridge-dot" title="CLI Bridge: Disconnected"></span></label><button class="iconbtn btn-accent" id="cliguidebtn" title="How to connect CLI &amp; MCP" style="font-size:11px;padding:3px 8px;margin-left:auto;border-radius:7px">CLI Guide 💻</button></div>
+</div></div></main>
+<pre id="r" style="display:none"></pre>
+<div id="canvas"><div class="chead"><span id="ctitle">Reader</span><button class="iconbtn" id="ccopy">Copy</button><button class="iconbtn" id="cdown">Download .md</button><button class="iconbtn" id="cclose">✕</button></div><div id="cbody"></div></div>
+<div id="toast"><span id="toastmsg"></span><button id="toastbtn">Undo</button></div>
+
+<div class="modal" id="settings"><div class="card">
+<h3>⚙ Settings</h3>
+<div class="sect">Preferences</div><label><input type="checkbox" id="set-attach"> Attach page context by default</label><label><input type="checkbox" id="set-sidebar" checked> Keep sidebar open</label><label><input type="checkbox" id="set-density"> Compact UI density</label><label><input type="checkbox" id="set-linenos" checked> Code line numbers</label><label><input type="checkbox" id="set-toolgate" checked> Require approval for agent actions (click, fill, navigate, screenshot, evaluate)</label><label><input type="checkbox" id="set-anypage"> Allow reading any page (grants this extension access to all sites)</label><label><input type="checkbox" id="set-external"> Allow local web pages to message the extension (off by default)</label>
+<div class="sect">Connection</div><label>Bridge URL <input type="text" id="set-bridge" value="ws://127.0.0.1:10086/ws"></label><label>Memory (always sent) <input type="text" id="set-memory" placeholder="e.g. Reply concisely, code first"></label>
+<div class="sect">Data &amp; tools</div>
+<div class="mrow"><button class="pbtn" id="plbtn">📚 Prompt library</button><button class="pbtn" id="monbtn">🛰 Monitors</button><button class="pbtn" id="diag2">🩺 Diagnose fetch</button></div>
+<div class="mrow"><button class="pbtn" id="dlbugs">🐞 Download debug log (.md)</button><button class="pbtn" id="wipedata" title="Delete all local chats">🗑 Wipe local chats</button><button class="pbtn" id="winbtn" title="⛶ Open this sidebar as a standalone window">⛶ Open as window</button><button class="pbtn mclose" id="closesettings">Done</button></div>
+</div></div>
+
+<div class="modal" id="prompts"><div class="card">
+<h3>📚 Prompt library</h3><div id="pl-list"></div>
+<div class="sect">Edit</div>
+<div class="monrow"><input type="text" id="pl-slash" placeholder="/alias (type /alias in the composer to expand)"></div>
+<textarea id="pl-text" rows="4" placeholder="Prompt text — vars: {{text}} (args/clipboard) · {{clip}} (clipboard) · {{page}} (page title+URL)"></textarea>
+<div class="mrow"><button class="pbtn" id="pl-new">+ New</button><button class="pbtn primary" id="pl-save">Save</button><button class="pbtn mclose" id="pl-close">Done</button></div>
+</div></div>
+
+<div class="modal" id="monitors"><div class="card">
+<h3>🛰 Page monitors</h3><div class="monrow"><input type="text" id="monurl" placeholder="https://… page to watch" style="flex:1"><input type="text" id="montitle" placeholder="label" style="width:92px"></div>
+<div class="monrow" style="margin-top:6px"><select id="monkind"><option value="change">any change</option><option value="price">price</option><option value="stock">stock</option><option value="drop">price drop</option></select><label style="font-size:11px;color:var(--mut);display:flex;gap:5px;align-items:center">every <input type="text" id="monint" value="5"> min</label><button class="pbtn primary" id="monadd">+ Add</button></div>
+<div id="monlist"></div>
+<div class="mrow"><button class="pbtn mclose" id="monclose">Done</button></div>
+</div></div>
+
+<div class="modal" id="tabpop"><div class="card">
+<h3>🗂 Multi-tab context</h3>
+<div id="tablist"></div>
+<div class="mrow"><button class="pbtn primary" id="tabadd">+ Add selected (max 3)</button><button class="pbtn" id="tabclear">Clear all</button><button class="pbtn mclose" id="tabpopclose">Done</button></div>
+</div></div>
+
+<div class="modal" id="exportpop"><div class="card" style="width:380px">
+<h3>📦 Export Chat &amp; Artifacts</h3>
+<div style="font-size:12px;color:var(--mut);margin-bottom:12px">Export current conversation or council synthesis:</div>
+<div style="display:flex;flex-direction:column;gap:8px">
+  <button class="pbtn primary" id="exp-obsidian">📓 Download for Obsidian (.md with frontmatter)</button>
+  <button class="pbtn" id="exp-md">📄 Copy Formatted Markdown</button>
+  <button class="pbtn" id="exp-html">🌐 Copy as Rich HTML (for Slack/Docs)</button>
+  <button class="pbtn" id="exp-json">💾 Download JSON Chat Archive</button>
+</div>
+<div class="mrow" style="margin-top:14px"><button class="pbtn mclose" id="exportclose">Done</button></div>
+</div></div>
+
+<div class="modal" id="arenapop"><div class="card" style="width:420px">
+<h3>🎭 Blind Arena Mode</h3>
+<div style="font-size:12px;color:var(--mut);margin-bottom:12px">Compare two anonymous models side-by-side without bias:</div>
+<div id="arena-status" style="font-size:13px;font-weight:600;margin-bottom:10px;color:var(--acc)">Vote on the best response below:</div>
+<div style="display:flex;gap:8px;margin-bottom:14px">
+  <button class="pbtn primary" id="vote-a" style="flex:1">👈 Model A is Better</button>
+  <button class="pbtn primary" id="vote-b" style="flex:1">👉 Model B is Better</button>
+  <button class="pbtn" id="vote-tie">🤝 Tie / Both Good</button>
+</div>
+<div id="arena-leaderboard" style="font-size:11px;color:var(--mut);line-height:1.5;background:var(--card2);padding:8px;border-radius:8px;border:1px solid var(--line)"></div>
+<div class="mrow" style="margin-top:10px"><button class="pbtn mclose" id="arenaclose">Done</button></div>
+</div></div>
+
+<div class="modal" id="checkpop"><div class="card" style="width:380px">
+<h3 style="color:var(--warn)">⚠️ Action Checkpoint</h3>
+<div id="check-msg" style="font-size:13px;line-height:1.5;margin-bottom:14px">NaviBridge Agent is requesting to perform a sensitive action:</div>
+<div id="check-details" style="background:var(--card2);padding:10px;border-radius:8px;font-family:monospace;font-size:11px;margin-bottom:14px;word-break:break-all;max-height:180px;overflow:auto"></div>
+<div style="display:flex;gap:8px">
+  <button class="pbtn primary btn-ok" id="check-allow" style="flex:1">✓ Approve &amp; Run</button>
+  <button class="pbtn" id="check-deny" style="flex:1;color:var(--warn)">✕ Deny</button>
+</div>
+</div></div>
+
+<div class="modal" id="cliguide"><div class="card" style="width:420px;max-height:88vh">
+<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+  <h3 style="margin:0;font-size:15px">💻 Connect NaviBridge CLI &amp; MCP</h3>
+  <button class="iconbtn mclose" id="closecliguide" style="margin-left:auto">✕</button>
+</div>
+<div style="font-size:12px;color:var(--mut);line-height:1.45;margin-bottom:10px">
+  Connect local terminal tools, scripts, and MCP agents (Claude Desktop, Cursor, Antigravity) to your web AIs with zero API fees.
+</div>
+
+<div class="sect">1. Bridge Status</div>
+<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--card2);border-radius:8px;border:1px solid var(--line);margin-bottom:10px">
+  <span id="guide-bridge-dot" class="bridge-dot"></span>
+  <span id="guide-bridge-status" style="font-size:12px;font-weight:600">Disconnected</span>
+  <button class="pbtn" id="guide-bridge-toggle" style="margin-left:auto;font-size:11px;padding:3px 9px">Connect</button>
+</div>
+
+<div class="sect">2. Run Local Bridge in Terminal</div>
+<div class="code-box">
+  <code>npm run bridge</code>
+  <button class="copy-code-btn" data-copy="npm run bridge">Copy</button>
+</div>
+
+<div class="sect">3. Bridge Token</div>
+<div style="font-size:11px;color:var(--mut);margin-bottom:5px">Saved in <code>~/.navibridge/token</code> or printed by <code>npm run bridge</code>:</div>
+<div style="display:flex;gap:6px;margin-bottom:10px">
+  <input type="text" id="guide-bridge-token" placeholder="Paste token here..." style="flex:1">
+  <button class="pbtn primary" id="guide-save-token">Save</button>
+</div>
+
+<div class="sect">4. Query AIs from CLI</div>
+<div class="code-box">
+  <code>npm run ask "Explain quantum computing in 3 bullets"</code>
+  <button class="copy-code-btn" data-copy="npm run ask &quot;Explain quantum computing in 3 bullets&quot;">Copy</button>
+</div>
+<div class="code-box" style="margin-top:5px">
+  <code>PROVIDERS=chatgpt,claude,deepseek npm run ask "Compare Rust vs Go"</code>
+  <button class="copy-code-btn" data-copy="PROVIDERS=chatgpt,claude,deepseek npm run ask &quot;Compare Rust vs Go&quot;">Copy</button>
+</div>
+
+<div class="sect">5. OpenAI-Compatible API (Port 8765)</div>
+<div style="font-size:11px;color:var(--mut);margin-bottom:5px">Works with Aider, Open-WebUI, Cursor, etc.:</div>
+<div class="code-box">
+  <code>npm run serve-openai</code>
+  <button class="copy-code-btn" data-copy="npm run serve-openai">Copy</button>
+</div>
+
+<div class="sect">6. Claude Desktop / Cursor / Antigravity MCP Config</div>
+<div class="code-box" style="flex-direction:column;align-items:stretch">
+  <pre style="margin:0;font-size:11px;overflow-x:auto"><code>{
+  "mcpServers": {
+    "navibridge": {
+      "command": "node",
+      "args": ["--experimental-strip-types", "e:/Trading/navibridge/src/mcp-server.ts"]
+    }
+  }
+}</code></pre>
+  <button class="copy-code-btn" style="align-self:flex-end;margin-top:6px" data-copy='{"mcpServers":{"navibridge":{"command":"node","args":["--experimental-strip-types","e:/Trading/navibridge/src/mcp-server.ts"]}}}'>Copy Config</button>
+</div>
+</div></div>
+
+<div class="palette-modal" id="palettepop">
+  <div class="palette-card">
+    <div class="palette-head">
+      <span style="font-size:16px">🔍</span>
+      <input type="text" id="palette-input" placeholder="Type a command or search action (e.g. Pine, Chart, Scrape)..." autofocus>
+      <span class="palette-badge">ESC to close</span>
+    </div>
+    <div class="palette-list" id="palette-list"></div>
+    <div class="palette-foot">
+      <span>Navigation: <b>↑ ↓</b> to select, <b>Enter</b> to run</span>
+      <span style="color:var(--acc)">NaviBridge Omni</span>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="pinepop"><div class="card" style="width:480px;max-height:88vh">
+<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+  <h3 style="margin:0;font-size:15px">🌲 Pine Script v6 Studio</h3>
+  <button class="iconbtn mclose" id="pineclose" style="margin-left:auto">✕</button>
+</div>
+<div style="font-size:12px;color:var(--mut);margin-bottom:10px">
+  Generate or debug production-ready TradingView Pine Script v6 indicators and strategies.
+</div>
+<div style="display:flex;gap:12px;margin-bottom:8px;font-size:12px">
+  <label style="cursor:pointer;display:flex;align-items:center;gap:4px"><input type="radio" name="pinetype" id="pine-type-ind" value="indicator" checked> Indicator (overlay/study)</label>
+  <label style="cursor:pointer;display:flex;align-items:center;gap:4px"><input type="radio" name="pinetype" id="pine-type-strat" value="strategy"> Strategy (with backtesting)</label>
+</div>
+<div class="sect">Prompt / Strategy Rules</div>
+<textarea id="pine-prompt" rows="3" placeholder="e.g. Supertrend combined with RSI divergence, ATR trailing stop, and EMA 200 filter..."></textarea>
+<div class="sect">Compiler Error to Fix (Optional)</div>
+<textarea id="pine-error" rows="2" placeholder="Paste TradingView Pine Script compiler error here (if fixing broken code)..."></textarea>
+<div class="mrow" style="margin-top:10px">
+  <select id="pine-prov" class="libpick" style="flex:0 0 auto">
+    <option value="deepseek">DeepSeek (Best for Pine v6)</option>
+    <option value="chatgpt">ChatGPT</option>
+    <option value="claude">Claude</option>
+  </select>
+  <button class="pbtn primary" id="pine-run-btn" style="flex:1">⚡ Generate v6 Code</button>
+</div>
+<div id="pine-result-wrap" style="display:none;margin-top:12px">
+  <div class="sect">Generated Pine Script v6:</div>
+  <pre style="background:var(--card2);border:1px solid var(--line);border-radius:8px;padding:10px;font-family:'JetBrains Mono',monospace;font-size:11px;max-height:220px;overflow:auto;user-select:all"><code id="pine-result-code"></code></pre>
+  <div class="mrow" style="margin-top:8px">
+    <button class="pbtn primary" id="pine-copy-btn">📋 Copy Code</button>
+    <button class="pbtn" id="pine-insert-btn">💬 Insert into Chat</button>
+    <button class="pbtn" id="pine-down-btn">💾 Download .pine</button>
+  </div>
+</div>
+</div></div>
+
+<div class="modal" id="scrapepop"><div class="card" style="width:480px;max-height:88vh">
+<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+  <h3 style="margin:0;font-size:15px">🕸️ Structured Web Scraper</h3>
+  <button class="iconbtn mclose" id="scrapeclose" style="margin-left:auto">✕</button>
+</div>
+<div style="font-size:12px;color:var(--mut);margin-bottom:10px">
+  Transform any web page into clean JSON / CSV datasets with AI extraction.
+</div>
+<div class="sect">Target Schema / What to Extract</div>
+<textarea id="scrape-goal" rows="3" placeholder="e.g. Extract all items/tables with title, price, metrics, rating, and status into structured JSON..."></textarea>
+<div class="mrow" style="margin-top:10px">
+  <select id="scrape-prov" class="libpick" style="flex:0 0 auto">
+    <option value="deepseek">DeepSeek</option>
+    <option value="claude">Claude</option>
+    <option value="chatgpt">ChatGPT</option>
+  </select>
+  <select id="scrape-format" class="libpick" style="flex:0 0 auto">
+    <option value="json">JSON format</option>
+    <option value="csv">CSV format</option>
+  </select>
+  <button class="pbtn primary" id="scrape-run-btn" style="flex:1">🕸️ Scrape Page</button>
+</div>
+<div id="scrape-result-wrap" style="display:none;margin-top:12px">
+  <div class="sect">Extracted Data:</div>
+  <pre style="background:var(--card2);border:1px solid var(--line);border-radius:8px;padding:10px;font-family:'JetBrains Mono',monospace;font-size:11px;max-height:220px;overflow:auto"><code id="scrape-result-code"></code></pre>
+  <div class="mrow" style="margin-top:8px">
+    <button class="pbtn primary" id="scrape-copy-btn">📋 Copy Data</button>
+    <button class="pbtn" id="scrape-down-btn">💾 Download File</button>
+  </div>
+</div>
+</div></div>
+
+<script src="debug-shared.js"></script>
+<script src="sidepanel.js"></script>
+</body></html>

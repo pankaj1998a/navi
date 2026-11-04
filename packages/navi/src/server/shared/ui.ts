@@ -1,3 +1,5 @@
+import path from "node:path"
+import fs from "node:fs"
 import { Flag } from "@navi-ai/core/flag/flag"
 import { AppFileSystem } from "@navi-ai/core/filesystem"
 import { Effect, Stream } from "effect"
@@ -13,7 +15,7 @@ const embeddedUIPromise = Flag.NAVI_DISABLE_EMBEDDED_WEB_UI
 export const UI_UPSTREAM = new URL("https://app.navi.ai")
 
 export const csp = (hash = "") =>
-  `default-src 'self'; script-src 'self' 'wasm-unsafe-eval'${hash ? ` 'sha256-${hash}'` : ""}; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; media-src 'self' data:; connect-src * data:`
+  `default-src 'self'; script-src 'self' 'wasm-unsafe-eval'${hash ? ` 'sha256-${hash}'` : ""} 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; media-src 'self' data:; connect-src * data:`
 export const DEFAULT_CSP = csp()
 
 export function themePreloadHash(body: string) {
@@ -24,7 +26,9 @@ export function cspForHtml(body: string) {
   const match = themePreloadHash(body)
   const content = match?.[2]
   if (!content) return csp("")
-  return csp(createHash("sha256").update(content).digest("base64"))
+  const hash = createHash("sha256").update(content).digest("base64")
+  const hashLf = createHash("sha256").update(content.replace(/\r\n/g, "\n")).digest("base64")
+  return `default-src 'self'; script-src 'self' 'wasm-unsafe-eval' 'sha256-${hash}' 'sha256-${hashLf}' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; media-src 'self' data:; connect-src * data:`
 }
 
 function requestBody(request: HttpServerRequest.HttpServerRequest) {
@@ -47,9 +51,42 @@ export function upstreamURL(path: string) {
   return new URL(path, UI_UPSTREAM).toString()
 }
 
-export function embeddedUI() {
-  if (Flag.NAVI_DISABLE_EMBEDDED_WEB_UI) return Promise.resolve(null)
-  return embeddedUIPromise
+function localDistFileMap(): Record<string, string> | null {
+  try {
+    const candidates = [
+      process.env.NAVI_APP_DIST,
+      path.resolve(import.meta.dirname, "../../../../app/dist"),
+      path.resolve(process.cwd(), "packages/app/dist"),
+    ].filter(Boolean) as string[]
+
+    for (const distDir of candidates) {
+      if (!fs.existsSync(distDir) || !fs.existsSync(path.join(distDir, "index.html"))) continue
+      const map: Record<string, string> = {}
+      function scan(dir: string, base: string) {
+        for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+          const full = path.join(dir, entry.name)
+          const rel = (base ? `${base}/${entry.name}` : entry.name).replace(/\\/g, "/")
+          if (entry.isDirectory()) {
+            scan(full, rel)
+          } else {
+            map[rel] = full
+          }
+        }
+      }
+      scan(distDir, "")
+      return map
+    }
+    return null
+  } catch {
+    return null
+  }
+}
+
+export async function embeddedUI() {
+  if (Flag.NAVI_DISABLE_EMBEDDED_WEB_UI) return null
+  const gen = await embeddedUIPromise
+  if (gen) return gen
+  return localDistFileMap()
 }
 
 function notFound() {

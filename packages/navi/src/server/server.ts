@@ -23,6 +23,7 @@ export type Listener = {
   hostname: string
   port: number
   url: URL
+  password?: string
   stop: (close?: boolean) => Promise<void>
 }
 
@@ -159,6 +160,7 @@ export async function listen(opts: ListenOptions): Promise<Listener> {
     hostname: opts.hostname,
     port,
     url: innerUrl,
+    password: isExplicitlyDisabled ? undefined : (Flag.NAVI_SERVER_PASSWORD || process.env.NAVI_SERVER_PASSWORD || undefined),
     stop: (close?: boolean) => {
       unpublish()
       const requested = close ? forceStop() : Promise.resolve()

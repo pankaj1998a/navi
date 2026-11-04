@@ -1,0 +1,111 @@
+{
+  "manifest_version": 3,
+  "name": "NaviBridge — Talk Any Web AI",
+  "version": "0.27.0",
+  "description": "Multi-Model Consensus Cockpit, Pine Script v6 Studio, Command Palette (Ctrl+K), Web Scraper, 16-tool MCP server, Chart Vision, and CLI bridge via ws://127.0.0.1:10086/ws",
+  "permissions": [
+    "tabs",
+    "scripting",
+    "activeTab",
+    "storage",
+    "unlimitedStorage",
+    "sidePanel",
+    "contextMenus",
+    "alarms",
+    "notifications",
+    "debugger"
+  ],
+  "host_permissions": [
+    "http://127.0.0.1:10086/*",
+    "http://localhost:10086/*",
+    "https://chatgpt.com/*",
+    "https://gemini.google.com/*",
+    "https://claude.ai/*",
+    "https://grok.com/*",
+    "https://kimi.ai/*",
+    "https://kimi.com/*",
+    "https://kimi.moonshot.cn/*",
+    "https://chat.deepseek.com/*",
+    "https://deepseek.com/*",
+    "https://perplexity.ai/*",
+    "https://copilot.microsoft.com/*",
+    "https://duck.ai/*",
+    "https://duckduckgo.com/*",
+    "https://lmarena.ai/*",
+    "https://chat.qwen.ai/*",
+    "https://chat.z.ai/*",
+    "https://doubao.com/*",
+    "https://yuanbao.tencent.com/*",
+    "https://chat.mistral.ai/*",
+    "https://poe.com/*",
+    "https://you.com/*",
+    "https://huggingface.co/*",
+    "https://pi.ai/*",
+    "https://meta.ai/*"
+  ],
+  "optional_host_permissions": [
+    "<all_urls>"
+  ],
+  "externally_connectable": {
+    "matches": [
+      "http://localhost/*",
+      "http://127.0.0.1/*"
+    ]
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "commands": {
+    "sb-open": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+B",
+        "mac": "Command+Shift+B"
+      },
+      "description": "Open NaviBridge sidebar"
+    }
+  },
+  "action": {
+    "default_title": "NaviBridge"
+  },
+  "side_panel": {
+    "default_path": "sidepanel.html"
+  },
+  "content_scripts": [
+    {
+      "run_at": "document_idle",
+      "all_frames": false,
+      "matches": [
+        "https://chatgpt.com/*",
+        "https://gemini.google.com/*",
+        "https://claude.ai/*",
+        "https://grok.com/*",
+        "https://kimi.ai/*",
+        "https://kimi.com/*",
+        "https://kimi.moonshot.cn/*",
+        "https://chat.deepseek.com/*",
+        "https://deepseek.com/*",
+        "https://perplexity.ai/*",
+        "https://copilot.microsoft.com/*",
+        "https://duck.ai/*",
+        "https://duckduckgo.com/*",
+        "https://lmarena.ai/*",
+        "https://chat.qwen.ai/*",
+        "https://chat.z.ai/*",
+        "https://doubao.com/*",
+        "https://yuanbao.tencent.com/*",
+        "https://chat.mistral.ai/*",
+        "https://poe.com/*",
+        "https://you.com/*",
+        "https://huggingface.co/*",
+        "https://pi.ai/*",
+        "https://meta.ai/*"
+      ],
+      "js": [
+        "debug-shared.js",
+        "content.js",
+        "content-sel.js",
+        "content-snip.js"
+      ]
+    }
+  ]
+}

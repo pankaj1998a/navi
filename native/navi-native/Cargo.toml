@@ -7,6 +7,11 @@ description = "Standalone Navi native CLI binary: patch application, secret scru
 license = "MIT"
 repository = "https://github.com/pankaj1998a/navi"
 
+[lib]
+name = "navi_native_cli"
+path = "src/lib.rs"
+crate-type = ["cdylib", "rlib"]
+
 # Keep the emitted binary name as `navi-native` so downstream
 # callers (packages/navi/src/native/native-runner.ts) are unaffected
 # by the crate rename.

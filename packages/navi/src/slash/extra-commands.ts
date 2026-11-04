@@ -147,6 +147,8 @@ export const EXTRA_COMMANDS = [
   "/to-tickets",
   "/wayfinder",
   "/prototype",
+  "/bridge",
+  "/ask",
 ] as const
 
 export type ExtraCommand = (typeof EXTRA_COMMANDS)[number]
@@ -241,7 +243,9 @@ export const EXTRA_COMMAND_DESCRIPTIONS: Record<string, string> = {
   "/tdd": "Execute Test-Driven Development with test seam analysis and mock isolation",
   "/to-tickets": "Break high-level product specifications into granular execution tickets",
   "/wayfinder": "Guide architectural navigation across unfamiliar codebases",
-  "/prototype": "Rapidly scaffold logic and UI prototypes before full production hardening",
+  "/prototype": "Build rapid interactive prototype",
+  "/bridge": "Control zero-API-key browser AI bridge daemon & queries (/bridge start, status, doctor, tunnel)",
+  "/ask": "Query browser AI (ChatGPT, Claude, DeepSeek-R1, Gemini) with zero API keys",
 }
 
 /**

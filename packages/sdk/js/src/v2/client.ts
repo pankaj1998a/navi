@@ -51,7 +51,7 @@ export function createNaviClient(config?: Config & { directory?: string; experim
         if (args[0] instanceof Request) Object.assign(args[0], { timeout: false })
         return fetch(...args)
       },
-      { preconnect: fetch.preconnect.bind(fetch) },
+      { preconnect: typeof fetch.preconnect === 'function' ? fetch.preconnect.bind(fetch) : () => {} },
     )
     config = {
       ...config,

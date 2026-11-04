@@ -238,8 +238,8 @@ export const { use: useGlobalSDK, provider: GlobalSDKProvider } = createSimpleCo
       url: currentServer.http.url,
       client: sdk,
       event: {
-        on: emitter.on.bind(emitter),
-        listen: emitter.listen.bind(emitter),
+        on: (emitter.on ?? emitter.listen).bind(emitter),
+        listen: (emitter.listen ?? emitter.on).bind(emitter),
         start,
       },
       createClient(opts: Omit<Parameters<typeof createSdkForServer>[0], "server" | "fetch">) {
