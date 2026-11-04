@@ -116,6 +116,10 @@ beforeAll(async () => {
     }),
   }))
 
+  mock.module("@/context/command", () => ({
+    useCommand: () => ({ options: [] }),
+  }))
+
   mock.module("@/context/layout", () => ({
     useLayout: () => ({
       handoff: {

@@ -79,6 +79,7 @@ export interface CommandOption {
   category?: string
   keybind?: KeybindConfig
   slash?: string
+  slashAliases?: string[]
   suggested?: boolean
   disabled?: boolean
   onSelect?: (source?: "palette" | "keybind" | "slash") => void
@@ -93,6 +94,7 @@ export type CommandCatalogItem = {
   category?: string
   keybind?: KeybindConfig
   slash?: string
+  slashAliases?: string[]
 }
 
 export type CommandRegistration = {
@@ -285,6 +287,7 @@ export const { use: useCommand, provider: CommandProvider } = createSimpleContex
             category: opt.category,
             keybind: opt.keybind,
             slash: opt.slash,
+            slashAliases: opt.slashAliases,
           }
           return acc
         }, {} as CommandCatalog),

@@ -87,6 +87,20 @@ export const Default = {
   REVIEW: "review",
 } as const
 
+export const COMMAND_ALIASES: Record<string, string> = {
+  grill: "grill-me",
+  "karpathy-loop": "loop",
+  "to-spec": "spec",
+  "code-simplify": "code-simplifier",
+  "pr-review": "review-pr",
+  "git-diff": "diff",
+  summarize: "compact",
+  tdd: "tdd-build",
+  presentation: "ppt",
+  careful: "guard",
+  "qa-only": "qa",
+}
+
 export interface Interface {
   readonly get: (name: string) => Effect.Effect<Info | undefined>
   readonly list: () => Effect.Effect<Info[]>
@@ -117,7 +131,7 @@ export const layer = Layer.effect(
       }
       commands[Default.REVIEW] = {
         name: Default.REVIEW,
-        description: "review changes [commit|branch|pr], defaults to uncommitted",
+        description: "Review local git changes [commit|branch|pr], defaults to uncommitted diff",
         source: "command",
         get template() {
           return PROMPT_REVIEW.replace("${path}", ctx.worktree)
@@ -146,7 +160,7 @@ export const layer = Layer.effect(
       }
       commands["github-pr-review"] = {
         name: "github-pr-review",
-        description: "Complete a specialized GitHub PR review",
+        description: "Specialized GitHub PR review via github-reviewer agent (see also /review-pr)",
         source: "command",
         agent: "github-reviewer",
         get template() {
@@ -176,7 +190,7 @@ export const layer = Layer.effect(
       }
       commands["loop"] = {
         name: "loop",
-        description: "Autonomous Karpathy experiment loop: hypothesize -> edit -> eval -> commit/revert",
+        description: "Autonomous Karpathy experiment loop: hypothesize -> edit -> eval -> commit/revert (alias: /karpathy-loop)",
         source: "command",
         agent: "karpathy-loop",
         get template() {
@@ -186,7 +200,7 @@ export const layer = Layer.effect(
       }
       commands["karpathy-loop"] = {
         name: "karpathy-loop",
-        description: "Autonomous Karpathy experiment loop: hypothesize -> edit -> eval -> commit/revert",
+        description: "Autonomous Karpathy experiment loop: hypothesize -> edit -> eval -> commit/revert (canonical: /loop)",
         source: "command",
         agent: "karpathy-loop",
         get template() {
@@ -205,7 +219,7 @@ export const layer = Layer.effect(
       }
       commands["grill-me"] = {
         name: "grill-me",
-        description: "Stress-test assumptions and interview on technical tradeoffs before coding",
+        description: "Stress-test assumptions and interview on technical tradeoffs before coding (alias: /grill)",
         source: "command",
         get template() {
           return PROMPT_GRILL_ME
@@ -496,6 +510,18 @@ export const layer = Layer.effect(
         }
       }
 
+      for (const [alias, canonical] of Object.entries(COMMAND_ALIASES)) {
+        if (!commands[alias] && commands[canonical]) {
+          commands[alias] = {
+            ...commands[canonical],
+            name: alias,
+            description: commands[canonical].description
+              ? `${commands[canonical].description} (alias of /${canonical})`
+              : `Alias of /${canonical}`,
+          }
+        }
+      }
+
       return {
         commands,
       }
@@ -505,7 +531,11 @@ export const layer = Layer.effect(
 
     const get = Effect.fn("Command.get")(function* (name: string) {
       const s = yield* InstanceState.get(state)
-      return s.commands[name]
+      const direct = s.commands[name]
+      if (direct) return direct
+      const canonical = COMMAND_ALIASES[name]
+      if (canonical) return s.commands[canonical]
+      return undefined
     })
 
     const list = Effect.fn("Command.list")(function* () {

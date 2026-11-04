@@ -3,7 +3,7 @@ import type { OfficialCommandDefinition } from "./types"
 export const OFFICIAL_COMMANDS: OfficialCommandDefinition[] = [
   {
     name: "code-review",
-    description: "Automated multi-agent code review for pull requests with confidence scoring",
+    description: "Automated multi-agent code review for pull requests with confidence scoring (alias: /review-pr)",
     template: `Provide a thorough, high-signal code review for the specified pull request or changes: $ARGUMENTS
 
 Follow this multi-agent review process:
@@ -126,7 +126,7 @@ Execute the full PR workflow:
   },
   {
     name: "ralph-loop",
-    description: "Starts a continuous self-correcting development loop with automated task verification",
+    description: "Starts a continuous self-correcting development loop with automated task verification (Ralph pattern; see also /loop)",
     template: `Start continuous self-correcting loop for goal: $ARGUMENTS
 
 1. Define measurable success criteria and verification tests.
@@ -233,7 +233,7 @@ Follow these steps strictly:
   {
     name: "grill",
     description:
-      "Relentless requirements and design interrogation to eliminate assumptions before implementing",
+      "Relentless requirements and design interrogation to eliminate assumptions before implementing (alias: /grill-me)",
     template: `Grill through the design decisions and requirements for: $ARGUMENTS
 
 Protocol:
@@ -247,7 +247,7 @@ Protocol:
   {
     name: "to-spec",
     description:
-      "Synthesize current conversation context and requirements into a complete engineering specification",
+      "Synthesize current conversation context and requirements into a complete engineering specification (alias: /spec)",
     template: `Synthesize the current conversation and codebase knowledge into a formal engineering specification for: $ARGUMENTS
 
 Produce a structured spec document with:
@@ -320,7 +320,7 @@ Execute the reviews sequentially:
   {
     name: "spec",
     description:
-      "Write a formal engineering specification with capability map and acceptance criteria before writing code",
+      "Write a formal engineering specification with capability map and acceptance criteria before writing code (canonical: /spec)",
     template: `Create a comprehensive engineering specification for: $ARGUMENTS
 
 Follow the spec-driven development protocol:

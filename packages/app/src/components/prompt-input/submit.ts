@@ -7,6 +7,7 @@ import { batch, type Accessor } from "solid-js"
 import type { FileSelection } from "@/context/file"
 import { useGlobalSync } from "@/context/global-sync"
 import { useLanguage } from "@/context/language"
+import { useCommand } from "@/context/command"
 import { useLayout } from "@/context/layout"
 import { useLocal } from "@/context/local"
 import { usePermission } from "@/context/permission"
@@ -212,6 +213,10 @@ export function createPromptSubmit(input: PromptSubmitInput) {
   const layout = useLayout()
   const language = useLanguage()
   const params = useParams()
+  let commandContext: ReturnType<typeof useCommand> | undefined
+  try {
+    commandContext = useCommand()
+  } catch {}
 
   const errorMessage = (err: unknown) => {
     if (err && typeof err === "object" && "data" in err) {
@@ -482,6 +487,17 @@ export function createPromptSubmit(input: PromptSubmitInput) {
             restoreInput()
           })
         return
+      }
+
+      if (commandContext) {
+        const builtin = commandContext.options.find(
+          (opt) => !opt.disabled && (opt.slash === commandName || opt.slashAliases?.includes(commandName)),
+        )
+        if (builtin) {
+          clearInput()
+          builtin.onSelect?.("slash")
+          return
+        }
       }
     }
 

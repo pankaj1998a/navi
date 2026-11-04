@@ -386,6 +386,7 @@ export const useSessionCommands = (actions: SessionCommandContext) => {
       title: language.t("command.session.new"),
       keybind: "mod+shift+s",
       slash: "new",
+      slashAliases: ["clear"],
       onSelect: () => navigate(`/${params.dir}/session`),
     }),
     sessionCommand({
@@ -409,6 +410,7 @@ export const useSessionCommands = (actions: SessionCommandContext) => {
       title: language.t("command.session.compact"),
       description: language.t("command.session.compact.description"),
       slash: "compact",
+      slashAliases: ["summarize"],
       disabled: !params.id || visibleUserMessages().length === 0,
       onSelect: compact,
     }),
@@ -519,6 +521,7 @@ export const useSessionCommands = (actions: SessionCommandContext) => {
       description: language.t("command.model.choose.description"),
       keybind: "mod+'",
       slash: "model",
+      slashAliases: ["models"],
       onSelect: chooseModel,
     }),
     modelCommand({
@@ -537,6 +540,7 @@ export const useSessionCommands = (actions: SessionCommandContext) => {
       description: language.t("command.mcp.toggle.description"),
       keybind: "mod+;",
       slash: "mcp",
+      slashAliases: ["mcps"],
       onSelect: chooseMcp,
     }),
   ]
@@ -548,6 +552,7 @@ export const useSessionCommands = (actions: SessionCommandContext) => {
       description: language.t("command.agent.cycle.description"),
       keybind: "mod+.",
       slash: "agent",
+      slashAliases: ["agents"],
       onSelect: () => local.agent.move(1),
     }),
     agentCommand({

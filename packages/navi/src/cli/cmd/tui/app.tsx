@@ -498,7 +498,7 @@ function App(props: { onSnapshot?: () => Promise<string[]> }) {
         category: "Session",
         suggested: sync.data.session.length > 0,
         slashName: "sessions",
-        slashAliases: ["resume", "continue"],
+        slashAliases: ["session", "resume", "continue"],
         run: () => {
           dialog.replace(() => <DialogSessionList />)
         },
@@ -523,6 +523,7 @@ function App(props: { onSnapshot?: () => Promise<string[]> }) {
         suggested: true,
         category: "Agent",
         slashName: "models",
+        slashAliases: ["model"],
         run: () => {
           dialog.replace(() => <DialogModel />)
         },
@@ -568,6 +569,7 @@ function App(props: { onSnapshot?: () => Promise<string[]> }) {
         title: "Switch agent",
         category: "Agent",
         slashName: "agents",
+        slashAliases: ["switch-agent"],
         run: () => {
           dialog.replace(() => <DialogAgent />)
         },
@@ -577,7 +579,7 @@ function App(props: { onSnapshot?: () => Promise<string[]> }) {
         title: "Configure agent model",
         category: "Agent",
         slashName: "agent",
-        slashAliases: ["ctz"],
+        slashAliases: ["ctz", "agent-config"],
         run: () => {
           dialog.replace(() => <DialogAgentModel />)
         },
@@ -597,6 +599,7 @@ function App(props: { onSnapshot?: () => Promise<string[]> }) {
         title: "Toggle MCPs",
         category: "Agent",
         slashName: "mcps",
+        slashAliases: ["mcp"],
         run: () => {
           dialog.replace(() => <DialogMcp />)
         },
@@ -644,6 +647,7 @@ function App(props: { onSnapshot?: () => Promise<string[]> }) {
         category: "Agent",
         hidden: local.model.variant.list().length === 0,
         slashName: "variants",
+        slashAliases: ["variant"],
         run: () => {
           dialog.replace(() => <DialogVariant />)
         },
@@ -695,6 +699,7 @@ function App(props: { onSnapshot?: () => Promise<string[]> }) {
         name: "theme.switch",
         title: "Switch theme",
         slashName: "themes",
+        slashAliases: ["theme"],
         run: () => {
           dialog.replace(() => <DialogThemeList />)
         },

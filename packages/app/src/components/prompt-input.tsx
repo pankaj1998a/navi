@@ -618,16 +618,22 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
   })
 
   const slashCommands = createMemo<SlashCommand[]>(() => {
-    const builtin = command.options
-      .filter((opt) => !opt.disabled && !opt.id.startsWith("suggested.") && opt.slash)
-      .map((opt) => ({
-        id: opt.id,
-        trigger: opt.slash!,
-        title: opt.title,
-        description: opt.description,
-        keybind: opt.keybind,
-        type: "builtin" as const,
-      }))
+    const builtin: SlashCommand[] = []
+    for (const opt of command.options) {
+      if (opt.disabled || opt.id.startsWith("suggested.") || !opt.slash) continue
+      const triggers = [opt.slash, ...(opt.slashAliases ?? [])]
+      for (const trigger of triggers) {
+        builtin.push({
+          id: `${opt.id}:${trigger}`,
+          actionId: opt.id,
+          trigger,
+          title: opt.title,
+          description: opt.description,
+          keybind: opt.keybind,
+          type: "builtin" as const,
+        })
+      }
+    }
 
     const custom = sync.data.command.map((cmd) => ({
       id: `custom.${cmd.name}`,
@@ -656,7 +662,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
 
     clearEditor()
     prompt.set([...DEFAULT_PROMPT, ...images], 0)
-    command.trigger(cmd.id, "slash")
+    command.trigger(cmd.actionId ?? cmd.id, "slash")
   }
 
   const {

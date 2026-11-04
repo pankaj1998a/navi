@@ -582,6 +582,7 @@ export function Prompt(props: PromptProps) {
         name: "prompt.skills",
         category: "Prompt",
         slashName: "skills",
+        slashAliases: ["skill"],
         run: () => {
           dialog.replace(() => (
             <DialogSkill
@@ -1196,6 +1197,31 @@ export function Prompt(props: PromptProps) {
             ...x,
           })),
       })
+    } else if (
+      inputText.startsWith("/") &&
+      iife(() => {
+        const firstLine = inputText.split("\n")[0] ?? ""
+        const cmdName = firstLine.split(" ")[0]?.toLowerCase() ?? ""
+        const match = command.slashes().find(
+          (s) => s.display.trim() === cmdName || s.aliases?.some((a) => a.trim() === cmdName),
+        )
+        if (match) {
+          history.append({
+            ...store.prompt,
+            mode: currentMode,
+          })
+          input.extmarks.clear()
+          setStore("prompt", {
+            input: "",
+            parts: [],
+          })
+          match.onSelect()
+          return true
+        }
+        return false
+      })
+    ) {
+      // Handled by client command palette slash
     } else {
       sdk.client.session
         .prompt({
