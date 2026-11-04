@@ -74,6 +74,49 @@ impl BridgeDaemon {
     }
 }
 
+fn extract_auth_token(req_text: &str) -> Option<String> {
+    for line in req_text.lines() {
+        let lower = line.to_ascii_lowercase();
+        if lower.starts_with("authorization:") {
+            let val = line[14..].trim();
+            if let Some(token) = val.strip_prefix("Bearer ") {
+                return Some(token.trim().to_string());
+            }
+            if let Some(token) = val.strip_prefix("bearer ") {
+                return Some(token.trim().to_string());
+            }
+            return Some(val.to_string());
+        }
+    }
+    if let Some(first_line) = req_text.lines().next() {
+        if let Some(pos) = first_line.find("?token=") {
+            let rest = &first_line[pos + 7..];
+            let end = rest.find(|c: char| c == '&' || c == ' ').unwrap_or(rest.len());
+            return Some(rest[..end].to_string());
+        }
+    }
+    None
+}
+
+fn get_cors_header(req_text: &str) -> String {
+    for line in req_text.lines() {
+        let lower = line.to_ascii_lowercase();
+        if lower.starts_with("origin:") {
+            let orig = line[7..].trim();
+            if orig.starts_with("chrome-extension://")
+                || orig.starts_with("http://localhost")
+                || orig.starts_with("http://127.0.0.1")
+            {
+                return format!(
+                    "Access-Control-Allow-Origin: {}\r\nAccess-Control-Allow-Credentials: true\r\n",
+                    orig
+                );
+            }
+        }
+    }
+    String::new()
+}
+
 async fn handle_raw_connection(
     mut stream: TcpStream,
     peer: SocketAddr,
@@ -93,14 +136,24 @@ async fn handle_raw_connection(
         let req_text = String::from_utf8_lossy(&req_buf[..bytes_read]);
 
         if req_text.starts_with("OPTIONS ") {
-            let resp = "HTTP/1.1 204 No Content\r\nAccess-Control-Allow-Origin: *\r\nAccess-Control-Allow-Methods: GET, POST, OPTIONS\r\nAccess-Control-Allow-Headers: *\r\nConnection: close\r\n\r\n";
+            let cors = get_cors_header(&req_text);
+            let resp = if !cors.is_empty() {
+                format!(
+                    "HTTP/1.1 204 No Content\r\n{}Access-Control-Allow-Methods: GET, POST, OPTIONS\r\nAccess-Control-Allow-Headers: Authorization, Content-Type\r\nConnection: close\r\n\r\n",
+                    cors
+                )
+            } else {
+                "HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n".to_string()
+            };
             stream.write_all(resp.as_bytes()).await?;
             stream.flush().await?;
             return Ok(());
         }
 
-        // GET /status or GET /
+        // GET /status or GET / (token is never leaked in status)
         if req_text.starts_with("GET /status") || req_text.starts_with("GET / ") {
+            let incoming_token = extract_auth_token(&req_text);
+            let is_authed = incoming_token.as_ref().map(|t| tokens_match(t, &token)).unwrap_or(false);
             let (is_connected, ext_count) = {
                 let st = state.read().await;
                 (st.active_ext.is_some(), st.extensions.len())
@@ -110,13 +163,15 @@ async fn handle_raw_connection(
                 "service": "NaviBridge Local Daemon (Rust)",
                 "connected": is_connected,
                 "clientsCount": ext_count,
-                "token": token,
+                "authenticated": is_authed,
                 "wsEndpoint": "ws://127.0.0.1:10086/ws"
             })
             .to_string();
 
+            let cors = get_cors_header(&req_text);
             let resp = format!(
-                "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nAccess-Control-Allow-Headers: *\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n{}Content-Length: {}\r\nConnection: close\r\n\r\n{}",
+                cors,
                 body.len(),
                 body
             );
@@ -125,8 +180,29 @@ async fn handle_raw_connection(
             return Ok(());
         }
 
-        // GET /v1/models (OpenAI-compatible)
+        // GET /v1/models (Requires Authorization)
         if req_text.starts_with("GET /v1/models") {
+            let incoming_token = extract_auth_token(&req_text);
+            let is_authed = incoming_token.as_ref().map(|t| tokens_match(t, &token)).unwrap_or(false);
+            let cors = get_cors_header(&req_text);
+            if !is_authed {
+                let err_body = serde_json::json!({
+                    "error": {
+                        "message": "Unauthorized: valid Bearer token required",
+                        "type": "invalid_request_error"
+                    }
+                }).to_string();
+                let resp = format!(
+                    "HTTP/1.1 401 Unauthorized\r\nContent-Type: application/json\r\n{}Content-Length: {}\r\nConnection: close\r\n\r\n{}",
+                    cors,
+                    err_body.len(),
+                    err_body
+                );
+                stream.write_all(resp.as_bytes()).await?;
+                stream.flush().await?;
+                return Ok(());
+            }
+
             let body = serde_json::json!({
                 "object": "list",
                 "data": [
@@ -140,7 +216,8 @@ async fn handle_raw_connection(
             }).to_string();
 
             let resp = format!(
-                "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n{}Content-Length: {}\r\nConnection: close\r\n\r\n{}",
+                cors,
                 body.len(),
                 body
             );
@@ -149,8 +226,29 @@ async fn handle_raw_connection(
             return Ok(());
         }
 
-        // POST /v1/chat/completions (OpenAI-compatible endpoint)
+        // POST /v1/chat/completions (OpenAI-compatible endpoint, requires Authorization)
         if req_text.starts_with("POST /v1/chat/completions") {
+            let incoming_token = extract_auth_token(&req_text);
+            let is_authed = incoming_token.as_ref().map(|t| tokens_match(t, &token)).unwrap_or(false);
+            let cors = get_cors_header(&req_text);
+            if !is_authed {
+                let err_body = serde_json::json!({
+                    "error": {
+                        "message": "Unauthorized: valid Bearer token required",
+                        "type": "invalid_request_error"
+                    }
+                }).to_string();
+                let resp = format!(
+                    "HTTP/1.1 401 Unauthorized\r\nContent-Type: application/json\r\n{}Content-Length: {}\r\nConnection: close\r\n\r\n{}",
+                    cors,
+                    err_body.len(),
+                    err_body
+                );
+                stream.write_all(resp.as_bytes()).await?;
+                stream.flush().await?;
+                return Ok(());
+            }
+
             let body_start = req_text.find("\r\n\r\n").map(|p| p + 4).unwrap_or(bytes_read);
             let body_str = &req_text[body_start..];
             let parsed_json: serde_json::Value = serde_json::from_str(body_str).unwrap_or(serde_json::Value::Null);
@@ -250,7 +348,8 @@ async fn handle_raw_connection(
             }).to_string();
 
             let resp = format!(
-                "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n{}Content-Length: {}\r\nConnection: close\r\n\r\n{}",
+                cors,
                 response_body.len(),
                 response_body
             );
@@ -448,4 +547,48 @@ async fn handle_raw_connection(
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_extract_auth_token_bearer() {
+        let req = "POST /v1/chat/completions HTTP/1.1\r\nHost: 127.0.0.1:10086\r\nAuthorization: Bearer secret-token-123\r\nContent-Type: application/json\r\n\r\n{}";
+        assert_eq!(extract_auth_token(req), Some("secret-token-123".to_string()));
+    }
+
+    #[test]
+    fn test_extract_auth_token_query() {
+        let req = "GET /status?token=query-token-456 HTTP/1.1\r\nHost: 127.0.0.1:10086\r\n\r\n";
+        assert_eq!(extract_auth_token(req), Some("query-token-456".to_string()));
+    }
+
+    #[test]
+    fn test_extract_auth_token_missing() {
+        let req = "GET /status HTTP/1.1\r\nHost: 127.0.0.1:10086\r\n\r\n";
+        assert_eq!(extract_auth_token(req), None);
+    }
+
+    #[test]
+    fn test_cors_trusted_extension() {
+        let req = "GET /status HTTP/1.1\r\nHost: 127.0.0.1:10086\r\nOrigin: chrome-extension://abcdefghijklmnop\r\n\r\n";
+        let cors = get_cors_header(req);
+        assert!(cors.contains("Access-Control-Allow-Origin: chrome-extension://abcdefghijklmnop"));
+    }
+
+    #[test]
+    fn test_cors_trusted_localhost() {
+        let req = "GET /status HTTP/1.1\r\nHost: 127.0.0.1:10086\r\nOrigin: http://localhost:3000\r\n\r\n";
+        let cors = get_cors_header(req);
+        assert!(cors.contains("Access-Control-Allow-Origin: http://localhost:3000"));
+    }
+
+    #[test]
+    fn test_cors_untrusted_rejected() {
+        let req = "GET /status HTTP/1.1\r\nHost: 127.0.0.1:10086\r\nOrigin: https://malicious-website.com\r\n\r\n";
+        let cors = get_cors_header(req);
+        assert_eq!(cors, "");
+    }
 }

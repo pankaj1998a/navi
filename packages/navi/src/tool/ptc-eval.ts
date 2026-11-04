@@ -155,6 +155,16 @@ export const PtcEvalTool = Tool.define(
       parameters: Parameters,
       execute: (params: Schema.Schema.Type<typeof Parameters>, ctx: Tool.Context) =>
         Effect.gen(function* () {
+          yield* ctx.ask({
+            permission: "ptc_eval",
+            patterns: ["*"],
+            always: ["*"],
+            metadata: {
+              code_preview: params.code.slice(0, 200),
+              timeoutMs: params.timeoutMs ?? 30000,
+            },
+          })
+
           const instance = yield* InstanceState.context
           const rootDir = instance.directory
           const timeout = params.timeoutMs ?? 30000

@@ -1,3 +1,5 @@
+import { Flag } from "@navi-ai/core/flag/flag"
+
 /**
  * Slash command stubs — mirrors Claude 80+ slash commands (claude.md §5).
  *
@@ -263,7 +265,12 @@ export function registerExtraCommands(
     add?: (name: string) => void
     set?: (name: string, value: unknown) => void
   } | Map<string, unknown>,
+  options?: { enableStubs?: boolean },
 ): string[] {
+  // Stubs are only registered if explicitly opted-in or experimental mode is enabled
+  if (!options?.enableStubs && !Flag.NAVI_EXPERIMENTAL) {
+    return []
+  }
   const stubHandler = (cmd: string) => (args?: string) => {
     const desc = EXTRA_COMMAND_DESCRIPTIONS[cmd] ?? `Execute ${cmd}`
     return {

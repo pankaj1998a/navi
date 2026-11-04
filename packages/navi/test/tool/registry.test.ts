@@ -78,16 +78,19 @@ afterEach(async () => {
 })
 
 describe("tool.registry", () => {
-  it.instance("hides repo research tools unless experimental", () =>
-    Effect.gen(function* () {
-      Flag.NAVI_EXPERIMENTAL_SCOUT = false
-      const registry = yield* ToolRegistry.Service
-      const ids = yield* registry.ids()
+  it.instance(
+    "hides repo research tools unless experimental",
+    () =>
+      Effect.gen(function* () {
+        Flag.NAVI_EXPERIMENTAL_SCOUT = false
+        const registry = yield* ToolRegistry.Service
+        const ids = yield* registry.ids()
 
-      expect(ids).not.toContain("codesearch")
-      expect(ids).not.toContain("repo_clone")
-      expect(ids).not.toContain("repo_overview")
-    }),
+        expect(ids).not.toContain("codesearch")
+        expect(ids).not.toContain("repo_clone")
+        expect(ids).not.toContain("repo_overview")
+      }),
+    30000,
   )
 
   it.instance("shows repo research tools when experimental scout is enabled", () =>

@@ -10,7 +10,6 @@ interface Metadata {
   [key: string]: any
 }
 
-// TODO: remove this hack
 export type DynamicDescription = (agent: Agent.Info) => Effect.Effect<string>
 
 export type Context<M extends Metadata = Metadata> = {
