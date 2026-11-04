@@ -86,6 +86,52 @@ export const Parameters = Schema.Struct({
   }),
 })
 
+export function formatSwarmSummary(input: {
+  objective: string
+  results: Array<{
+    name: string
+    role: string
+    task: string
+    status: "completed" | "initialized" | "failed" | string
+    sessionId: string
+    elapsedMs: number
+    findings: string
+  }>
+  mailboxLogs?: SwarmMessage[]
+}) {
+  const completedCount = input.results.filter((r) => r.status === "completed").length
+  const failedCount = input.results.filter((r) => r.status === "failed").length
+  const initializedCount = input.results.filter((r) => r.status === "initialized").length
+
+  let summaryNotice: string
+  let title: string
+
+  if (failedCount === input.results.length && input.results.length > 0) {
+    summaryNotice = `⚠️ Swarm execution failed: all ${input.results.length} agent teammates encountered errors.`
+    title = `Swarm Failed: ${input.results.length} errors for "${input.objective}"`
+  } else if (failedCount > 0) {
+    summaryNotice = `⚠️ Swarm execution partially completed: ${completedCount} succeeded, ${failedCount} failed (${input.results.length} total).`
+    title = `Swarm Partial (${completedCount}/${input.results.length} completed) for "${input.objective}"`
+  } else if (completedCount === input.results.length && input.results.length > 0) {
+    summaryNotice = `✓ Swarm execution completed successfully with all ${input.results.length} agent teammates.`
+    title = `Swarm Completed: ${input.results.length} agents for "${input.objective}"`
+  } else {
+    summaryNotice = `Swarm initialized with ${initializedCount} staged agent teammates.`
+    title = `Swarm Initialized: ${input.results.length} agents for "${input.objective}"`
+  }
+
+  const status: "failed" | "partial" | "completed" | "initialized" =
+    failedCount === input.results.length
+      ? "failed"
+      : failedCount > 0
+        ? "partial"
+        : completedCount === input.results.length
+          ? "completed"
+          : "initialized"
+
+  return { title, summaryNotice, status, completedCount, failedCount, initializedCount }
+}
+
 export const SwarmTool = Tool.define(
   "teammate_swarm",
   Effect.gen(function* () {
@@ -258,19 +304,29 @@ export const SwarmTool = Tool.define(
             briefLines.push(``)
           }
 
+          const summary = formatSwarmSummary({
+            objective,
+            results,
+            mailboxLogs,
+          })
+
           briefLines.push(`---`)
-          briefLines.push(`*Swarm dispatch completed with ${results.length} active agent teammates.*`)
+          briefLines.push(`*${summary.summaryNotice}*`)
 
           const output = briefLines.join("\n")
 
           return {
-            title: `Mobilized Swarm: ${teammates.length} agents for "${objective}"`,
+            title: summary.title,
             output,
             metadata: {
               objective,
               strategy,
               teammates: results,
               messagesCount: mailboxLogs.length,
+              status: summary.status,
+              completedCount: summary.completedCount,
+              failedCount: summary.failedCount,
+              initializedCount: summary.initializedCount,
             },
           }
         }),

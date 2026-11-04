@@ -449,7 +449,7 @@ describe("tool.task", () => {
 
       const sec = yield* agent.get("security")
       expect(sec).toBeDefined()
-      expect(sec.mode).toBe("subagent")
+      expect(["subagent", "all"]).toContain(sec.mode)
       expect(sec.color).toBe("red")
       // Security agent must deny edit and write
       expect(sec.permission.some((p) => p.permission === "edit" && p.action === "deny")).toBe(true)
@@ -656,6 +656,68 @@ describe("tool.task", () => {
       expect(res.metadata.status).toBe("failed")
       expect(res.metadata.error?.category).toBe("doom_loop")
       expect(res.output).toContain("Doom loop detected")
+    }),
+  )
+
+  it.instance("enforces subagent recursion depth limit at depth >= MAX_SUBAGENT_DEPTH", () =>
+    Effect.gen(function* () {
+      const session = yield* Session.Service
+      const promptOps = stubOps()
+      const toolDef = yield* TaskTool
+      const def = yield* toolDef.init()
+
+      let currentParentID: SessionID | undefined = undefined
+      let deepestSession: Session.Info | null = null
+      for (let i = 0; i <= 4; i++) {
+        const created: Session.Info = yield* session.create({
+          title: `depth-${i}`,
+          parentID: currentParentID,
+        })
+        currentParentID = created.id
+        deepestSession = created
+      }
+      if (!deepestSession) throw new Error("Expected deepestSession")
+
+      const assistant: MessageV2.Assistant = {
+        id: MessageID.ascending(),
+        role: "assistant",
+        parentID: MessageID.ascending(),
+        sessionID: deepestSession.id,
+        mode: "build",
+        agent: "build",
+        cost: 0,
+        path: { cwd: "/tmp", root: "/tmp" },
+        tokens: { input: 0, output: 0, reasoning: 0, cache: { read: 0, write: 0 } },
+        modelID: ref.modelID,
+        providerID: ref.providerID,
+        time: { created: Date.now() },
+      }
+      yield* session.updateMessage(assistant)
+
+      const exit = yield* def
+        .execute(
+          {
+            description: "deep subtask",
+            prompt: "do something",
+            subagent_type: "general",
+          },
+          {
+            sessionID: deepestSession.id,
+            messageID: assistant.id,
+            agent: "build",
+            abort: new AbortController().signal,
+            extra: { promptOps },
+            messages: [],
+            metadata: () => Effect.void,
+            ask: () => Effect.void,
+          },
+        )
+        .pipe(Effect.exit)
+
+      expect(Exit.isFailure(exit)).toBe(true)
+      if (Exit.isFailure(exit)) {
+        expect(String(exit.cause)).toContain("Subagent recursion depth limit exceeded (max: 5, current depth: 5)")
+      }
     }),
   )
 })

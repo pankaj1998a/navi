@@ -193,7 +193,7 @@ async function drainAllTools(client: MCPClient, timeout: number): Promise<MCPToo
   return allTools
 }
 
-async function drainTolerantTools(client: MCPClient, timeout: number): Promise<MCPToolDef[]> {
+export async function drainTolerantTools(client: MCPClient, timeout: number): Promise<MCPToolDef[]> {
   const allTools: MCPToolDef[] = []
   let cursor: string | undefined = undefined
   let page = 0
@@ -206,7 +206,12 @@ async function drainTolerantTools(client: MCPClient, timeout: number): Promise<M
       { timeout },
     )
     const result = res as {
-      tools?: Array<{ name: string; description?: string; inputSchema?: unknown }>
+      tools?: Array<{
+        name: string
+        description?: string
+        inputSchema?: unknown
+        annotations?: MCPToolDef["annotations"]
+      }>
       nextCursor?: string
     }
     if (result.tools && Array.isArray(result.tools)) {
@@ -215,6 +220,7 @@ async function drainTolerantTools(client: MCPClient, timeout: number): Promise<M
           name: tool.name,
           description: tool.description,
           inputSchema: tool.inputSchema as any,
+          ...(tool.annotations ? { annotations: tool.annotations } : {}),
         })),
       )
     }

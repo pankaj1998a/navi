@@ -49,7 +49,7 @@ impl BridgeDaemon {
         let addr: SocketAddr = format!("127.0.0.1:{}", self.port).parse()?;
         let listener = TcpListener::bind(addr).await?;
         eprintln!("🚀 NaviBridge Local Daemon running on http://127.0.0.1:{}", self.port);
-        eprintln!("🔑 Auth Token: {}", self.token);
+        eprintln!("🔑 Auth: Token authentication active (token stored in configured auth store)");
 
         loop {
             let (stream, peer) = match listener.accept().await {
@@ -88,29 +88,24 @@ fn extract_auth_token(req_text: &str) -> Option<String> {
             return Some(val.to_string());
         }
     }
-    if let Some(first_line) = req_text.lines().next() {
-        if let Some(pos) = first_line.find("?token=") {
-            let rest = &first_line[pos + 7..];
-            let end = rest.find(|c: char| c == '&' || c == ' ').unwrap_or(rest.len());
-            return Some(rest[..end].to_string());
-        }
-    }
+    // Query parameter ?token= is deliberately disallowed to prevent leaking secrets in URLs/referrers
     None
 }
 
 fn get_cors_header(req_text: &str) -> String {
+    let allowed_ext = std::env::var("NAVIBRIDGE_EXTENSION_ID").ok();
     for line in req_text.lines() {
         let lower = line.to_ascii_lowercase();
         if lower.starts_with("origin:") {
             let orig = line[7..].trim();
-            if orig.starts_with("chrome-extension://")
-                || orig.starts_with("http://localhost")
-                || orig.starts_with("http://127.0.0.1")
-            {
-                return format!(
-                    "Access-Control-Allow-Origin: {}\r\nAccess-Control-Allow-Credentials: true\r\n",
-                    orig
-                );
+            let is_trusted_ext = if let Some(ref ext_id) = allowed_ext {
+                orig == format!("chrome-extension://{}", ext_id)
+            } else {
+                orig.starts_with("chrome-extension://")
+            };
+            if is_trusted_ext {
+                // Return exact origin without wildcard credentials
+                return format!("Access-Control-Allow-Origin: {}\r\n", orig);
             }
         }
     }
@@ -366,18 +361,20 @@ async fn handle_raw_connection(
 
     // Origin Check for WebSocket
     let mut origin_ok = true;
-    let mut is_chrome_ext = false;
+    let allowed_ext = std::env::var("NAVIBRIDGE_EXTENSION_ID").ok();
     let ws_stream = accept_hdr_async(stream, |req: &Request, resp: Response| {
         if let Some(origin_val) = req.headers().get("origin") {
             if let Ok(orig) = origin_val.to_str() {
-                let trusted = orig.starts_with("chrome-extension://")
+                let is_trusted_ext = if let Some(ref ext_id) = allowed_ext {
+                    orig == format!("chrome-extension://{}", ext_id)
+                } else {
+                    orig.starts_with("chrome-extension://")
+                };
+                let trusted = is_trusted_ext
                     || orig.starts_with("http://localhost")
                     || orig.starts_with("http://127.0.0.1");
                 if !trusted {
                     origin_ok = false;
-                }
-                if orig.starts_with("chrome-extension://") {
-                    is_chrome_ext = true;
                 }
             }
         }
@@ -437,9 +434,9 @@ async fn handle_raw_connection(
                     let incoming_token = t1.or_else(|| payload.as_ref().and_then(|p| p.token.clone())).unwrap_or_default();
                     let token_matches = tokens_match(&incoming_token, &token);
 
-                    // Extension from trusted chrome-extension:// origin is accepted automatically
-                    if !token_matches && !is_chrome_ext {
-                        eprintln!("[daemon] Auth rejected: received token '{}' (len {}) vs expected '{}' (len {}) from {}", incoming_token, incoming_token.len(), token, token.len(), peer);
+                    // Strictly enforce token verification: arbitrary extensions cannot bypass auth
+                    if !token_matches {
+                        eprintln!("[daemon] Auth rejected: invalid token from {}", peer);
                         let err_msg = serde_json::to_string(&BridgeMessage::Error { error: "bad-token".into() })?;
                         let _ = tx.send(Message::Text(err_msg));
                         return Ok(());
@@ -449,10 +446,10 @@ async fn handle_raw_connection(
                     let is_cli = payload.as_ref().and_then(|p| p.client.as_deref()) == Some("cli");
                     let ext_ver = payload.as_ref().and_then(|p| p.extension_version.clone()).unwrap_or_else(|| "unknown".into());
 
-                    // Send HelloAck including the token so client can cache it
+                    // Send HelloAck confirming authentication without echoing the master secret token
                     let hello_ack = serde_json::json!({
                         "type": "hello_ack",
-                        "token": token
+                        "ok": true
                     });
                     let _ = tx.send(Message::Text(hello_ack.to_string()));
 
@@ -560,9 +557,10 @@ mod tests {
     }
 
     #[test]
-    fn test_extract_auth_token_query() {
+    fn test_extract_auth_token_query_rejected() {
+        // Query param ?token= must be rejected to prevent leaking secrets in logs/referrers
         let req = "GET /status?token=query-token-456 HTTP/1.1\r\nHost: 127.0.0.1:10086\r\n\r\n";
-        assert_eq!(extract_auth_token(req), Some("query-token-456".to_string()));
+        assert_eq!(extract_auth_token(req), None);
     }
 
     #[test]
@@ -576,13 +574,16 @@ mod tests {
         let req = "GET /status HTTP/1.1\r\nHost: 127.0.0.1:10086\r\nOrigin: chrome-extension://abcdefghijklmnop\r\n\r\n";
         let cors = get_cors_header(req);
         assert!(cors.contains("Access-Control-Allow-Origin: chrome-extension://abcdefghijklmnop"));
+        // Must never send Access-Control-Allow-Credentials: true
+        assert!(!cors.contains("Access-Control-Allow-Credentials"));
     }
 
     #[test]
-    fn test_cors_trusted_localhost() {
+    fn test_cors_localhost_rejected() {
+        // Localhost/127.0.0.1 browser origins must NOT be reflected to avoid cross-origin local web attacks
         let req = "GET /status HTTP/1.1\r\nHost: 127.0.0.1:10086\r\nOrigin: http://localhost:3000\r\n\r\n";
         let cors = get_cors_header(req);
-        assert!(cors.contains("Access-Control-Allow-Origin: http://localhost:3000"));
+        assert_eq!(cors, "");
     }
 
     #[test]
@@ -590,5 +591,13 @@ mod tests {
         let req = "GET /status HTTP/1.1\r\nHost: 127.0.0.1:10086\r\nOrigin: https://malicious-website.com\r\n\r\n";
         let cors = get_cors_header(req);
         assert_eq!(cors, "");
+    }
+
+    #[test]
+    fn test_token_match_verification() {
+        let expected = "correct-daemon-token-12345678";
+        assert!(tokens_match("correct-daemon-token-12345678", expected));
+        assert!(!tokens_match("wrong-token", expected));
+        assert!(!tokens_match("", expected));
     }
 }

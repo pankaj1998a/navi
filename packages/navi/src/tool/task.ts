@@ -123,7 +123,7 @@ export const TaskTool = Tool.define(
           .pipe(Effect.catchCause(() => Effect.succeed(undefined)))
       }
 
-      if (depth > MAX_SUBAGENT_DEPTH) {
+      if (depth >= MAX_SUBAGENT_DEPTH) {
         return yield* Effect.fail(
           new Error(`Subagent recursion depth limit exceeded (max: ${MAX_SUBAGENT_DEPTH}, current depth: ${depth})`),
         )

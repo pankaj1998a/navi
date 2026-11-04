@@ -2,12 +2,19 @@ import { test, expect, mock, beforeEach } from "bun:test"
 import { InstanceRuntime } from "../../src/project/instance-runtime"
 import { Effect } from "effect"
 import type { MCP as MCPNS } from "../../src/mcp/index"
+import { drainTolerantTools, isReadOnlyMcpTool } from "../../src/mcp/index"
 
 // --- Mock infrastructure ---
 
 // Per-client state for controlling mock behavior
 interface MockClientState {
-  tools: Array<{ name: string; description?: string; inputSchema: object; outputSchema?: object }>
+  tools: Array<{
+    name: string
+    description?: string
+    inputSchema: object
+    outputSchema?: object
+    annotations?: { readOnlyHint?: boolean }
+  }>
   listToolsCalls: number
   requestCalls: number
   listToolsShouldFail: boolean
@@ -477,6 +484,58 @@ test(
     }),
   ),
 )
+
+test("drainTolerantTools preserves tool annotations including readOnlyHint across pagination", async () => {
+  const mockClient: any = {
+    request: async (req: { method: string; params?: { cursor?: string } }) => {
+      if (req.params?.cursor === "page-2") {
+        return {
+          tools: [
+            {
+              name: "read_query_2",
+              description: "read-only tool page 2",
+              inputSchema: { type: "object" },
+              annotations: { readOnlyHint: true },
+            },
+          ],
+        }
+      }
+      return {
+        tools: [
+          {
+            name: "read_query_1",
+            description: "read-only tool page 1",
+            inputSchema: { type: "object" },
+            annotations: { readOnlyHint: true },
+          },
+          {
+            name: "write_query_1",
+            description: "write tool page 1",
+            inputSchema: { type: "object" },
+          },
+        ],
+        nextCursor: "page-2",
+      }
+    },
+  }
+
+  const drained = await drainTolerantTools(mockClient, 5000)
+  expect(drained).toHaveLength(3)
+  const [first, second, third] = drained
+  expect(first).toBeDefined()
+  expect(second).toBeDefined()
+  expect(third).toBeDefined()
+  if (!first || !second || !third) throw new Error("Expected 3 tools")
+  expect(first.name).toBe("read_query_1")
+  expect(first.annotations?.readOnlyHint).toBe(true)
+  expect(isReadOnlyMcpTool(first)).toBe(true)
+  expect(second.name).toBe("write_query_1")
+  expect(second.annotations).toBeUndefined()
+  expect(isReadOnlyMcpTool(second)).toBe(false)
+  expect(third.name).toBe("read_query_2")
+  expect(third.annotations?.readOnlyHint).toBe(true)
+  expect(isReadOnlyMcpTool(third)).toBe(true)
+})
 
 test(
   "does not fall back for non-schema MCP tool discovery errors",
