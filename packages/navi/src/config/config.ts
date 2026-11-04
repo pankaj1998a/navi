@@ -301,6 +301,10 @@ export const Info = Schema.Struct({
       mcp_timeout: Schema.optional(PositiveInt).annotate({
         description: "Timeout in milliseconds for model context protocol (MCP) requests",
       }),
+      openai_deferred_tool_search: Schema.optional(Schema.Boolean).annotate({
+        description:
+          "Opt-in to OpenAI Responses API deferred tool search when backed by a verified Responses adapter (falls back to standard catalog if unsupported)",
+      }),
       evaluation: Schema.optional(
         Schema.Struct({
           enabled: Schema.optional(Schema.Boolean),

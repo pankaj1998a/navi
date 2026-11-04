@@ -1,6 +1,10 @@
 # Navi — Complete Features & Slash Commands Master Reference
 
-> **Comprehensive Source-Code Audit**: Audited directly across `packages/navi/`, `packages/app/`, `packages/extensions/`, `packages/tui/`, and `native/` in `v:\pankaj\navi`.  
+> **Verification Notice (2026-11-04)**: Treat the counts and matrix below as a historical inventory, not verified runtime readiness. The parent-directory copy differs from this document. Source inspection confirms stubs in `voice`, `vim`, `vcr`, and `teleport`, and heuristic/placeholder accounting in `cost_tracker`.
+>
+> **Discovery Alignment**: Tool discovery now searches the session's runtime catalog, including custom and MCP tools, with agent/session permissions and model selection respected. System guidance points agents to actual tool schemas and `task` for delegation rather than nonexistent tool names. This does not certify external backends or update installed binaries.
+>
+> **Historical Source-Code Audit**: Inventory across `packages/navi/`, `packages/app/`, `packages/extensions/`, `packages/tui/`, and `native/` in `v:\pankaj\navi`.
 > **Timestamp**: November 2026  
 > **Repository Scale**: 40 CLI Subcommands • 96 Tool Modules • 209 Domain Skills • 494 AI Agent Personas (282 Agency + 212 Imported) • 3 Native Rust Engines • 200+ Slash Commands across 4 registries.
 
@@ -10,7 +14,7 @@
 
 Navi possesses one of the most powerful agentic and developer tooling architectures ever built into an AI assistant. It integrates multi-model browser bridging, reverse-engineering decompiler suites, AST structural mappers, automated security penetration testing, memory wikis, and 494 specialized role personas.
 
-**However, over 65% of Navi's features are either broken, dead stubs, duplicate overlaps, or trapped in CLI silos where chat users cannot access them.**
+Earlier notes estimated that over 65% of features were broken or inaccessible. That percentage has not been revalidated and should not be used as a measured readiness score. Registration, discovery, permission, backend readiness, and end-to-end verification must be assessed separately.
 
 ```
 ┌────────────────────────────────────────────────────────────────────────────────────────┐

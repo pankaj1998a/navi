@@ -397,6 +397,15 @@ NOTE: At any point in time through this workflow you should feel free to ask the
         extra: { model: input.model, bypassAgentCheck: input.bypassAgentCheck, promptOps },
         agent: input.agent.name,
         messages: input.messages,
+        availableTools: Object.entries(tools)
+          .filter(
+            ([id]) =>
+              input.tools?.[id] !== false &&
+              !Permission.disabled([id], Permission.merge(input.agent.permission, input.session.permission ?? [])).has(
+                id,
+              ),
+          )
+          .map(([id, definition]) => ({ id, description: definition.description ?? "" })),
         metadata: (val) =>
           input.processor.updateToolCall(options.toolCallId, (match) => {
             if (!["running", "pending"].includes(match.state.status)) return match
@@ -522,7 +531,7 @@ NOTE: At any point in time through this workflow you should feel free to ask the
               }
               const result: Awaited<ReturnType<NonNullable<typeof execute>>> = yield* Effect.gen(function* () {
                 yield* ctx.ask({ permission: key, metadata: {}, patterns: ["*"], always: ["*"] })
-                return yield* Effect.promise(() => execute(args, opts))
+                return yield* Effect.promise(() => execute(args, { ...opts, sessionID: ctx.sessionID } as any))
               }).pipe(
                 Effect.withSpan("Tool.execute", {
                   attributes: {
@@ -574,16 +583,25 @@ NOTE: At any point in time through this workflow you should feel free to ask the
               }
 
               const truncated = yield* truncate.output(textParts.join("\n\n"), {}, input.agent)
+              const isMcpError = Boolean((result as any)?.isError)
+              const structuredContent = (result as any)?.structuredContent
+
               const metadata = {
                 ...result.metadata,
+                isError: isMcpError,
+                ...(structuredContent !== undefined && { structuredContent }),
                 truncated: truncated.truncated,
                 ...(truncated.truncated && { outputPath: truncated.outputPath }),
               }
 
               const output = {
-                title: "",
+                title: isMcpError ? `[Error] ${key}` : "",
                 metadata,
-                output: truncated.content,
+                output: isMcpError && !truncated.content.toLowerCase().startsWith("error")
+                  ? `Tool Error (${key}): ${truncated.content}`
+                  : truncated.content,
+                isError: isMcpError,
+                ...(structuredContent !== undefined && { structuredContent }),
                 attachments: attachments.map((attachment) => ({
                   ...attachment,
                   id: PartID.ascending(),
@@ -592,14 +610,25 @@ NOTE: At any point in time through this workflow you should feel free to ask the
                 })),
                 content: result.content,
               }
-              yield* HookEffect.postToolUse(
-                ctx.sessionID,
-                input.session.directory,
-                key,
-                args,
-                output.output,
-                ctx.agent,
-              )
+              if (isMcpError) {
+                yield* HookEffect.postToolUseFailure(
+                  ctx.sessionID,
+                  input.session.directory,
+                  key,
+                  args,
+                  output.output,
+                  ctx.agent,
+                )
+              } else {
+                yield* HookEffect.postToolUse(
+                  ctx.sessionID,
+                  input.session.directory,
+                  key,
+                  args,
+                  output.output,
+                  ctx.agent,
+                )
+              }
               if (opts.abortSignal?.aborted) {
                 yield* input.processor.completeToolCall(opts.toolCallId, output)
               }

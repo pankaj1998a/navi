@@ -334,6 +334,14 @@ const live: Layer.Layer<
         ? (yield* InstanceState.context).project.id
         : undefined
 
+      const supportsDeferred = supportsOpenAIDeferredToolSearch(input.model, {
+        experimentalDeferred: cfg.experimental?.openai_deferred_tool_search,
+      })
+      const providerOpts = ProviderTransform.providerOptions(input.model, {
+        ...params.options,
+        ...(supportsDeferred ? { deferredToolSearch: true } : {}),
+      })
+
       return streamText({
         onError(error) {
           l.error("stream error", {
@@ -364,7 +372,7 @@ const live: Layer.Layer<
         temperature: params.temperature,
         topP: params.topP,
         topK: params.topK,
-        providerOptions: ProviderTransform.providerOptions(input.model, params.options),
+        providerOptions: providerOpts,
         activeTools: Object.keys(sortedTools).filter((x) => x !== "invalid"),
         tools: sortedTools,
         toolChoice: input.toolChoice,
@@ -471,6 +479,23 @@ export function hasToolCalls(messages: ModelMessage[]): boolean {
     }
   }
   return false
+}
+
+/**
+ * Verifies whether the provider and model adapter support native OpenAI Responses
+ * API deferred loading and tool_search. Returns false for third-party endpoints,
+ * standard chat completion models, or unsupported SDK versions.
+ */
+export function supportsOpenAIDeferredToolSearch(
+  model: Provider.Model,
+  options?: { experimentalDeferred?: boolean },
+): boolean {
+  if (!options?.experimentalDeferred) return false
+  const isResponsesEndpoint =
+    model.api.url?.includes("/responses") ||
+    (model.api.npm === "@ai-sdk/openai" &&
+      (model.id.includes("gpt-5") || model.api.id.includes("gpt-5") || model.id.includes("responses")))
+  return Boolean(isResponsesEndpoint)
 }
 
 export * as LLM from "./llm"

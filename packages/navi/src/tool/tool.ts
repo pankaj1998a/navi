@@ -22,6 +22,7 @@ export type Context<M extends Metadata = Metadata> = {
   taskId?: string
   extra?: { [key: string]: unknown }
   messages: MessageV2.WithParts[]
+  availableTools?: ReadonlyArray<{ id: string; description: string }>
   metadata(input: { title?: string; metadata?: M }): Effect.Effect<void>
   ask(input: Omit<Permission.Request, "id" | "sessionID" | "tool">): Effect.Effect<void>
 }

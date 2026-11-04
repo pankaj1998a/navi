@@ -4,7 +4,7 @@ import { Session } from "@/session/session"
 import { SessionID, MessageID } from "../session/schema"
 import { MessageV2 } from "../session/message-v2"
 import { Agent } from "../agent/agent"
-import { deriveSubagentSessionPermission } from "../agent/subagent-permissions"
+import { deriveSubagentSessionPermission, MAX_SUBAGENT_DEPTH } from "../agent/subagent-permissions"
 import type { SessionPrompt } from "../session/prompt"
 import { Config } from "@/config/config"
 import { Cause, Effect, Exit, Option, Schema, Semaphore } from "effect"
@@ -60,8 +60,6 @@ export const TaskTool = Tool.define(
     const bus = yield* Effect.serviceOption(Bus.Service)
     const subagentSemaphore = yield* Semaphore.make(4)
 
-    const MAX_SUBAGENT_DEPTH = 5
-
     const run = Effect.fn("TaskTool.execute")(function* (
       params: Schema.Schema.Type<typeof Parameters>,
       ctx: Tool.Context,
@@ -90,6 +88,24 @@ export const TaskTool = Tool.define(
       const session = taskID
         ? yield* sessions.get(SessionID.make(taskID)).pipe(Effect.catchCause(() => Effect.succeed(undefined)))
         : undefined
+
+      if (session) {
+        if (session.parentID && session.parentID !== ctx.sessionID) {
+          return yield* Effect.fail(
+            new Error(
+              `Cannot resume task session '${taskID}': parent session mismatch (owned by ${session.parentID}, caller is ${ctx.sessionID})`,
+            ),
+          )
+        }
+        if (session.agent && session.agent !== next.name) {
+          return yield* Effect.fail(
+            new Error(
+              `Cannot resume task session '${taskID}': subagent type mismatch (session was created for @${session.agent}, requested @${next.name})`,
+            ),
+          )
+        }
+      }
+
       const parent = yield* sessions.get(ctx.sessionID)
       const parentAgent = parent.agent
         ? yield* agent.get(parent.agent).pipe(Effect.catchCause(() => Effect.succeed(undefined)))
@@ -113,24 +129,36 @@ export const TaskTool = Tool.define(
         )
       }
 
+      const derivedPermissions = [
+        ...deriveSubagentSessionPermission({
+          parentSessionPermission: parent.permission ?? [],
+          parentAgent,
+          subagent: next,
+          depth,
+          maxDepth: MAX_SUBAGENT_DEPTH,
+        }),
+        ...(cfg.experimental?.primary_tools?.map((item) => ({
+          pattern: "*",
+          action: "allow" as const,
+          permission: item,
+        })) ?? []),
+      ]
+
+      if (session) {
+        yield* sessions
+          .setPermission({
+            sessionID: session.id,
+            permission: derivedPermissions,
+          })
+          .pipe(Effect.catchCause(() => Effect.void))
+      }
+
       const nextSession =
         session ??
         (yield* sessions.create({
           parentID: ctx.sessionID,
           title: params.description + ` (@${next.name} subagent)`,
-          permission: [
-            ...deriveSubagentSessionPermission({
-              parentSessionPermission: parent.permission ?? [],
-              parentAgent,
-              subagent: next,
-              depth,
-            }),
-            ...(cfg.experimental?.primary_tools?.map((item) => ({
-              pattern: "*",
-              action: "allow" as const,
-              permission: item,
-            })) ?? []),
-          ],
+          permission: derivedPermissions,
         }))
 
       const msg = yield* Effect.sync(() => MessageV2.get({ sessionID: ctx.sessionID, messageID: ctx.messageID }))

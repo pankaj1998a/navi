@@ -205,7 +205,6 @@ async function scanCustomToolFiles(dirs: string[]): Promise<string[]> {
   return matches
 }
 
-
 export const layer: Layer.Layer<
   Service,
   never,
@@ -347,8 +346,8 @@ export const layer: Layer.Layer<
                 const result = yield* Effect.promise(() => def.execute(args as z.infer<typeof zodParams>, pluginCtx))
                 const output = typeof result === "string" ? result : result.output
                 const metadata = typeof result === "string" ? {} : (result.metadata ?? {})
-                const { wrapUntrustedContent, sanitizeUntrustedText } = yield* Effect.promise(() =>
-                  import("@/util/untrusted-content"),
+                const { wrapUntrustedContent, sanitizeUntrustedText } = yield* Effect.promise(
+                  () => import("@/util/untrusted-content"),
                 )
                 const cleanOutput =
                   id.includes(":") || id.startsWith("mcp_") || id.startsWith("web")
@@ -399,8 +398,7 @@ export const layer: Layer.Layer<
         }
 
         yield* config.get()
-        const questionEnabled =
-          ["app", "cli", "desktop"].includes(Flag.NAVI_CLIENT) || Flag.NAVI_ENABLE_QUESTION_TOOL
+        const questionEnabled = ["app", "cli", "desktop"].includes(Flag.NAVI_CLIENT) || Flag.NAVI_ENABLE_QUESTION_TOOL
 
         const tool = yield* Effect.all({
           invalid: Tool.init(invalid),
@@ -606,10 +604,10 @@ export const layer: Layer.Layer<
       const description = list
         .map(
           (item) =>
-            `- ${item.name}: ${item.description ?? "This subagent should only be called manually by the user."}`,
+            `- ${item.name}: ${item.description?.trim() || "No description provided; select only when the user requests this agent."}`,
         )
         .join("\n")
-      return ["Available agent types and the tools they have access to:", description].join("\n")
+      return ["Available agent types (tool access is governed by each agent's permissions):", description].join("\n")
     })
 
     /**

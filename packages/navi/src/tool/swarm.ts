@@ -7,11 +7,13 @@
  * and synthesizes an aggregated Swarm Intelligence Brief.
  */
 
-import { Effect, Schema } from "effect"
+import { Cause, Effect, Exit, Schema } from "effect"
 import * as Tool from "./tool"
 import { Agent } from "@/agent/agent"
 import { Session } from "@/session/session"
 import { InstanceState } from "@/effect/instance-state"
+import { MessageID } from "../session/schema"
+import type { TaskPromptOps } from "./task"
 import * as Log from "@navi-ai/core/util/log"
 const DESCRIPTION = "Spawns a coordinated team of specialized subagents (Explorer, Architect, Reviewer, Tester) to analyze or execute tasks concurrently or sequentially."
 
@@ -118,45 +120,84 @@ export const SwarmTool = Tool.define(
 
               const roleTitle = agentDef?.name ?? mate.role
 
-              // Record teammate execution session
+              // Create teammate execution subsession
               const subSession = yield* sessions
                 .create({
                   parentID: ctx.sessionID,
                   title: `Swarm [${mate.name}] @${roleTitle}`,
                 })
-                .pipe(Effect.catchCause(() => Effect.succeed(undefined)))
+                .pipe(Effect.catchCause((e) => Effect.fail(e)))
 
-              const elapsedMs = Date.now() - start
-              const finding = `Teammate [${mate.name}] (${roleTitle}) mobilized for "${objective}". ${peerContext ? `Incorporated peer discoveries. ` : ""}Focus: ${mate.task}`
+              const ops = ctx.extra?.promptOps as TaskPromptOps | undefined
+              let status: "completed" | "initialized" | "failed" = "initialized"
+              let findings = ""
+              let elapsedMs = 0
+
+              if (ops && subSession) {
+                const messageID = MessageID.ascending()
+                const promptParts = yield* ops.resolvePromptParts(
+                  `${mate.task}${peerContext ? `\n\nPeer Context from Swarm Mailbox:\n${peerContext}` : ""}`,
+                )
+                const resultExit = yield* Effect.exit(
+                  ops.prompt({
+                    messageID,
+                    sessionID: subSession.id,
+                    model: agentDef?.model,
+                    agent: agentDef?.name ?? mate.role,
+                    parts: promptParts,
+                  }),
+                )
+
+                elapsedMs = Date.now() - start
+                if (Exit.isSuccess(resultExit)) {
+                  status = "completed"
+                  const msg = resultExit.value
+                  const textPart = msg.parts.find((p) => p.type === "text")
+                  findings =
+                    textPart && "text" in textPart
+                      ? (textPart as any).text
+                      : `Teammate [${mate.name}] completed task.`
+                } else {
+                  status = "failed"
+                  const err = Cause.squash(resultExit.cause)
+                  findings = `Execution failed: ${err instanceof Error ? err.message : String(err)}`
+                }
+              } else {
+                elapsedMs = Date.now() - start
+                status = "initialized"
+                findings = `Teammate [${mate.name}] (${roleTitle}) mobilized for "${objective}". Session staged.${peerContext ? " Incorporated peer discoveries." : ""}`
+              }
 
               SwarmMailbox.post(swarmId, {
                 from: mate.name,
                 role: roleTitle,
                 timestamp: new Date().toISOString(),
-                content: finding,
+                content: findings,
               })
 
               return {
                 name: mate.name,
                 role: roleTitle,
                 task: mate.task,
-                status: "completed",
+                status,
                 sessionId: subSession?.id ?? "local",
                 elapsedMs,
-                findings: finding,
+                findings,
               }
             }).pipe(
-              Effect.catchCause(() =>
-                Effect.succeed({
+              Effect.catchCause((cause) => {
+                const err = Cause.squash(cause)
+                const errMsg = err instanceof Error ? err.message : String(err)
+                return Effect.succeed({
                   name: mate.name,
                   role: mate.role,
                   task: mate.task,
-                  status: "completed",
-                  sessionId: "local",
+                  status: "failed",
+                  sessionId: "failed",
                   elapsedMs: 0,
-                  findings: `Teammate [${mate.name}] initialized.`,
-                }),
-              ),
+                  findings: `Teammate initialization failed: ${errMsg}`,
+                })
+              }),
             )
 
           let results: Array<{

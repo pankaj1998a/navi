@@ -174,28 +174,72 @@ function isOutputSchemaValidationError(error: Error) {
   )
 }
 
+async function drainAllTools(client: MCPClient, timeout: number): Promise<MCPToolDef[]> {
+  const allTools: MCPToolDef[] = []
+  let cursor: string | undefined = undefined
+  let page = 0
+  const MAX_PAGES = 50
+
+  while (page++ < MAX_PAGES) {
+    const res = await client.listTools(cursor ? { cursor } : undefined, { timeout })
+    if (res.tools && Array.isArray(res.tools)) {
+      allTools.push(...res.tools)
+    }
+    if (!res.nextCursor || typeof res.nextCursor !== "string" || res.nextCursor.trim() === "") {
+      break
+    }
+    cursor = res.nextCursor
+  }
+  return allTools
+}
+
+async function drainTolerantTools(client: MCPClient, timeout: number): Promise<MCPToolDef[]> {
+  const allTools: MCPToolDef[] = []
+  let cursor: string | undefined = undefined
+  let page = 0
+  const MAX_PAGES = 50
+
+  while (page++ < MAX_PAGES) {
+    const res: unknown = await client.request(
+      cursor ? { method: "tools/list", params: { cursor } } : { method: "tools/list" },
+      tolerantListToolsResultSchema,
+      { timeout },
+    )
+    const result = res as {
+      tools?: Array<{ name: string; description?: string; inputSchema?: unknown }>
+      nextCursor?: string
+    }
+    if (result.tools && Array.isArray(result.tools)) {
+      allTools.push(
+        ...result.tools.map((tool) => ({
+          name: tool.name,
+          description: tool.description,
+          inputSchema: tool.inputSchema as any,
+        })),
+      )
+    }
+    const next = result.nextCursor
+    if (!next || typeof next !== "string" || next.trim() === "") {
+      break
+    }
+    cursor = next
+  }
+  return allTools
+}
+
 function listTools(key: string, client: MCPClient, timeout: number) {
   return Effect.tryPromise({
-    try: () => client.listTools(undefined, { timeout }),
+    try: () => drainAllTools(client, timeout),
     catch: (err) => (err instanceof Error ? err : new Error(String(err))),
   }).pipe(
-    Effect.map((result) => result.tools),
     Effect.catch((error) => {
       if (!isOutputSchemaValidationError(error)) return Effect.fail(error)
 
       log.warn("failed to validate MCP tool output schemas, retrying without output schema validation", { key, error })
       return Effect.tryPromise({
-        try: () => client.request({ method: "tools/list" }, tolerantListToolsResultSchema, { timeout }),
+        try: () => drainTolerantTools(client, timeout),
         catch: (err) => (err instanceof Error ? err : new Error(String(err))),
-      }).pipe(
-        Effect.map((result) =>
-          result.tools.map((tool) => ({
-            name: tool.name,
-            description: tool.description,
-            inputSchema: tool.inputSchema,
-          })),
-        ),
-      )
+      })
     }),
   )
 }
@@ -242,7 +286,7 @@ function convertMcpTool(
   mcpTool: MCPToolDef,
   client: MCPClient,
   timeout?: number,
-  gate?: (tool: MCPToolDef) => Promise<void>,
+  gate?: (tool: MCPToolDef, sessionID?: SessionID) => Promise<void>,
 ): Tool {
   const inputSchema = mcpTool.inputSchema
 
@@ -257,8 +301,8 @@ function convertMcpTool(
   return dynamicTool({
     description: mcpTool.description ?? "",
     inputSchema: jsonSchema(schema),
-    execute: async (args: unknown) => {
-      await gate?.(mcpTool)
+    execute: async (args: unknown, options?: any) => {
+      await gate?.(mcpTool, options?.sessionID)
       return client.callTool(
         {
           name: mcpTool.name,
@@ -591,12 +635,14 @@ export const layer = Layer.effect(
     )
 
     function watch(s: State, name: string, client: MCPClient, bridge: EffectBridge.Shape, timeout?: number) {
+      let refreshSeq = 0
       client.setNotificationHandler(ToolListChangedNotificationSchema, async () => {
-        log.info("tools list changed notification received", { server: name })
+        const seq = ++refreshSeq
+        log.info("tools list changed notification received", { server: name, seq })
         if (s.clients[name] !== client || s.status[name]?.status !== "connected") return
 
         const listed = await bridge.promise(defs(name, client, timeout))
-        if (!listed) return
+        if (!listed || seq !== refreshSeq) return
         if (s.clients[name] !== client || s.status[name]?.status !== "connected") return
 
         s.defs[name] = listed
@@ -760,11 +806,11 @@ export const layer = Layer.effect(
       const defaultTimeout = cfg.experimental?.mcp_timeout
       const ruleset = Permission.fromConfig(cfg.permission ?? {})
 
-      const gate = async (server: string, mcpTool: MCPToolDef) => {
+      const gate = async (server: string, mcpTool: MCPToolDef, sessionID?: SessionID) => {
         if (!mcpToolRequiresApproval(server, mcpTool, ruleset)) return
         await bridge.promise(
           permission.ask({
-            sessionID: MCP_PERMISSION_SESSION,
+            sessionID: sessionID ?? MCP_PERMISSION_SESSION,
             permission: mcpPermissionName(server),
             patterns: [mcpTool.name],
             metadata: { server, tool: mcpTool.name },
@@ -797,7 +843,7 @@ export const layer = Layer.effect(
                 mcpTool,
                 client,
                 timeout,
-                (tool) => gate(clientName, tool),
+                (tool, sessionID) => gate(clientName, tool, sessionID),
               )
             }
           }),

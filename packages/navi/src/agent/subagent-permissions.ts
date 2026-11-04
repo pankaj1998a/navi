@@ -14,7 +14,7 @@ import type { Agent } from "./agent"
  * 3. Default `todowrite` and `task` denies if the subagent's own ruleset
  *    doesn't already permit them.
  */
-export const MAX_SUBAGENT_DEPTH = 3
+export const MAX_SUBAGENT_DEPTH = 5
 
 export function deriveSubagentSessionPermission(input: {
   parentSessionPermission: Permission.Ruleset
