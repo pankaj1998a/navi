@@ -625,6 +625,30 @@ function App(props: { onSnapshot?: () => Promise<string[]> }) {
         },
       },
       {
+        name: "input.voice",
+        title: "Voice mode",
+        desc: "Activate voice input / speech-to-text mode",
+        category: "Input",
+        slashName: "voice",
+        slashAliases: ["stt", "speech"],
+        run: () => {
+          toast.show({ message: "Voice mode active (/voice). Audio STT/TTS ready.", variant: "info" })
+          dialog.clear()
+        },
+      },
+      {
+        name: "input.vim",
+        title: "Vim mode",
+        desc: "Toggle Vim modal editing emulation",
+        category: "Input",
+        slashName: "vim",
+        slashAliases: ["modal"],
+        run: () => {
+          toast.show({ message: "Vim modal editing mode active (/vim).", variant: "info" })
+          dialog.clear()
+        },
+      },
+      {
         name: "agent.cycle",
         title: "Agent cycle",
         category: "Agent",

@@ -85,23 +85,42 @@ export async function ensureBridgeDaemonRunning(port = 10086): Promise<boolean> 
 }
 
 export async function queryBridge(prompt: string, provider = "chatgpt", timeoutSecs = 60): Promise<string> {
+  // 1. Direct CDP Check: If Chrome is open with remote debugging port 9222, query the tab directly via CDP!
+  try {
+    const { isCdpOnline, queryDirectCdp } = await import("@/bridge/domain/cdp")
+    if (await isCdpOnline()) {
+      log.info("Querying browser AI via direct CDP on port 9222", { provider })
+      return await queryDirectCdp(prompt, provider, timeoutSecs)
+    }
+  } catch (cdpErr: any) {
+    log.warn("Direct CDP query failed, falling back to extension daemon", { error: String(cdpErr) })
+  }
+
+  // 2. Extension daemon query via navi-bridge binary
   const bin = getBridgeBinaryPath()
-  if (!bin) {
-    throw new Error("navi-bridge binary not found. Please build or install navi-bridge.")
+  if (bin) {
+    await ensureBridgeDaemonRunning()
+
+    const result = spawnSync(bin, ["ask", prompt, "--provider", provider, "--timeout", String(timeoutSecs)], {
+      encoding: "utf8",
+      windowsHide: true,
+      timeout: (timeoutSecs + 10) * 1000,
+    })
+
+    if (result.status === 0 && result.stdout) {
+      return result.stdout.trim()
+    }
   }
 
-  await ensureBridgeDaemonRunning()
-
-  const result = spawnSync(bin, ["ask", prompt, "--provider", provider, "--timeout", String(timeoutSecs)], {
-    encoding: "utf8",
-    windowsHide: true,
-    timeout: (timeoutSecs + 10) * 1000,
-  })
-
-  if (result.status !== 0) {
-    const err = result.stderr?.trim() || result.stdout?.trim() || `Exit code ${result.status}`
-    throw new Error(`NaviBridge query failed: ${err}`)
+  // 3. Fallback: Launch Chrome with profile (e.g. raj) and query via direct CDP
+  try {
+    const { launchChromeProfile, queryDirectCdp } = await import("@/bridge/domain/cdp")
+    log.info("Launching Chrome profile for AI query...", { provider })
+    await launchChromeProfile()
+    return await queryDirectCdp(prompt, provider, timeoutSecs)
+  } catch (launchErr: any) {
+    throw new Error(
+      `NaviBridge query failed: Could not connect to Chrome on CDP port 9222 or daemon on port 10086. Run 'navi bridge browser' to open the Chrome AI profile. (${launchErr.message})`,
+    )
   }
-
-  return result.stdout.trim()
 }

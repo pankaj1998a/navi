@@ -26,6 +26,8 @@ target
 .direnv/
 
 # Local dev files
+browser-profile/
+.browser-profile/
 /opencode-dev
 UPCOMING_CHANGELOG.md
 logs/

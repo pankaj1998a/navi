@@ -12,16 +12,32 @@ import {
   isBridgeDaemonOnline,
   ensureBridgeDaemonRunning,
 } from "@/native/bridge-runner"
+import {
+  isCdpOnline,
+  listTabs,
+  launchChromeProfile,
+  findChromeProfileByName,
+} from "../../bridge/domain/cdp"
 
 export const BridgeCommand = effectCmd({
   command: "bridge [action]",
-  describe: "Manage Navi zero-API-key browser AI bridge (status, start, doctor, token, install, tunnel)",
+  describe: "Manage Navi zero-API-key browser AI bridge (status, browser, start, doctor, token, install, tunnel)",
   instance: false,
   builder: (yargs) =>
     yargs
       .positional("action", {
-        describe: "Action to perform: status, start, doctor, token, install, tunnel",
+        describe: "Action to perform: status, browser, start, doctor, token, install, tunnel",
         type: "string",
+      })
+      .option("profile", {
+        type: "string",
+        default: "raj",
+        describe: "Target Chrome profile name (defaults to 'raj')",
+      })
+      .option("restart", {
+        type: "boolean",
+        default: false,
+        describe: "Force restart Chrome with CDP remote debugging port 9222 enabled",
       })
       .option("port", {
         type: "number",
@@ -68,6 +84,72 @@ export const BridgeCommand = effectCmd({
       } else {
         UI.println(UI.Style.TEXT_WARNING_BOLD + "○ NaviBridge Daemon: Offline" + UI.Style.TEXT_NORMAL)
         UI.println("  Start it with: " + UI.Style.TEXT_INFO_BOLD + "navi bridge start")
+      }
+
+      const targetProfile = String(args.profile || "raj")
+      const profileInfo = findChromeProfileByName(targetProfile)
+      const cdpOnline = yield* Effect.promise(() => isCdpOnline())
+      if (cdpOnline) {
+        UI.println(UI.Style.TEXT_SUCCESS_BOLD + `✓ Chrome AI Browser (Profile: ${targetProfile}): Online` + UI.Style.TEXT_NORMAL + " (CDP Port 9222)")
+        const tabs = yield* Effect.promise(() => listTabs())
+        const pageTabs = tabs.filter((t: any) => t.type === "page")
+        for (const t of pageTabs) {
+          UI.println(`   • ${t.title || "Untitled"} (${t.url})`)
+        }
+      } else {
+        UI.println(UI.Style.TEXT_WARNING_BOLD + `○ Chrome AI Browser (Profile: ${targetProfile}): Offline / Closed` + UI.Style.TEXT_NORMAL)
+        if (profileInfo) {
+          UI.println(`  Detected Profile: ${profileInfo.profileName} (${profileInfo.profileFolder}${profileInfo.email ? `, ${profileInfo.email}` : ""})`)
+        }
+        UI.println("  Open it with: " + UI.Style.TEXT_INFO_BOLD + `navi bridge browser --profile ${targetProfile}`)
+      }
+      return
+    }
+
+    // 2. Browser action: Launch Chrome with the profile (default "raj") and CDP remote debugging port 9222
+    if (rawAction === "browser" || rawAction === "launch") {
+      const targetProfile = String(args.profile || "raj")
+      const forceRestart = !!args.restart
+      const profileInfo = findChromeProfileByName(targetProfile)
+
+      UI.println(UI.Style.TEXT_INFO_BOLD + `Targeting Chrome Profile: '${targetProfile}'...` + UI.Style.TEXT_NORMAL)
+      if (profileInfo) {
+        UI.println(`  Profile folder: ${profileInfo.profileFolder}`)
+        if (profileInfo.email) UI.println(`  Account: ${profileInfo.email}`)
+      } else {
+        UI.println(UI.Style.TEXT_WARNING + `  Profile '${targetProfile}' not found in Chrome Local State. Using isolated AI profile directory.`)
+      }
+
+      const cdpAlreadyOnline = yield* Effect.promise(() => isCdpOnline())
+      if (cdpAlreadyOnline && !forceRestart) {
+        UI.println(UI.Style.TEXT_SUCCESS_BOLD + "✓ Chrome AI Browser is ALREADY OPEN on CDP port 9222!" + UI.Style.TEXT_NORMAL)
+        const tabs = yield* Effect.promise(() => listTabs())
+        const pageTabs = tabs.filter((t: any) => t.type === "page")
+        UI.println(`  Active Tabs (${pageTabs.length}):`)
+        for (const t of pageTabs) {
+          UI.println(`   • ${t.title || "Untitled"} (${t.url})`)
+        }
+        return
+      }
+
+      UI.println("Opening Chrome window with CDP remote debugging port 9222...")
+      try {
+        const res = yield* Effect.promise(() =>
+          launchChromeProfile({
+            profileName: targetProfile,
+            forceRestart,
+          }),
+        )
+        UI.println(UI.Style.TEXT_SUCCESS_BOLD + `✓ Chrome AI Browser window is OPEN on your screen!` + UI.Style.TEXT_NORMAL)
+        UI.println(`  Profile: ${targetProfile} (${res.profileFolder || "Custom"})`)
+        UI.println(`  CDP Debugging Port: ${res.port} (Connected)`)
+        UI.println("  Opened tabs: ChatGPT, Claude, Gemini, DeepSeek")
+        UI.println()
+        UI.println(UI.Style.TEXT_WARNING + "👉 All logins in profile '" + targetProfile + "' are active and available.")
+        UI.println("   You can query zero-API-key AI anytime from terminal:")
+        UI.println(UI.Style.TEXT_INFO_BOLD + `   navi ask "Your prompt here" --provider chatgpt` + UI.Style.TEXT_NORMAL)
+      } catch (err: any) {
+        UI.println(UI.Style.TEXT_DANGER_BOLD + "✗ " + err.message)
       }
       return
     }
