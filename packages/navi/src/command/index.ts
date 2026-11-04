@@ -38,6 +38,7 @@ import PROMPT_RAISE from "./template/raise.txt"
 import PROMPT_SECTRIAGE from "./template/sectriage.txt"
 import PROMPT_BRIDGE from "./template/bridge.txt"
 import PROMPT_ASK from "./template/ask.txt"
+import PROMPT_DREAM from "./template/dream.txt"
 
 type State = {
   commands: Record<string, Info>
@@ -99,6 +100,23 @@ export const COMMAND_ALIASES: Record<string, string> = {
   presentation: "ppt",
   careful: "guard",
   "qa-only": "qa",
+  "add-dir": "init",
+  onboarding: "init",
+  "pr-comments": "review",
+  workflows: "recipe",
+  workflow: "recipe",
+  tasks: "planning-and-task-breakdown",
+  task: "planning-and-task-breakdown",
+  autoresearch: "research",
+  bughunter: "diagnose",
+  freeze: "guard",
+  unfreeze: "guard",
+  benchmark: "webperf",
+  reflect: "recap",
+  wayfinder: "wayfinder",
+  prototype: "prototype",
+  grep: "search",
+  glob: "search",
 }
 
 export interface Interface {
@@ -451,6 +469,170 @@ export const layer = Layer.effect(
           return "Audit and distill living documentation: $ARGUMENTS"
         },
         hints: ["architecture", "changelog", "memory"],
+      }
+      commands["pentest"] = {
+        name: "pentest",
+        description: "Autonomous security penetration test on target codebase or web application",
+        source: "command",
+        agent: "security-auditor",
+        get template() {
+          return "Run autonomous security penetration test on target: $ARGUMENTS\n\nExecute coverage mapping, input boundary validation, STRIDE analysis, and proof-of-concept verification."
+        },
+        hints: ["$ARGUMENTS"],
+      }
+      commands["memory"] = {
+        name: "memory",
+        description: "Search, inspect, and update Navi durable memory and wiki knowledge",
+        source: "command",
+        get template() {
+          return "Search and inspect durable memory: $ARGUMENTS"
+        },
+        hints: ["search", "add", "list", "vacuum"],
+      }
+      commands["graph"] = {
+        name: "graph",
+        description: "Codebase Knowledge Graph & Architecture Intelligence (build, query, affected, blast-radius)",
+        source: "command",
+        agent: "architect",
+        get template() {
+          return "Execute codebase knowledge graph operation: $ARGUMENTS"
+        },
+        hints: ["build", "query", "affected", "path", "god-nodes", "cycles", "report", "wiki"],
+      }
+      commands["structure"] = {
+        name: "structure",
+        description: "Compress codebase AST into dense symbol map (dense | skeleton | exports | sigs)",
+        source: "command",
+        get template() {
+          return "Analyze and compress AST structure map for: $ARGUMENTS"
+        },
+        hints: ["dense", "skeleton", "exports", "sigs"],
+      }
+      commands["agency"] = {
+        name: "agency",
+        description: "Interact with The Agency 282 AI specialists across 18 divisions (list, search, info, divisions)",
+        source: "command",
+        get template() {
+          return "The Agency AI specialists operation: $ARGUMENTS"
+        },
+        hints: ["list", "search", "divisions", "info"],
+      }
+      commands["headroom"] = {
+        name: "headroom",
+        description: "Context optimization, lossless CCR store, and token compression stats",
+        source: "command",
+        get template() {
+          return "Analyze context headroom and lossless CCR metrics: $ARGUMENTS"
+        },
+        hints: ["stats", "compress", "retrieve"],
+      }
+      commands["recipe"] = {
+        name: "recipe",
+        description: "Run deterministic AI workflow automation recipes",
+        source: "command",
+        get template() {
+          return "Execute deterministic recipe workflow: $ARGUMENTS"
+        },
+        hints: ["run", "list", "validate"],
+      }
+      commands["browser"] = {
+        name: "browser",
+        description: "Headless Chrome DevTools interaction (open, content, scrape, screenshot, eval)",
+        source: "command",
+        get template() {
+          return "Execute browser automation on target: $ARGUMENTS"
+        },
+        hints: ["open", "content", "scrape", "screenshot", "eval"],
+      }
+      commands["trash"] = {
+        name: "trash",
+        description: "Safely move files or directories to system Trash with recovery instead of rm -rf",
+        source: "command",
+        get template() {
+          return "Safely move target files to trash: $ARGUMENTS"
+        },
+        hints: ["$ARGUMENTS"],
+      }
+      commands["dream"] = {
+        name: "dream",
+        description: "Autonomous memory consolidation across observations and living topics",
+        source: "command",
+        get template() {
+          return PROMPT_DREAM
+        },
+        hints: hints(PROMPT_DREAM),
+      }
+      commands["diagram"] = {
+        name: "diagram",
+        description: "Generate, lint, and export styled architecture and sequence diagrams with professional themes",
+        source: "command",
+        get template() {
+          return "Generate or analyze architecture diagram: $ARGUMENTS"
+        },
+        hints: ["flowchart", "sequence", "class", "state", "theme"],
+      }
+      commands["ppt"] = {
+        name: "ppt",
+        description: "Generate structured multi-slide executive presentation decks with 14+ themes",
+        source: "command",
+        get template() {
+          return "Create structured executive slide presentation deck: $ARGUMENTS"
+        },
+        hints: ["theme", "slides", "topic"],
+      }
+      commands["scrape"] = {
+        name: "scrape",
+        description: "Scrape and extract clean markdown content from URL",
+        source: "command",
+        get template() {
+          return "Scrape and extract clean markdown content from target URL: $ARGUMENTS"
+        },
+        hints: ["$ARGUMENTS"],
+      }
+      commands["search"] = {
+        name: "search",
+        description: "Semantic and literal codebase search across files and symbols",
+        source: "command",
+        get template() {
+          return "Search codebase for query: $ARGUMENTS"
+        },
+        hints: ["$ARGUMENTS"],
+      }
+      commands["files"] = {
+        name: "files",
+        description: "List and inspect directory tree structure and files in workspace",
+        source: "command",
+        get template() {
+          return "List files and directory structure for path: $ARGUMENTS"
+        },
+        hints: ["$ARGUMENTS"],
+      }
+      commands["history"] = {
+        name: "history",
+        description: "Review and summarize recent conversation history and executed tool turns",
+        source: "command",
+        get template() {
+          return "Review recent conversation history and tool execution steps: $ARGUMENTS"
+        },
+        hints: ["$ARGUMENTS"],
+      }
+      commands["knowledge"] = {
+        name: "knowledge",
+        description: "Query and inspect repository knowledge base, guidelines, and documentation",
+        source: "command",
+        get template() {
+          return "Query repository knowledge base: $ARGUMENTS"
+        },
+        hints: ["$ARGUMENTS"],
+      }
+      commands["test"] = {
+        name: "test",
+        description: "Execute test suite or target test file and analyze failures",
+        source: "command",
+        get template() {
+          return "Run test suite: $ARGUMENTS\n\nAnalyze failures and ensure 100% passing tests."
+        },
+        hints: ["$ARGUMENTS"],
       }
 
       for (const [name, command] of Object.entries(cfg.command ?? {})) {

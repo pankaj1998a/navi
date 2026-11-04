@@ -75,6 +75,23 @@ import { PptMasterTool } from "./ppt-master"
 import { SecurityScanTool } from "./security-scan"
 import { SecurityChecksecTool } from "./security-checksec"
 import { SecurityAuditWebTool } from "./security-audit-web"
+import { HashlineEditTool } from "./hashline-edit"
+import { ImageGenerateTool } from "./image-generate"
+import { VcrTool } from "./vcr"
+import { SecurityThreatModelTool } from "./security-threat-model"
+import { SecurityCoverageTool } from "./security-coverage"
+import { SecurityReportTool } from "./security-report"
+import { SecurityProxyTool } from "./security-proxy"
+import { SecurityNotesTool } from "./security-notes"
+import { SecuritySkillTool } from "./security-skill"
+import { KnowledgeTool } from "./knowledge"
+import { HeadroomRetrieveTool } from "./headroom-retrieve"
+import { CostTrackerTool } from "./cost-tracker"
+import { ScheduleTool } from "./schedule"
+import { TeleportTool } from "./teleport"
+import { VimTool } from "./vim"
+import { VoiceTool } from "./voice"
+import { PackageVersionsTool } from "./package-versions"
 import { Glob } from "@navi-ai/core/util/glob"
 import path from "path"
 import { stat } from "fs/promises"
@@ -284,6 +301,23 @@ export const layer: Layer.Layer<
     const securityscan = yield* SecurityScanTool
     const securitychecksec = yield* SecurityChecksecTool
     const securityauditweb = yield* SecurityAuditWebTool
+    const hashlineedit = yield* HashlineEditTool
+    const imagegenerate = yield* ImageGenerateTool
+    const vcrtool = yield* VcrTool
+    const securitythreatmodel = yield* SecurityThreatModelTool
+    const securitycoverage = yield* SecurityCoverageTool
+    const securityreport = yield* SecurityReportTool
+    const securityproxy = yield* SecurityProxyTool
+    const securitynotes = yield* SecurityNotesTool
+    const securityskill = yield* SecuritySkillTool
+    const knowledgetool = yield* KnowledgeTool
+    const headroomretrievetool = yield* HeadroomRetrieveTool
+    const costtrackertool = yield* CostTrackerTool
+    const scheduletool = yield* ScheduleTool
+    const teleporttool = yield* TeleportTool
+    const vimtool = yield* VimTool
+    const voicetool = yield* VoiceTool
+    const packageversionstool = yield* PackageVersionsTool
 
     const state = yield* InstanceState.make<State>(
       Effect.fn("ToolRegistry.state")(function* (ctx) {
@@ -430,6 +464,23 @@ export const layer: Layer.Layer<
           security_scan: Tool.init(securityscan),
           security_checksec: Tool.init(securitychecksec),
           security_audit_web: Tool.init(securityauditweb),
+          hashline_edit: Tool.init(hashlineedit),
+          image_generate: Tool.init(imagegenerate),
+          vcr: Tool.init(vcrtool),
+          security_threat_model: Tool.init(securitythreatmodel),
+          security_coverage: Tool.init(securitycoverage),
+          security_report: Tool.init(securityreport),
+          security_proxy: Tool.init(securityproxy),
+          security_notes: Tool.init(securitynotes),
+          security_skill: Tool.init(securityskill),
+          knowledge: Tool.init(knowledgetool),
+          headroom_retrieve: Tool.init(headroomretrievetool),
+          cost_tracker: Tool.init(costtrackertool),
+          schedule: Tool.init(scheduletool),
+          teleport: Tool.init(teleporttool),
+          vim: Tool.init(vimtool),
+          voice: Tool.init(voicetool),
+          package_versions: Tool.init(packageversionstool),
         })
 
         return {
@@ -492,6 +543,24 @@ export const layer: Layer.Layer<
             tool.security_scan,
             tool.security_checksec,
             tool.security_audit_web,
+            tool.bridge,
+            tool.hashline_edit,
+            tool.image_generate,
+            tool.vcr,
+            tool.security_threat_model,
+            tool.security_coverage,
+            tool.security_report,
+            tool.security_proxy,
+            tool.security_notes,
+            tool.security_skill,
+            tool.knowledge,
+            tool.headroom_retrieve,
+            tool.cost_tracker,
+            tool.schedule,
+            tool.teleport,
+            tool.vim,
+            tool.voice,
+            tool.package_versions,
             ...(Flag.NAVI_EXPERIMENTAL_LSP_TOOL ? [tool.lsp] : []),
             ...(Flag.NAVI_EXPERIMENTAL_PLAN_MODE && Flag.NAVI_CLIENT === "cli" ? [tool.plan] : []),
           ],

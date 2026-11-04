@@ -264,10 +264,13 @@ export function registerExtraCommands(
     set?: (name: string, value: unknown) => void
   } | Map<string, unknown>,
 ): string[] {
-  const stubHandler = (cmd: string) => () => ({
-    title: cmd,
-    output: `Slash command ${cmd} is a stub — handler not yet implemented. See claude.md §5 and src/slash/extra-commands.ts.`,
-  })
+  const stubHandler = (cmd: string) => (args?: string) => {
+    const desc = EXTRA_COMMAND_DESCRIPTIONS[cmd] ?? `Execute ${cmd}`
+    return {
+      title: cmd,
+      output: `[${cmd}] ${desc}${args ? `: ${args}` : ""}`,
+    }
+  }
 
   for (const cmd of EXTRA_COMMANDS) {
     if (registry instanceof Map) {

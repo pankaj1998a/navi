@@ -620,6 +620,30 @@ export const layer = Layer.effect(
           Object.assign(agents, getOfficialAgents(defaults, user))
         }
 
+        const { loadAgencyCatalog, getAgentPrompt } = yield* Effect.promise(() => import("@/agent/agency"))
+        const agencyCatalog = loadAgencyCatalog()
+        for (const meta of agencyCatalog) {
+          if (agents[meta.id]) continue
+          agents[meta.id] = {
+            name: meta.id,
+            description: `${meta.emoji} [${meta.division}] ${meta.description || meta.name}`,
+            permission: Permission.merge(
+              defaults,
+              Permission.fromConfig({
+                question: "allow",
+              }),
+              user,
+            ),
+            get prompt() {
+              return getAgentPrompt(meta.id) ?? undefined
+            },
+            options: { agency: true, division: meta.division, vibe: meta.vibe },
+            mode: "subagent",
+            native: false,
+            color: meta.color || "cyan",
+          }
+        }
+
         for (const [key, value] of Object.entries(cfg.agent ?? {})) {
           if (value.disable) {
             delete agents[key]

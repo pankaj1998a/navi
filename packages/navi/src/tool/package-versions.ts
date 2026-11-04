@@ -1,5 +1,5 @@
 import { Effect, Schema } from "effect"
-import { HttpClient, HttpClientRequest } from "effect/http"
+import { HttpClient, HttpClientRequest } from "effect/unstable/http"
 import * as Tool from "./tool"
 import { InstanceState } from "@/effect/instance-state"
 import path from "path"
