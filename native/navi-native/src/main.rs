@@ -1,12 +1,14 @@
 use std::io::{self, Read};
 use std::path::PathBuf;
 
-use navi_native_cli::{binary_inspect, compactor, fuzzy_replace, patch, sanitizer, structure};
+use navi_native_cli::{
+    binary_inspect, code_graph, compactor, fuzzy_replace, patch, sanitizer, structure,
+};
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
     if args.len() < 2 {
-        eprintln!("Usage: navi-native <apply-patch|fuzzy-replace|scrub|line-count|structure|bpe-tokens|compact|inspect-binary> [args...]");
+        eprintln!("Usage: navi-native <apply-patch|fuzzy-replace|code-graph|scrub|line-count|structure|bpe-tokens|compact|inspect-binary> [args...]");
         std::process::exit(1);
     }
 
@@ -115,6 +117,46 @@ fn main() {
                     std::process::exit(1);
                 }
             }
+        }
+        "code-graph" => {
+            let mut root_dir = None;
+            let mut max_files = None;
+
+            let mut idx = 2;
+            while idx < args.len() {
+                if args[idx] == "--root" && idx + 1 < args.len() {
+                    root_dir = Some(PathBuf::from(&args[idx + 1]));
+                    idx += 2;
+                } else if args[idx] == "--max-files" && idx + 1 < args.len() {
+                    max_files = args[idx + 1].parse::<usize>().ok();
+                    idx += 2;
+                } else {
+                    if root_dir.is_none() && !args[idx].starts_with('-') {
+                        root_dir = Some(PathBuf::from(&args[idx]));
+                    }
+                    idx += 1;
+                }
+            }
+
+            let final_root = root_dir.unwrap_or_else(|| {
+                let mut input = String::new();
+                if io::stdin().read_to_string(&mut input).is_ok() && !input.trim().is_empty() {
+                    if let Ok(req) = serde_json::from_str::<code_graph::ExtractGraphRequest>(&input)
+                    {
+                        if req.max_files.is_some() {
+                            max_files = req.max_files;
+                        }
+                        return PathBuf::from(req.root_dir);
+                    }
+                }
+                std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."))
+            });
+
+            let graph = code_graph::extract_code_graph(&final_root, max_files);
+            println!(
+                "{}",
+                serde_json::to_string(&graph).expect("serializing code graph result")
+            );
         }
         "scrub" => {
             let mut input = String::new();

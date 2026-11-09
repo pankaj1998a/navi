@@ -7,6 +7,7 @@
 import fs from "node:fs"
 import path from "node:path"
 import type { CodeNode, CodeEdge, CodeGraphData } from "./types"
+import { extractCodeGraphNative } from "../native/native-runner"
 
 const NOISE_DIRS = new Set([
   "node_modules",
@@ -82,6 +83,12 @@ export function collectCodeFiles(
 
 export function extractGraph(options: ExtractOptions): CodeGraphData {
   const rootDir = path.resolve(options.rootDir)
+
+  const nativeGraph = extractCodeGraphNative(rootDir, options.maxFiles || 2000)
+  if (nativeGraph && Array.isArray(nativeGraph.nodes) && nativeGraph.nodes.length > 0) {
+    return nativeGraph as CodeGraphData
+  }
+
   const filePaths = collectCodeFiles(rootDir, rootDir, [], options.maxFiles || 1000)
 
   const nodes: CodeNode[] = []

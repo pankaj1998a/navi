@@ -344,3 +344,35 @@ export function fuzzyReplaceNative(
   }
 }
 
+/**
+ * High-performance multi-language codebase knowledge graph extraction in Rust with Rayon parallelism.
+ * Returns parsed nodes and dependency edges, or null if native is unavailable.
+ */
+export function extractCodeGraphNative(
+  rootDir: string,
+  maxFiles = 2000,
+): { nodes: any[]; edges: any[] } | null {
+  const bin = getNativeBinaryPath()
+  if (!bin) return null
+
+  try {
+    const res = spawnSync(bin, ["code-graph", "--root", rootDir, "--max-files", String(maxFiles)], {
+      encoding: "utf-8",
+      maxBuffer: 100 * 1024 * 1024,
+      timeout: 30_000,
+    })
+
+    if (res.stdout) {
+      const parsed = JSON.parse(res.stdout.trim())
+      if (parsed && Array.isArray(parsed.nodes) && Array.isArray(parsed.edges)) {
+        return parsed
+      }
+    }
+    return null
+  } catch (err) {
+    log.warn("Native code-graph extraction failed, falling back to TypeScript extractor", { error: String(err) })
+    return null
+  }
+}
+
+

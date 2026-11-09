@@ -1,4 +1,5 @@
 pub mod binary_inspect;
+pub mod code_graph;
 pub mod compactor;
 pub mod fuzzy_replace;
 pub mod patch;
