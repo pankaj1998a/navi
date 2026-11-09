@@ -248,8 +248,15 @@ mod tests {
 
         let result = grep_files(&grep_opts).unwrap();
         assert_eq!(result.items.len(), 2);
-        assert!(result.items.iter().any(|i| i.lines.text.contains("TARGET_STRING_2")));
-        assert!(result.items.iter().any(|i| i.lines.text.contains("TARGET_STRING") && !i.lines.text.contains("TARGET_STRING_2")));
+        assert!(result
+            .items
+            .iter()
+            .any(|i| i.lines.text.contains("TARGET_STRING_2")));
+        assert!(result
+            .items
+            .iter()
+            .any(|i| i.lines.text.contains("TARGET_STRING")
+                && !i.lines.text.contains("TARGET_STRING_2")));
 
         // Glob files
         let glob_opts = GlobOptions {
