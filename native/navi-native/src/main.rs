@@ -8,7 +8,7 @@ use navi_native_cli::{
 fn main() {
     let args: Vec<String> = std::env::args().collect();
     if args.len() < 2 {
-        eprintln!("Usage: navi-native <apply-patch|fuzzy-replace|code-graph|scrub|line-count|structure|bpe-tokens|compact|inspect-binary> [args...]");
+        eprintln!("Usage: navi-native <apply-patch|fuzzy-replace|code-graph|scrub|inspect-command|line-count|structure|bpe-tokens|compact|inspect-binary> [args...]");
         std::process::exit(1);
     }
 
@@ -166,6 +166,23 @@ fn main() {
             }
             let scrubbed = sanitizer::redact_secrets(&input);
             print!("{}", scrubbed);
+        }
+        "inspect-command" => {
+            let cmd_str = if args.len() >= 3 {
+                args[2..].join(" ")
+            } else {
+                let mut input = String::new();
+                if let Err(e) = io::stdin().read_to_string(&mut input) {
+                    eprintln!("Failed to read stdin: {}", e);
+                    std::process::exit(1);
+                }
+                input
+            };
+            let result = sanitizer::analyze_command_safety(&cmd_str);
+            println!(
+                "{}",
+                serde_json::to_string(&result).expect("serializing command safety result")
+            );
         }
         "line-count" => {
             if args.len() < 3 {

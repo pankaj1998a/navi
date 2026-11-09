@@ -260,6 +260,34 @@ export function inspectBinaryNative(filePath: string): NativeBinaryResult | null
   }
 }
 
+export interface NativeCommandSafetyResult {
+  is_safe: boolean
+  risk_level: "safe" | "low" | "medium" | "high" | "critical"
+  detected_threats: string[]
+}
+
+/**
+ * High-performance shell command safety and destructive command analyzer in Rust.
+ */
+export function inspectCommandNative(command: string): NativeCommandSafetyResult | null {
+  const bin = getNativeBinaryPath()
+  if (!bin) return null
+
+  try {
+    const res = spawnSync(bin, ["inspect-command", command], {
+      encoding: "utf-8",
+      timeout: 5_000,
+    })
+
+    if (res.status === 0 && res.stdout) {
+      return JSON.parse(res.stdout.trim()) as NativeCommandSafetyResult
+    }
+    return null
+  } catch {
+    return null
+  }
+}
+
 /**
  * Fast multi-language AST structure extractor in Rust.
  * Extracts symbols and project topology across TS/JS, Rust, Python, Go, and Swift.

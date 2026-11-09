@@ -14,6 +14,7 @@
  */
 
 import { spawn } from "child_process"
+import fs from "node:fs"
 import dns from "node:dns/promises"
 import net from "node:net"
 import { Log } from "@navi-ai/core/util/log"
@@ -106,6 +107,24 @@ export type RunHookOptions = {
 
 // ─── Shell Command Hook ───────────────────────────────────────────────────────
 
+function getHookShell(): { shell: string; args: string[] } {
+  if (process.platform === "win32") {
+    const candidates = [
+      "C:\\Program Files\\Git\\bin\\bash.exe",
+      "C:\\Program Files\\Git\\bin\\sh.exe",
+      "C:\\msys64\\usr\\bin\\bash.exe",
+      "C:\\msys64\\usr\\bin\\sh.exe",
+    ]
+    for (const cand of candidates) {
+      if (fs.existsSync(cand)) {
+        return { shell: cand, args: ["-c"] }
+      }
+    }
+    return { shell: process.env.COMSPEC || "cmd.exe", args: ["/d", "/s", "/c"] }
+  }
+  return { shell: "bash", args: ["-c"] }
+}
+
 async function runCommandHook(hook: CommandHook, input: HookInput): Promise<HookOutput | null> {
   const timeout = hook.timeout ?? DEFAULT_HOOK_TIMEOUT_MS
   const jsonInput = JSON.stringify(input)
@@ -114,7 +133,9 @@ async function runCommandHook(hook: CommandHook, input: HookInput): Promise<Hook
     let stdout = ""
     let stderr = ""
 
-    const proc = spawn("bash", ["-c", hook.command], {
+    const { shell, args } = getHookShell()
+
+    const proc = spawn(shell, [...args, hook.command], {
       cwd: input.cwd,
       env: {
         ...scrubHookEnvironment(),
