@@ -18,6 +18,7 @@ import { Locale } from "@/util/locale"
 import type { PromptInfo } from "./history"
 import { useFrecency } from "./frecency"
 import { useBindings } from "../../keymap"
+import { buildAutocompleteCommands } from "./slash"
 
 function removeLineRange(input: string) {
   const hashIndex = input.lastIndexOf("#")
@@ -398,29 +399,21 @@ export function Autocomplete(props: {
   })
 
   const commands = createMemo((): AutocompleteOption[] => {
-    const results: AutocompleteOption[] = [...command.slashes()]
+    const raw = buildAutocompleteCommands({
+      clientSlashes: command.slashes(),
+      serverCommands: sync.data.command,
+      onSelectServerCommand: (cmdName) => {
+        const newText = "/" + cmdName + " "
+        const cursor = props.input().logicalCursor
+        props.input().deleteRange(0, 0, cursor.row, cursor.col)
+        props.input().insertText(newText)
+        props.input().cursorOffset = Bun.stringWidth(newText)
+      },
+    })
 
-    for (const serverCommand of sync.data.command) {
-      if (results.some((r) => r.display.trim() === `/${serverCommand.name}`)) continue
-      const label = serverCommand.source === "mcp" ? ":mcp" : serverCommand.source === "skill" ? ":skill" : ""
-      results.push({
-        display: "/" + serverCommand.name + label,
-        description: serverCommand.description,
-        onSelect: () => {
-          const newText = "/" + serverCommand.name + " "
-          const cursor = props.input().logicalCursor
-          props.input().deleteRange(0, 0, cursor.row, cursor.col)
-          props.input().insertText(newText)
-          props.input().cursorOffset = Bun.stringWidth(newText)
-        },
-      })
-    }
-
-    results.sort((a, b) => a.display.localeCompare(b.display))
-
-    const max = firstBy(results, [(x) => x.display.length, "desc"])?.display.length
-    if (!max) return results
-    return results.map((item) => ({
+    const max = firstBy(raw, [(x) => x.display.length, "desc"])?.display.length
+    if (!max) return raw
+    return raw.map((item) => ({
       ...item,
       display: item.display.padEnd(max + 2),
     }))

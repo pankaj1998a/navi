@@ -29,6 +29,7 @@ import { createStore, produce, unwrap } from "solid-js/store"
 import { usePromptHistory, type PromptInfo } from "./history"
 import { computePromptTraits } from "./traits"
 import { assign } from "./part"
+import { resolveSlashCommandAction } from "./slash"
 import { usePromptStash } from "./stash"
 import { DialogStash } from "../dialog-stash"
 import { type AutocompleteRef, Autocomplete } from "./autocomplete"
@@ -1170,42 +1171,15 @@ export function Prompt(props: PromptProps) {
     } else if (
       inputText.startsWith("/") &&
       iife(() => {
-        const firstLine = inputText.split("\n")[0] ?? ""
-        const command = firstLine.split(" ")[0]?.slice(1) ?? ""
-        return sync.data.command.some((x) => x.name === command)
-      })
-    ) {
-      // Parse command from first line, preserve multi-line content in arguments
-      const firstLineEnd = inputText.indexOf("\n")
-      const firstLine = firstLineEnd === -1 ? inputText : inputText.slice(0, firstLineEnd)
-      const [command, ...firstLineArgs] = firstLine.split(" ")
-      const restOfInput = firstLineEnd === -1 ? "" : inputText.slice(firstLineEnd + 1)
-      const args = firstLineArgs.join(" ") + (restOfInput ? "\n" + restOfInput : "")
+        const action = resolveSlashCommandAction({
+          inputText,
+          serverCommands: sync.data.command,
+          clientSlashes: command.slashes(),
+        })
 
-      void sdk.client.session.command({
-        sessionID,
-        command: command?.slice(1) ?? "",
-        arguments: args,
-        agent: agent.name,
-        model: `${selectedModel.providerID}/${selectedModel.modelID}`,
-        messageID,
-        variant,
-        parts: nonTextParts
-          .filter((x) => x.type === "file")
-          .map((x) => ({
-            id: PartID.ascending(),
-            ...x,
-          })),
-      })
-    } else if (
-      inputText.startsWith("/") &&
-      iife(() => {
-        const firstLine = inputText.split("\n")[0] ?? ""
-        const cmdName = firstLine.split(" ")[0]?.toLowerCase() ?? ""
-        const match = command.slashes().find(
-          (s) => s.display.trim() === cmdName || s.aliases?.some((a) => a.trim() === cmdName),
-        )
-        if (match) {
+        if (action.type === "mode_switch") {
+          local.agent.set(action.mode)
+          toast.show({ message: action.toastMessage, variant: "info" })
           history.append({
             ...store.prompt,
             mode: currentMode,
@@ -1215,13 +1189,56 @@ export function Prompt(props: PromptProps) {
             input: "",
             parts: [],
           })
-          match.onSelect()
           return true
         }
+
+        if (action.type === "server_command") {
+          if (action.mode) {
+            local.agent.set(action.mode)
+          }
+          void sdk.client.session.command({
+            sessionID,
+            command: action.command,
+            arguments: action.arguments,
+            agent: action.mode ?? agent.name,
+            model: `${selectedModel.providerID}/${selectedModel.modelID}`,
+            messageID,
+            variant,
+            parts: nonTextParts
+              .filter((x) => x.type === "file")
+              .map((x) => ({
+                id: PartID.ascending(),
+                ...x,
+              })),
+          })
+          return true
+        }
+
+        if (action.type === "client_slash") {
+          const firstLine = inputText.split("\n")[0] ?? ""
+          const cmdName = firstLine.split(" ")[0]?.toLowerCase() ?? ""
+          const match = command.slashes().find(
+            (s) => s.display.trim() === cmdName || s.aliases?.some((a) => a.trim() === cmdName),
+          )
+          if (match) {
+            history.append({
+              ...store.prompt,
+              mode: currentMode,
+            })
+            input.extmarks.clear()
+            setStore("prompt", {
+              input: "",
+              parts: [],
+            })
+            match.onSelect()
+            return true
+          }
+        }
+
         return false
       })
     ) {
-      // Handled by client command palette slash
+      // Handled by slash command dispatcher
     } else {
       sdk.client.session
         .prompt({

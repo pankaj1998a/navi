@@ -608,7 +608,6 @@ function App(props: { onSnapshot?: () => Promise<string[]> }) {
         name: "mode.plan",
         title: "Switch to Plan mode (Read-only)",
         category: "Mode",
-        slashName: "plan",
         run: () => {
           local.agent.set("plan")
           toast.show({ message: "Switched to Plan mode (Read-only)", variant: "info" })
@@ -618,36 +617,45 @@ function App(props: { onSnapshot?: () => Promise<string[]> }) {
         name: "mode.build",
         title: "Switch to Build mode (Read/Write)",
         category: "Mode",
-        slashName: "build",
         run: () => {
           local.agent.set("build")
           toast.show({ message: "Switched to Build mode (Read/Write)", variant: "info" })
         },
       },
-      {
-        name: "input.voice",
-        title: "Voice mode",
-        desc: "Activate voice input / speech-to-text mode",
-        category: "Input",
-        slashName: "voice",
-        slashAliases: ["stt", "speech"],
-        run: () => {
-          toast.show({ message: "Voice mode active (/voice). Audio STT/TTS ready.", variant: "info" })
-          dialog.clear()
-        },
-      },
-      {
-        name: "input.vim",
-        title: "Vim mode",
-        desc: "Toggle Vim modal editing emulation",
-        category: "Input",
-        slashName: "vim",
-        slashAliases: ["modal"],
-        run: () => {
-          toast.show({ message: "Vim modal editing mode active (/vim).", variant: "info" })
-          dialog.clear()
-        },
-      },
+      ...(Flag.NAVI_EXPERIMENTAL_STUB_TOOLS
+        ? [
+            {
+              name: "input.voice",
+              title: "Voice mode (experimental stub)",
+              desc: "Experimental stub — native microphone capture pending",
+              category: "Input",
+              slashName: "voice",
+              slashAliases: ["stt", "speech"],
+              run: () => {
+                toast.show({
+                  message: "Voice mode is an experimental stub (microphone access not available).",
+                  variant: "warning",
+                })
+                dialog.clear()
+              },
+            },
+            {
+              name: "input.vim",
+              title: "Vim mode (experimental stub)",
+              desc: "Experimental stub — TUI key-handling hook pending",
+              category: "Input",
+              slashName: "vim",
+              slashAliases: ["modal"],
+              run: () => {
+                toast.show({
+                  message: "Vim mode is an experimental stub (TUI key-handling hook pending).",
+                  variant: "warning",
+                })
+                dialog.clear()
+              },
+            },
+          ]
+        : []),
       {
         name: "agent.cycle",
         title: "Agent cycle",
