@@ -5,24 +5,39 @@
   "ignoreDependencies": ["lightningcss"],
   "workspaces": {
     ".": {
-      "entry": ["scripts/**/*.mjs", "scripts/**/*.cjs"],
-      "project": ["scripts/**/*.ts", "scripts/**/*.mjs", "scripts/**/*.cjs"]
+      "entry": ["script/**/*.ts", "scripts/**/*.cjs"],
+      "project": ["script/**/*.ts", "scripts/**/*.cjs"]
+    },
+    "packages/navi": {
+      "entry": [
+        "test/**/*.test.{ts,tsx}",
+        "test/verify_merged_repos_features.ts"
+      ],
+      "project": ["src/**/*.{ts,tsx}", "test/**/*.{ts,tsx}"],
+      "ignore": [
+        "test/fixture/**",
+        "test/fixtures/**",
+        "test/memory/abort-leak-webfetch.ts"
+      ]
     },
     "packages/*": {
-      "entry": ["tests/**/*.spec.ts", "tests/**/*.spec.tsx", "tests/**/*.e2e.ts", "tests/**/*.snapshot.ts"],
-      "project": ["src/**/*.{ts,tsx}", "tests/**/*.{ts,tsx}"]
+      "entry": [
+        "test/**/*.test.{ts,tsx}",
+        "src/**/*.test.{ts,tsx}",
+        "e2e/**/*.spec.{ts,tsx}"
+      ],
+      "project": ["src/**/*.{ts,tsx}", "test/**/*.{ts,tsx}"]
     },
     "packages/*/*": {
-      "entry": ["tests/**/*.spec.ts", "tests/**/*.spec.tsx", "tests/**/*.e2e.ts", "tests/**/*.snapshot.ts"],
-      "project": ["src/**/*.{ts,tsx}", "tests/**/*.{ts,tsx}"]
+      "entry": [
+        "test/**/*.test.{ts,tsx}",
+        "src/**/*.test.{ts,tsx}"
+      ],
+      "project": ["src/**/*.{ts,tsx}", "test/**/*.{ts,tsx}"]
     },
     "packages/console/*": {
-      "entry": ["tests/**/*.spec.ts"],
-      "project": ["src/**/*.ts", "tests/**/*.ts"]
-    },
-    "packages/stats/*": {
-      "entry": ["tests/**/*.spec.ts"],
-      "project": ["src/**/*.ts", "tests/**/*.ts"]
+      "entry": ["test/**/*.test.{ts,tsx}"],
+      "project": ["src/**/*.{ts,tsx}", "test/**/*.{ts,tsx}"]
     }
   }
 }

@@ -499,11 +499,6 @@ function cachedThemeScan(dir: string): Promise<string[]> {
   return p
 }
 
-export function invalidateThemeScan(dir?: string) {
-  if (!dir) themeScanCache.clear()
-  else themeScanCache.delete(dir)
-}
-
 async function getCustomThemes() {
   const directories = [
     Global.Path.config,

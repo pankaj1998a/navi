@@ -911,9 +911,3 @@ export function Logo(props: { shape?: LogoShape; ink?: RGBA; idle?: boolean } = 
     </box>
   )
 }
-
-export function GoLogo() {
-  const { theme } = useTheme()
-  const base = tint(theme.background, theme.text, 0.62)
-  return <Logo shape={go} ink={base} idle />
-}

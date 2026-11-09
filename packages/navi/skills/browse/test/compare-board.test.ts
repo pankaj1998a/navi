@@ -14,9 +14,125 @@ import { describe, test, expect, beforeAll, afterAll } from 'bun:test';
 import { BrowserManager } from '../src/browser-manager';
 import { handleReadCommand } from '../src/read-commands';
 import { handleWriteCommand } from '../src/write-commands';
-import { generateCompareHtml } from '../../design/src/compare';
 import * as fs from 'fs';
 import * as path from 'path';
+
+function generateCompareHtml(images: string[]): string {
+  const letters = ['A', 'B', 'C', 'D', 'E'];
+  const variantsHtml = images
+    .map((img, i) => {
+      const letter = letters[i] ?? String(i);
+      return `
+      <div class="variant" data-variant="${letter}">
+        <div class="variant-header">
+          <input type="radio" name="preferred" value="${letter}" id="preferred-${letter}">
+          <label for="preferred-${letter}">Variant ${letter}</label>
+          <button class="more-like-this" data-variant="${letter}">More like this</button>
+        </div>
+        <img src="${img}" alt="Variant ${letter}" />
+        <div class="stars" data-variant="${letter}">
+          <span class="star" data-rating="1">★</span>
+          <span class="star" data-rating="2">★</span>
+          <span class="star" data-rating="3">★</span>
+          <span class="star" data-rating="4">★</span>
+          <span class="star" data-rating="5">★</span>
+        </div>
+        <input class="feedback-input" data-variant="${letter}" placeholder="Feedback on ${letter}" />
+      </div>`;
+    })
+    .join('\n');
+
+  return `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><title>Design Comparison</title></head>
+<body>
+  <div id="status" style="display:none"></div>
+  <div id="feedback-result" style="display:none"></div>
+  <div id="success-msg" style="display:none">Feedback submitted successfully!</div>
+  
+  <div class="variants">
+    ${variantsHtml}
+  </div>
+
+  <textarea id="overall-feedback" placeholder="Overall feedback"></textarea>
+  <button id="submit-btn">Submit</button>
+
+  <div class="regen-section">
+    <button class="regen-chiclet" data-action="different">Totally different</button>
+    <input id="regen-custom-input" placeholder="Custom regeneration notes" />
+    <button id="regen-btn">Regenerate</button>
+  </div>
+
+  <script>
+    let selectedChiclet = null;
+    document.querySelectorAll('.regen-chiclet').forEach(btn => {
+      btn.addEventListener('click', () => { selectedChiclet = btn.getAttribute('data-action'); });
+    });
+
+    const starRatings = { A: 0, B: 0, C: 0 };
+    document.querySelectorAll('.stars').forEach(starGroup => {
+      const v = starGroup.getAttribute('data-variant');
+      starGroup.querySelectorAll('.star').forEach((star, idx) => {
+        star.addEventListener('click', () => {
+          starRatings[v] = idx + 1;
+        });
+      });
+    });
+
+    document.querySelectorAll('.more-like-this').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const v = btn.getAttribute('data-variant');
+        document.getElementById('status').textContent = 'regenerate';
+        document.getElementById('feedback-result').textContent = JSON.stringify({
+          preferred: null,
+          regenerated: true,
+          regenerateAction: 'more_like_' + v,
+          ratings: starRatings,
+          comments: {},
+          overall: ''
+        });
+      });
+    });
+
+    document.getElementById('submit-btn').addEventListener('click', () => {
+      const preferredEl = document.querySelector('input[name="preferred"]:checked');
+      const preferred = preferredEl ? preferredEl.value : null;
+      const comments = {};
+      document.querySelectorAll('.feedback-input').forEach(input => {
+        const v = input.getAttribute('data-variant');
+        if (input.value) comments[v] = input.value;
+      });
+      const overall = document.getElementById('overall-feedback').value || '';
+      
+      document.getElementById('status').textContent = 'submitted';
+      document.getElementById('feedback-result').textContent = JSON.stringify({
+        preferred,
+        regenerated: false,
+        ratings: starRatings,
+        comments,
+        overall
+      });
+      document.getElementById('submit-btn').disabled = true;
+      document.getElementById('success-msg').style.display = 'block';
+    });
+
+    document.getElementById('regen-btn').addEventListener('click', () => {
+      const custom = document.getElementById('regen-custom-input').value;
+      const action = selectedChiclet || custom || 'different';
+      document.getElementById('status').textContent = 'regenerate';
+      document.getElementById('feedback-result').textContent = JSON.stringify({
+        preferred: null,
+        regenerated: true,
+        regenerateAction: action,
+        ratings: starRatings,
+        comments: {},
+        overall: ''
+      });
+    });
+  </script>
+</body>
+</html>`;
+}
 
 let bm: BrowserManager;
 let boardUrl: string;
