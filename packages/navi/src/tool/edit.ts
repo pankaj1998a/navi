@@ -18,6 +18,7 @@ import { Snapshot } from "@/snapshot"
 import { assertWriteAllowed, askEditUnlessMemory } from "./external-directory"
 import { AppFileSystem } from "@navi-ai/core/filesystem"
 import * as Bom from "@/util/bom"
+import { fuzzyReplaceNative } from "../native/native-runner"
 
 function normalizeLineEndings(text: string): string {
   return text.replaceAll("\r\n", "\n")
@@ -185,6 +186,9 @@ export const EditTool = Tool.define(
           const normalizedFilePath = AppFileSystem.normalizePath(filePath)
           const block = LSP.Diagnostic.report(filePath, diagnostics[normalizedFilePath] ?? [])
           if (block) output += `\n\nLSP errors detected in this file, please fix:\n${block}`
+
+          const syntaxErr = validateSyntax(filePath, contentNew)
+          if (syntaxErr) output += `\n\nSyntax error detected: ${syntaxErr}\nPlease fix this syntax error immediately.`
 
           return {
             metadata: {
@@ -673,9 +677,45 @@ export function trimDiff(diff: string): string {
   return trimmedLines.join("\n")
 }
 
+function errorMessage(err: unknown): string {
+  return err instanceof Error ? err.message : String(err)
+}
+
+export function validateSyntax(filePath: string, content: string): string | null {
+  const ext = path.extname(filePath).toLowerCase()
+  if (ext === ".json") {
+    try {
+      JSON.parse(content)
+    } catch (err: unknown) {
+      return `JSON Syntax Error: ${errorMessage(err)}`
+    }
+  }
+  if ([".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs"].includes(ext)) {
+    try {
+      if (typeof Bun !== "undefined") {
+        const loader = ext.includes("ts") ? (ext.includes("x") ? "tsx" : "ts") : ext.includes("x") ? "jsx" : "js"
+        new Bun.Transpiler({ loader }).transformSync(content)
+      }
+    } catch (err: unknown) {
+      return `JavaScript/TypeScript Syntax Error: ${errorMessage(err)}`
+    }
+  }
+  return null
+}
+
 export function replace(content: string, oldString: string, newString: string, replaceAll = false): string {
   if (oldString === newString) {
     throw new Error("No changes to apply: oldString and newString are identical.")
+  }
+
+  const nativeRes = fuzzyReplaceNative(content, oldString, newString, replaceAll)
+  if (nativeRes) {
+    if (nativeRes.success && nativeRes.result !== undefined) {
+      return nativeRes.result
+    }
+    if (!nativeRes.success && nativeRes.error) {
+      throw new Error(nativeRes.error)
+    }
   }
 
   let notFound = true

@@ -1,12 +1,12 @@
 use std::io::{self, Read};
 use std::path::PathBuf;
 
-use navi_native_cli::{binary_inspect, compactor, patch, sanitizer, structure};
+use navi_native_cli::{binary_inspect, compactor, fuzzy_replace, patch, sanitizer, structure};
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
     if args.len() < 2 {
-        eprintln!("Usage: navi-native <apply-patch|scrub|line-count|structure|bpe-tokens|compact|inspect-binary> [args...]");
+        eprintln!("Usage: navi-native <apply-patch|fuzzy-replace|scrub|line-count|structure|bpe-tokens|compact|inspect-binary> [args...]");
         std::process::exit(1);
     }
 
@@ -28,14 +28,92 @@ fn main() {
                     diff: String::new(),
                     error: Some(format!("Failed to read patch from stdin: {}", e)),
                 };
-                println!("{}", serde_json::to_string(&err_res).expect("serializing patch error result"));
+                println!(
+                    "{}",
+                    serde_json::to_string(&err_res).expect("serializing patch error result")
+                );
                 std::process::exit(1);
             }
 
             let result = patch::execute_patch(&root_dir, &patch_content);
-            println!("{}", serde_json::to_string(&result).expect("serializing patch result"));
+            println!(
+                "{}",
+                serde_json::to_string(&result).expect("serializing patch result")
+            );
             if !result.success {
                 std::process::exit(1);
+            }
+        }
+        "fuzzy-replace" => {
+            let mut input = String::new();
+            if let Err(e) = io::stdin().read_to_string(&mut input) {
+                let resp = fuzzy_replace::FuzzyReplaceResponse {
+                    success: false,
+                    result: None,
+                    strategy: None,
+                    matches_count: 0,
+                    error: Some(format!("Failed to read stdin: {}", e)),
+                };
+                println!(
+                    "{}",
+                    serde_json::to_string(&resp).expect("serializing error response")
+                );
+                std::process::exit(1);
+            }
+
+            match serde_json::from_str::<fuzzy_replace::FuzzyReplaceRequest>(&input) {
+                Ok(req) => {
+                    match fuzzy_replace::fuzzy_replace(
+                        &req.content,
+                        &req.old_string,
+                        &req.new_string,
+                        req.replace_all,
+                    ) {
+                        Ok(out) => {
+                            let resp = fuzzy_replace::FuzzyReplaceResponse {
+                                success: true,
+                                result: Some(out.new_content),
+                                strategy: Some(out.strategy.to_string()),
+                                matches_count: out.matches_count,
+                                error: None,
+                            };
+                            println!(
+                                "{}",
+                                serde_json::to_string(&resp)
+                                    .expect("serializing fuzzy_replace response")
+                            );
+                        }
+                        Err(err) => {
+                            let resp = fuzzy_replace::FuzzyReplaceResponse {
+                                success: false,
+                                result: None,
+                                strategy: None,
+                                matches_count: 0,
+                                error: Some(err),
+                            };
+                            println!(
+                                "{}",
+                                serde_json::to_string(&resp)
+                                    .expect("serializing fuzzy_replace error response")
+                            );
+                            std::process::exit(1);
+                        }
+                    }
+                }
+                Err(e) => {
+                    let resp = fuzzy_replace::FuzzyReplaceResponse {
+                        success: false,
+                        result: None,
+                        strategy: None,
+                        matches_count: 0,
+                        error: Some(format!("Failed to parse request JSON: {}", e)),
+                    };
+                    println!(
+                        "{}",
+                        serde_json::to_string(&resp).expect("serializing error response")
+                    );
+                    std::process::exit(1);
+                }
             }
         }
         "scrub" => {
@@ -78,7 +156,10 @@ fn main() {
 
             let res = structure::scan_directory(&target_dir, include_tests);
             if as_json {
-                println!("{}", serde_json::to_string(&res).expect("serializing structure scan result"));
+                println!(
+                    "{}",
+                    serde_json::to_string(&res).expect("serializing structure scan result")
+                );
             } else {
                 print!("{}", structure::render_dense_text(&res));
             }
@@ -125,7 +206,10 @@ fn main() {
                         req.max_tokens = max_tokens;
                     }
                     let res = compactor::compact_messages(&req);
-                    println!("{}", serde_json::to_string(&res).expect("serializing compact result"));
+                    println!(
+                        "{}",
+                        serde_json::to_string(&res).expect("serializing compact result")
+                    );
                 }
                 Err(err) => {
                     eprintln!("Failed to parse CompactRequest JSON: {}", err);
@@ -141,7 +225,10 @@ fn main() {
             let path = PathBuf::from(&args[2]);
             match binary_inspect::inspect_binary(&path) {
                 Ok(res) => {
-                    println!("{}", serde_json::to_string(&res).expect("serializing binary inspection result"));
+                    println!(
+                        "{}",
+                        serde_json::to_string(&res).expect("serializing binary inspection result")
+                    );
                 }
                 Err(e) => {
                     eprintln!("Binary inspection error: {}", e);

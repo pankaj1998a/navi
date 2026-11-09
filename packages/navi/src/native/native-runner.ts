@@ -291,3 +291,56 @@ export function scanStructureNative(
   }
 }
 
+export interface NativeFuzzyReplaceResult {
+  success: boolean
+  result?: string
+  strategy?: string
+  matches_count: number
+  error?: string
+}
+
+/**
+ * Executes high-performance whitespace/unicode/anchor-tolerant fuzzy replacement in Rust.
+ * Returns the replaced content or throws if ambiguous/not found. Returns null if binary is missing.
+ */
+export function fuzzyReplaceNative(
+  content: string,
+  oldString: string,
+  newString: string,
+  replaceAll = false,
+): { success: boolean; result?: string; error?: string } | null {
+  const bin = getNativeBinaryPath()
+  if (!bin) return null
+
+  try {
+    const req = JSON.stringify({
+      content,
+      old_string: oldString,
+      new_string: newString,
+      replace_all: replaceAll,
+    })
+    if (req.length > MAX_STDIN_BYTES) return null
+
+    const res = spawnSync(bin, ["fuzzy-replace"], {
+      input: req,
+      encoding: "utf-8",
+      maxBuffer: 50 * 1024 * 1024,
+      timeout: 10_000,
+    })
+
+    if (res.stdout) {
+      const parsed = JSON.parse(res.stdout.trim()) as NativeFuzzyReplaceResult
+      if (parsed.success && parsed.result !== undefined) {
+        return { success: true, result: parsed.result }
+      }
+      if (!parsed.success && parsed.error) {
+        return { success: false, error: parsed.error }
+      }
+    }
+    return null
+  } catch (err) {
+    log.warn("Native fuzzy-replace failed, falling back to TypeScript replacers", { error: String(err) })
+    return null
+  }
+}
+
