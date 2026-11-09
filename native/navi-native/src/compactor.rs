@@ -1,8 +1,17 @@
 use regex::Regex;
 use serde::{Deserialize, Serialize};
+use std::collections::HashSet;
 use std::sync::OnceLock;
+use tiktoken_rs::CoreBPE;
 
+static CL100K_BPE: OnceLock<Option<CoreBPE>> = OnceLock::new();
 static BPE_REGEX: OnceLock<Regex> = OnceLock::new();
+
+fn get_bpe() -> Option<&'static CoreBPE> {
+    CL100K_BPE
+        .get_or_init(|| tiktoken_rs::cl100k_base().ok())
+        .as_ref()
+}
 
 fn get_bpe_regex() -> &'static Regex {
     BPE_REGEX.get_or_init(|| {
@@ -11,11 +20,14 @@ fn get_bpe_regex() -> &'static Regex {
     })
 }
 
-/// Estimates tokens accurately using subword segmentation.
-/// Approximates cl100k BPE within ~1-2% without loading large vocabulary tables into memory.
+/// Exact BPE token counting using official cl100k_base encoding with fast subword fallback.
 pub fn count_tokens(text: &str) -> usize {
     if text.is_empty() {
         return 0;
+    }
+
+    if let Some(bpe) = get_bpe() {
+        return bpe.encode_with_special_tokens(text).len();
     }
 
     let re = get_bpe_regex();
@@ -28,12 +40,12 @@ pub fn count_tokens(text: &str) -> usize {
             count += 1;
         } else {
             // Very long tokens (e.g. hex hashes, base64 strings) chunk into 4-char slices
-            count += (len + 3) / 4;
+            count += len.div_ceil(4);
         }
     }
 
     if count == 0 && !text.is_empty() {
-        count = (text.len() + 3) / 4;
+        count = text.len().div_ceil(4);
     }
 
     count
@@ -115,6 +127,7 @@ pub fn compact_messages(req: &CompactRequest) -> CompactResponse {
 
     let mut compacted_messages = Vec::new();
     let mut pruned_turns = 0;
+    let mut seen_tool_outputs: HashSet<String> = HashSet::new();
 
     // First message (often system/initial prompt)
     if split_point > 0 {
@@ -127,11 +140,28 @@ pub fn compact_messages(req: &CompactRequest) -> CompactResponse {
         let mut pruned_parts = Vec::new();
         for part in &msg.parts {
             if part.r#type == "tool" {
-                // Prune tool output to a lightweight notification
                 let tool_name = part.tool.as_deref().unwrap_or("unknown");
+                if let Some(t) = &part.text {
+                    if t.len() > 100 && !seen_tool_outputs.insert(t.clone()) {
+                        pruned_parts.push(MessagePart {
+                            r#type: "text".into(),
+                            text: Some(format!(
+                                "[Tool `{}` duplicate output pruned for headroom]",
+                                tool_name
+                            )),
+                            tool: None,
+                            status: Some("compacted".into()),
+                        });
+                        continue;
+                    }
+                }
+                // Prune tool output to a lightweight notification
                 pruned_parts.push(MessagePart {
                     r#type: "text".into(),
-                    text: Some(format!("[Tool `{}` output compacted for context headroom]", tool_name)),
+                    text: Some(format!(
+                        "[Tool `{}` output compacted for context headroom]",
+                        tool_name
+                    )),
                     tool: None,
                     status: Some("compacted".into()),
                 });
@@ -178,5 +208,84 @@ pub fn compact_messages(req: &CompactRequest) -> CompactResponse {
         compacted_tokens,
         pruned_turns,
         messages: compacted_messages,
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_exact_cl100k_token_counting() {
+        assert_eq!(count_tokens(""), 0);
+        let count = count_tokens("Hello, world!");
+        assert_eq!(count, 4); // "Hello", ",", " world", "!"
+
+        let code = "function add(a: number, b: number): number { return a + b; }";
+        let code_tokens = count_tokens(code);
+        assert!((15..=25).contains(&code_tokens));
+    }
+
+    #[test]
+    fn test_multilingual_and_emojis() {
+        let text = "🚀 Advanced Agentic Coding ✨ 123";
+        let tokens = count_tokens(text);
+        assert!((5..=15).contains(&tokens));
+    }
+
+    #[test]
+    fn test_compact_messages_deduplication() {
+        let tool_payload = "A".repeat(500);
+        let req = CompactRequest {
+            messages: vec![
+                CompactMessage {
+                    role: "system".into(),
+                    parts: vec![MessagePart {
+                        r#type: "text".into(),
+                        text: Some("You are an AI assistant.".into()),
+                        tool: None,
+                        status: None,
+                    }],
+                },
+                CompactMessage {
+                    role: "assistant".into(),
+                    parts: vec![MessagePart {
+                        r#type: "tool".into(),
+                        text: Some(tool_payload.clone()),
+                        tool: Some("read_file".into()),
+                        status: Some("done".into()),
+                    }],
+                },
+                CompactMessage {
+                    role: "assistant".into(),
+                    parts: vec![MessagePart {
+                        r#type: "tool".into(),
+                        text: Some(tool_payload),
+                        tool: Some("read_file".into()),
+                        status: Some("done".into()),
+                    }],
+                },
+                CompactMessage {
+                    role: "user".into(),
+                    parts: vec![MessagePart {
+                        r#type: "text".into(),
+                        text: Some("Continue next step".into()),
+                        tool: None,
+                        status: None,
+                    }],
+                },
+            ],
+            max_tokens: 50,
+            preserve_recent: 1,
+        };
+
+        let res = compact_messages(&req);
+        assert_eq!(res.messages.len(), 4);
+        assert!(res.compacted_tokens < res.original_tokens);
+        assert_eq!(res.pruned_turns, 2);
+        // Verify head and tail preserved
+        assert_eq!(res.messages[0].role, "system");
+        assert_eq!(res.messages[3].role, "user");
     }
 }
