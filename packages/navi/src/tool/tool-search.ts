@@ -1,9 +1,30 @@
 import { Effect, Schema } from "effect"
 import { Tool } from "./tool"
+import { searchBm25Native } from "../native/native-runner"
 
 /** Rank the caller's runtime catalog, including custom and MCP tools. */
 export function searchTools(tools: ReadonlyArray<{ id: string; description: string }>, query: string, limit = 5) {
   const normalized = query.trim().toLowerCase()
+  if (!normalized) return []
+
+  const clampedLimit = Math.max(1, Math.min(20, Number.isFinite(limit) ? Math.trunc(limit) : 5))
+
+  // Try high-performance BM25 native ranker in Rust first
+  const docs = tools.map((t) => ({
+    id: t.id,
+    title: t.id,
+    description: t.description,
+  }))
+
+  const nativeRanked = searchBm25Native(normalized, docs, clampedLimit)
+  if (nativeRanked && nativeRanked.length > 0) {
+    return nativeRanked.map((item) => ({
+      id: item.id,
+      description: item.description,
+      score: item.score,
+    }))
+  }
+
   const words = normalized.split(/[^a-z0-9]+/).filter(Boolean)
   if (!words.length) return []
   return tools
@@ -17,7 +38,7 @@ export function searchTools(tools: ReadonlyArray<{ id: string; description: stri
     })
     .filter((tool) => tool.score > 0)
     .sort((a, b) => b.score - a.score || a.id.localeCompare(b.id))
-    .slice(0, Math.max(1, Math.min(20, Number.isFinite(limit) ? Math.trunc(limit) : 5)))
+    .slice(0, clampedLimit)
 }
 
 export const ToolSearchTool = Tool.define(

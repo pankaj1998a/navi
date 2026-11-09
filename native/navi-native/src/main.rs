@@ -2,13 +2,14 @@ use std::io::{self, Read};
 use std::path::PathBuf;
 
 use navi_native_cli::{
-    binary_inspect, code_graph, compactor, fuzzy_replace, patch, sanitizer, structure, walker,
+    binary_inspect, code_graph, compactor, fuzzy_replace, patch, sanitizer, search, structure,
+    walker,
 };
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
     if args.len() < 2 {
-        eprintln!("Usage: navi-native <apply-patch|fuzzy-replace|code-graph|scrub|inspect-command|line-count|structure|bpe-tokens|compact|inspect-binary|grep|glob> [args...]");
+        eprintln!("Usage: navi-native <apply-patch|fuzzy-replace|code-graph|scrub|inspect-command|search-bm25|line-count|structure|bpe-tokens|compact|inspect-binary|grep|glob> [args...]");
         std::process::exit(1);
     }
 
@@ -183,6 +184,26 @@ fn main() {
                 "{}",
                 serde_json::to_string(&result).expect("serializing command safety result")
             );
+        }
+        "search-bm25" => {
+            let mut input = String::new();
+            if let Err(e) = io::stdin().read_to_string(&mut input) {
+                eprintln!("Failed to read stdin: {}", e);
+                std::process::exit(1);
+            }
+            match serde_json::from_str::<search::SearchQueryOptions>(&input) {
+                Ok(opts) => {
+                    let ranked = search::rank_documents(&opts);
+                    println!(
+                        "{}",
+                        serde_json::to_string(&ranked).expect("serialize search results")
+                    );
+                }
+                Err(e) => {
+                    eprintln!("Failed to parse search options: {}", e);
+                    std::process::exit(1);
+                }
+            }
         }
         "grep" => {
             let mut input = String::new();

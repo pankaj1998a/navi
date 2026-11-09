@@ -364,6 +364,48 @@ export function globNative(options: NativeGlobOptions): string[] | null {
   }
 }
 
+export interface NativeSearchDocument {
+  id: string
+  title: string
+  description: string
+  tags?: string[]
+}
+
+export interface NativeSearchResultItem {
+  id: string
+  title: string
+  description: string
+  score: number
+}
+
+/**
+ * Ultra-fast Okapi BM25 semantic ranking engine in Rust for tools, skills, and agents.
+ */
+export function searchBm25Native(
+  query: string,
+  documents: NativeSearchDocument[],
+  limit = 5,
+): NativeSearchResultItem[] | null {
+  const bin = getNativeBinaryPath()
+  if (!bin) return null
+
+  try {
+    const res = spawnSync(bin, ["search-bm25"], {
+      input: JSON.stringify({ query, documents, limit }),
+      encoding: "utf-8",
+      maxBuffer: 16 * 1024 * 1024,
+      timeout: 10_000,
+    })
+
+    if (res.status === 0 && res.stdout) {
+      return JSON.parse(res.stdout.trim()) as NativeSearchResultItem[]
+    }
+    return null
+  } catch {
+    return null
+  }
+}
+
 /**
  * Fast multi-language AST structure extractor in Rust.
  * Extracts symbols and project topology across TS/JS, Rust, Python, Go, and Swift.

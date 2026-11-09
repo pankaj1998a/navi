@@ -4,6 +4,7 @@ pub mod compactor;
 pub mod fuzzy_replace;
 pub mod patch;
 pub mod sanitizer;
+pub mod search;
 pub mod seek_sequence;
 pub mod structure;
 pub mod walker;
