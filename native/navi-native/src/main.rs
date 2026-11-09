@@ -2,13 +2,13 @@ use std::io::{self, Read};
 use std::path::PathBuf;
 
 use navi_native_cli::{
-    binary_inspect, code_graph, compactor, fuzzy_replace, patch, sanitizer, structure,
+    binary_inspect, code_graph, compactor, fuzzy_replace, patch, sanitizer, structure, walker,
 };
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
     if args.len() < 2 {
-        eprintln!("Usage: navi-native <apply-patch|fuzzy-replace|code-graph|scrub|inspect-command|line-count|structure|bpe-tokens|compact|inspect-binary> [args...]");
+        eprintln!("Usage: navi-native <apply-patch|fuzzy-replace|code-graph|scrub|inspect-command|line-count|structure|bpe-tokens|compact|inspect-binary|grep|glob> [args...]");
         std::process::exit(1);
     }
 
@@ -183,6 +183,51 @@ fn main() {
                 "{}",
                 serde_json::to_string(&result).expect("serializing command safety result")
             );
+        }
+        "grep" => {
+            let mut input = String::new();
+            if let Err(e) = io::stdin().read_to_string(&mut input) {
+                eprintln!("Failed to read stdin: {}", e);
+                std::process::exit(1);
+            }
+            match serde_json::from_str::<walker::GrepOptions>(&input) {
+                Ok(opts) => match walker::grep_files(&opts) {
+                    Ok(result) => {
+                        println!(
+                            "{}",
+                            serde_json::to_string(&result).expect("serialize grep result")
+                        );
+                    }
+                    Err(err) => {
+                        eprintln!("Grep error: {}", err);
+                        std::process::exit(1);
+                    }
+                },
+                Err(e) => {
+                    eprintln!("Failed to parse grep options: {}", e);
+                    std::process::exit(1);
+                }
+            }
+        }
+        "glob" => {
+            let mut input = String::new();
+            if let Err(e) = io::stdin().read_to_string(&mut input) {
+                eprintln!("Failed to read stdin: {}", e);
+                std::process::exit(1);
+            }
+            match serde_json::from_str::<walker::GlobOptions>(&input) {
+                Ok(opts) => {
+                    let files = walker::glob_files(&opts);
+                    println!(
+                        "{}",
+                        serde_json::to_string(&files).expect("serialize glob result")
+                    );
+                }
+                Err(e) => {
+                    eprintln!("Failed to parse glob options: {}", e);
+                    std::process::exit(1);
+                }
+            }
         }
         "line-count" => {
             if args.len() < 3 {

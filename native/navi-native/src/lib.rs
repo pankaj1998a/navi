@@ -6,3 +6,4 @@ pub mod patch;
 pub mod sanitizer;
 pub mod seek_sequence;
 pub mod structure;
+pub mod walker;

@@ -288,6 +288,82 @@ export function inspectCommandNative(command: string): NativeCommandSafetyResult
   }
 }
 
+export interface NativeGrepItem {
+  path: { text: string }
+  line_number: number
+  lines: { text: string }
+}
+
+export interface NativeGrepResult {
+  items: NativeGrepItem[]
+  partial: boolean
+  total_matches: number
+  files_searched: number
+}
+
+export interface NativeGrepOptions {
+  root: string
+  pattern: string
+  glob?: string[]
+  case_insensitive?: boolean
+  max_matches?: number
+  max_line_len?: number
+}
+
+export interface NativeGlobOptions {
+  root: string
+  glob?: string[]
+  max_files?: number
+}
+
+/**
+ * Ultra-fast native grep in Rust using ignore::WalkBuilder (honoring .gitignore) and parallel Rayon scan.
+ */
+export function grepNative(options: NativeGrepOptions): NativeGrepResult | null {
+  const bin = getNativeBinaryPath()
+  if (!bin) return null
+
+  try {
+    const res = spawnSync(bin, ["grep"], {
+      input: JSON.stringify(options),
+      encoding: "utf-8",
+      maxBuffer: 64 * 1024 * 1024,
+      timeout: 30_000,
+    })
+
+    if (res.status === 0 && res.stdout) {
+      return JSON.parse(res.stdout.trim()) as NativeGrepResult
+    }
+    return null
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Ultra-fast native glob file walker in Rust honoring nested .gitignore and .ignore files.
+ */
+export function globNative(options: NativeGlobOptions): string[] | null {
+  const bin = getNativeBinaryPath()
+  if (!bin) return null
+
+  try {
+    const res = spawnSync(bin, ["glob"], {
+      input: JSON.stringify(options),
+      encoding: "utf-8",
+      maxBuffer: 64 * 1024 * 1024,
+      timeout: 30_000,
+    })
+
+    if (res.status === 0 && res.stdout) {
+      return JSON.parse(res.stdout.trim()) as string[]
+    }
+    return null
+  } catch {
+    return null
+  }
+}
+
 /**
  * Fast multi-language AST structure extractor in Rust.
  * Extracts symbols and project topology across TS/JS, Rust, Python, Go, and Swift.
